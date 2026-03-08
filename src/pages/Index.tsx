@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { certifications } from '@/data/mockData';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Brain, Zap, BarChart3, Users, Target, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CertificationCard from '@/components/CertificationCard';
+import { useAuthStore } from '@/stores/auth.store';
 
 const features = [
   { icon: Target, title: 'Exam Simulation', desc: 'Timer, navigation, mark for review — giống exam thật.' },
@@ -23,6 +24,7 @@ const stats = [
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuthStore();
 
   return (
     <div className="min-h-screen bg-background">
@@ -37,9 +39,18 @@ const Index = () => {
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
               Explore
             </Button>
-            <Button size="sm" className="glow-cyan">
-              Get Started
-            </Button>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-mono text-gray-300">Hi, {user?.displayName}</span>
+                <Button size="sm" variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10" onClick={() => logout()}>
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" className="glow-cyan" onClick={() => navigate('/auth')}>
+                Get Started
+              </Button>
+            )}
           </div>
         </div>
       </nav>
@@ -48,7 +59,7 @@ const Index = () => {
       <section className="relative pt-32 pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-grid opacity-30" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px]" />
-        
+
         <div className="container relative">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -66,7 +77,7 @@ const Index = () => {
               <span className="text-gradient-cyan">cùng cộng đồng</span>
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
-              Tạo, chia sẻ và luyện mock exam cho các chứng chỉ quốc tế. 
+              Tạo, chia sẻ và luyện mock exam cho các chứng chỉ quốc tế.
               Phân tích điểm yếu. Cải thiện mỗi ngày.
             </p>
             <div className="flex items-center justify-center gap-4">

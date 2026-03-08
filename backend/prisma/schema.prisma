@@ -1,0 +1,336 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum UserRole {
+  LEARNER
+  CONTRIBUTOR
+  REVIEWER
+  ADMIN
+}
+
+enum QuestionType {
+  SINGLE
+  MULTIPLE
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ExamVisibility {
+  PUBLIC
+  PRIVATE
+  LINK
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  ABANDONED
+}
+
+enum VoteTargetType {
+  QUESTION
+  COMMENT
+}
+
+enum ReportReason {
+  WRONG_ANSWER
+  OUTDATED
+  DUPLICATE
+  INAPPROPRIATE
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+// ==================== MODELS ====================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+  avatarUrl    String?  @map("avatar_url")
+  role         UserRole @default(LEARNER)
+  points       Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  questions    Question[]
+  examAttempts ExamAttempt[]
+  exams        Exam[]
+  comments     Comment[]
+  votes        Vote[]
+  reports      Report[]
+  badgeAwards  BadgeAward[]
+
+  @@map("users")
+}
+
+model Certification {
+  id          String   @id @default(uuid())
+  name        String
+  provider    String
+  code        String   @unique
+  description String?
+  examFormat  Json?    @map("exam_format")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  domains   Domain[]
+  questions Question[]
+  exams     Exam[]
+  tags      Tag[]
+
+  @@map("certifications")
+}
+
+model Domain {
+  id              String        @id @default(uuid())
+  certificationId String        @map("certification_id")
+  name            String
+  weight          Decimal?      @db.Decimal(5, 2)
+  description     String?
+
+  certification Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+  questions     Question[]
+
+  @@map("domains")
+}
+
+model Question {
+  id              String         @id @default(uuid())
+  certificationId String         @map("certification_id")
+  domainId        String?        @map("domain_id")
+  createdBy       String         @map("created_by")
+  title           String
+  description     String?
+  questionType    QuestionType   @default(SINGLE) @map("question_type")
+  difficulty      Difficulty     @default(MEDIUM)
+  explanation     String?
+  referenceUrl    String?        @map("reference_url")
+  codeSnippet     String?        @map("code_snippet")
+  imageUrl        String?        @map("image_url")
+  isScenario      Boolean        @default(false) @map("is_scenario")
+  status          QuestionStatus @default(DRAFT)
+  upvotes         Int            @default(0)
+  downvotes       Int            @default(0)
+  attemptCount    Int            @default(0) @map("attempt_count")
+  correctCount    Int            @default(0) @map("correct_count")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  certification Certification   @relation(fields: [certificationId], references: [id])
+  domain        Domain?         @relation(fields: [domainId], references: [id])
+  author        User            @relation(fields: [createdBy], references: [id])
+  choices       Choice[]
+  tags          QuestionTag[]
+  examQuestions ExamQuestion[]
+  answers       Answer[]
+  comments      Comment[]
+  votes         Vote[]
+  reports       Report[]
+
+  @@map("questions")
+}
+
+model Choice {
+  id         String  @id @default(uuid())
+  questionId String  @map("question_id")
+  label      String  @db.Char(1)
+  content    String
+  isCorrect  Boolean @default(false) @map("is_correct")
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("choices")
+}
+
+model Tag {
+  id              String  @id @default(uuid())
+  name            String
+  certificationId String? @map("certification_id")
+
+  certification Certification? @relation(fields: [certificationId], references: [id])
+  questions     QuestionTag[]
+
+  @@unique([name, certificationId])
+  @@map("tags")
+}
+
+model QuestionTag {
+  questionId String @map("question_id")
+  tagId      String @map("tag_id")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+  @@map("question_tags")
+}
+
+model Exam {
+  id              String         @id @default(uuid())
+  createdBy       String         @map("created_by")
+  certificationId String         @map("certification_id")
+  title           String
+  description     String?
+  questionCount   Int            @map("question_count")
+  timeLimit       Int            @map("time_limit")
+  difficultyDist  Json?          @map("difficulty_dist")
+  visibility      ExamVisibility @default(PUBLIC)
+  shareCode       String?        @unique @map("share_code")
+  isAdaptive      Boolean        @default(false) @map("is_adaptive")
+  attemptCount    Int            @default(0) @map("attempt_count")
+  avgScore        Decimal?       @map("avg_score") @db.Decimal(5, 2)
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  author        User           @relation(fields: [createdBy], references: [id])
+  certification Certification  @relation(fields: [certificationId], references: [id])
+  examQuestions ExamQuestion[]
+  attempts      ExamAttempt[]
+
+  @@map("exams")
+}
+
+model ExamQuestion {
+  examId     String @map("exam_id")
+  questionId String @map("question_id")
+  sortOrder  Int    @default(0) @map("sort_order")
+
+  exam     Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@id([examId, questionId])
+  @@map("exam_questions")
+}
+
+model ExamAttempt {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  examId         String        @map("exam_id")
+  startedAt      DateTime      @default(now()) @map("started_at")
+  submittedAt    DateTime?     @map("submitted_at")
+  timeSpent      Int?          @map("time_spent")
+  score          Decimal?      @db.Decimal(5, 2)
+  totalCorrect   Int?          @map("total_correct")
+  totalQuestions Int?          @map("total_questions")
+  domainScores   Json?         @map("domain_scores")
+  status         AttemptStatus @default(IN_PROGRESS)
+
+  user    User     @relation(fields: [userId], references: [id])
+  exam    Exam     @relation(fields: [examId], references: [id])
+  answers Answer[]
+
+  @@map("exam_attempts")
+}
+
+model Answer {
+  id              String   @id @default(uuid())
+  attemptId       String   @map("attempt_id")
+  questionId      String   @map("question_id")
+  selectedChoices String[] @map("selected_choices")
+  isCorrect       Boolean? @map("is_correct")
+  isMarked        Boolean  @default(false) @map("is_marked")
+  timeSpent       Int?     @map("time_spent")
+  answeredAt      DateTime @default(now()) @map("answered_at")
+
+  attempt  ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question    @relation(fields: [questionId], references: [id])
+
+  @@map("answers")
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  questionId String   @map("question_id")
+  parentId   String?  @map("parent_id")
+  content    String
+  upvotes    Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id])
+  question Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+
+  @@map("comments")
+}
+
+model Vote {
+  id         String         @id @default(uuid())
+  userId     String         @map("user_id")
+  targetType VoteTargetType @map("target_type")
+  targetId   String         @map("target_id")
+  value      Int            @db.SmallInt
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  user     User      @relation(fields: [userId], references: [id])
+  question Question? @relation(fields: [targetId], references: [id])
+
+  @@unique([userId, targetType, targetId])
+  @@map("votes")
+}
+
+model Report {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  questionId  String       @map("question_id")
+  reason      ReportReason
+  description String?
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  user     User     @relation(fields: [userId], references: [id])
+  question Question @relation(fields: [questionId], references: [id])
+
+  @@map("reports")
+}
+
+model Badge {
+  id          String @id @default(uuid())
+  name        String
+  description String?
+  iconUrl     String? @map("icon_url")
+  criteria    Json?
+
+  awards BadgeAward[]
+
+  @@map("badges")
+}
+
+model BadgeAward {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  badgeId   String   @map("badge_id")
+  awardedAt DateTime @default(now()) @map("awarded_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+  @@map("badge_awards")
+}

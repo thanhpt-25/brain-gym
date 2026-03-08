@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import ExamPage from "./pages/ExamPage";
 import NotFound from "./pages/NotFound";
+import AuthPage from "./pages/Auth";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -17,7 +19,15 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/exam/:certId" element={<ExamPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route
+            path="/exam/:certId"
+            element={
+              <ProtectedRoute>
+                <ExamPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
