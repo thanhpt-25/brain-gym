@@ -23,14 +23,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/questions" element={<QuestionsBrowser />} />
-          <Route
-            path="/questions/new"
-            element={
-              <ProtectedRoute>
-                <QuestionForm />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/questions/new" element={<QuestionForm />} />
           <Route
             path="/exam/:certId"
             element={
