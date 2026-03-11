@@ -1,20 +1,35 @@
-export interface Question {
-  id: string;
-  title: string;
-  description?: string;
-  choices: Choice[];
-  correctAnswers: string[]; // choice IDs
-  explanation: string;
-  referenceUrl?: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  tags: string[];
-  domain: string;
-  certificationId: string;
+export enum QuestionType {
+  SINGLE = 'SINGLE',
+  MULTIPLE = 'MULTIPLE',
+}
+
+export enum Difficulty {
+  EASY = 'EASY',
+  MEDIUM = 'MEDIUM',
+  HARD = 'HARD',
 }
 
 export interface Choice {
   id: string;
-  text: string;
+  label: string; // 'a', 'b', 'c', 'd'
+  content: string;
+  isCorrect: boolean;
+  sortOrder?: number;
+}
+
+export interface Question {
+  id: string;
+  title: string;
+  description?: string;
+  questionType?: QuestionType;
+  choices: Choice[];
+  explanation: string;
+  referenceUrl?: string;
+  difficulty: Difficulty | 'EASY' | 'MEDIUM' | 'HARD';
+  tags?: any[];
+  domainId?: string;
+  domain?: { id: string; name: string };
+  certificationId: string;
 }
 
 export interface Certification {
@@ -23,12 +38,12 @@ export interface Certification {
   name: string;
   code: string;
   description: string;
-  domains: string[];
-  questionCount: number;
-  timeMinutes: number;
-  passingScore: number;
-  icon: string;
-  color: string;
+  domains?: { id: string; name: string }[];
+  questionCount?: number;
+  timeMinutes?: number;
+  passingScore?: number;
+  icon?: string;
+  color?: string;
 }
 
 export interface MockExam {

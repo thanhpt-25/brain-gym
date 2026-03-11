@@ -1,0 +1,12 @@
+import api from './api';
+import { Certification } from '@/types/exam';
+
+export const getCertifications = async (): Promise<Certification[]> => {
+    const response = await api.get<Certification[]>('/certifications');
+    return response.data;
+};
+
+export const getCertificationById = async (id: string): Promise<Certification> => {
+    const response = await api.get<Certification>(`/certifications/${id}`);
+    return response.data;
+};

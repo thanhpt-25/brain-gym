@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { certifications } from '@/data/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getCertifications } from '@/services/certifications';
 import { useNavigate, Link } from 'react-router-dom';
 import { Brain, Zap, BarChart3, Users, Target, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ const stats = [
 const Index = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const { data: certifications, isLoading, error } = useQuery({ queryKey: ['certifications'], queryFn: getCertifications });
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,7 +122,11 @@ const Index = () => {
             <p className="text-muted-foreground">Chọn chứng chỉ và bắt đầu luyện tập</p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {certifications.map((cert, i) => (
+            {isLoading ? (
+              <div className="col-span-full text-center py-10 text-muted-foreground">Loading certifications...</div>
+            ) : error ? (
+              <div className="col-span-full text-center py-10 text-destructive">Failed to load certifications</div>
+            ) : certifications?.map((cert, i) => (
               <motion.div
                 key={cert.id}
                 initial={{ opacity: 0, y: 20 }}

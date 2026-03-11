@@ -7,6 +7,8 @@ import Index from "./pages/Index";
 import ExamPage from "./pages/ExamPage";
 import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/Auth";
+import QuestionsBrowser from "./pages/QuestionsBrowser";
+import QuestionForm from "./pages/QuestionForm";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -20,6 +22,15 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/questions" element={<QuestionsBrowser />} />
+          <Route
+            path="/questions/new"
+            element={
+              <ProtectedRoute>
+                <QuestionForm />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/exam/:certId"
             element={

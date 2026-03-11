@@ -55,7 +55,8 @@ const ExamPage = () => {
     setAnswers(prev => {
       const current = prev[questionId] || [];
       const question = questions.find(q => q.id === questionId);
-      if (question && question.correctAnswers.length > 1) {
+      const multipleCorrect = question && question.choices.filter(c => c.isCorrect).length > 1;
+      if (multipleCorrect) {
         // Multiple correct answers
         return {
           ...prev,
@@ -85,19 +86,22 @@ const ExamPage = () => {
 
     questions.forEach(q => {
       const selected = answers[q.id] || [];
-      const isCorrect = q.correctAnswers.length === selected.length &&
-        q.correctAnswers.every(a => selected.includes(a));
+      const correctChoiceIds = q.choices.filter(c => c.isCorrect).map(c => c.id);
+
+      const isCorrect = correctChoiceIds.length === selected.length &&
+        correctChoiceIds.every(a => selected.includes(a));
       if (isCorrect) correct++;
 
-      if (!domainBreakdown[q.domain]) domainBreakdown[q.domain] = { correct: 0, total: 0 };
-      domainBreakdown[q.domain].total++;
-      if (isCorrect) domainBreakdown[q.domain].correct++;
+      const domainName = q.domain?.name || 'Unknown Domain';
+      if (!domainBreakdown[domainName]) domainBreakdown[domainName] = { correct: 0, total: 0 };
+      domainBreakdown[domainName].total++;
+      if (isCorrect) domainBreakdown[domainName].correct++;
 
       questionResults.push({
         questionId: q.id,
         correct: isCorrect,
         selectedAnswers: selected,
-        correctAnswers: q.correctAnswers,
+        correctAnswers: correctChoiceIds,
       });
     });
 
@@ -154,8 +158,8 @@ const ExamPage = () => {
             <div className="mb-6">
               <div className="text-sm font-mono font-semibold mb-2">Domains</div>
               <div className="flex flex-wrap gap-2">
-                {cert.domains.map(d => (
-                  <span key={d} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">{d}</span>
+                {cert.domains?.map((d: any) => (
+                  <span key={d.id || d} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">{d.name || d}</span>
                 ))}
               </div>
             </div>
@@ -240,13 +244,12 @@ const ExamPage = () => {
                               return (
                                 <div
                                   key={c.id}
-                                  className={`text-xs px-3 py-1.5 rounded ${
-                                    isCorrect ? 'bg-accent/10 text-accent' :
+                                  className={`text-xs px-3 py-1.5 rounded ${isCorrect ? 'bg-accent/10 text-accent' :
                                     isSelected ? 'bg-destructive/10 text-destructive' :
-                                    'text-muted-foreground'
-                                  }`}
+                                      'text-muted-foreground'
+                                    }`}
                                 >
-                                  {c.id.toUpperCase()}. {c.text}
+                                  {c.label.toUpperCase()}. {c.content}
                                   {isCorrect && ' ✓'}
                                   {isSelected && !isCorrect && ' ✗'}
                                 </div>
@@ -309,12 +312,11 @@ const ExamPage = () => {
               <div className="glass-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-                      currentQuestion.difficulty === 'easy' ? 'bg-accent/10 text-accent' :
-                      currentQuestion.difficulty === 'medium' ? 'bg-warning/10 text-warning' :
-                      'bg-destructive/10 text-destructive'
-                    }`}>{currentQuestion.difficulty}</span>
-                    <span className="text-xs text-muted-foreground">{currentQuestion.domain}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${currentQuestion.difficulty === 'EASY' ? 'bg-accent/10 text-accent' :
+                      currentQuestion.difficulty === 'MEDIUM' ? 'bg-warning/10 text-warning' :
+                        'bg-destructive/10 text-destructive'
+                      }`}>{currentQuestion.difficulty}</span>
+                    <span className="text-xs text-muted-foreground">{currentQuestion.domain?.name || 'Unknown'}</span>
                   </div>
                   <Button
                     variant="ghost"
@@ -338,14 +340,13 @@ const ExamPage = () => {
                       <button
                         key={choice.id}
                         onClick={() => selectAnswer(currentQuestion.id, choice.id)}
-                        className={`w-full text-left p-4 rounded-lg border transition-all text-sm ${
-                          isSelected
-                            ? 'border-primary bg-primary/10 text-foreground'
-                            : 'border-border bg-secondary/50 text-foreground hover:border-primary/30'
-                        }`}
+                        className={`w-full text-left p-4 rounded-lg border transition-all text-sm ${isSelected
+                          ? 'border-primary bg-primary/10 text-foreground'
+                          : 'border-border bg-secondary/50 text-foreground hover:border-primary/30'
+                          }`}
                       >
-                        <span className="font-mono font-semibold mr-3 text-muted-foreground">{choice.id.toUpperCase()}</span>
-                        {choice.text}
+                        <span className="font-mono font-semibold mr-3 text-muted-foreground">{choice.label.toUpperCase()}</span>
+                        {choice.content}
                       </button>
                     );
                   })}
@@ -395,12 +396,11 @@ const ExamPage = () => {
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(i)}
-                    className={`w-8 h-8 rounded text-xs font-mono font-semibold transition-all ${
-                      isCurrent ? 'bg-primary text-primary-foreground' :
+                    className={`w-8 h-8 rounded text-xs font-mono font-semibold transition-all ${isCurrent ? 'bg-primary text-primary-foreground' :
                       isMarked ? 'bg-warning/20 text-warning border border-warning/30' :
-                      isAnswered ? 'bg-accent/20 text-accent' :
-                      'bg-secondary text-muted-foreground hover:bg-secondary/80'
-                    }`}
+                        isAnswered ? 'bg-accent/20 text-accent' :
+                          'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                      }`}
                   >
                     {i + 1}
                   </button>
