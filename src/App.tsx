@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/Auth";
 import QuestionsBrowser from "./pages/QuestionsBrowser";
 import QuestionForm from "./pages/QuestionForm";
+import Dashboard from "./pages/Dashboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
