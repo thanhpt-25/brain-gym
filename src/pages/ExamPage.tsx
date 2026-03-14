@@ -106,7 +106,7 @@ const ExamPage = () => {
     });
 
     const percentage = Math.round((correct / questions.length) * 100);
-    setResult({
+    const examResult: ExamResult = {
       score: correct,
       total: questions.length,
       percentage,
@@ -114,8 +114,13 @@ const ExamPage = () => {
       domainBreakdown,
       questionResults,
       timeTaken,
-    });
+    };
+    setResult(examResult);
     setPhase('result');
+    // Navigate to detailed results page
+    navigate('/exam-results', {
+      state: { result: examResult, questions, cert },
+    });
   }, [answers, questions, startTime, cert]);
 
   const formatTime = (seconds: number) => {
