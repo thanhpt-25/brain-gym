@@ -26,7 +26,45 @@ const ExamResults = () => {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
 
-  if (!state) {
+  const result = state?.result;
+  const questions = state?.questions || [];
+  const cert = state?.cert;
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleExpandAll = () => {
+    if (expandAll) {
+      setExpandedIds(new Set());
+    } else {
+      setExpandedIds(new Set(questions.map((q) => q.id)));
+    }
+    setExpandAll(!expandAll);
+  };
+
+  const correctCount = result?.questionResults.filter((r) => r.correct).length ?? 0;
+  const wrongCount = result?.questionResults.filter((r) => !r.correct && r.selectedAnswers.length > 0).length ?? 0;
+  const skippedCount = result?.questionResults.filter((r) => r.selectedAnswers.length === 0).length ?? 0;
+
+  const filteredQuestions = useMemo(() => {
+    if (!result) return [];
+    return questions.filter((q) => {
+      const qr = result.questionResults.find((r) => r.questionId === q.id);
+      if (!qr) return false;
+      if (filter === 'correct') return qr.correct;
+      if (filter === 'wrong') return !qr.correct && qr.selectedAnswers.length > 0;
+      if (filter === 'skipped') return qr.selectedAnswers.length === 0;
+      return true;
+    });
+  }, [filter, questions, result]);
+
+  if (!state || !result || !cert) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -36,8 +74,6 @@ const ExamResults = () => {
       </div>
     );
   }
-
-  const { result, questions, cert } = state;
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => {
