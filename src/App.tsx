@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/Auth";
 import QuestionsBrowser from "./pages/QuestionsBrowser";
 import QuestionForm from "./pages/QuestionForm";
+import Dashboard from "./pages/Dashboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/questions" element={<QuestionsBrowser />} />
           <Route path="/questions/new" element={<QuestionForm />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/study/:certId" element={<StudyMode />} />
           <Route
             path="/exam/:certId"
