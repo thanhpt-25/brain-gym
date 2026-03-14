@@ -11,6 +11,7 @@ import AuthPage from "./pages/Auth";
 import QuestionsBrowser from "./pages/QuestionsBrowser";
 import QuestionForm from "./pages/QuestionForm";
 import Dashboard from "./pages/Dashboard";
+import ExamResults from "./pages/ExamResults";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
