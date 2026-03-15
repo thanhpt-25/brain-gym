@@ -384,12 +384,19 @@ const ExamResults = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-4 pt-4">
+        <div className="flex gap-4 pt-4 flex-wrap">
           <Button variant="outline" className="flex-1 font-mono" onClick={() => navigate('/')}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Home
           </Button>
           <Button variant="outline" className="flex-1 font-mono" onClick={() => navigate('/dashboard')}>
             Dashboard
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 font-mono"
+            onClick={() => exportExamResultPDF(result, questions, cert)}
+          >
+            <Download className="h-4 w-4 mr-2" /> Export PDF
           </Button>
           <Button
             className="flex-1 glow-cyan font-mono"
