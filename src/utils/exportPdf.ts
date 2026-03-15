@@ -12,10 +12,10 @@ export function exportExamResultPDF(
   const margin = 16;
   let y = 20;
 
-  const primary = [0, 170, 210] as const;   // cyan
-  const accent = [16, 185, 129] as const;    // green
-  const danger = [220, 80, 80] as const;     // red
-  const muted = [120, 130, 145] as const;
+  const primary: [number, number, number] = [0, 170, 210];
+  const accent: [number, number, number] = [16, 185, 129];
+  const danger: [number, number, number] = [220, 80, 80];
+  const muted: [number, number, number] = [120, 130, 145];
 
   // ── Header ──
   doc.setFillColor(15, 20, 30);
