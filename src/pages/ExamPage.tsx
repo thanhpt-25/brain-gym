@@ -1,29 +1,44 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { sampleQuestions, certifications } from '@/data/mockData';
-import { ExamResult, Question } from '@/types/exam';
+import { useQuery } from '@tanstack/react-query';
+import { getCertificationById } from '@/services/certifications';
+import { getQuestions } from '@/services/questions';
+import { startAttempt, submitAttempt, StartAttemptResponse, AttemptResult, AttemptQuestion } from '@/services/attempts';
+import { createExam } from '@/services/exams';
 import { Button } from '@/components/ui/button';
-import { Clock, Flag, ChevronLeft, ChevronRight, Brain, CheckCircle2, XCircle } from 'lucide-react';
+import { Clock, Flag, ChevronLeft, ChevronRight, Brain, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
-type ExamPhase = 'intro' | 'exam' | 'result';
+type ExamPhase = 'intro' | 'loading' | 'exam' | 'result';
 
 const ExamPage = () => {
   const { certId } = useParams();
   const navigate = useNavigate();
-  const cert = certifications.find(c => c.id === certId);
-  const questions = useMemo(() => sampleQuestions.filter(q => q.certificationId === certId), [certId]);
+
+  const { data: cert, isLoading: certLoading } = useQuery({
+    queryKey: ['certification', certId],
+    queryFn: () => getCertificationById(certId!),
+    enabled: !!certId,
+  });
+
+  const { data: questionsData } = useQuery({
+    queryKey: ['questions-count', certId],
+    queryFn: () => getQuestions(certId, 1, 1),
+    enabled: !!certId,
+  });
 
   const [phase, setPhase] = useState<ExamPhase>('intro');
+  const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [timeLeft, setTimeLeft] = useState(0);
-  const [startTime, setStartTime] = useState(0);
-  const [result, setResult] = useState<ExamResult | null>(null);
-  const [showExplanation, setShowExplanation] = useState(false);
+  const [result, setResult] = useState<AttemptResult | null>(null);
 
+  const questions: AttemptQuestion[] = attemptData?.questions ?? [];
   const currentQuestion = questions[currentIndex];
+  const questionCount = questionsData?.meta?.total ?? 0;
 
   // Timer
   useEffect(() => {
@@ -41,23 +56,38 @@ const ExamPage = () => {
     return () => clearInterval(interval);
   }, [phase]);
 
-  const startExam = () => {
-    setPhase('exam');
-    setTimeLeft((cert?.timeMinutes || 10) * 60);
-    setStartTime(Date.now());
-    setAnswers({});
-    setMarked(new Set());
-    setCurrentIndex(0);
-    setResult(null);
+  const startExam = async () => {
+    if (!cert) return;
+    setPhase('loading');
+    try {
+      // Create an exam from available questions, then start attempt
+      const exam = await createExam({
+        title: `${cert.code} Practice Exam`,
+        certificationId: cert.id,
+        questionCount: Math.min(questionCount, 65),
+        timeLimit: 130,
+      });
+
+      const attempt = await startAttempt(exam.id);
+      setAttemptData(attempt);
+      setTimeLeft(attempt.timeLimit * 60);
+      setAnswers({});
+      setMarked(new Set());
+      setCurrentIndex(0);
+      setResult(null);
+      setPhase('exam');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to start exam');
+      setPhase('intro');
+    }
   };
 
   const selectAnswer = (questionId: string, choiceId: string) => {
     setAnswers(prev => {
       const current = prev[questionId] || [];
       const question = questions.find(q => q.id === questionId);
-      const multipleCorrect = question && question.choices.filter(c => c.isCorrect).length > 1;
-      if (multipleCorrect) {
-        // Multiple correct answers
+      const isMultiple = question?.questionType === 'MULTIPLE';
+      if (isMultiple) {
         return {
           ...prev,
           [questionId]: current.includes(choiceId)
@@ -78,50 +108,25 @@ const ExamPage = () => {
     });
   };
 
-  const handleSubmit = useCallback(() => {
-    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-    const domainBreakdown: Record<string, { correct: number; total: number }> = {};
-    const questionResults: ExamResult['questionResults'] = [];
-    let correct = 0;
-
-    questions.forEach(q => {
-      const selected = answers[q.id] || [];
-      const correctChoiceIds = q.choices.filter(c => c.isCorrect).map(c => c.id);
-
-      const isCorrect = correctChoiceIds.length === selected.length &&
-        correctChoiceIds.every(a => selected.includes(a));
-      if (isCorrect) correct++;
-
-      const domainName = q.domain?.name || 'Unknown Domain';
-      if (!domainBreakdown[domainName]) domainBreakdown[domainName] = { correct: 0, total: 0 };
-      domainBreakdown[domainName].total++;
-      if (isCorrect) domainBreakdown[domainName].correct++;
-
-      questionResults.push({
-        questionId: q.id,
-        correct: isCorrect,
-        selectedAnswers: selected,
-        correctAnswers: correctChoiceIds,
-      });
-    });
-
-    const percentage = Math.round((correct / questions.length) * 100);
-    const examResult: ExamResult = {
-      score: correct,
-      total: questions.length,
-      percentage,
-      passed: percentage >= (cert?.passingScore || 70),
-      domainBreakdown,
-      questionResults,
-      timeTaken,
-    };
-    setResult(examResult);
-    setPhase('result');
-    // Navigate to detailed results page
-    navigate('/exam-results', {
-      state: { result: examResult, questions, cert },
-    });
-  }, [answers, questions, startTime, cert]);
+  const handleSubmit = useCallback(async () => {
+    if (!attemptData) return;
+    setPhase('loading');
+    try {
+      const payload = {
+        answers: questions.map(q => ({
+          questionId: q.id,
+          selectedChoices: answers[q.id] || [],
+          isMarked: marked.has(q.id),
+        })),
+      };
+      const res = await submitAttempt(attemptData.attemptId, payload);
+      setResult(res);
+      setPhase('result');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to submit exam');
+      setPhase('exam');
+    }
+  }, [attemptData, answers, questions, marked]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -129,7 +134,27 @@ const ExamPage = () => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  if (certLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (!cert) return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Certification not found</div>;
+
+  // LOADING
+  if (phase === 'loading') {
+    return (
+      <div className="min-h-screen bg-background bg-grid flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground font-mono">Preparing your exam...</p>
+        </div>
+      </div>
+    );
+  }
 
   // INTRO
   if (phase === 'intro') {
@@ -140,38 +165,43 @@ const ExamPage = () => {
             <ChevronLeft className="h-4 w-4 mr-1" /> Back
           </Button>
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8">
-            <div className="text-4xl mb-4">{cert.icon}</div>
             <div className="text-sm font-mono text-muted-foreground mb-1">{cert.provider} · {cert.code}</div>
             <h1 className="text-2xl font-mono font-bold mb-2">{cert.name}</h1>
             <p className="text-muted-foreground mb-6">{cert.description}</p>
 
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="text-center p-3 rounded-lg bg-secondary">
-                <div className="text-xl font-mono font-bold text-foreground">{questions.length}</div>
+                <div className="text-xl font-mono font-bold text-foreground">{questionCount}</div>
                 <div className="text-xs text-muted-foreground">Questions</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-secondary">
-                <div className="text-xl font-mono font-bold text-foreground">{cert.timeMinutes}m</div>
+                <div className="text-xl font-mono font-bold text-foreground">130m</div>
                 <div className="text-xs text-muted-foreground">Time Limit</div>
               </div>
               <div className="text-center p-3 rounded-lg bg-secondary">
-                <div className="text-xl font-mono font-bold text-foreground">{cert.passingScore}%</div>
+                <div className="text-xl font-mono font-bold text-foreground">70%</div>
                 <div className="text-xs text-muted-foreground">Pass Score</div>
               </div>
             </div>
 
-            <div className="mb-6">
-              <div className="text-sm font-mono font-semibold mb-2">Domains</div>
-              <div className="flex flex-wrap gap-2">
-                {cert.domains?.map((d: any) => (
-                  <span key={d.id || d} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">{d.name || d}</span>
-                ))}
+            {cert.domains && cert.domains.length > 0 && (
+              <div className="mb-6">
+                <div className="text-sm font-mono font-semibold mb-2">Domains</div>
+                <div className="flex flex-wrap gap-2">
+                  {cert.domains.map((d: any) => (
+                    <span key={d.id} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">{d.name}</span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            <Button className="w-full glow-cyan font-mono" size="lg" onClick={startExam}>
-              <Brain className="h-4 w-4 mr-2" /> Start Exam
-            </Button>
+            {questionCount === 0 ? (
+              <p className="text-sm text-destructive font-mono text-center py-4">No approved questions available for this certification yet.</p>
+            ) : (
+              <Button className="w-full glow-cyan font-mono" size="lg" onClick={startExam}>
+                <Brain className="h-4 w-4 mr-2" /> Start Exam
+              </Button>
+            )}
           </motion.div>
         </div>
       </div>
@@ -180,99 +210,99 @@ const ExamPage = () => {
 
   // RESULT
   if (phase === 'result' && result) {
+    const passed = result.percentage >= 70;
     return (
       <div className="min-h-screen bg-background bg-grid">
         <div className="container max-w-3xl py-12">
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
             {/* Score */}
-            <div className={`glass-card p-8 text-center mb-6 ${result.passed ? 'glow-green' : ''}`}>
-              <div className={`text-6xl font-mono font-bold mb-2 ${result.passed ? 'text-gradient-cyan' : 'text-gradient-warm'}`}>
+            <div className={`glass-card p-8 text-center mb-6 ${passed ? 'glow-green' : ''}`}>
+              <div className={`text-6xl font-mono font-bold mb-2 ${passed ? 'text-gradient-cyan' : 'text-gradient-warm'}`}>
                 {result.percentage}%
               </div>
-              <div className={`text-lg font-mono font-semibold mb-1 ${result.passed ? 'text-accent' : 'text-destructive'}`}>
-                {result.passed ? '✅ PASSED' : '❌ NOT PASSED'}
+              <div className={`text-lg font-mono font-semibold mb-1 ${passed ? 'text-accent' : 'text-destructive'}`}>
+                {passed ? '✅ PASSED' : '❌ NOT PASSED'}
               </div>
               <div className="text-sm text-muted-foreground">
-                {result.score}/{result.total} correct · {formatTime(result.timeTaken)}
+                {result.totalCorrect}/{result.totalQuestions} correct · {formatTime(result.timeSpent)}
               </div>
             </div>
 
             {/* Domain Breakdown */}
-            <div className="glass-card p-6 mb-6">
-              <h3 className="font-mono font-semibold mb-4">Domain Breakdown</h3>
-              <div className="space-y-3">
-                {Object.entries(result.domainBreakdown).map(([domain, data]) => {
-                  const pct = Math.round((data.correct / data.total) * 100);
-                  return (
-                    <div key={domain}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-foreground">{domain}</span>
-                        <span className={`font-mono ${pct >= (cert?.passingScore || 70) ? 'text-accent' : 'text-destructive'}`}>
-                          {pct}%
-                        </span>
+            {result.domainScores && (
+              <div className="glass-card p-6 mb-6">
+                <h3 className="font-mono font-semibold mb-4">Domain Breakdown</h3>
+                <div className="space-y-3">
+                  {Object.entries(result.domainScores).map(([domain, data]) => {
+                    const pct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
+                    return (
+                      <div key={domain}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-foreground">{domain}</span>
+                          <span className={`font-mono ${pct >= 70 ? 'text-accent' : 'text-destructive'}`}>{pct}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${pct >= 70 ? 'bg-accent' : 'bg-destructive'}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${pct >= (cert?.passingScore || 70) ? 'bg-accent' : 'bg-destructive'}`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Question Review */}
             <div className="glass-card p-6 mb-6">
               <h3 className="font-mono font-semibold mb-4">Question Review</h3>
               <div className="space-y-4">
-                {questions.map((q, i) => {
-                  const qr = result.questionResults.find(r => r.questionId === q.id)!;
-                  return (
-                    <div key={q.id} className={`p-4 rounded-lg border ${qr.correct ? 'border-accent/30 bg-accent/5' : 'border-destructive/30 bg-destructive/5'}`}>
-                      <div className="flex items-start gap-3">
-                        {qr.correct ? (
-                          <CheckCircle2 className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                        )}
-                        <div className="flex-1">
-                          <div className="text-sm font-medium mb-2">
-                            <span className="text-muted-foreground mr-2">Q{i + 1}.</span>
-                            {q.title}
-                          </div>
-                          <div className="space-y-1">
-                            {q.choices.map(c => {
-                              const isSelected = qr.selectedAnswers.includes(c.id);
-                              const isCorrect = qr.correctAnswers.includes(c.id);
-                              return (
-                                <div
-                                  key={c.id}
-                                  className={`text-xs px-3 py-1.5 rounded ${isCorrect ? 'bg-accent/10 text-accent' :
-                                    isSelected ? 'bg-destructive/10 text-destructive' :
-                                      'text-muted-foreground'
-                                    }`}
-                                >
-                                  {c.label.toUpperCase()}. {c.content}
-                                  {isCorrect && ' ✓'}
-                                  {isSelected && !isCorrect && ' ✗'}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2 italic">{q.explanation}</p>
+                {result.questionResults.map((qr, i) => (
+                  <div key={qr.questionId} className={`p-4 rounded-lg border ${qr.correct ? 'border-accent/30 bg-accent/5' : 'border-destructive/30 bg-destructive/5'}`}>
+                    <div className="flex items-start gap-3">
+                      {qr.correct ? (
+                        <CheckCircle2 className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <div className="text-sm font-medium mb-2">
+                          <span className="text-muted-foreground mr-2">Q{i + 1}.</span>
+                          {qr.title}
                         </div>
+                        <div className="space-y-1">
+                          {qr.choices.map(c => {
+                            const isSelected = qr.selectedAnswers.includes(c.id);
+                            const isCorrect = qr.correctAnswers.includes(c.id);
+                            return (
+                              <div
+                                key={c.id}
+                                className={`text-xs px-3 py-1.5 rounded ${isCorrect ? 'bg-accent/10 text-accent' :
+                                  isSelected ? 'bg-destructive/10 text-destructive' :
+                                    'text-muted-foreground'
+                                  }`}
+                              >
+                                {c.label.toUpperCase()}. {c.content}
+                                {isCorrect && ' ✓'}
+                                {isSelected && !isCorrect && ' ✗'}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {qr.explanation && (
+                          <p className="text-xs text-muted-foreground mt-2 italic">{qr.explanation}</p>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className="flex gap-4">
               <Button variant="outline" className="flex-1 font-mono" onClick={() => navigate('/')}>Back Home</Button>
-              <Button className="flex-1 glow-cyan font-mono" onClick={startExam}>Retry Exam</Button>
+              <Button className="flex-1 glow-cyan font-mono" onClick={() => { setPhase('intro'); setResult(null); }}>Retry Exam</Button>
             </div>
           </motion.div>
         </div>
@@ -281,13 +311,15 @@ const ExamPage = () => {
   }
 
   // EXAM
+  if (!currentQuestion) return null;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top Bar */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="container flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-mono text-muted-foreground">{cert.code}</span>
+            <span className="text-sm font-mono text-muted-foreground">{attemptData?.certification?.code}</span>
             <span className="text-sm text-muted-foreground">·</span>
             <span className="text-sm font-mono text-foreground">Q{currentIndex + 1}/{questions.length}</span>
           </div>
@@ -357,12 +389,13 @@ const ExamPage = () => {
                   })}
                 </div>
 
-                {/* Tags */}
-                <div className="flex flex-wrap gap-1.5 mt-6">
-                  {currentQuestion.tags.map(tag => (
-                    <span key={tag} className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground">{tag}</span>
-                  ))}
-                </div>
+                {currentQuestion.tags && currentQuestion.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-6">
+                    {currentQuestion.tags.map(tag => (
+                      <span key={tag} className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground">{tag}</span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Navigation */}

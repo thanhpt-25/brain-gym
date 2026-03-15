@@ -1,47 +1,67 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { sampleQuestions, certifications } from '@/data/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getCertificationById } from '@/services/certifications';
+import { getQuestions } from '@/services/questions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Brain, ChevronLeft, Shuffle, Eye, EyeOff, CheckCircle2, XCircle, SkipForward, RotateCcw, BookOpen } from 'lucide-react';
+import { ChevronLeft, Eye, CheckCircle2, XCircle, SkipForward, RotateCcw, BookOpen, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 const StudyMode = () => {
   const { certId } = useParams();
   const navigate = useNavigate();
-  const cert = certifications.find(c => c.id === certId);
 
-  const allQuestions = useMemo(
-    () => sampleQuestions.filter(q => q.certificationId === certId),
-    [certId]
-  );
+  const { data: cert } = useQuery({
+    queryKey: ['certification', certId],
+    queryFn: () => getCertificationById(certId!),
+    enabled: !!certId,
+  });
 
-  const [pool, setPool] = useState(() => shuffle([...allQuestions]));
+  const { data: questionsData, isLoading } = useQuery({
+    queryKey: ['study-questions', certId],
+    queryFn: () => getQuestions(certId, 1, 100),
+    enabled: !!certId,
+  });
+
+  const allQuestions = useMemo(() => questionsData?.data ?? [], [questionsData]);
+
+  const [pool, setPool] = useState<typeof allQuestions>([]);
+  const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [stats, setStats] = useState({ correct: 0, wrong: 0, skipped: 0 });
 
-  const question = pool[index];
-  const isFinished = index >= pool.length;
+  const startStudy = () => {
+    setPool(shuffle([...allQuestions]));
+    setIndex(0);
+    setSelected([]);
+    setRevealed(false);
+    setStats({ correct: 0, wrong: 0, skipped: 0 });
+    setStarted(true);
+  };
 
-  function shuffle<T>(arr: T[]): T[] {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
+  const question = pool[index];
+  const isFinished = started && index >= pool.length;
 
   const correctIds = useMemo(
-    () => question?.choices.filter(c => c.isCorrect).map(c => c.id) || [],
+    () => question?.choices?.filter((c: any) => c.isCorrect).map((c: any) => c.id) || [],
     [question]
   );
 
   const isCorrect = useMemo(() => {
     if (!selected.length) return false;
-    return correctIds.length === selected.length && correctIds.every(id => selected.includes(id));
+    return correctIds.length === selected.length && correctIds.every((id: string) => selected.includes(id));
   }, [selected, correctIds]);
 
   const selectChoice = (choiceId: string) => {
@@ -69,20 +89,46 @@ const StudyMode = () => {
     setIndex(prev => prev + 1);
   };
 
-  const restart = () => {
-    setPool(shuffle([...allQuestions]));
-    setIndex(0);
-    setSelected([]);
-    setRevealed(false);
-    setStats({ correct: 0, wrong: 0, skipped: 0 });
-  };
-
-  if (!cert) {
+  if (!cert && !isLoading) {
     return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Certification not found</div>;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   const total = stats.correct + stats.wrong + stats.skipped;
   const accuracy = total > 0 ? Math.round((stats.correct / total) * 100) : 0;
+
+  // Not started yet — show start screen
+  if (!started) {
+    return (
+      <div className="min-h-screen bg-background bg-grid">
+        <div className="container max-w-2xl py-20">
+          <Button variant="ghost" className="mb-8 text-muted-foreground" onClick={() => navigate('/')}>
+            <ChevronLeft className="h-4 w-4 mr-1" /> Back
+          </Button>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8 text-center">
+            <BookOpen className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h2 className="text-2xl font-mono font-bold mb-2">Study Mode</h2>
+            <p className="text-muted-foreground mb-2">{cert?.name}</p>
+            <p className="text-sm text-muted-foreground mb-6">{allQuestions.length} questions available</p>
+            {allQuestions.length === 0 ? (
+              <p className="text-sm text-destructive font-mono">No questions available for this certification yet.</p>
+            ) : (
+              <Button className="glow-cyan font-mono" size="lg" onClick={startStudy}>
+                <BookOpen className="h-4 w-4 mr-2" /> Start Studying
+              </Button>
+            )}
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   // Finished screen
   if (isFinished) {
@@ -115,7 +161,7 @@ const StudyMode = () => {
               <Button variant="outline" className="flex-1 font-mono" onClick={() => navigate('/')}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Home
               </Button>
-              <Button className="flex-1 glow-cyan font-mono" onClick={restart}>
+              <Button className="flex-1 glow-cyan font-mono" onClick={startStudy}>
                 <RotateCcw className="h-4 w-4 mr-1" /> Study Again
               </Button>
             </div>
@@ -138,7 +184,7 @@ const StudyMode = () => {
               <BookOpen className="h-4 w-4 text-primary" />
               <span className="text-sm font-mono text-foreground">Study Mode</span>
             </div>
-            <span className="text-xs text-muted-foreground font-mono">{cert.icon} {cert.code}</span>
+            <span className="text-xs text-muted-foreground font-mono">{cert?.code}</span>
           </div>
           <div className="flex items-center gap-4 text-xs font-mono">
             <span className="text-accent">{stats.correct}✓</span>
@@ -150,10 +196,7 @@ const StudyMode = () => {
 
       {/* Progress bar */}
       <div className="h-1 bg-secondary">
-        <div
-          className="h-full bg-primary transition-all duration-300"
-          style={{ width: `${((index + 1) / pool.length) * 100}%` }}
-        />
+        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${((index + 1) / pool.length) * 100}%` }} />
       </div>
 
       <div className="container max-w-3xl py-8">
@@ -167,7 +210,6 @@ const StudyMode = () => {
           >
             {/* Question card */}
             <div className="glass-card p-6 mb-4">
-              {/* Meta */}
               <div className="flex items-center gap-2 mb-4">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
                   question.difficulty === 'EASY' ? 'bg-accent/10 text-accent' :
@@ -180,15 +222,13 @@ const StudyMode = () => {
                 )}
               </div>
 
-              {/* Title */}
               <h2 className="text-lg font-medium mb-1">{question.title}</h2>
               {question.description && (
                 <p className="text-sm text-muted-foreground mb-4">{question.description}</p>
               )}
 
-              {/* Choices */}
               <div className="space-y-2 mt-5">
-                {question.choices.map(choice => {
+                {question.choices.map((choice: any) => {
                   const isSelected = selected.includes(choice.id);
                   const isRight = choice.isCorrect;
 
@@ -216,17 +256,6 @@ const StudyMode = () => {
                   );
                 })}
               </div>
-
-              {/* Tags */}
-              {question.tags && question.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-4">
-                  {question.tags.map((tag: any) => (
-                    <span key={typeof tag === 'string' ? tag : tag.name} className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground">
-                      {typeof tag === 'string' ? tag : tag.name}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Explanation (revealed) */}

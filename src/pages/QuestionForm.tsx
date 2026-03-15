@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { certifications } from '@/data/mockData';
+import { useQuery } from '@tanstack/react-query';
+import { getCertifications } from '@/services/certifications';
+import { createQuestion } from '@/services/questions';
 import { Difficulty, QuestionType } from '@/types/exam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,9 +42,14 @@ export default function QuestionForm() {
     { label: 'd', content: '', isCorrect: false },
   ]);
 
+  const { data: certifications = [] } = useQuery({
+    queryKey: ['certifications'],
+    queryFn: getCertifications,
+  });
+
   const selectedCert = useMemo(
     () => certifications.find(c => c.id === certificationId),
-    [certificationId]
+    [certificationId, certifications]
   );
 
   const domains = selectedCert?.domains || [];
@@ -85,7 +92,9 @@ export default function QuestionForm() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !explanation || !certificationId || !difficulty) {
       toast({ title: 'Thiếu thông tin', description: 'Vui lòng điền đầy đủ các trường bắt buộc.', variant: 'destructive' });
@@ -100,15 +109,20 @@ export default function QuestionForm() {
       return;
     }
 
-    // For now, save to console (will connect to backend later)
-    const question = {
-      title, description, explanation, referenceUrl,
-      certificationId, domainId, difficulty, questionType,
-      tags, choices: choices.map(c => ({ label: c.label, content: c.content, isCorrect: c.isCorrect })),
-    };
-    console.log('New question:', question);
-    toast({ title: '✅ Đã lưu!', description: 'Câu hỏi đã được submit thành công.' });
-    navigate('/');
+    setIsSubmitting(true);
+    try {
+      await createQuestion({
+        title, description: description || undefined, explanation, referenceUrl: referenceUrl || undefined,
+        certificationId, domainId: domainId || undefined, difficulty: difficulty as Difficulty, questionType,
+        choices: choices.map(c => ({ label: c.label, content: c.content, isCorrect: c.isCorrect })),
+      });
+      toast({ title: '✅ Đã lưu!', description: 'Câu hỏi đã được submit thành công.' });
+      navigate('/questions');
+    } catch (err: any) {
+      toast({ title: 'Lỗi', description: err.response?.data?.message || 'Không thể tạo câu hỏi.', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const difficultyColor = (d: string) => {
@@ -331,8 +345,8 @@ export default function QuestionForm() {
             </div>
 
             {/* Submit */}
-            <Button type="submit" className="w-full glow-cyan font-mono" size="lg">
-              <Save className="w-4 h-4 mr-2" /> Submit for Review
+            <Button type="submit" className="w-full glow-cyan font-mono" size="lg" disabled={isSubmitting}>
+              <Save className="w-4 h-4 mr-2" /> {isSubmitting ? 'Submitting...' : 'Submit for Review'}
             </Button>
           </form>
 

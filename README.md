@@ -1,73 +1,199 @@
-# Welcome to your Lovable project
+# Brain Gym
 
-## Project info
+A comprehensive platform for practicing certification exams, particularly cloud certifications. Think of it as a "gym for your brain" where learners can create mock exams, practice with community-shared questions, and track their progress toward certification success.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+### 🧠 Question Management
+- Create and manage multiple-choice questions (MCQs)
+- Support for scenario-based questions with images/diagrams
+- Multiple correct answers capability
+- Difficulty levels and tagging system
+- Rich explanations and reference links
 
-There are several ways of editing your application.
+### 📝 Exam Builder
+- Create custom mock exams for various certifications
+- Configurable exam settings (time limits, question count, difficulty distribution)
+- Public, private, and link-shared exam visibility options
 
-**Use Lovable**
+### 🎯 Exam Simulation
+- Realistic exam experience with countdown timers
+- Question navigation and review marking
+- Instant results with detailed breakdowns
+- Domain-wise performance analysis
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### 📊 Analytics & Progress Tracking
+- Personal dashboard with exam history
+- Score trends and pass probability calculations
+- Weak topic identification
+- Performance insights and recommendations
 
-Changes made via Lovable will be committed automatically to this repo.
+### 👥 Community Features
+- Share questions and exams with the community
+- Discussion threads on questions
+- Voting and quality control systems
+- Expert verification badges
 
-**Use your preferred IDE**
+### 🎮 Gamification
+- Points system for contributions
+- Achievement badges
+- Leaderboards for top contributors
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Tech Stack
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Frontend
+- **React 18** - Modern React with hooks
+- **TypeScript** - Type-safe development
+- **Vite** - Fast build tool and dev server
+- **shadcn/ui** - Beautiful, accessible UI components
+- **Tailwind CSS** - Utility-first CSS framework
+- **React Query** - Powerful data synchronization
+- **Zustand** - Lightweight state management
+- **React Router** - Client-side routing
+- **React Hook Form** - Performant forms with validation
 
-Follow these steps:
+### Backend
+- **NestJS** - Progressive Node.js framework
+- **TypeScript** - Type-safe backend development
+- **Prisma** - Next-generation ORM
+- **PostgreSQL** - Primary database
+- **Redis** - Caching and session storage
+- **JWT** - Authentication and authorization
+- **Swagger** - API documentation
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Development & Testing
+- **Docker & Docker Compose** - Containerized development
+- **Vitest** - Fast unit testing for frontend
+- **Jest** - Testing framework for backend
+- **ESLint** - Code linting
+- **Prettier** - Code formatting
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## Getting Started
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Prerequisites
+- Node.js 18+ and npm (or bun)
+- Docker and Docker Compose
+- Git
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd brain-gym
+   ```
+
+2. **Start the database services**
+   ```bash
+   docker-compose up -d
+   ```
+
+3. **Install frontend dependencies**
+   ```bash
+   npm install
+   ```
+
+4. **Install backend dependencies**
+   ```bash
+   cd backend
+   npm install
+   cd ..
+   ```
+
+5. **Set up the database**
+   ```bash
+   cd backend
+   npx prisma migrate dev
+   npx prisma db seed
+   cd ..
+   ```
+
+6. **Start the development servers**
+
+   **Terminal 1 - Backend:**
+   ```bash
+   cd backend
+   npm run start:dev
+   ```
+
+   **Terminal 2 - Frontend:**
+   ```bash
+   npm run dev
+   ```
+
+7. **Open your browser**
+   
+   Navigate to `http://localhost:5173` for the frontend and `http://localhost:3000` for the backend API.
+
+## Available Scripts
+
+### Frontend Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run test` - Run tests once
+- `npm run test:watch` - Run tests in watch mode
+- `npm run lint` - Run ESLint
+
+### Backend Scripts
+- `npm run start:dev` - Start development server with hot reload
+- `npm run start:prod` - Start production server
+- `npm run build` - Build the application
+- `npm run test` - Run unit tests
+- `npm run test:e2e` - Run end-to-end tests
+- `npm run lint` - Run ESLint
+
+### Database Scripts
+- `npx prisma migrate dev` - Run database migrations
+- `npx prisma db seed` - Seed the database
+- `npx prisma studio` - Open Prisma Studio
+
+## Project Structure
+
+```
+brain-gym/
+├── src/                    # Frontend source code
+│   ├── components/         # Reusable UI components
+│   ├── pages/             # Page components
+│   ├── services/          # API service functions
+│   ├── stores/            # Zustand state stores
+│   ├── types/             # TypeScript type definitions
+│   └── lib/               # Utility functions
+├── backend/               # Backend source code
+│   ├── src/
+│   │   ├── auth/          # Authentication module
+│   │   ├── users/         # User management
+│   │   ├── questions/     # Question management
+│   │   ├── certifications/# Certification management
+│   │   └── prisma/        # Database service
+│   └── prisma/            # Database schema and migrations
+├── docs/                  # Documentation
+└── public/                # Static assets
 ```
 
-**Edit a file directly in GitHub**
+## API Documentation
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+When the backend is running, visit `http://localhost:3000/api` to access the Swagger API documentation.
 
-**Use GitHub Codespaces**
+## Contributing
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+We welcome contributions! Please see our contributing guidelines for details on:
 
-## What technologies are used for this project?
+- Setting up your development environment
+- Code style and standards
+- Submitting pull requests
+- Reporting issues
 
-This project is built with:
+## Target Certifications
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The platform is designed to support various certification exams, with initial focus on:
 
-## How can I deploy this project?
+- AWS Certified Solutions Architect
+- Microsoft Azure Fundamentals
+- Google Cloud Professional Cloud Architect
+- PMI PMP Certification
+- CNCF Certified Kubernetes Administrator
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## License
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project is licensed under the MIT License - see the LICENSE file for details.
