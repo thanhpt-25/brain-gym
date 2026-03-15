@@ -3,8 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2, XCircle, ChevronDown, ChevronUp, ArrowLeft,
-  Trophy, Target, Clock, Filter, RotateCcw, ExternalLink, Brain,
+  Trophy, Target, Clock, Filter, RotateCcw, ExternalLink, Brain, Download,
 } from 'lucide-react';
+import { exportExamResultPDF } from '@/utils/exportPdf';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ExamResult, Question, Certification } from '@/types/exam';
@@ -383,12 +384,19 @@ const ExamResults = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-4 pt-4">
+        <div className="flex gap-4 pt-4 flex-wrap">
           <Button variant="outline" className="flex-1 font-mono" onClick={() => navigate('/')}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Home
           </Button>
           <Button variant="outline" className="flex-1 font-mono" onClick={() => navigate('/dashboard')}>
             Dashboard
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 font-mono"
+            onClick={() => exportExamResultPDF(result, questions, cert)}
+          >
+            <Download className="h-4 w-4 mr-2" /> Export PDF
           </Button>
           <Button
             className="flex-1 glow-cyan font-mono"
