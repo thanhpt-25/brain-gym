@@ -11,12 +11,12 @@ export class QuestionsService {
         private readonly gamification: GamificationService,
     ) { }
 
-    async findAll(certificationId?: string, status?: string, page: number = 1, limit: number = 10) {
+    async findAll(certificationId?: string, status?: string, page: number = 1, limit: number = 10, userId?: string) {
         const skip = (page - 1) * limit;
 
         const where: any = {};
         if (certificationId) where.certificationId = certificationId;
-        if (status) where.status = status as QuestionStatus;
+        where.status = (status as QuestionStatus) || QuestionStatus.APPROVED;
 
         const [total, questions] = await Promise.all([
             this.prisma.question.count({ where }),
@@ -27,8 +27,6 @@ export class QuestionsService {
                         select: { id: true, displayName: true, avatarUrl: true },
                     },
                     domain: true,
-                    // usually you don't return all choices or just return without isCorrect 
-                    // but for this phase we'll return them since we need them for exams later
                     choices: { orderBy: { sortOrder: 'asc' } },
                 },
                 orderBy: { createdAt: 'desc' },
@@ -36,6 +34,14 @@ export class QuestionsService {
                 take: limit,
             }),
         ]);
+
+        if (!userId) {
+            questions.forEach(q => {
+                if (q.explanation) {
+                    (q as any).explanation = 'Log in to view the detailed explanation.';
+                }
+            });
+        }
 
         return {
             data: questions,
@@ -76,6 +82,10 @@ export class QuestionsService {
                 },
             });
             userVote = vote?.value ?? null;
+        }
+
+        if (!userId && question.explanation) {
+            (question as any).explanation = 'Log in to view the detailed explanation.';
         }
 
         return { ...question, userVote };

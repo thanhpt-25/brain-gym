@@ -22,19 +22,22 @@ export class QuestionsController {
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
+        @Req() req: any,
         @Query('certificationId') certificationId?: string,
         @Query('status') status?: string,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
+        const userId = req.user?.sub || req.user?.id;
         const pageNumber = page ? parseInt(page, 10) : 1;
         const limitNumber = limit ? parseInt(limit, 10) : 10;
-        return this.questionsService.findAll(certificationId, status, pageNumber, limitNumber);
+        return this.questionsService.findAll(certificationId, status, pageNumber, limitNumber, userId);
     }
 
     @Get('queue/pending')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.REVIEWER, UserRole.ADMIN)
+    @ApiBearerAuth()
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get pending questions for review' })
     @ApiQuery({ name: 'page', required: false, type: Number })

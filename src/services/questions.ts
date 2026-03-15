@@ -34,3 +34,8 @@ export const voteQuestion = async (id: string, value: number): Promise<Question>
     const response = await api.post<Question>(`/questions/${id}/vote?value=${value}`);
     return response.data;
 };
+
+export const updateQuestionStatus = async (id: string, status: string): Promise<Question> => {
+    const response = await api.put<Question>(`/questions/${id}/status`, { status });
+    return response.data;
+};

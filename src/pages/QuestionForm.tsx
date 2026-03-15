@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCertifications } from '@/services/certifications';
-import { createQuestion } from '@/services/questions';
+import { createQuestion, updateQuestionStatus } from '@/services/questions';
 import { Difficulty, QuestionType } from '@/types/exam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,26 +97,30 @@ export default function QuestionForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !explanation || !certificationId || !difficulty) {
-      toast({ title: 'Thiếu thông tin', description: 'Vui lòng điền đầy đủ các trường bắt buộc.', variant: 'destructive' });
+      toast({ title: 'Missing Information', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
     if (!choices.some(c => c.isCorrect)) {
-      toast({ title: 'Chưa chọn đáp án', description: 'Vui lòng chọn ít nhất một đáp án đúng.', variant: 'destructive' });
+      toast({ title: 'No Correct Answer', description: 'Please select at least one correct answer.', variant: 'destructive' });
       return;
     }
     if (choices.some(c => !c.content.trim())) {
-      toast({ title: 'Thiếu nội dung', description: 'Tất cả các lựa chọn đều cần có nội dung.', variant: 'destructive' });
+      toast({ title: 'Missing Content', description: 'All choices must have content.', variant: 'destructive' });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await createQuestion({
+      const q = await createQuestion({
         title, description: description || undefined, explanation, referenceUrl: referenceUrl || undefined,
         certificationId, domainId: domainId || undefined, difficulty: difficulty as Difficulty, questionType,
-        choices: choices.map((c, i) => ({ id: String(i), label: c.label, content: c.content, isCorrect: c.isCorrect })),
+        choices: choices.map((c) => ({ label: c.label, content: c.content, isCorrect: c.isCorrect })),
       });
-      toast({ title: '✅ Đã lưu!', description: 'Câu hỏi đã được submit thành công.' });
+      
+      // Move from DRAFT to PENDING
+      await updateQuestionStatus(q.id, 'PENDING');
+
+      toast({ title: '✅ Saved!', description: 'Question submitted successfully for review.' });
       navigate('/questions');
     } catch (err: any) {
       toast({ title: 'Lỗi', description: err.response?.data?.message || 'Không thể tạo câu hỏi.', variant: 'destructive' });

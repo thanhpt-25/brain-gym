@@ -48,7 +48,7 @@ const QuestionDetail = () => {
   const voteMutation = useMutation({
     mutationFn: ({ value }: { value: number }) => voteQuestion(id!, value),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['question', id] }),
-    onError: () => toast.error('Đăng nhập để vote'),
+    onError: () => toast.error('Sign in to vote'),
   });
 
   const commentMutation = useMutation({
@@ -60,7 +60,7 @@ const QuestionDetail = () => {
       setReplyTo(null);
       setReplyText('');
     },
-    onError: () => toast.error('Đăng nhập để bình luận'),
+    onError: () => toast.error('Sign in to comment'),
   });
 
   const deleteCommentMutation = useMutation({
@@ -98,7 +98,7 @@ const QuestionDetail = () => {
   const userVote: number | null = q.userVote ?? null;
 
   const handleVote = (value: number) => {
-    if (!isAuthenticated) { toast.error('Đăng nhập để vote'); return; }
+    if (!isAuthenticated) { toast.error('Sign in to vote'); return; }
     voteMutation.mutate({ value: userVote === value ? 0 : value });
   };
 
@@ -122,7 +122,7 @@ const QuestionDetail = () => {
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-medium">{c.user.displayName}</span>
             <span className="text-xs text-muted-foreground">
-              {new Date(c.createdAt).toLocaleDateString('vi-VN')}
+              {new Date(c.createdAt).toLocaleDateString('en-US')}
             </span>
           </div>
           <p className="text-sm text-foreground/90">{c.content}</p>
@@ -256,7 +256,7 @@ const QuestionDetail = () => {
             {/* Author */}
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border text-xs text-muted-foreground">
               <span>by {q.author?.displayName}</span>
-              <span>· {new Date(q.createdAt).toLocaleDateString('vi-VN')}</span>
+              <span>· {new Date(q.createdAt).toLocaleDateString('en-US')}</span>
             </div>
           </div>
 
@@ -347,13 +347,13 @@ const QuestionDetail = () => {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground mb-6">
-                <button className="text-primary hover:underline" onClick={() => navigate('/auth')}>Đăng nhập</button> để bình luận.
+                <button className="text-primary hover:underline" onClick={() => navigate('/auth')}>Sign in</button> to comment.
               </p>
             )}
 
             {/* Comments list */}
             {comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">Chưa có bình luận nào.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No comments yet.</p>
             ) : (
               <div className="divide-y divide-border">
                 {comments.map(c => renderComment(c))}
