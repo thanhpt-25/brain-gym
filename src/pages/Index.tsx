@@ -41,6 +41,9 @@ const Index = () => {
             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate('/dashboard')}>
               Dashboard
             </Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate('/leaderboard')}>
+              Leaderboard
+            </Button>
             {isAuthenticated ? (
               <div className="flex items-center gap-4">
                 <span className="text-sm font-mono text-gray-300">Hi, {user?.displayName}</span>
