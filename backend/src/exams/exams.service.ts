@@ -54,10 +54,12 @@ export class ExamsService {
         });
     }
 
-    async findAll(certificationId?: string, page = 1, limit = 10) {
+    async findAll(certificationId?: string, page = 1, limit = 10, sort: 'latest' | 'popular' = 'latest') {
         const skip = (page - 1) * limit;
         const where: any = { visibility: ExamVisibility.PUBLIC };
         if (certificationId) where.certificationId = certificationId;
+
+        const orderBy = sort === 'popular' ? { attemptCount: 'desc' as const } : { createdAt: 'desc' as const };
 
         const [total, exams] = await Promise.all([
             this.prisma.exam.count({ where }),
@@ -66,6 +68,29 @@ export class ExamsService {
                 include: {
                     certification: { select: { id: true, name: true, code: true, provider: true } },
                     author: { select: { id: true, displayName: true } },
+                },
+                orderBy,
+                skip,
+                take: limit,
+            }),
+        ]);
+
+        return {
+            data: exams,
+            meta: { total, page, lastPage: Math.ceil(total / limit) },
+        };
+    }
+
+    async findMyExams(userId: string, page = 1, limit = 10) {
+        const skip = (page - 1) * limit;
+        const where = { createdBy: userId };
+
+        const [total, exams] = await Promise.all([
+            this.prisma.exam.count({ where }),
+            this.prisma.exam.findMany({
+                where,
+                include: {
+                    certification: { select: { id: true, name: true, code: true, provider: true } },
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,
@@ -77,6 +102,17 @@ export class ExamsService {
             data: exams,
             meta: { total, page, lastPage: Math.ceil(total / limit) },
         };
+    }
+
+    async updateAvgScore(examId: string) {
+        const result = await this.prisma.examAttempt.aggregate({
+            where: { examId, status: 'SUBMITTED' },
+            _avg: { score: true },
+        });
+        await this.prisma.exam.update({
+            where: { id: examId },
+            data: { avgScore: result._avg.score ?? 0 },
+        });
     }
 
     async findOne(id: string) {

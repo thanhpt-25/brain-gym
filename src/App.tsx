@@ -10,9 +10,14 @@ import NotFound from "./pages/NotFound";
 import AuthPage from "./pages/Auth";
 import QuestionsBrowser from "./pages/QuestionsBrowser";
 import QuestionForm from "./pages/QuestionForm";
+import QuestionDetail from "./pages/QuestionDetail";
 import Dashboard from "./pages/Dashboard";
 import ExamResults from "./pages/ExamResults";
 import Leaderboard from "./pages/Leaderboard";
+import AdminPage from "./pages/Admin";
+import ExamLibrary from "./pages/ExamLibrary";
+import ExamBuilder from "./pages/ExamBuilder";
+import ExamShare from "./pages/ExamShare";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -28,9 +33,14 @@ const App = () => (
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/questions" element={<QuestionsBrowser />} />
           <Route path="/questions/new" element={<QuestionForm />} />
+          <Route path="/questions/:id" element={<QuestionDetail />} />
+          <Route path="/exams" element={<ExamLibrary />} />
+          <Route path="/exams/create" element={<ProtectedRoute><ExamBuilder /></ProtectedRoute>} />
+          <Route path="/exams/share/:shareCode" element={<ExamShare />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/exam-results" element={<ExamResults />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
           <Route path="/study/:certId" element={<StudyMode />} />
           <Route
             path="/exam/:certId"

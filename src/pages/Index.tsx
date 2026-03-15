@@ -1,11 +1,13 @@
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { getCertifications } from '@/services/certifications';
+import { getMyPoints } from '@/services/gamification';
 import { useNavigate, Link } from 'react-router-dom';
-import { Brain, Zap, BarChart3, Users, Target, BookOpen } from 'lucide-react';
+import { Brain, Zap, BarChart3, Users, Target, BookOpen, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CertificationCard from '@/components/CertificationCard';
 import { useAuthStore } from '@/stores/auth.store';
+import Navbar from '@/components/Navbar';
 
 const features = [
   { icon: Target, title: 'Exam Simulation', desc: 'Timer, navigation, mark for review — giống exam thật.' },
@@ -27,38 +29,15 @@ const Index = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const { data: certifications, isLoading, error } = useQuery({ queryKey: ['certifications'], queryFn: getCertifications });
+  const { data: pointsData } = useQuery({
+    queryKey: ['my-points'],
+    queryFn: getMyPoints,
+    enabled: isAuthenticated,
+  });
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Brain className="h-6 w-6 text-primary" />
-            <span className="font-mono text-lg font-bold text-gradient-cyan">CertGym</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate('/dashboard')}>
-              Dashboard
-            </Button>
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" onClick={() => navigate('/leaderboard')}>
-              Leaderboard
-            </Button>
-            {isAuthenticated ? (
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-mono text-gray-300">Hi, {user?.displayName}</span>
-                <Button size="sm" variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10" onClick={() => logout()}>
-                  Logout
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" className="glow-cyan" onClick={() => navigate('/auth')}>
-                Get Started
-              </Button>
-            )}
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero */}
       <section className="relative pt-32 pb-20 overflow-hidden">
@@ -86,11 +65,13 @@ const Index = () => {
               Phân tích điểm yếu. Cải thiện mỗi ngày.
             </p>
             <div className="flex items-center justify-center gap-4">
-              <Button size="lg" className="glow-cyan font-mono" onClick={() => navigate('/exams')}>
+              <Button size="lg" className="glow-cyan font-mono" onClick={() => {
+                document.getElementById('certification-library')?.scrollIntoView({ behavior: 'smooth' });
+              }}>
                 Start Training
               </Button>
-              <Button size="lg" variant="outline" className="font-mono">
-                Browse Exams
+              <Button size="lg" variant="outline" className="font-mono" onClick={() => navigate('/questions')}>
+                Browse Questions
               </Button>
             </div>
           </motion.div>
@@ -113,7 +94,7 @@ const Index = () => {
       </section>
 
       {/* Certifications */}
-      <section className="py-20 border-t border-border">
+      <section id="certification-library" className="py-20 border-t border-border">
         <div className="container">
           <motion.div
             initial={{ opacity: 0 }}

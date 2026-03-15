@@ -26,16 +26,28 @@ export class ExamsController {
     @ApiQuery({ name: 'certificationId', required: false })
     @ApiQuery({ name: 'page', required: false })
     @ApiQuery({ name: 'limit', required: false })
+    @ApiQuery({ name: 'sort', required: false, enum: ['latest', 'popular'] })
     findAll(
         @Query('certificationId') certificationId?: string,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
+        @Query('sort') sort?: 'latest' | 'popular',
     ) {
         return this.examsService.findAll(
             certificationId,
             page ? parseInt(page, 10) : 1,
             limit ? parseInt(limit, 10) : 10,
+            sort ?? 'latest',
         );
+    }
+
+    @Get('me')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List my exams' })
+    findMyExams(@Req() req: any, @Query('page') page?: string, @Query('limit') limit?: string) {
+        const userId = req.user.sub || req.user.id;
+        return this.examsService.findMyExams(userId, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 10);
     }
 
     @Get('share/:shareCode')

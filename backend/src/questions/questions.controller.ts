@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Query, Req, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { QuestionsService } from './questions.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
+import { UpdateQuestionStatusDto } from './dto/update-question-status.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -17,23 +18,37 @@ export class QuestionsController {
     @Public()
     @ApiOperation({ summary: 'Get paginated questions' })
     @ApiQuery({ name: 'certificationId', required: false, type: String })
+    @ApiQuery({ name: 'status', required: false, type: String })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
         @Query('certificationId') certificationId?: string,
+        @Query('status') status?: string,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
         const pageNumber = page ? parseInt(page, 10) : 1;
         const limitNumber = limit ? parseInt(limit, 10) : 10;
-        return this.questionsService.findAll(certificationId, pageNumber, limitNumber);
+        return this.questionsService.findAll(certificationId, status, pageNumber, limitNumber);
+    }
+
+    @Get('queue/pending')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.REVIEWER, UserRole.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get pending questions for review' })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    findPending(@Query('page') page?: string, @Query('limit') limit?: string) {
+        return this.questionsService.findPending(page ? +page : 1, limit ? +limit : 20);
     }
 
     @Get(':id')
     @Public()
     @ApiOperation({ summary: 'Get a single question by ID' })
-    findOne(@Param('id') id: string) {
-        return this.questionsService.findOne(id);
+    findOne(@Param('id') id: string, @Req() req: any) {
+        const userId = req.user?.sub || req.user?.id;
+        return this.questionsService.findOne(id, userId);
     }
 
     @Post()
@@ -55,5 +70,16 @@ export class QuestionsController {
         const userId = req.user.sub || req.user.id;
         const voteValue = parseInt(value, 10);
         return this.questionsService.vote(userId, questionId, voteValue);
+    }
+
+    @Put(':id/status')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.CONTRIBUTOR, UserRole.REVIEWER, UserRole.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update question status (DRAFT→PENDING by contributor, APPROVE/REJECT by reviewer/admin)' })
+    updateStatus(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateQuestionStatusDto) {
+        const userId = req.user.sub || req.user.id;
+        const userRole = req.user.role;
+        return this.questionsService.updateStatus(userId, userRole, id, dto.status);
     }
 }

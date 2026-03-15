@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCertificationById } from '@/services/certifications';
 import { getQuestions } from '@/services/questions';
 import { startAttempt, submitAttempt, StartAttemptResponse, AttemptResult, AttemptQuestion } from '@/services/attempts';
 import { createExam } from '@/services/exams';
 import { Button } from '@/components/ui/button';
-import { Clock, Flag, ChevronLeft, ChevronRight, Brain, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Clock, Flag, ChevronLeft, ChevronRight, Brain, CheckCircle2, XCircle, Loader2, Copy, Check, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -15,6 +15,8 @@ type ExamPhase = 'intro' | 'loading' | 'exam' | 'result';
 const ExamPage = () => {
   const { certId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const passedAttempt = (location.state as any)?.attemptData as StartAttemptResponse | undefined;
 
   const { data: cert, isLoading: certLoading } = useQuery({
     queryKey: ['certification', certId],
@@ -28,13 +30,14 @@ const ExamPage = () => {
     enabled: !!certId,
   });
 
-  const [phase, setPhase] = useState<ExamPhase>('intro');
-  const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(null);
+  const [phase, setPhase] = useState<ExamPhase>(passedAttempt ? 'exam' : 'intro');
+  const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(passedAttempt ?? null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(passedAttempt ? passedAttempt.timeLimit * 60 : 0);
   const [result, setResult] = useState<AttemptResult | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const questions: AttemptQuestion[] = attemptData?.questions ?? [];
   const currentQuestion = questions[currentIndex];
@@ -302,6 +305,20 @@ const ExamPage = () => {
 
             <div className="flex gap-4">
               <Button variant="outline" className="flex-1 font-mono" onClick={() => navigate('/')}>Back Home</Button>
+              <Button
+                variant="outline"
+                className="font-mono"
+                onClick={() => {
+                  const url = `${window.location.origin}/exam-results?score=${result.percentage}&total=${result.totalQuestions}&correct=${result.totalCorrect}&cert=${result.certification?.code || ''}`;
+                  navigator.clipboard.writeText(url);
+                  setCopied(true);
+                  toast.success('Result link copied!');
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+              >
+                {copied ? <Check className="h-4 w-4 mr-1" /> : <Share2 className="h-4 w-4 mr-1" />}
+                Share
+              </Button>
               <Button className="flex-1 glow-cyan font-mono" onClick={() => { setPhase('intro'); setResult(null); }}>Retry Exam</Button>
             </div>
           </motion.div>

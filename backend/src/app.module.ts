@@ -7,6 +7,10 @@ import { CertificationsModule } from './certifications/certifications.module';
 import { QuestionsModule } from './questions/questions.module';
 import { ExamsModule } from './exams/exams.module';
 import { AttemptsModule } from './attempts/attempts.module';
+import { CommentsModule } from './comments/comments.module';
+import { ReportsModule } from './reports/reports.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { GamificationModule } from './gamification/gamification.module';
 
 @Module({
   imports: [
@@ -18,6 +22,10 @@ import { AttemptsModule } from './attempts/attempts.module';
     QuestionsModule,
     ExamsModule,
     AttemptsModule,
+    CommentsModule,
+    ReportsModule,
+    AnalyticsModule,
+    GamificationModule,
   ],
 })
 export class AppModule { }

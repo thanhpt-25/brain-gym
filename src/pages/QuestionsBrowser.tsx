@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthStore } from '@/stores/auth.store';
+import Navbar from '@/components/Navbar';
 
 const QuestionsBrowser = () => {
     const navigate = useNavigate();
@@ -27,23 +28,7 @@ const QuestionsBrowser = () => {
 
     return (
         <div className="min-h-screen bg-background">
-            <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-                <div className="container flex h-16 items-center justify-between">
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                        <Brain className="h-6 w-6 text-primary" />
-                        <span className="font-mono text-lg font-bold text-gradient-cyan">CertGym</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="sm" onClick={() => navigate('/')}>Home</Button>
-                        {user?.role === 'CONTRIBUTOR' || user?.role === 'ADMIN' ? (
-                            <Button size="sm" className="glow-cyan" onClick={() => navigate('/questions/new')}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add Question
-                            </Button>
-                        ) : null}
-                    </div>
-                </div>
-            </nav>
+            <Navbar title="Question Bank" />
 
             <section className="pt-32 pb-20">
                 <div className="container max-w-5xl mx-auto">
@@ -79,7 +64,11 @@ const QuestionsBrowser = () => {
                             </div>
                         ) : (
                             questionsData?.data.map((q) => (
-                                <div key={q.id} className="p-6 rounded-xl border border-white/10 bg-white/5 hover:border-primary/50 transition-colors">
+                                <div
+                                    key={q.id}
+                                    className="p-6 rounded-xl border border-white/10 bg-white/5 hover:border-primary/50 transition-colors cursor-pointer"
+                                    onClick={() => navigate(`/questions/${q.id}`)}
+                                >
                                     <div className="flex gap-2 mb-3">
                                         <span className="px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-mono">
                                             {q.difficulty}

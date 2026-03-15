@@ -3,10 +3,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
 import { AttemptStatus } from '@prisma/client';
+import { GamificationService, POINTS } from '../gamification/gamification.service';
+import { ExamsService } from '../exams/exams.service';
 
 @Injectable()
 export class AttemptsService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly gamification: GamificationService,
+        private readonly examsService: ExamsService,
+    ) { }
 
     async start(userId: string, examId: string) {
         const exam = await this.prisma.exam.findUnique({
@@ -187,6 +193,9 @@ export class AttemptsService {
                 data: { attemptCount: { increment: 1 } },
             }),
         ]);
+
+        await this.gamification.awardPoints(userId, POINTS.COMPLETE_EXAM);
+        await this.examsService.updateAvgScore(attempt.examId);
 
         return this.findResult(attemptId);
     }

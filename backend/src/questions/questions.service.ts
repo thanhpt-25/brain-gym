@@ -1,16 +1,22 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
-import { QuestionStatus, VoteTargetType } from '@prisma/client';
+import { QuestionStatus, VoteTargetType, UserRole } from '@prisma/client';
+import { GamificationService, POINTS } from '../gamification/gamification.service';
 
 @Injectable()
 export class QuestionsService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly gamification: GamificationService,
+    ) { }
 
-    async findAll(certificationId?: string, page: number = 1, limit: number = 10) {
+    async findAll(certificationId?: string, status?: string, page: number = 1, limit: number = 10) {
         const skip = (page - 1) * limit;
 
-        const where = certificationId ? { certificationId } : {};
+        const where: any = {};
+        if (certificationId) where.certificationId = certificationId;
+        if (status) where.status = status as QuestionStatus;
 
         const [total, questions] = await Promise.all([
             this.prisma.question.count({ where }),
@@ -41,19 +47,16 @@ export class QuestionsService {
         };
     }
 
-    async findOne(id: string) {
+    async findOne(id: string, userId?: string) {
         const question = await this.prisma.question.findUnique({
             where: { id },
             include: {
                 author: { select: { id: true, displayName: true, avatarUrl: true } },
+                certification: { select: { id: true, name: true, code: true, provider: true } },
                 domain: true,
                 choices: { orderBy: { sortOrder: 'asc' } },
-                comments: {
-                    include: {
-                        user: { select: { id: true, displayName: true, avatarUrl: true } }
-                    },
-                    orderBy: { createdAt: 'desc' }
-                }
+                tags: { include: { tag: true } },
+                _count: { select: { comments: true, reports: true } },
             },
         });
 
@@ -61,17 +64,31 @@ export class QuestionsService {
             throw new NotFoundException(`Question with ID ${id} not found`);
         }
 
-        return question;
+        let userVote: number | null = null;
+        if (userId) {
+            const vote = await this.prisma.vote.findUnique({
+                where: {
+                    userId_targetType_targetId: {
+                        userId,
+                        targetType: VoteTargetType.QUESTION,
+                        targetId: id,
+                    },
+                },
+            });
+            userVote = vote?.value ?? null;
+        }
+
+        return { ...question, userVote };
     }
 
     async create(userId: string, dto: CreateQuestionDto) {
         const { choices, ...questionData } = dto;
 
-        return this.prisma.question.create({
+        const question = await this.prisma.question.create({
             data: {
                 ...questionData,
                 createdBy: userId,
-                status: QuestionStatus.DRAFT, // All newly submitted questions are DRAFT pending review
+                status: QuestionStatus.DRAFT,
                 choices: {
                     create: choices.map((c, index) => ({
                         label: c.label,
@@ -85,6 +102,9 @@ export class QuestionsService {
                 choices: true,
             },
         });
+
+        await this.gamification.awardPoints(userId, POINTS.CREATE_QUESTION);
+        return question;
     }
 
     async vote(userId: string, questionId: string, value: number) {
@@ -162,6 +182,62 @@ export class QuestionsService {
             });
         }
 
+        await this.gamification.awardPoints(userId, POINTS.VOTE_QUESTION);
         return this.prisma.question.findUnique({ where: { id: questionId } });
+    }
+
+    async updateStatus(userId: string, userRole: UserRole, questionId: string, newStatus: QuestionStatus) {
+        const question = await this.prisma.question.findUnique({ where: { id: questionId } });
+        if (!question) throw new NotFoundException('Question not found');
+
+        // Contributors can only submit DRAFT → PENDING
+        if (userRole === UserRole.CONTRIBUTOR) {
+            if (question.status !== QuestionStatus.DRAFT || newStatus !== QuestionStatus.PENDING) {
+                throw new ForbiddenException('Contributors can only submit drafts for review');
+            }
+        }
+
+        // Only REVIEWER or ADMIN can approve/reject
+        if (newStatus === QuestionStatus.APPROVED || newStatus === QuestionStatus.REJECTED) {
+            if (userRole !== UserRole.REVIEWER && userRole !== UserRole.ADMIN) {
+                throw new ForbiddenException('Only reviewers or admins can approve/reject');
+            }
+        }
+
+        const updated = await this.prisma.question.update({
+            where: { id: questionId },
+            data: { status: newStatus },
+            include: { author: { select: { id: true, displayName: true } } },
+        });
+
+        // Award points to author when question is approved
+        if (newStatus === QuestionStatus.APPROVED && question.status !== QuestionStatus.APPROVED) {
+            await this.gamification.awardPoints(question.createdBy, POINTS.QUESTION_APPROVED);
+        }
+
+        return updated;
+    }
+
+    async findPending(page = 1, limit = 20) {
+        const skip = (page - 1) * limit;
+        const where = { status: QuestionStatus.PENDING };
+
+        const [total, questions] = await Promise.all([
+            this.prisma.question.count({ where }),
+            this.prisma.question.findMany({
+                where,
+                include: {
+                    author: { select: { id: true, displayName: true, avatarUrl: true } },
+                    certification: { select: { id: true, name: true, code: true } },
+                    domain: true,
+                    choices: { orderBy: { sortOrder: 'asc' } },
+                },
+                orderBy: { createdAt: 'asc' },
+                skip,
+                take: limit,
+            }),
+        ]);
+
+        return { data: questions, meta: { total, page, lastPage: Math.ceil(total / limit) } };
     }
 }
