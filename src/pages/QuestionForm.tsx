@@ -114,7 +114,7 @@ export default function QuestionForm() {
       await createQuestion({
         title, description: description || undefined, explanation, referenceUrl: referenceUrl || undefined,
         certificationId, domainId: domainId || undefined, difficulty: difficulty as Difficulty, questionType,
-        choices: choices.map(c => ({ label: c.label, content: c.content, isCorrect: c.isCorrect })),
+        choices: choices.map((c, i) => ({ id: String(i), label: c.label, content: c.content, isCorrect: c.isCorrect })),
       });
       toast({ title: '✅ Đã lưu!', description: 'Câu hỏi đã được submit thành công.' });
       navigate('/questions');

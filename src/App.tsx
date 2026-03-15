@@ -12,6 +12,7 @@ import QuestionsBrowser from "./pages/QuestionsBrowser";
 import QuestionForm from "./pages/QuestionForm";
 import Dashboard from "./pages/Dashboard";
 import ExamResults from "./pages/ExamResults";
+import Leaderboard from "./pages/Leaderboard";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/questions/new" element={<QuestionForm />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/exam-results" element={<ExamResults />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/study/:certId" element={<StudyMode />} />
           <Route
             path="/exam/:certId"
