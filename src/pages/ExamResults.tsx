@@ -3,8 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2, XCircle, ChevronDown, ChevronUp, ArrowLeft,
-  Trophy, Target, Clock, Filter, RotateCcw, ExternalLink, Brain,
+  Trophy, Target, Clock, Filter, RotateCcw, ExternalLink, Brain, Download,
 } from 'lucide-react';
+import { exportExamResultPDF } from '@/utils/exportPdf';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ExamResult, Question, Certification } from '@/types/exam';
