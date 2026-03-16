@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCertifications } from '@/services/certifications';
 import { createQuestion, updateQuestionStatus } from '@/services/questions';
+import { getTags } from '@/services/tags';
 import { Difficulty, QuestionType } from '@/types/exam';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,12 @@ export default function QuestionForm() {
   const { data: certifications = [] } = useQuery({
     queryKey: ['certifications'],
     queryFn: getCertifications,
+  });
+
+  const { data: existingTags = [] } = useQuery({
+    queryKey: ['tags', certificationId],
+    queryFn: () => getTags(certificationId),
+    enabled: !!certificationId,
   });
 
   const selectedCert = useMemo(
@@ -115,6 +122,7 @@ export default function QuestionForm() {
         title, description: description || undefined, explanation, referenceUrl: referenceUrl || undefined,
         certificationId, domainId: domainId || undefined, difficulty: difficulty as Difficulty, questionType,
         choices: choices.map((c) => ({ label: c.label, content: c.content, isCorrect: c.isCorrect })),
+        tags: tags,
       });
       
       // Move from DRAFT to PENDING
@@ -344,6 +352,28 @@ export default function QuestionForm() {
                       <X className="w-2.5 h-2.5" />
                     </Badge>
                   ))}
+                </div>
+              )}
+
+              {/* Tag Suggestions */}
+              {existingTags.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-[10px] font-mono font-semibold text-muted-foreground uppercase tracking-widest mb-2 opacity-50">Suggestions</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {existingTags
+                      .filter(et => !tags.includes(et.name))
+                      .slice(0, 10)
+                      .map(et => (
+                        <button
+                          key={et.id}
+                          type="button"
+                          onClick={() => setTags(prev => [...prev, et.name])}
+                          className="text-[10px] font-mono px-2 py-0.5 rounded border border-white/5 bg-white/5 hover:bg-primary/10 hover:border-primary/30 transition-all text-muted-foreground hover:text-primary"
+                        >
+                          + {et.name}
+                        </button>
+                      ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -81,4 +81,10 @@ export class CreateQuestionDto {
     @ValidateNested({ each: true })
     @Type(() => CreateChoiceDto)
     choices: CreateChoiceDto[];
+
+    @ApiPropertyOptional({ type: [String], example: ['aws', 'storage'] })
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    tags?: string[];
 }

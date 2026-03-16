@@ -10,7 +10,7 @@ export enum Difficulty {
 }
 
 export interface Choice {
-  id: string;
+  id?: string;
   label: string; // 'a', 'b', 'c', 'd'
   content: string;
   isCorrect: boolean;
@@ -26,7 +26,7 @@ export interface Question {
   explanation: string;
   referenceUrl?: string;
   difficulty: Difficulty | 'EASY' | 'MEDIUM' | 'HARD';
-  tags?: any[];
+  tags?: (string | { id: string; name: string; tag: { name: string } })[];
   domainId?: string;
   domain?: { id: string; name: string };
   certificationId: string;

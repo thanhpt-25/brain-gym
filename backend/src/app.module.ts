@@ -11,6 +11,7 @@ import { CommentsModule } from './comments/comments.module';
 import { ReportsModule } from './reports/reports.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { GamificationModule } from './gamification/gamification.module';
+import { TagsModule } from './tags/tags.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { GamificationModule } from './gamification/gamification.module';
     ReportsModule,
     AnalyticsModule,
     GamificationModule,
+    TagsModule,
   ],
 })
 export class AppModule { }

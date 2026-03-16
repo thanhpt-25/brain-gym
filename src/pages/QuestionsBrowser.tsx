@@ -77,7 +77,17 @@ const QuestionsBrowser = () => {
                                             {q.certificationId}
                                         </span>
                                     </div>
-                                    <h3 className="text-lg font-medium mb-4">{q.title}</h3>
+                                    <h3 className="text-lg font-medium mb-2">{q.title}</h3>
+                                    
+                                    {q.tags && q.tags.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 mb-4">
+                                            {q.tags.map((t: any) => (
+                                                <span key={t.tagId || t.tag?.id} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-muted-foreground font-mono">
+                                                    #{t.tag?.name || t.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         {q.choices?.map((choice) => (
                                             <div key={choice.id} className={`p-3 rounded-lg border flex gap-3 ${choice.isCorrect ? 'border-green-500/50 bg-green-500/10' : 'border-white/10 bg-white/5'}`}>

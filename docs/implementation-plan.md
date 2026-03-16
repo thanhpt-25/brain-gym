@@ -66,7 +66,7 @@ npm run start:dev
 | Exam Builder UI | ✅ Backend ready | ❌ No create exam page |
 | Exam Library UI | ✅ Backend ready | ❌ No browse exams page |
 | Adaptive Exam | ❌ Schema ready (`isAdaptive`) | ❌ Not started |
-| Tags Management | ❌ No tags CRUD | ❌ Tags in form but not persisted |
+| Tags Management | ✅ CRUD + suggestions | ✅ Tags in form + displayed in UI |
 
 ---
 
@@ -311,11 +311,11 @@ npm run start:dev
 - [x] Ensure `isCorrect` is **never** exposed in exam start response (only in result)
 - [ ] Rate-limit exam starts per user
 
-### 7.2 Tags Management (Backend)
-
-- [ ] `GET /tags` — list tags (filter by certification)
-- [ ] `POST /tags` — create tag (contributor+)
-- [ ] Wire tag creation into question creation flow (create-or-find)
+- [x] `GET /tags` — list tags (filter by certification)
+- [x] `POST /tags` (Internal/Automatic) — create tag via `upsert` in question creation
+- [x] Wire tag creation into question creation flow (create-or-find)
+- [x] Show tag suggestions in `QuestionForm` based on certification
+- [x] Display tags in `QuestionsBrowser` and `QuestionDetail`
 
 ### 7.3 Adaptive Exam (Future)
 

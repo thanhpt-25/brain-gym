@@ -28,6 +28,7 @@ export class QuestionsService {
                     },
                     domain: true,
                     choices: { orderBy: { sortOrder: 'asc' } },
+                    tags: { include: { tag: true } },
                 },
                 orderBy: { createdAt: 'desc' },
                 skip,
@@ -92,7 +93,26 @@ export class QuestionsService {
     }
 
     async create(userId: string, dto: CreateQuestionDto) {
-        const { choices, ...questionData } = dto;
+        const { choices, tags, ...questionData } = dto;
+
+        // Upsert tags if provided
+        const tagRecords = tags && tags.length > 0
+            ? await Promise.all(tags.map(tagName =>
+                this.prisma.tag.upsert({
+                    where: {
+                        name_certificationId: {
+                            name: tagName.toLowerCase().trim(),
+                            certificationId: dto.certificationId,
+                        },
+                    },
+                    update: {},
+                    create: {
+                        name: tagName.toLowerCase().trim(),
+                        certificationId: dto.certificationId,
+                    },
+                })
+            ))
+            : [];
 
         const question = await this.prisma.question.create({
             data: {
@@ -107,9 +127,15 @@ export class QuestionsService {
                         sortOrder: index,
                     })),
                 },
+                tags: {
+                    create: tagRecords.map(tag => ({
+                        tagId: tag.id,
+                    })),
+                },
             },
             include: {
                 choices: true,
+                tags: { include: { tag: true } },
             },
         });
 
@@ -241,6 +267,7 @@ export class QuestionsService {
                     certification: { select: { id: true, name: true, code: true } },
                     domain: true,
                     choices: { orderBy: { sortOrder: 'asc' } },
+                    tags: { include: { tag: true } },
                 },
                 orderBy: { createdAt: 'asc' },
                 skip,
