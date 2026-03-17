@@ -22,6 +22,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar,
 } from 'recharts';
 import Navbar from '@/components/Navbar';
+import ReadinessScore from '@/components/dashboard/ReadinessScore';
+import MistakePatternChart from '@/components/dashboard/MistakePatternChart';
 
 const chartConfig = {
   score: { label: 'Score %', color: 'hsl(var(--primary))' },
@@ -157,6 +159,12 @@ const Dashboard = () => {
             ))}
           </div>
         )}
+
+        {/* Readiness + Mistake Patterns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ReadinessScore summary={summary} domains={domains ?? undefined} weakTopics={weakTopics ?? undefined} />
+          <MistakePatternChart history={history} />
+        </div>
 
         <Tabs defaultValue="trend" className="space-y-6">
           <TabsList className="bg-secondary">
