@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { ExamResult, Question, Certification } from '@/types/exam';
 
 export function exportExamResultPDF(
