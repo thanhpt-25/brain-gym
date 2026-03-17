@@ -1,8 +1,9 @@
-import { Controller, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Param, Query, UseGuards, Req, Body, Patch } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
+import { UpdateMistakeTypeDto } from './dto/update-mistake-type.dto';
 
 @ApiTags('analytics')
 @Controller('analytics')
@@ -66,5 +67,38 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get question-level stats (attempt count, correct rate)' })
   getQuestionStats(@Param('id') id: string) {
     return this.analyticsService.getQuestionStats(id);
+  }
+
+  @Get('readiness/:certificationId')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get readiness score for a specific certification' })
+  getReadiness(@Req() req: any, @Param('certificationId') certificationId: string) {
+    const userId = req.user.sub || req.user.id;
+    return this.analyticsService.getReadiness(userId, certificationId);
+  }
+
+  @Patch('answers/:answerId/mistake-type')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update mistake type for a specific answer' })
+  @ApiBody({ type: UpdateMistakeTypeDto })
+  updateMistakeType(
+    @Req() req: any,
+    @Param('answerId') answerId: string,
+    @Body() dto: UpdateMistakeTypeDto,
+  ) {
+    const userId = req.user.sub || req.user.id;
+    return this.analyticsService.updateMistakeType(userId, answerId, dto);
+  }
+
+  @Get('mistake-patterns')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get mistake patterns aggregation' })
+  @ApiQuery({ name: 'certificationId', required: false })
+  getMistakePatterns(@Req() req: any, @Query('certificationId') certificationId?: string) {
+    const userId = req.user.sub || req.user.id;
+    return this.analyticsService.getMistakePatterns(userId, certificationId);
   }
 }

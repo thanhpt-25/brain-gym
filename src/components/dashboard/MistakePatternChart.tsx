@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart as PieChartIcon } from 'lucide-react';
-import { HistoryItem } from '@/services/analytics';
+import { HistoryItem, MistakePatterns } from '@/services/analytics';
 
 interface Props {
   history: HistoryItem[];
+  patterns?: MistakePatterns;
 }
 
 interface PatternEntry {
@@ -22,8 +23,25 @@ const PATTERN_COLORS = [
   'hsl(var(--muted-foreground))',
 ];
 
-export default function MistakePatternChart({ history }: Props) {
-  const patterns = useMemo<PatternEntry[]>(() => {
+const MISTAKE_LABELS: Record<string, string> = {
+  CONCEPT: 'Knowledge Gaps',
+  CARELESS: 'Carelessness',
+  TRAP: 'Trap Questions',
+  TIME_PRESSURE: 'Time Pressure',
+};
+
+export default function MistakePatternChart({ history, patterns }: Props) {
+  const chartData = useMemo<PatternEntry[]>(() => {
+    if (patterns && patterns.total > 0) {
+      return Object.entries(patterns.breakdown)
+        .filter(([_, value]) => value > 0)
+        .map(([key, value], i) => ({
+          name: MISTAKE_LABELS[key] || key,
+          value,
+          color: PATTERN_COLORS[i % PATTERN_COLORS.length],
+        }));
+    }
+
     if (!history.length) return [];
 
     let lowScoreCount = 0;   // consistently low score (<50%)
@@ -64,9 +82,9 @@ export default function MistakePatternChart({ history }: Props) {
     ];
 
     return raw.filter(r => r.value > 0);
-  }, [history]);
+  }, [history, patterns]);
 
-  const totalMistakes = patterns.reduce((s, p) => s + p.value, 0);
+  const totalMistakes = chartData.reduce((s, p) => s + p.value, 0);
 
   return (
     <Card className="glass-card">
@@ -76,7 +94,7 @@ export default function MistakePatternChart({ history }: Props) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {patterns.length === 0 ? (
+        {chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
             Chưa có dữ liệu lỗi. Hãy hoàn thành ít nhất 1 bài thi.
           </p>
@@ -86,7 +104,7 @@ export default function MistakePatternChart({ history }: Props) {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={patterns}
+                    data={chartData}
                     cx="50%"
                     cy="50%"
                     innerRadius={40}
@@ -95,7 +113,7 @@ export default function MistakePatternChart({ history }: Props) {
                     dataKey="value"
                     strokeWidth={0}
                   >
-                    {patterns.map((entry, i) => (
+                    {chartData.map((entry, i) => (
                       <Cell key={entry.name} fill={entry.color} />
                     ))}
                   </Pie>
@@ -117,7 +135,7 @@ export default function MistakePatternChart({ history }: Props) {
             </div>
 
             <div className="flex-1 space-y-2.5 min-w-0">
-              {patterns.map(p => {
+              {chartData.map(p => {
                 const pct = totalMistakes > 0 ? Math.round((p.value / totalMistakes) * 100) : 0;
                 return (
                   <div key={p.name} className="flex items-center gap-3">

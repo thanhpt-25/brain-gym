@@ -64,3 +64,31 @@ export const getWeakTopics = async (certificationId?: string, topN = 5): Promise
   const response = await api.get<DomainPerformance[]>(`/analytics/me/weak-topics?${params}`);
   return response.data;
 };
+
+export interface ReadinessScore {
+  readinessScore: number;
+  domainConfidences: { domain: string; confidence: number }[];
+  totalExams: number;
+  weightedAvgScore: number;
+}
+
+export interface MistakePatterns {
+  total: number;
+  breakdown: Record<string, number>;
+}
+
+export const getReadiness = async (certificationId: string): Promise<ReadinessScore> => {
+  const response = await api.get<ReadinessScore>(`/analytics/readiness/${certificationId}`);
+  return response.data;
+};
+
+export const updateMistakeType = async (answerId: string, mistakeType: string): Promise<any> => {
+  const response = await api.patch(`/analytics/answers/${answerId}/mistake-type`, { mistakeType });
+  return response.data;
+};
+
+export const getMistakePatterns = async (certificationId?: string): Promise<MistakePatterns> => {
+  const params = certificationId ? `?certificationId=${certificationId}` : '';
+  const response = await api.get<MistakePatterns>(`/analytics/mistake-patterns${params}`);
+  return response.data;
+};

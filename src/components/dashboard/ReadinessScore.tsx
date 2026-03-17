@@ -1,12 +1,14 @@
 import { motion } from 'framer-motion';
 import { Shield, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AnalyticsSummary, DomainPerformance } from '@/services/analytics';
+import { AnalyticsSummary, DomainPerformance, ReadinessScore as ReadinessData } from '@/services/analytics';
 
 interface Props {
   summary: AnalyticsSummary | undefined;
   domains: DomainPerformance[] | undefined;
   weakTopics: DomainPerformance[] | undefined;
+  readiness?: ReadinessData;
+  isCertSelected?: boolean;
 }
 
 function computeReadiness(summary?: AnalyticsSummary, domains?: DomainPerformance[]) {
@@ -35,8 +37,27 @@ function computeReadiness(summary?: AnalyticsSummary, domains?: DomainPerformanc
   return { score, probability, level };
 }
 
-export default function ReadinessScore({ summary, domains, weakTopics }: Props) {
-  const { score, probability, level } = computeReadiness(summary, domains);
+export default function ReadinessScore({ summary, domains, weakTopics, readiness, isCertSelected }: Props) {
+  const clientCalc = computeReadiness(summary, domains);
+  
+  const score = readiness ? readiness.readinessScore : clientCalc.score;
+  const probability = readiness ? Math.round(readiness.readinessScore * 0.95 + (summary?.bestScore && summary.bestScore > 80 ? 5 : 0)) : clientCalc.probability;
+  const level = score >= 75 ? ('high' as const) : score >= 50 ? ('medium' as const) : ('low' as const);
+
+  if (!isCertSelected) {
+    return (
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-base font-mono flex items-center gap-2 text-muted-foreground">
+            <Shield className="h-4 w-4" /> Exam Readiness
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="h-32 flex items-center justify-center text-sm text-muted-foreground font-mono">
+          Chọn certification để xem độ sẵn sàng
+        </CardContent>
+      </Card>
+    );
+  }
 
   const colorMap = {
     high: { ring: 'hsl(var(--accent))', text: 'text-accent', label: 'Ready' },

@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCertifications } from '@/services/certifications';
 import { getQuestions } from '@/services/questions';
 import { getWeakTopics } from '@/services/analytics';
+import { getDueReviews, startWeaknessTraining, submitReview } from '@/services/training';
 import { useAuthStore } from '@/stores/auth.store';
 import { getStreakData, recordActivity } from '@/stores/streak.store';
 import Navbar from '@/components/Navbar';
@@ -265,12 +266,25 @@ function PracticeSession({ questions, modeLabel, modeIcon: ModeIcon, onBack, onC
     }
   };
 
-  const reveal = () => {
+  const reveal = async () => {
     setRevealed(true);
+    let quality = 1; // Default for skipped
     if (selected.length > 0) {
-      setStats(prev => isCorrect ? { ...prev, correct: prev.correct + 1 } : { ...prev, wrong: prev.wrong + 1 });
+      if (isCorrect) {
+        setStats(prev => ({ ...prev, correct: prev.correct + 1 }));
+        quality = 5;
+      } else {
+        setStats(prev => ({ ...prev, wrong: prev.wrong + 1 }));
+        quality = 0;
+      }
     } else {
       setStats(prev => ({ ...prev, skipped: prev.skipped + 1 }));
+    }
+
+    try {
+      await submitReview(question.id, quality);
+    } catch (err) {
+      console.error('Failed to submit review:', err);
     }
   };
 
@@ -472,7 +486,8 @@ function PracticeSession({ questions, modeLabel, modeIcon: ModeIcon, onBack, onC
 /* ─────────────── Weakness Targeting Mode ─────────────── */
 
 function WeaknessMode({ certFilter, onBack }: { certFilter: string; onBack: () => void }) {
-  const [started, setStarted] = useState(false);
+  const [session, setSession] = useState<{ questions: any[]; attemptId?: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const { data: weakTopics } = useQuery({
     queryKey: ['weak-topics-training', certFilter],
@@ -481,20 +496,20 @@ function WeaknessMode({ certFilter, onBack }: { certFilter: string; onBack: () =
 
   const weakDomainNames = useMemo(() => (weakTopics ?? []).filter(d => d.percentage < 75).map(d => d.domain), [weakTopics]);
 
-  const { data: questionsData, isLoading } = useQuery({
-    queryKey: ['weakness-questions', certFilter],
-    queryFn: () => getQuestions(certFilter || undefined, 1, 200),
-    enabled: started,
-  });
+  const handleStart = async () => {
+    if (!certFilter) return; // In a real app, maybe show a toast
+    setLoading(true);
+    try {
+      const data = await startWeaknessTraining(certFilter, 10);
+      setSession({ questions: data.questions, attemptId: data.attemptId });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const filteredQuestions = useMemo(() => {
-    const all = questionsData?.data ?? [];
-    if (!weakDomainNames.length) return all.slice(0, 20);
-    const weak = all.filter((q: any) => weakDomainNames.includes(q.domain?.name));
-    return weak.length > 0 ? weak.slice(0, 20) : all.slice(0, 20);
-  }, [questionsData, weakDomainNames]);
-
-  if (!started) {
+  if (!session) {
     return (
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="max-w-2xl mx-auto">
         <Button variant="ghost" className="mb-6 text-muted-foreground font-mono" onClick={onBack}>
@@ -506,6 +521,10 @@ function WeaknessMode({ certFilter, onBack }: { certFilter: string; onBack: () =
           </div>
           <h2 className="text-2xl font-mono font-bold mb-2">Weakness Targeting</h2>
           <p className="text-muted-foreground mb-4">Tập trung vào các chủ đề bạn hay sai nhất</p>
+
+          {!certFilter && (
+            <p className="text-xs text-warning mb-6">⚠️ Please select a certification in the Hub first.</p>
+          )}
 
           {weakDomainNames.length > 0 && (
             <div className="mb-6">
@@ -520,8 +539,13 @@ function WeaknessMode({ certFilter, onBack }: { certFilter: string; onBack: () =
             </div>
           )}
 
-          <Button className="glow-cyan font-mono" size="lg" onClick={() => setStarted(true)}>
-            <Target className="h-4 w-4 mr-2" /> Start Weakness Training
+          <Button 
+            className="glow-cyan font-mono" size="lg" 
+            onClick={handleStart} 
+            disabled={loading || !certFilter}
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Target className="h-4 w-4 mr-2" />}
+            Start Weakness Training
           </Button>
         </Card>
       </motion.div>
@@ -530,12 +554,12 @@ function WeaknessMode({ certFilter, onBack }: { certFilter: string; onBack: () =
 
   return (
     <PracticeSession
-      questions={filteredQuestions}
+      questions={session.questions}
       modeLabel="Weakness Targeting"
       modeIcon={TrendingDown}
       onBack={onBack}
       onComplete={() => {}}
-      isLoading={isLoading}
+      isLoading={false}
     />
   );
 }
@@ -546,39 +570,13 @@ function DailyReviewMode({ certFilter, onBack }: { certFilter: string; onBack: (
   const [started, setStarted] = useState(false);
   const DAILY_COUNT = 15;
 
-  const { data: questionsData, isLoading } = useQuery({
+  const { data: dueReviews, isLoading } = useQuery({
     queryKey: ['daily-review-questions', certFilter],
-    queryFn: () => getQuestions(certFilter || undefined, 1, 200),
+    queryFn: () => getDueReviews(certFilter || undefined, DAILY_COUNT),
     enabled: started,
   });
 
-  // Spaced repetition simulation: pick a mix of difficulties
-  // Prioritize MEDIUM and HARD questions, shuffle with a date-based seed
-  const dailyQuestions = useMemo(() => {
-    const all = questionsData?.data ?? [];
-    if (!all.length) return [];
-
-    // Deterministic daily seed so same day = same questions
-    const dateStr = new Date().toISOString().slice(0, 10);
-    let seed = 0;
-    for (let i = 0; i < dateStr.length; i++) seed += dateStr.charCodeAt(i) * (i + 1);
-
-    const sorted = [...all].sort((a: any, b: any) => {
-      const da = a.difficulty === 'HARD' ? 0 : a.difficulty === 'MEDIUM' ? 1 : 2;
-      const db = b.difficulty === 'HARD' ? 0 : b.difficulty === 'MEDIUM' ? 1 : 2;
-      return da - db;
-    });
-
-    // Seeded shuffle for top candidates
-    const candidates = sorted.slice(0, Math.min(60, sorted.length));
-    for (let i = candidates.length - 1; i > 0; i--) {
-      seed = (seed * 9301 + 49297) % 233280;
-      const j = seed % (i + 1);
-      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-    }
-
-    return candidates.slice(0, DAILY_COUNT);
-  }, [questionsData]);
+  const dailyQuestions = useMemo(() => (dueReviews ?? []).map(r => r.question), [dueReviews]);
 
   if (!started) {
     return (
@@ -593,7 +591,7 @@ function DailyReviewMode({ certFilter, onBack }: { certFilter: string; onBack: (
           <h2 className="text-2xl font-mono font-bold mb-2">Daily Review</h2>
           <p className="text-muted-foreground mb-2">Ôn tập mỗi ngày theo phương pháp Spaced Repetition</p>
           <p className="text-sm text-muted-foreground mb-6">
-            <span className="text-primary font-mono font-bold">{DAILY_COUNT}</span> câu hỏi được chọn tự động dựa trên mức độ khó và lịch sử ôn tập.
+            Hệ thống tự động chọn các câu hỏi đã đến lịch ôn tập (SRS).
           </p>
 
           <div className="flex items-center justify-center gap-6 mb-6 text-sm">

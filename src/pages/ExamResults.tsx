@@ -9,6 +9,7 @@ import { exportExamResultPDF } from '@/utils/exportPdf';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ExamResult, Question, Certification } from '@/types/exam';
+import { updateMistakeType } from '@/services/analytics';
 
 type FilterType = 'all' | 'correct' | 'wrong' | 'skipped';
 
@@ -360,6 +361,43 @@ const ExamResults = () => {
                             </a>
                           )}
                         </div>
+
+                        {/* Mistake Tagging (only for incorrect) */}
+                        {!qr.correct && qr.selectedAnswers.length > 0 && qr.answerId && (
+                          <div className="pt-2 border-t border-border">
+                            <div className="text-[10px] font-mono font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+                              Why did you miss this? (Self-Reflection)
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { id: 'CONCEPT', label: 'Knowledge Gap' },
+                                { id: 'CARELESS', label: 'Careless' },
+                                { id: 'TRAP', label: 'Trap' },
+                                { id: 'TIME_PRESSURE', label: 'Time' },
+                              ].map((type) => (
+                                <Button
+                                  key={type.id}
+                                  size="sm"
+                                  variant={qr.mistakeType === type.id ? 'default' : 'outline'}
+                                  className="text-[10px] font-mono h-7 px-2"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await updateMistakeType(qr.answerId!, type.id);
+                                      // Local state update would be nice, but for now we trust the backend
+                                      qr.mistakeType = type.id;
+                                      setExpandedIds(new Set(expandedIds)); // Trigger re-render
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }}
+                                >
+                                  {type.label}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Tags */}
                         {q.tags && q.tags.length > 0 && (

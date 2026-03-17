@@ -12,6 +12,7 @@ import { ReportsModule } from './reports/reports.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { TagsModule } from './tags/tags.module';
+import { TrainingModule } from './training/training.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { TagsModule } from './tags/tags.module';
     AnalyticsModule,
     GamificationModule,
     TagsModule,
+    TrainingModule,
   ],
 })
 export class AppModule { }

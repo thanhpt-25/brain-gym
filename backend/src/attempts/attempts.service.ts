@@ -225,12 +225,14 @@ export class AttemptsService {
         if (!attempt) throw new NotFoundException('Attempt not found');
 
         const questionResults = attempt.answers.map(a => ({
+            answerId: a.id,
             questionId: a.questionId,
             title: a.question.title,
             description: a.question.description,
             explanation: a.question.explanation,
             domain: a.question.domain?.name ?? 'Unknown',
             correct: a.isCorrect ?? false,
+            mistakeType: a.mistakeType,
             selectedAnswers: a.selectedChoices,
             correctAnswers: a.question.choices.filter(c => c.isCorrect).map(c => c.id),
             choices: a.question.choices.map(c => ({

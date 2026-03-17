@@ -13,6 +13,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { getCertifications } from '@/services/certifications';
 import {
   getAnalyticsSummary, getAnalyticsHistory, getAnalyticsDomains, getWeakTopics,
+  getReadiness, getMistakePatterns,
   HistoryItem, DomainPerformance,
 } from '@/services/analytics';
 import {
@@ -69,6 +70,18 @@ const Dashboard = () => {
   const { data: weakTopics } = useQuery({
     queryKey: ['analytics-weak', certFilter],
     queryFn: () => getWeakTopics(certFilter || undefined, 8),
+    enabled: isAuthenticated,
+  });
+
+  const { data: readinessData } = useQuery({
+    queryKey: ['readiness', certFilter],
+    queryFn: () => getReadiness(certFilter),
+    enabled: isAuthenticated && !!certFilter,
+  });
+
+  const { data: mistakePatterns } = useQuery({
+    queryKey: ['mistake-patterns', certFilter],
+    queryFn: () => getMistakePatterns(certFilter || undefined),
     enabled: isAuthenticated,
   });
 
@@ -162,8 +175,17 @@ const Dashboard = () => {
 
         {/* Readiness + Mistake Patterns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ReadinessScore summary={summary} domains={domains ?? undefined} weakTopics={weakTopics ?? undefined} />
-          <MistakePatternChart history={history} />
+          <ReadinessScore
+            summary={summary}
+            domains={domains ?? undefined}
+            weakTopics={weakTopics ?? undefined}
+            readiness={readinessData}
+            isCertSelected={!!certFilter}
+          />
+          <MistakePatternChart
+            history={history}
+            patterns={mistakePatterns}
+          />
         </div>
 
         <Tabs defaultValue="trend" className="space-y-6">

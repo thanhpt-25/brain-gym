@@ -71,8 +71,10 @@ export interface ExamResult {
   passed: boolean;
   domainBreakdown: Record<string, { correct: number; total: number }>;
   questionResults: {
+    answerId?: string;
     questionId: string;
     correct: boolean;
+    mistakeType?: string;
     selectedAnswers: string[];
     correctAnswers: string[];
   }[];

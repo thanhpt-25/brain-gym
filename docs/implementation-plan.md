@@ -65,7 +65,7 @@ npm run start:dev
 | Social Sharing | ✅ Full share endpoints | ✅ Full share UI |
 | Exam Builder UI | ✅ Backend ready | ✅ Full create exam page |
 | Exam Library UI | ✅ Backend ready | ✅ Browse exams page |
-| Adaptive Exam | ❌ Schema ready (`isAdaptive`) | ❌ Not started |
+| Adaptive Exam | ✅ Full implementation (Phase 9) | ✅ Training Hub integration |
 | Tags Management | ✅ CRUD + suggestions | ✅ Tags in form + displayed in UI |
 
 ---
@@ -92,45 +92,46 @@ npm run start:dev
 
 ---
 
-## Phase 8 — Advanced Analytics & Readiness Strategy
+## Phase 8 — Advanced Analytics & Readiness Strategy ✅ COMPLETED
 
 > 🟠 **Priority: P1** — Gives users a clear signal of when they are ready to sit the real exam.
 
 ### 8.1 Readiness Scoring Engine (Backend)
-- [ ] Create `backend/src/readiness/` module.
-- [ ] Implement `calculateReadinessScore(userId, certificationId)`:
+- [x] Create `backend/src/readiness/` logic within `AnalyticsModule`.
+- [x] Implement `calculateReadinessScore(userId, certificationId)`:
   - Weight recent exams heavier than older exams.
   - Calculate domain-specific confidence scores.
-- [ ] Expose `GET /analytics/readiness/:certificationId` endpoint.
+- [x] Expose `GET /analytics/readiness/:certificationId` endpoint.
 
 ### 8.2 Mistake Pattern Analytics (Backend)
-- [ ] Extend `Answer` model to track `mistakeType` (e.g., Concept, Careless, Trap, Time Breakdown).
-- [ ] Allow users to self-tag mistakes when reviewing incorrect answers.
-- [ ] Expose `GET /analytics/mistake-patterns`.
+- [x] Extend `Answer` model to track `mistakeType` (Concept, Careless, Trap, Time Pressure).
+- [x] Allow users to self-tag mistakes in Exam Results page.
+- [x] Expose `GET /analytics/mistake-patterns`.
 
 ### 8.3 Readiness Dashboard (Frontend)
-- [ ] Add "Exam Readiness Score" widget to Dashboard.
-- [ ] Show pass probability and specific domains recommended for improvement.
-- [ ] Add "Mistake Pattern" pie chart to help users understand why they fail.
+- [x] Add "Exam Readiness Score" widget to Dashboard (Real data).
+- [x] Show pass probability and focus areas.
+- [x] Add "Mistake Pattern" pie chart to Dashboard.
 
 ---
 
-## Phase 9 — Cognitive Training & Spaced Repetition
+## Phase 9 — Cognitive Training & Spaced Repetition ✅ COMPLETED
 
 > 🟠 **Priority: P1** — Transitions platform from a question bank to a memory reinforcement engine.
 
 ### 9.1 Adaptive Weakness Training (Backend)
-- [ ] Implement `POST /training/weakness/start` — generates a mini-exam focused heavily on user's lowest-scoring domains.
+- [x] Implement `POST /training/weakness/start` — generates adaptive mini-exams.
+- [x] Fixed 400 Bad Request by allowing slug-based `certificationId` and relaxing UUID validation.
 
 ### 9.2 Spaced Repetition System (SRS) (Backend)
-- [ ] Create `ReviewSchedule` model (userId, questionId, nextReviewDate, interval, easeFactor).
-- [ ] Update schedule based on SuperMemo-2 (SM-2) algorithm when a user answers a question in "Study Mode."
-- [ ] `GET /training/due-reviews` — fetch questions due for review today.
+- [x] Create `ReviewSchedule` model (SM-2 algorithm).
+- [x] Update schedule based on SuperMemo-2 when a user answers in Training Hub.
+- [x] `GET /training/due-reviews` — fetch questions due for review.
 
 ### 9.3 Training Modes UI (Frontend)
-- [ ] Add "Weakness Targeting" mode to the application.
-- [ ] Add "Daily Review" (Spaced Repetition) mode to the application.
-- [ ] Track "Daily Streak" to encourage consistency.
+- [x] Implement "Weakness Targeting" mode.
+- [x] Implement "Daily Review" (SRS) mode.
+- [x] Track "Daily Streak" via local store.
 
 ---
 

@@ -64,6 +64,13 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum MistakeType {
+  CONCEPT
+  CARELESS
+  TRAP
+  TIME_PRESSURE
+}
+
 // ==================== MODELS ====================
 
 model User {
@@ -84,6 +91,7 @@ model User {
   votes        Vote[]
   reports      Report[]
   badgeAwards  BadgeAward[]
+  reviewSchedules ReviewSchedule[]
 
   @@map("users")
 }
@@ -151,6 +159,7 @@ model Question {
   comments      Comment[]
   votes         Vote[]
   reports       Report[]
+  reviewSchedules ReviewSchedule[]
 
   @@map("questions")
 }
@@ -256,6 +265,7 @@ model Answer {
   isMarked        Boolean  @default(false) @map("is_marked")
   timeSpent       Int?     @map("time_spent")
   answeredAt      DateTime @default(now()) @map("answered_at")
+  mistakeType     MistakeType? @map("mistake_type")
 
   attempt  ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id])
@@ -333,4 +343,22 @@ model BadgeAward {
 
   @@unique([userId, badgeId])
   @@map("badge_awards")
+}
+
+model ReviewSchedule {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  questionId     String   @map("question_id")
+  nextReviewDate DateTime @map("next_review_date")
+  interval       Int      @default(0)
+  easeFactor     Decimal  @default(2.50) @map("ease_factor") @db.Decimal(4, 2)
+  repetitions    Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@map("review_schedules")
 }
