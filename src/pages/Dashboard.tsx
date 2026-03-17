@@ -22,6 +22,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar,
 } from 'recharts';
 import Navbar from '@/components/Navbar';
+import ReadinessScore from '@/components/dashboard/ReadinessScore';
+import MistakePatternChart from '@/components/dashboard/MistakePatternChart';
 
 const chartConfig = {
   score: { label: 'Score %', color: 'hsl(var(--primary))' },
