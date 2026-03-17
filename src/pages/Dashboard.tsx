@@ -166,7 +166,7 @@ const Dashboard = () => {
           <MistakePatternChart history={history} />
         </div>
 
-
+        <Tabs defaultValue="trend" className="space-y-6">
           <TabsList className="bg-secondary">
             <TabsTrigger value="trend" className="font-mono text-xs">Score Trend</TabsTrigger>
             <TabsTrigger value="weak" className="font-mono text-xs">Weak Topics</TabsTrigger>
