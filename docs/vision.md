@@ -1,301 +1,118 @@
-# Brain Gym — Tầm nhìn sản phẩm
+# Brain Gym Product Vision
 
-> Hãy tưởng tượng hệ thống này như một **"phòng gym cho trí não"**. Người học đến để tập luyện bằng các đề thi mô phỏng, người có kinh nghiệm tạo bài tập cho cộng đồng, còn hệ thống đóng vai huấn luyện viên dữ liệu — theo dõi tiến bộ, chỉ ra điểm yếu, và gợi ý chiến lược học.
+> **"A Training System, Not Just a Question Bank."**
 
-Mục tiêu không chỉ là làm đề. Mục tiêu là tạo ra một **hệ sinh thái luyện thi cộng đồng**.
-
----
-
-## 1. Core Vision
-
-Một nền tảng nơi người dùng có thể:
-
-- Tạo mock exam (MCQ) cho các chứng chỉ quốc tế
-- Chia sẻ đề thi với cộng đồng
-- Luyện thi theo format giống exam thật
-- Phân tích kết quả và tiến bộ
-- Xây dựng knowledge base cộng đồng
-
-### Chứng chỉ target ban đầu
-
-Đây là các exam có điểm chung: **MCQ-based assessment**.
-
-| Provider | Certification |
-|----------|--------------|
-| AWS | Certified Solutions Architect |
-| Microsoft | Azure Fundamentals |
-| Google Cloud | Professional Cloud Architect |
-| PMI | PMP Certification |
-| CNCF | Certified Kubernetes Administrator |
+Imagine a platform that doesn't just ask you questions but acts as a high-performance **"Brain Gym"**. Users don't come just to "do tests"; they come to train their memory, refine their reasoning, and build the mental stamina required for high-stakes certifications.
 
 ---
 
-## 2. Nhóm User
+## 1. Core Philosophy
 
-> Một cộng đồng tri thức sống được khi người tạo nội dung có động lực. StackOverflow đã chứng minh điều đó.
+Brains do not fail exams solely because they lack information. They fail because **memory retrieval**, **situational reasoning**, and **pattern recognition** break down under pressure. 
 
-### 1️⃣ Learner (người luyện thi)
-- Làm mock test
-- Xem giải thích
-- Theo dõi progress
-
-### 2️⃣ Contributor (người tạo đề)
-- Tạo câu hỏi
-- Chia sẻ đề
-- Chỉnh sửa
-
-### 3️⃣ Reviewer / Expert
-- Kiểm duyệt câu hỏi
-- Improve explanation
-- Flag câu sai
-
-### 4️⃣ Admin
-- Quản lý certification
-- Quản lý user
-- Moderation
+Brain Gym is built on three pillars:
+1.  **Knowledge (The Content):** High-quality, community-curated, and AI-enhanced question banks.
+2.  **Stamina (The Simulation):** Fighting "exam fatigue" through realistic, high-pressure simulation.
+3.  **Strategy (The Meta-Game):** Learning *how* vendors think, how to eliminate "traps," and how to manage time.
 
 ---
 
-## 3. Feature Layers
+## 2. Target Audience
 
-### Layer 1 — Question System
-
-Đây là **trái tim** của hệ thống.
-
-**Question Model** — Một câu hỏi gồm:
-- Question title
-- Question description
-- Multiple choices
-- Correct answer(s)
-- Explanation
-- Reference link
-- Difficulty level
-- Tags (ví dụ: `AWS`, `VPC`, `IAM`, `EC2`, `Security`, `Networking`)
-
-**Advanced features:**
-- Multiple correct answers
-- Scenario-based question
-- Image / diagram support
-- Code snippet
-
-> Đặc biệt với cloud exam, scenario question là cực kỳ phổ biến.
+| Persona | Role | Motivation |
+| :--- | :--- | :--- |
+| **The Learner** | Practitioner | Passing the exam on the first try with minimal "waste" study. |
+| **The Contributor** | Expert | Building a reputation, helping the community, and staying sharp. |
+| **The Reviewer** | Senior Expert | Ensuring accuracy, depth, and pedagogical quality. |
+| **The Squad Lead** | Mentor | Leading a group of learners toward a shared goal (New Idea). |
 
 ---
 
-### Layer 2 — Exam Builder
+## 3. The Feature Layers (The "Workout" Modules)
 
-Người dùng có thể tạo Mock Exam với các thuộc tính:
-- Title
-- Certification
-- Number of questions
-- Time limit
-- Difficulty distribution
-- Question pool
+### Layer 1: Adaptive Weakness Training (Personalized Loops)
+Instead of linear sets, the system builds a personalized training loop.
+- **Dynamic Proficiency:** Real-time estimation of knowledge per domain (e.g., VPC: 61%, IAM: 82%).
+- **Edge-of-Competence Learning:** Prioritizing topics just above the user's current comfort zone.
 
-Ví dụ: *AWS SAA Mock Test #1 — 65 questions, 130 minutes*
+### Layer 2: Spaced Repetition Engine (Memory Reinforcement)
+Utilizing the **Ebbinghaus Forgetting Curve** to schedule reviews.
+- Questions you struggle with appear at optimal intervals (1, 3, 7, 21 days) to move information from short-term to long-term memory.
 
-**Visibility options:**
-- Public
-- Private
-- Shared via link
+### Layer 3: Exam Readiness Score (The Pass-Predictor)
+Beyond raw percentages, we provide a "Readiness Score."
+- **Pass Probability:** "You have an 82% chance of passing AWS SAA based on current trends."
+- **Benchmark Analysis:** How you compare to the top 10% of successful candidates.
 
----
+### Layer 4: Scenario Simulation & Architecture Reasoning
+Moving beyond "What service is X?" to "Solve this architecture problem."
+- **Interactive Scenarios:** Multi-paragraph scenarios involving diagrams, logs, and constraints.
+- **Elimination Strategy Training:** Teaching users to spot "distractors" and "marketing-heavy" answers.
 
-### Layer 3 — Exam Simulation Engine
-
-Đây là phần làm cho hệ thống **giống exam thật**.
-
-**Candidate Experience:**
-- Timer countdown
-- Mark question for review
-- Navigate questions
-- Submit exam
-- Review answers
-
-**Sau khi submit** — Hiển thị:
-- Score
-- Correct / incorrect per question
-- Explanation
-- Domain breakdown
-
-```
-Networking: 60%
-Security:   85%
-Storage:    40%
-```
-
-> Người học ngay lập tức biết điểm yếu nằm ở đâu.
+### Layer 5: Time Pressure & Resistance Training
+Athletes train with weights; learners train with time.
+- **Accelerated Mode:** 65 questions in 90 minutes (instead of 130) to build speed and reduce second-guessing.
+- **Burnout Detection (New Idea):** AI monitors response time variance. If you're "zoning out" or rushing, the system suggests a 5-minute mental reset.
 
 ---
 
-### Layer 4 — Result Analytics
+## 4. Advanced "Brain Gym" Innovations (New Ideas)
 
-Một hệ thống luyện thi thông minh phải phân tích dữ liệu.
+### 🚀 Concept: Cross-Certification Knowledge Graph
+Visualizing the overlap between vendors. 
+- *Example:* "You've mastered AWS VPC. You are already 70% of the way to understanding Azure Virtual Networks."
+- Helps users build a "T-shaped" skill set across multiple clouds.
 
-**Dashboard cá nhân:**
-- Exam history
-- Score trend
-- Pass probability
-- Weak topics
-- Most missed questions
+### 🚀 Feature: Trap Question Library
+A dedicated module for "The Worst of the Best."
+- Highlighting questions with two technically correct answers where one is "Best Practice." 
+- Teaches the "Vendor Mindset" (e.g., "The AWS Way" vs. "The Azure Way").
 
-```
-You have 82% chance to pass AWS SAA
-Recommended focus:
-  - Route53
-  - VPC Peering
-```
+### 🚀 Social: Training Squads (Collaborative Learning)
+Learning is lonely; training is better in a team.
+- **Squad Leaderboards:** Compete with a small group (5-10 people) starting the same journey.
+- **Peer Review Challenges:** Users verify each other's explanations to earn "Expert" badges.
 
-> Cộng đồng thường thích kiểu insight này.
+### 🚀 Content: Dynamic Difficulty Scaling (DDS)
+Preventing "Rote Memorization."
+- The system can slightly modify distractors or numerical values in a question so the user must *solve* it again rather than just remembering it was "Option C."
 
----
-
-### Layer 5 — Community Knowledge
-
-Câu hỏi không nên chỉ có đáp án. Một hệ thống tốt cần **discussion layer**.
-
-Mỗi question có:
-- Comment thread
-- Explanation improvement
-- Debate
-
-> Giống cách Stack Overflow vận hành tri thức.
+### 🚀 Experience: Emotional Intelligence (Mental Prep)
+- **Anxiety Management:** Micro-modules on how to handle the "15-minute mark panic."
+- **Exam Day Protocol:** Curated checklists for the 24 hours leading up to the test.
 
 ---
 
-### Layer 6 — Quality Control
+## 5. Technical Ecosystem (The Three Sub-Systems)
 
-User-generated content có vấn đề muôn thuở: **câu hỏi sai**.
-
-**Voting:**
-- Upvote / Downvote
-
-**Report:**
-- Wrong answer
-- Outdated content
-- Duplicate
-
-**Expert verification:**
-- Badge: *Verified by expert*
+1.  **Question Bank System:** The repository of truth. Community-driven, version-controlled, and AI-audited.
+2.  **Simulation Engine:** The "Arena." Zero-distraction UI, exact exam mechanics (Mark for Review, Timer, Domain Breakdown).
+3.  **Analytics & Intelligence:** The "Coach." Translating raw logs into actionable study plans.
 
 ---
 
-### Layer 7 — Gamification
+## 6. The AI Coaching Layer
 
-> Con người thích game hóa. Bộ não thích dopamine.
-
-**Points:**
-- Create question → +10
-- Review question → +5
-
-**Badges:**
-- Exam Creator
-- Cloud Master
-- Top Contributor
-
-**Leaderboard:**
-- Top contributor theo certification
+The future of Brain Gym is an **AI Training Partner** that:
+- **Rewrites Explanations:** Simplifying complex jargon into "ELI5" (Explain Like I'm 5) models.
+- **Detects Semantic Duplicates:** Ensuring the question pool stays lean and high-value.
+- **Behavioral Insights:** "You tend to fail questions read after the 60-minute mark. Let's work on your mid-exam focus."
 
 ---
 
-### Layer 8 — Learning Mode
+## 7. Roadmap & Monetization
 
-Không phải ai cũng muốn làm exam.
+| Phase | Focus |
+| :--- | :--- |
+| **V1: Foundation** | High-quality MCQ, basic analytics, core simulation. |
+| **V2: Intelligence** | Spaced repetition, adaptive training, AI explanations. |
+| **V3: Community** | Training Squads, peer review, expert-led sessions. |
+| **V4: Ecosystem** | Multi-vendor graphs, lab integrations, institutional dashboards. |
 
-**Study Mode:**
-- Random question
-- Immediate answer
-- Explanation ngay lập tức
-
-**Flashcard Mode:**
-- Biến MCQ thành flashcard
-
----
-
-### Layer 9 — AI Assist
-
-**Generate Questions:**
-- User nhập: *"Generate 10 questions about AWS IAM"*
-- AI tạo draft
-
-**Improve Explanation:**
-- AI rewrite explanation cho rõ ràng hơn
-
-**Detect Duplicate Questions:**
-- AI semantic search để phát hiện câu trùng
+**Monetization Strategy:**
+- **Free:** Community-contributed questions & basic simulation.
+- **Premium (Gym Membership):** AI Coaching, Advanced Analytics, "Trap" Library, and Team Squads.
 
 ---
 
-### Layer 10 — Certification Library
-
-Hệ thống cần catalog exam có cấu trúc:
-
-```
-AWS
-  ├── SAA
-  ├── Developer
-  └── DevOps
-Azure
-  ├── AZ-900
-  └── AZ-104
-```
-
-Mỗi certification có:
-- Domains
-- Exam format
-- Passing score
-
----
-
-### Layer 11 — Social Sharing
-
-Người dùng có thể:
-- Share exam result
-- Share mock exam
-- Challenge friends
-
-> *"Can you beat my AWS score?"* — Gamification lại xuất hiện.
-
----
-
-### Layer 12 — Monetization *(optional)*
-
-Một hệ thống cộng đồng có thể kiếm tiền mà vẫn giữ tri thức mở.
-
-| Tier | Features |
-|------|----------|
-| **Free** | Community questions, basic analytics |
-| **Premium** | AI exam generator, advanced analytics, curated exam sets |
-
----
-
-### Layer 13 — Anti-cheat
-
-Một số user muốn memorize exam dumps. Hệ thống cần:
-- Random question order
-- Random answer order
-- Large question pool
-
----
-
-## 4. Kiến trúc tổng quan
-
-> Một hệ thống kiểu này thực chất là **3 hệ thống trong 1**:
-
-| Hệ thống | Vai trò |
-|-----------|---------|
-| **Question Bank System** | Lưu trữ, tạo, kiểm duyệt câu hỏi |
-| **Exam Engine** | Mô phỏng trải nghiệm thi thật |
-| **Learning Analytics** | Phân tích dữ liệu, gợi ý chiến lược |
-
-Nếu một trong ba yếu, toàn bộ trải nghiệm sẽ kém.
-
----
-
-## 5. Ý tưởng nâng cấp — Adaptive Exam
-
-Hệ thống sẽ:
-- Câu đúng → câu **khó hơn**
-- Câu sai → câu **dễ hơn**
-
-> Đây là cách nhiều exam hiện đại hoạt động.
+> *"The goal is not to pass once, but to master the domain forever."*
