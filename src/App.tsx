@@ -39,6 +39,7 @@ const App = () => (
           <Route path="/exams/create" element={<ProtectedRoute><ExamBuilder /></ProtectedRoute>} />
           <Route path="/exams/share/:shareCode" element={<ExamShare />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/training" element={<TrainingHub />} />
           <Route path="/exam-results" element={<ExamResults />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
