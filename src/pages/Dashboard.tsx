@@ -160,7 +160,13 @@ const Dashboard = () => {
           </div>
         )}
 
-        <Tabs defaultValue="trend" className="space-y-6">
+        {/* Readiness + Mistake Patterns */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ReadinessScore summary={summary} domains={domains ?? undefined} weakTopics={weakTopics ?? undefined} />
+          <MistakePatternChart history={history} />
+        </div>
+
+
           <TabsList className="bg-secondary">
             <TabsTrigger value="trend" className="font-mono text-xs">Score Trend</TabsTrigger>
             <TabsTrigger value="weak" className="font-mono text-xs">Weak Topics</TabsTrigger>
