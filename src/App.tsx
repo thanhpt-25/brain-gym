@@ -18,6 +18,7 @@ import AdminPage from "./pages/Admin";
 import ExamLibrary from "./pages/ExamLibrary";
 import ExamBuilder from "./pages/ExamBuilder";
 import ExamShare from "./pages/ExamShare";
+import TrainingHub from "./pages/TrainingHub";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
