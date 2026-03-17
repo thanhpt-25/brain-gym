@@ -1,12 +1,12 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { ExamResult, Question, Certification } from '@/types/exam';
 
-export function exportExamResultPDF(
+export async function exportExamResultPDF(
   result: ExamResult,
   questions: Question[],
   cert: Certification,
 ) {
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const margin = 16;
