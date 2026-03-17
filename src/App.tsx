@@ -18,6 +18,7 @@ import AdminPage from "./pages/Admin";
 import ExamLibrary from "./pages/ExamLibrary";
 import ExamBuilder from "./pages/ExamBuilder";
 import ExamShare from "./pages/ExamShare";
+import TrainingHub from "./pages/TrainingHub";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/exams/create" element={<ProtectedRoute><ExamBuilder /></ProtectedRoute>} />
           <Route path="/exams/share/:shareCode" element={<ExamShare />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/training" element={<TrainingHub />} />
           <Route path="/exam-results" element={<ExamResults />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />

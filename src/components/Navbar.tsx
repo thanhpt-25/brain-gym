@@ -60,6 +60,14 @@ const Navbar = ({ title, showBack }: NavbarProps) => {
             variant="ghost" 
             size="sm" 
             className="hidden sm:flex text-muted-foreground hover:text-foreground" 
+            onClick={() => navigate('/training')}
+          >
+            Training
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="hidden sm:flex text-muted-foreground hover:text-foreground" 
             onClick={() => navigate('/dashboard')}
           >
             Dashboard
