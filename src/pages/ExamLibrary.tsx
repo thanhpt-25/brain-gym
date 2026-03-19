@@ -10,6 +10,8 @@ import { Clock, FileText, Loader2, Plus, Share2, Users, Play, TrendingUp, Copy, 
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
+import Breadcrumb from '@/components/Breadcrumb';
+import { ExamGridSkeleton } from '@/components/PageSkeleton';
 import { useAuthStore } from '@/stores/auth.store';
 
 const ExamLibrary = () => {
