@@ -64,15 +64,16 @@ const ExamLibrary = () => {
       <Navbar title="Exam Library" />
 
       <section className="pt-24 pb-20">
-        <div className="container max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold font-mono bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                Exam Library
-              </h1>
-              <p className="text-muted-foreground mt-1">Browse and take community-created mock exams</p>
-            </div>
+          <div className="container max-w-6xl mx-auto">
+            <Breadcrumb items={[{ label: 'Exams' }]} className="mb-6" />
+            {/* Header */}
+            <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold font-mono text-gradient-cyan">
+                  Exam Library
+                </h1>
+                <p className="text-muted-foreground mt-1">Browse and take community-created mock exams</p>
+              </div>
             {isAuthenticated && (
               <Button className="glow-cyan font-mono" onClick={() => navigate('/exams/create')}>
                 <Plus className="h-4 w-4 mr-1.5" /> Create Exam
