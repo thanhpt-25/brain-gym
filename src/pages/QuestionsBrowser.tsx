@@ -60,7 +60,7 @@ const QuestionsBrowser = () => {
                         {isLoading ? (
                             <QuestionListSkeleton count={4} />
                         ) : questionsData?.data.length === 0 ? (
-                            <div className="text-center py-12 border border-white/10 rounded-xl bg-white/5">
+                            <div className="text-center py-12 border border-border rounded-xl bg-muted/30">
                                 <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
                                 <h3 className="text-lg font-semibold">No questions found</h3>
                                 <p className="text-muted-foreground mt-1">Try selecting a different certification or add some questions.</p>
