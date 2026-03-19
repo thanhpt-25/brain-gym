@@ -3,7 +3,7 @@ import { Certification } from '@/types/exam';
 
 export const getCertifications = async (): Promise<Certification[]> => {
     const response = await api.get<Certification[]>('/certifications');
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
 };
 
 export const getCertificationById = async (id: string): Promise<Certification> => {
