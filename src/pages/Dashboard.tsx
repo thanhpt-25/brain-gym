@@ -23,6 +23,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar,
 } from 'recharts';
 import Navbar from '@/components/Navbar';
+import Breadcrumb from '@/components/Breadcrumb';
+import { StatsSkeleton } from '@/components/PageSkeleton';
 import ReadinessScore from '@/components/dashboard/ReadinessScore';
 import MistakePatternChart from '@/components/dashboard/MistakePatternChart';
 
