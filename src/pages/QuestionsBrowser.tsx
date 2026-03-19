@@ -85,7 +85,7 @@ const QuestionsBrowser = () => {
                                     {q.tags && q.tags.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5 mb-4">
                                             {q.tags.map((t: any) => (
-                                                <span key={t.tagId || t.tag?.id} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-muted-foreground font-mono">
+                                                <span key={t.tagId || t.tag?.id} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
                                                     #{t.tag?.name || t.name}
                                                 </span>
                                             ))}
