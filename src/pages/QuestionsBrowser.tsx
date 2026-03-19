@@ -93,7 +93,7 @@ const QuestionsBrowser = () => {
                                     )}
                                     <div className="space-y-2">
                                         {q.choices?.map((choice) => (
-                                            <div key={choice.id} className={`p-3 rounded-lg border flex gap-3 ${choice.isCorrect ? 'border-green-500/50 bg-green-500/10' : 'border-white/10 bg-white/5'}`}>
+                                            <div key={choice.id} className={`p-3 rounded-lg border flex gap-3 ${choice.isCorrect ? 'border-accent/50 bg-accent/10' : 'border-border bg-muted/30'}`}>
                                                 <span className="font-mono text-muted-foreground uppercase">{choice.label}.</span>
                                                 <span>{choice.content}</span>
                                             </div>
