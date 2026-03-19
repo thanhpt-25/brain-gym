@@ -43,7 +43,7 @@ const QuestionsBrowser = () => {
 
                         <div className="flex w-full md:w-auto gap-4">
                             <Select value={certId} onValueChange={(val) => { setCertId(val === 'all' ? '' : val); setPage(1); }}>
-                                <SelectTrigger className="w-[200px] border-white/10 bg-white/5">
+                                <SelectTrigger className="w-[200px] border-border bg-muted/50">
                                     <SelectValue placeholder="All Certifications" />
                                 </SelectTrigger>
                                 <SelectContent>
