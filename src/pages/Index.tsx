@@ -6,7 +6,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Brain, Zap, BarChart3, Users, Target, BookOpen, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CertificationCard from '@/components/CertificationCard';
+import { CardSkeleton } from '@/components/PageSkeleton';
 import { useAuthStore } from '@/stores/auth.store';
+import { fallbackCertifications } from '@/data/fallbackCertifications';
 import Navbar from '@/components/Navbar';
 
 const features = [
