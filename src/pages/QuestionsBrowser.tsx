@@ -58,7 +58,7 @@ const QuestionsBrowser = () => {
 
                     <div className="space-y-4">
                         {isLoading ? (
-                            <div className="text-center py-12 text-muted-foreground">Loading questions...</div>
+                            <QuestionListSkeleton count={4} />
                         ) : questionsData?.data.length === 0 ? (
                             <div className="text-center py-12 border border-white/10 rounded-xl bg-white/5">
                                 <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />

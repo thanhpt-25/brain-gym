@@ -107,9 +107,8 @@ const ExamLibrary = () => {
           </div>
 
           {/* Exam Grid */}
-          {isLoading ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" /> Loading exams...
+            {isLoading ? (
+              <ExamGridSkeleton count={6} />
             </div>
           ) : examsData?.data.length === 0 ? (
             <div className="text-center py-16 border border-white/10 rounded-xl bg-white/5">
