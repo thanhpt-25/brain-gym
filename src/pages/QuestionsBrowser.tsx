@@ -34,9 +34,10 @@ const QuestionsBrowser = () => {
 
             <section className="pt-32 pb-20">
                 <div className="container max-w-5xl mx-auto">
+                    <Breadcrumb items={[{ label: 'Questions' }]} className="mb-6" />
                     <div className="mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold font-mono bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Question Bank</h1>
+                            <h1 className="text-3xl font-bold font-mono text-gradient-cyan">Question Bank</h1>
                             <p className="text-muted-foreground mt-2">Browse and practice individual questions.</p>
                         </div>
 
