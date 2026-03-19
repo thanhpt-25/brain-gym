@@ -23,6 +23,8 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, BarChart, Bar,
 } from 'recharts';
 import Navbar from '@/components/Navbar';
+import Breadcrumb from '@/components/Breadcrumb';
+import { StatsSkeleton } from '@/components/PageSkeleton';
 import ReadinessScore from '@/components/dashboard/ReadinessScore';
 import MistakePatternChart from '@/components/dashboard/MistakePatternChart';
 
@@ -115,6 +117,8 @@ const Dashboard = () => {
       <Navbar title="Dashboard" />
 
       <div className="container pt-24 pb-16 space-y-8">
+        <Breadcrumb items={[{ label: 'Dashboard' }]} className="mb-2" />
+
         {/* Cert filter */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
@@ -140,9 +144,7 @@ const Dashboard = () => {
 
         {/* Stats overview */}
         {summaryLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
+          <StatsSkeleton count={4} />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[

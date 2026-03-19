@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthStore } from '@/stores/auth.store';
 import Navbar from '@/components/Navbar';
+import Breadcrumb from '@/components/Breadcrumb';
+import { QuestionListSkeleton } from '@/components/PageSkeleton';
 
 const QuestionsBrowser = () => {
     const navigate = useNavigate();
@@ -32,15 +34,16 @@ const QuestionsBrowser = () => {
 
             <section className="pt-32 pb-20">
                 <div className="container max-w-5xl mx-auto">
+                    <Breadcrumb items={[{ label: 'Questions' }]} className="mb-6" />
                     <div className="mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold font-mono bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">Question Bank</h1>
+                            <h1 className="text-3xl font-bold font-mono text-gradient-cyan">Question Bank</h1>
                             <p className="text-muted-foreground mt-2">Browse and practice individual questions.</p>
                         </div>
 
                         <div className="flex w-full md:w-auto gap-4">
                             <Select value={certId} onValueChange={(val) => { setCertId(val === 'all' ? '' : val); setPage(1); }}>
-                                <SelectTrigger className="w-[200px] border-white/10 bg-white/5">
+                                <SelectTrigger className="w-[200px] border-border bg-muted/50">
                                     <SelectValue placeholder="All Certifications" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -55,9 +58,9 @@ const QuestionsBrowser = () => {
 
                     <div className="space-y-4">
                         {isLoading ? (
-                            <div className="text-center py-12 text-muted-foreground">Loading questions...</div>
+                            <QuestionListSkeleton count={4} />
                         ) : questionsData?.data.length === 0 ? (
-                            <div className="text-center py-12 border border-white/10 rounded-xl bg-white/5">
+                            <div className="text-center py-12 border border-border rounded-xl bg-muted/30">
                                 <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
                                 <h3 className="text-lg font-semibold">No questions found</h3>
                                 <p className="text-muted-foreground mt-1">Try selecting a different certification or add some questions.</p>
@@ -66,14 +69,14 @@ const QuestionsBrowser = () => {
                             questionsData?.data.map((q) => (
                                 <div
                                     key={q.id}
-                                    className="p-6 rounded-xl border border-white/10 bg-white/5 hover:border-primary/50 transition-colors cursor-pointer"
+                                    className="p-6 rounded-xl border border-border bg-card/50 hover:border-primary/50 transition-colors cursor-pointer"
                                     onClick={() => navigate(`/questions/${q.id}`)}
                                 >
                                     <div className="flex gap-2 mb-3">
                                         <span className="px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-mono">
                                             {q.difficulty}
                                         </span>
-                                        <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-gray-300 text-xs font-mono">
+                                        <span className="px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-mono">
                                             {q.certificationId}
                                         </span>
                                     </div>
@@ -82,7 +85,7 @@ const QuestionsBrowser = () => {
                                     {q.tags && q.tags.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5 mb-4">
                                             {q.tags.map((t: any) => (
-                                                <span key={t.tagId || t.tag?.id} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-muted-foreground font-mono">
+                                                <span key={t.tagId || t.tag?.id} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
                                                     #{t.tag?.name || t.name}
                                                 </span>
                                             ))}
@@ -90,7 +93,7 @@ const QuestionsBrowser = () => {
                                     )}
                                     <div className="space-y-2">
                                         {q.choices?.map((choice) => (
-                                            <div key={choice.id} className={`p-3 rounded-lg border flex gap-3 ${choice.isCorrect ? 'border-green-500/50 bg-green-500/10' : 'border-white/10 bg-white/5'}`}>
+                                            <div key={choice.id} className={`p-3 rounded-lg border flex gap-3 ${choice.isCorrect ? 'border-accent/50 bg-accent/10' : 'border-border bg-muted/30'}`}>
                                                 <span className="font-mono text-muted-foreground uppercase">{choice.label}.</span>
                                                 <span>{choice.content}</span>
                                             </div>

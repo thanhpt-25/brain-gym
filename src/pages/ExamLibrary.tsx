@@ -10,6 +10,8 @@ import { Clock, FileText, Loader2, Plus, Share2, Users, Play, TrendingUp, Copy, 
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
+import Breadcrumb from '@/components/Breadcrumb';
+import { ExamGridSkeleton } from '@/components/PageSkeleton';
 import { useAuthStore } from '@/stores/auth.store';
 
 const ExamLibrary = () => {
@@ -63,10 +65,11 @@ const ExamLibrary = () => {
 
       <section className="pt-24 pb-20">
         <div className="container max-w-6xl mx-auto">
+          <Breadcrumb items={[{ label: 'Exams' }]} className="mb-6" />
           {/* Header */}
           <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold font-mono bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+              <h1 className="text-3xl font-bold font-mono text-gradient-cyan">
                 Exam Library
               </h1>
               <p className="text-muted-foreground mt-1">Browse and take community-created mock exams</p>
@@ -81,7 +84,7 @@ const ExamLibrary = () => {
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-6">
             <Select value={certId || 'all'} onValueChange={v => { setCertId(v === 'all' ? '' : v); setPage(1); }}>
-              <SelectTrigger className="w-[200px] border-white/10 bg-white/5">
+              <SelectTrigger className="w-[200px] border-border bg-muted/50">
                 <SelectValue placeholder="All Certifications" />
               </SelectTrigger>
               <SelectContent>
@@ -93,7 +96,7 @@ const ExamLibrary = () => {
             </Select>
 
             <Select value={sort} onValueChange={v => { setSort(v as any); setPage(1); }}>
-              <SelectTrigger className="w-[150px] border-white/10 bg-white/5">
+              <SelectTrigger className="w-[150px] border-border bg-muted/50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -105,11 +108,9 @@ const ExamLibrary = () => {
 
           {/* Exam Grid */}
           {isLoading ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" /> Loading exams...
-            </div>
+            <ExamGridSkeleton count={6} />
           ) : examsData?.data.length === 0 ? (
-            <div className="text-center py-16 border border-white/10 rounded-xl bg-white/5">
+            <div className="text-center py-16 border border-border rounded-xl bg-muted/30">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
               <h3 className="text-lg font-semibold">No exams found</h3>
               <p className="text-muted-foreground mt-1">Be the first to create one!</p>
