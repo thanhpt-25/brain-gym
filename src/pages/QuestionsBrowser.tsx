@@ -69,7 +69,7 @@ const QuestionsBrowser = () => {
                             questionsData?.data.map((q) => (
                                 <div
                                     key={q.id}
-                                    className="p-6 rounded-xl border border-white/10 bg-white/5 hover:border-primary/50 transition-colors cursor-pointer"
+                                    className="p-6 rounded-xl border border-border bg-card/50 hover:border-primary/50 transition-colors cursor-pointer"
                                     onClick={() => navigate(`/questions/${q.id}`)}
                                 >
                                     <div className="flex gap-2 mb-3">
