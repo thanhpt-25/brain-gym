@@ -107,12 +107,12 @@ const Index = () => {
             <h2 className="text-3xl font-bold font-mono mb-3">Certification Library</h2>
             <p className="text-muted-foreground">Chọn chứng chỉ và bắt đầu luyện tập</p>
           </motion.div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             {isLoading ? (
-              <div className="col-span-full text-center py-10 text-muted-foreground">Loading certifications...</div>
-            ) : error ? (
-              <div className="col-span-full text-center py-10 text-destructive">Failed to load certifications</div>
-            ) : certifications?.map((cert, i) => (
+              <CardSkeleton count={6} />
+            ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {(certifications && certifications.length > 0 ? certifications : fallbackCertifications).map((cert, i) => (
               <motion.div
                 key={cert.id}
                 initial={{ opacity: 0, y: 20 }}
