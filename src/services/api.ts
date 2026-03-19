@@ -26,6 +26,11 @@ api.interceptors.request.use(
 // Response Interceptor: Handle 401 and Refresh Token
 api.interceptors.response.use(
     (response) => {
+        // Guard against non-JSON responses (e.g. SPA fallback HTML when backend is down)
+        const ct = response.headers?.['content-type'] || '';
+        if (ct.includes('text/html')) {
+            return Promise.reject(new Error('Backend unavailable'));
+        }
         return response;
     },
     async (error) => {
