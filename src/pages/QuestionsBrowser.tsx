@@ -76,7 +76,7 @@ const QuestionsBrowser = () => {
                                         <span className="px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-mono">
                                             {q.difficulty}
                                         </span>
-                                        <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-gray-300 text-xs font-mono">
+                                        <span className="px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-mono">
                                             {q.certificationId}
                                         </span>
                                     </div>
