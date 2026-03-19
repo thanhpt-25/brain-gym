@@ -111,7 +111,7 @@ const ExamLibrary = () => {
             <ExamGridSkeleton count={6} />
             </div>
           ) : examsData?.data.length === 0 ? (
-            <div className="text-center py-16 border border-white/10 rounded-xl bg-white/5">
+            <div className="text-center py-16 border border-border rounded-xl bg-muted/30">
               <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-50" />
               <h3 className="text-lg font-semibold">No exams found</h3>
               <p className="text-muted-foreground mt-1">Be the first to create one!</p>
