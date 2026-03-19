@@ -123,6 +123,8 @@ const Index = () => {
                 <CertificationCard cert={cert} onClick={() => navigate(`/exam/${cert.id}`)} />
               </motion.div>
             ))}
+            </div>
+            )}
           </div>
         </div>
       </section>
