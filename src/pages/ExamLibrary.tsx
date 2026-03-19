@@ -64,16 +64,16 @@ const ExamLibrary = () => {
       <Navbar title="Exam Library" />
 
       <section className="pt-24 pb-20">
-          <div className="container max-w-6xl mx-auto">
-            <Breadcrumb items={[{ label: 'Exams' }]} className="mb-6" />
-            {/* Header */}
-            <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold font-mono text-gradient-cyan">
-                  Exam Library
-                </h1>
-                <p className="text-muted-foreground mt-1">Browse and take community-created mock exams</p>
-              </div>
+        <div className="container max-w-6xl mx-auto">
+          <Breadcrumb items={[{ label: 'Exams' }]} className="mb-6" />
+          {/* Header */}
+          <div className="mb-8 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold font-mono text-gradient-cyan">
+                Exam Library
+              </h1>
+              <p className="text-muted-foreground mt-1">Browse and take community-created mock exams</p>
+            </div>
             {isAuthenticated && (
               <Button className="glow-cyan font-mono" onClick={() => navigate('/exams/create')}>
                 <Plus className="h-4 w-4 mr-1.5" /> Create Exam
@@ -84,7 +84,7 @@ const ExamLibrary = () => {
           {/* Filters */}
           <div className="flex flex-wrap gap-3 mb-6">
             <Select value={certId || 'all'} onValueChange={v => { setCertId(v === 'all' ? '' : v); setPage(1); }}>
-              <SelectTrigger className="w-[200px] border-white/10 bg-white/5">
+              <SelectTrigger className="w-[200px] border-border bg-muted/50">
                 <SelectValue placeholder="All Certifications" />
               </SelectTrigger>
               <SelectContent>
@@ -96,7 +96,7 @@ const ExamLibrary = () => {
             </Select>
 
             <Select value={sort} onValueChange={v => { setSort(v as any); setPage(1); }}>
-              <SelectTrigger className="w-[150px] border-white/10 bg-white/5">
+              <SelectTrigger className="w-[150px] border-border bg-muted/50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -107,8 +107,8 @@ const ExamLibrary = () => {
           </div>
 
           {/* Exam Grid */}
-            {isLoading ? (
-              <ExamGridSkeleton count={6} />
+          {isLoading ? (
+            <ExamGridSkeleton count={6} />
             </div>
           ) : examsData?.data.length === 0 ? (
             <div className="text-center py-16 border border-white/10 rounded-xl bg-white/5">
