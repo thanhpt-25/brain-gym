@@ -13,6 +13,7 @@ export interface Flashcard {
 export function questionsToFlashcards(questions: Question[]): Flashcard[] {
   return questions.map(q => {
     const correct = q.choices.find(c => c.isCorrect);
+    const tagStrings = (q.tags ?? []).map(t => typeof t === 'string' ? t : (t as any)?.tag?.name ?? (t as any)?.name ?? String(t));
     return {
       id: q.id,
       front: q.title,
