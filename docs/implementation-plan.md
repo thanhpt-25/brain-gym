@@ -165,7 +165,7 @@ npm run start:dev
 - [ ] "Skill Translation" UI showing how close a user is to secondary certs.
 
 ### 11.3 AI Coaching Integration
-- [ ] Integrate OpenAI/Anthropic API for `POST /questions/ai-review`.
+- [ ] Integrate with personal NotebookLM
 - [ ] Coach feature: automatically suggest simplifications for dense explanations.
 - [ ] Dynamic Difficulty Scaling (DDS): AI tweaks question numbers/details slightly on retries.
 
