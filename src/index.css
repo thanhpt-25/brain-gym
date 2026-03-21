@@ -67,6 +67,13 @@
     @apply bg-background text-foreground antialiased;
   }
 
+  /* Bottom tab bar spacing on mobile */
+  @media (max-width: 767px) {
+    body {
+      padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+    }
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'JetBrains Mono', monospace;
   }
