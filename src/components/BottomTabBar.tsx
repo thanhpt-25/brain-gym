@@ -1,12 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Target, Dumbbell, BarChart3, Trophy } from 'lucide-react';
+import { BookOpen, Target, Dumbbell, Layers, BarChart3 } from 'lucide-react';
 
 const tabs = [
   { label: 'Questions', href: '/questions', icon: BookOpen },
   { label: 'Exams', href: '/exams', icon: Target },
   { label: 'Training', href: '/training', icon: Dumbbell },
+  { label: 'Cards', href: '/flashcards', icon: Layers },
   { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-  { label: 'Board', href: '/leaderboard', icon: Trophy },
 ];
 
 const BottomTabBar = () => {
