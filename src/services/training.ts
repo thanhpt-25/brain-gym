@@ -1,16 +1,7 @@
 import api from './api';
-import { Question } from '../types/exam';
+import { ReviewSchedule } from '@/types/api-types';
 
-export interface ReviewSchedule {
-  id: string;
-  userId: string;
-  questionId: string;
-  nextReviewDate: string;
-  interval: number;
-  easeFactor: number;
-  repetitions: number;
-  question: Question;
-}
+export type { ReviewSchedule };
 
 export const startWeaknessTraining = async (certificationId: string, questionCount = 10): Promise<any> => {
   const response = await api.post('/training/weakness/start', { certificationId, questionCount });

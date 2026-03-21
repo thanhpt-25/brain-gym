@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers } from 'lucide-react';
+import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/auth.store';
@@ -10,18 +10,19 @@ import { getMyPoints } from '@/services/gamification';
 interface NavbarProps {
   title?: string;
   showBack?: boolean;
+  icon?: React.ElementType;
 }
 
 const navLinks = [
   { label: 'Questions', href: '/questions', icon: BookOpen },
   { label: 'Exams', href: '/exams', icon: Target },
   { label: 'Training', href: '/training', icon: Dumbbell },
-  { label: 'Flashcards', href: '/flashcards', icon: Layers },
+  { label: 'Flashcards', href: '/decks', icon: Layers },
   { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];
 
-const Navbar = ({ title, showBack }: NavbarProps) => {
+const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -47,7 +48,7 @@ const Navbar = ({ title, showBack }: NavbarProps) => {
         {/* Left: Logo */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-            <Brain className="h-6 w-6 text-primary" />
+            <LogoIcon className="h-6 w-6 text-primary" />
             <span className="font-mono text-lg font-bold text-gradient-cyan hidden sm:inline">
               {title || 'CertGym'}
             </span>

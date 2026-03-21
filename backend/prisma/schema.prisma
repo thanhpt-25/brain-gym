@@ -71,6 +71,18 @@ enum MistakeType {
   TIME_PRESSURE
 }
 
+enum FlashcardSource {
+  MANUAL
+  EXAM_CAPTURE
+}
+
+enum FlashcardMastery {
+  NEW
+  LEARNING
+  REVIEW
+  MASTERED
+}
+
 // ==================== MODELS ====================
 
 model User {
@@ -92,6 +104,9 @@ model User {
   reports      Report[]
   badgeAwards  BadgeAward[]
   reviewSchedules ReviewSchedule[]
+  decks                      Deck[]
+  flashcardReviewSchedules   FlashcardReviewSchedule[]
+  capturedWords              CapturedWord[]
 
   @@map("users")
 }
@@ -110,6 +125,7 @@ model Certification {
   questions Question[]
   exams     Exam[]
   tags      Tag[]
+  decks     Deck[]
 
   @@map("certifications")
 }
@@ -160,6 +176,7 @@ model Question {
   votes         Vote[]
   reports       Report[]
   reviewSchedules ReviewSchedule[]
+  capturedWords CapturedWord[]
 
   @@map("questions")
 }
@@ -252,6 +269,7 @@ model ExamAttempt {
   user    User     @relation(fields: [userId], references: [id])
   exam    Exam     @relation(fields: [examId], references: [id])
   answers Answer[]
+  capturedWords CapturedWord[]
 
   @@map("exam_attempts")
 }
@@ -361,4 +379,74 @@ model ReviewSchedule {
 
   @@unique([userId, questionId])
   @@map("review_schedules")
+}
+
+model Deck {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  name            String
+  description     String?
+  certificationId String?  @map("certification_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certification Certification? @relation(fields: [certificationId], references: [id])
+  flashcards    Flashcard[]
+
+  @@map("decks")
+}
+
+model Flashcard {
+  id        String          @id @default(uuid())
+  deckId    String          @map("deck_id")
+  front     String
+  back      String
+  hint      String?
+  tags      String[]        @default([])
+  source    FlashcardSource @default(MANUAL)
+  isStarred Boolean         @default(false) @map("is_starred")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  deck     Deck                      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  schedule FlashcardReviewSchedule?
+
+  @@map("flashcards")
+}
+
+model FlashcardReviewSchedule {
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  flashcardId    String           @unique @map("flashcard_id")
+  nextReviewDate DateTime         @map("next_review_date")
+  interval       Int              @default(0)
+  easeFactor     Decimal          @default(2.50) @map("ease_factor") @db.Decimal(4, 2)
+  repetitions    Int              @default(0)
+  mastery        FlashcardMastery @default(NEW)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flashcard Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, flashcardId])
+  @@map("flashcard_review_schedules")
+}
+
+model CapturedWord {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  word            String
+  context         String?
+  examAttemptId   String?  @map("exam_attempt_id")
+  questionId      String?  @map("question_id")
+  status          String   @default("pending")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examAttempt ExamAttempt? @relation(fields: [examAttemptId], references: [id])
+  question    Question?    @relation(fields: [questionId], references: [id])
+
+  @@map("captured_words")
 }

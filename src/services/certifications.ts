@@ -1,5 +1,5 @@
 import api from './api';
-import { Certification } from '@/types/exam';
+import { Certification } from '@/types/api-types';
 
 export const getCertifications = async (): Promise<Certification[]> => {
     const response = await api.get<Certification[]>('/certifications');

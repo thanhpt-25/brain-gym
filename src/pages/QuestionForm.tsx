@@ -11,8 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Brain, ArrowLeft, Save, Eye, Plus, X, CheckCircle2, XCircle, Tag, Sparkles } from 'lucide-react';
+import { Brain, ArrowLeft, Save, Eye, Plus, X, Tag, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { LivePreview } from '@/components/questions/LivePreview';
 
 interface ChoiceInput {
   label: string;
@@ -386,113 +387,19 @@ export default function QuestionForm() {
 
           {/* PREVIEW */}
           {showPreview && (
-            <div className="hidden lg:block">
-              <div className="sticky top-20 space-y-4">
-                <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  <Eye className="inline w-3 h-3 mr-1" /> Live Preview
-                </div>
-
-                <motion.div
-                  className="glass-card p-6"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      {difficulty && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${difficultyColor(difficulty)}`}>
-                          {difficulty}
-                        </span>
-                      )}
-                      {selectedCert && (
-                        <span className="text-xs text-muted-foreground">{selectedCert.icon} {selectedCert.code}</span>
-                      )}
-                      {domainId && domains.find(d => d.id === domainId) && (
-                        <span className="text-xs text-muted-foreground">· {domains.find(d => d.id === domainId)?.name}</span>
-                      )}
-                    </div>
-                    {questionType === QuestionType.MULTIPLE && (
-                      <span className="text-xs text-primary font-mono">MULTI</span>
-                    )}
-                  </div>
-
-                  {/* Question */}
-                  <h2 className="text-base font-medium mb-1">
-                    {title || <span className="text-muted-foreground italic">Nội dung câu hỏi...</span>}
-                  </h2>
-                  {description && (
-                    <p className="text-sm text-muted-foreground mb-4">{description}</p>
-                  )}
-
-                  {/* Choices */}
-                  <div className="space-y-2 mt-4">
-                    {choices.map(choice => (
-                      <div
-                        key={choice.label}
-                        className={`p-3 rounded-lg border text-sm transition-all ${
-                          choice.isCorrect
-                            ? 'border-accent/40 bg-accent/5'
-                            : 'border-border bg-secondary/50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {choice.isCorrect ? (
-                            <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
-                          ) : (
-                            <span className="w-4 h-4 rounded border border-border shrink-0" />
-                          )}
-                          <span className="font-mono font-semibold text-muted-foreground mr-1">{choice.label.toUpperCase()}.</span>
-                          {choice.content || <span className="text-muted-foreground italic">...</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Explanation */}
-                  {explanation && (
-                    <div className="mt-5 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                      <div className="text-xs font-mono font-semibold text-primary mb-1">Explanation</div>
-                      <p className="text-xs text-muted-foreground">{explanation}</p>
-                      {referenceUrl && (
-                        <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline mt-1 inline-block">
-                          Reference →
-                        </a>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-4">
-                      {tags.map(tag => (
-                        <span key={tag} className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground font-mono">{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-
-                {/* Stats */}
-                <div className="glass-card p-4 text-xs text-muted-foreground space-y-1.5">
-                  <div className="flex justify-between">
-                    <span>Choices</span>
-                    <span className="font-mono">{choices.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Correct answers</span>
-                    <span className="font-mono text-accent">{choices.filter(c => c.isCorrect).length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tags</span>
-                    <span className="font-mono">{tags.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Has explanation</span>
-                    <span className="font-mono">{explanation ? '✓' : '✗'}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <LivePreview
+              difficulty={difficulty as Difficulty | ''}
+              selectedCert={selectedCert}
+              domainId={domainId}
+              domains={domains}
+              questionType={questionType}
+              title={title}
+              description={description}
+              choices={choices}
+              explanation={explanation}
+              referenceUrl={referenceUrl}
+              tags={tags}
+            />
           )}
         </div>
       </div>

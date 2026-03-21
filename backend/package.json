@@ -82,6 +82,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
+    "moduleNameMapper": {
+      "^uuid$": "uuid"
+    },
     "testEnvironment": "node"
   }
 }

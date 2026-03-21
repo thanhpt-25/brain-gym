@@ -43,6 +43,7 @@ npm run start:dev
 | **User Management (BE)** | `GET /users` (admin, searchable), `PUT /users/:id/role` (admin), `PUT /users/me` (profile), `GET /users/:id` (public profile with badges) |
 | **Admin Panel (FE)** | `/admin` page with Users tab (role editing), Moderation tab (approve/reject queue), Reports tab (resolve/dismiss) |
 | **Gamification (BE)** | Points system (+10 create question, +5 vote, +3 complete exam), auto-badge awards, `GET /leaderboard`, `GET /badges`, `GET /users/:id/badges`, `GET /me/points` |
+| **Flashcards (BE/FE)** | Full SRS Flashcard system with decks, in-exam word capture, and training hub integration |
 | **Leaderboard (FE)** | Real API-driven leaderboard with global (by points) and per-cert (by best score) modes, podium + table |
 | **Infrastructure** | Docker Compose (PostgreSQL + Redis), Prisma migrations, Swagger docs |
 
@@ -171,6 +172,20 @@ npm run start:dev
 
 ---
 
+## Phase 12 — Flashcards & In-Exam Smart Capture ✅ COMPLETED
+
+> 🟠 **Priority: P1** — Bridges the gap between exam-taking and vocabulary/concept memorization.
+
+- [x] Backend: Create `Deck`, `Flashcard`, `CapturedWord` models.
+- [x] Backend: Implement SRS logic for custom flashcards (SM-2 parallel).
+- [x] Backend: Create `CaptureModule` for in-exam words.
+- [x] Frontend: Implement Deck Management & Flashcard Creator UI.
+- [x] Frontend: Implement In-Exam Text Selection & Capture UX.
+- [x] Frontend: Create Capture Processing Queue.
+- [x] Integration: Show due flashcards in Training Hub & Dashboard.
+
+---
+
 ## Summary
 
 | Phase | Focus | Priority | Est. Effort |
@@ -181,3 +196,5 @@ npm run start:dev
 | **Phase 9** | Cognitive Training & Spaced Repetition | 🟠 P1 | Large |
 | **Phase 10** | High-Pressure Simulation & Exam Tactics | 🟡 P2 | Medium |
 | **Phase 11** | Social Squads & AI Coaching | 🔵 P3 | Large |
+| **Phase 12** | Flashcards & Word Capture | ✅ Done | Large |
+

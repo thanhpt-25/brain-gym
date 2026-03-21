@@ -1,72 +1,81 @@
-/**
- * Lightweight daily streak tracker using localStorage.
- * Streak increments when user completes at least 1 training session per day.
- */
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-const STREAK_KEY = 'certgym_streak';
-
-interface StreakData {
+interface StreakState {
   currentStreak: number;
   longestStreak: number;
   lastActiveDate: string; // YYYY-MM-DD
   totalDaysActive: number;
+  recordActivity: () => void;
+  checkStreak: () => void;
 }
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+const today = (): string => new Date().toISOString().slice(0, 10);
 
-function load(): StreakData {
-  try {
-    const raw = localStorage.getItem(STREAK_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return { currentStreak: 0, longestStreak: 0, lastActiveDate: '', totalDaysActive: 0 };
-}
+export const useStreakStore = create<StreakState>()(
+  persist(
+    (set, get) => ({
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActiveDate: '',
+      totalDaysActive: 0,
 
-function save(data: StreakData) {
-  localStorage.setItem(STREAK_KEY, JSON.stringify(data));
-}
+      checkStreak: () => {
+        const { lastActiveDate, currentStreak } = get();
+        if (!lastActiveDate) return;
 
-/** Call when user completes a training session. Returns updated streak data. */
-export function recordActivity(): StreakData {
-  const data = load();
-  const t = today();
+        const t = today();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
-  if (data.lastActiveDate === t) return data; // already recorded today
+        if (lastActiveDate !== t && lastActiveDate < yesterdayStr) {
+          // Streak broken
+          if (currentStreak > 0) {
+            set({ currentStreak: 0 });
+          }
+        }
+      },
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+      recordActivity: () => {
+        const state = get();
+        const t = today();
 
-  if (data.lastActiveDate === yesterdayStr) {
-    data.currentStreak += 1;
-  } else {
-    data.currentStreak = 1;
-  }
+        if (state.lastActiveDate === t) return; // already recorded today
 
-  data.lastActiveDate = t;
-  data.totalDaysActive += 1;
-  data.longestStreak = Math.max(data.longestStreak, data.currentStreak);
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().slice(0, 10);
 
-  save(data);
-  return data;
-}
+        const newStreak = state.lastActiveDate === yesterdayStr ? state.currentStreak + 1 : 1;
 
-/** Get current streak data without modifying it. */
-export function getStreakData(): StreakData {
-  const data = load();
-  const t = today();
-
-  // If last active was before yesterday, streak is broken
-  if (data.lastActiveDate && data.lastActiveDate !== t) {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (data.lastActiveDate < yesterday.toISOString().slice(0, 10)) {
-      data.currentStreak = 0;
-      save(data);
+        set({
+          currentStreak: newStreak,
+          longestStreak: Math.max(state.longestStreak, newStreak),
+          lastActiveDate: t,
+          totalDaysActive: state.totalDaysActive + 1,
+        });
+      },
+    }),
+    {
+      name: 'certgym-streak-storage',
     }
-  }
+  )
+);
 
-  return data;
+// Backward compatible shims for existing code
+export function recordActivity() {
+  useStreakStore.getState().recordActivity();
+  return getStreakData();
+}
+
+export function getStreakData() {
+  useStreakStore.getState().checkStreak();
+  const state = useStreakStore.getState();
+  return {
+    currentStreak: state.currentStreak,
+    longestStreak: state.longestStreak,
+    lastActiveDate: state.lastActiveDate,
+    totalDaysActive: state.totalDaysActive,
+  };
 }

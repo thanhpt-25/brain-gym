@@ -2,9 +2,14 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
-import { AttemptStatus } from '@prisma/client';
+import { AttemptStatus, Prisma } from '@prisma/client';
 import { GamificationService, POINTS } from '../gamification/gamification.service';
 import { ExamsService } from '../exams/exams.service';
+import { AttemptResultResponse, QuestionResultResponse } from './dto/attempt-result.dto';
+
+interface QuestionWithChoices extends Prisma.QuestionGetPayload<{
+    include: { choices: true, domain: true }
+}> {}
 
 @Injectable()
 export class AttemptsService {
@@ -91,27 +96,40 @@ export class AttemptsService {
             throw new BadRequestException('Attempt already submitted');
         }
 
+        const question = await this.prisma.question.findUnique({
+            where: { id: dto.questionId },
+            include: { choices: true },
+        });
+
+        if (!question) throw new NotFoundException('Question not found');
+
+        const correctChoices = question.choices.filter(c => c.isCorrect).map(c => c.id);
+        const isCorrect = correctChoices.length === dto.selectedChoices.length &&
+            correctChoices.every(id => dto.selectedChoices.includes(id));
+
+        const existing = await this.prisma.answer.findFirst({
+            where: { attemptId, questionId: dto.questionId },
+            select: { id: true },
+        });
+
         return this.prisma.answer.upsert({
-            where: {
-                id: (await this.prisma.answer.findFirst({
-                    where: { attemptId, questionId: dto.questionId },
-                    select: { id: true },
-                }))?.id ?? '',
-            },
+            where: { id: existing?.id ?? '' },
             create: {
                 attemptId,
                 questionId: dto.questionId,
                 selectedChoices: dto.selectedChoices,
+                isCorrect,
                 isMarked: dto.isMarked ?? false,
             },
             update: {
                 selectedChoices: dto.selectedChoices,
+                isCorrect,
                 isMarked: dto.isMarked ?? false,
             },
         });
     }
 
-    async submit(userId: string, attemptId: string, dto: SubmitAttemptDto) {
+    async submit(userId: string, attemptId: string, dto: SubmitAttemptDto): Promise<AttemptResultResponse> {
         const attempt = await this.prisma.examAttempt.findUnique({
             where: { id: attemptId },
             include: { exam: true },
@@ -135,34 +153,7 @@ export class AttemptsService {
             },
         });
 
-        const domainScores: Record<string, { correct: number; total: number }> = {};
-        let totalCorrect = 0;
-        const answerRecords: any[] = [];
-
-        for (const eq of examQuestions) {
-            const q = eq.question;
-            const submitted = dto.answers.find(a => a.questionId === q.id);
-            const selectedChoices = submitted?.selectedChoices ?? [];
-            const correctChoiceIds = q.choices.filter(c => c.isCorrect).map(c => c.id);
-
-            const isCorrect = correctChoiceIds.length === selectedChoices.length &&
-                correctChoiceIds.every(id => selectedChoices.includes(id));
-
-            if (isCorrect) totalCorrect++;
-
-            const domainName = q.domain?.name ?? 'Unknown';
-            if (!domainScores[domainName]) domainScores[domainName] = { correct: 0, total: 0 };
-            domainScores[domainName].total++;
-            if (isCorrect) domainScores[domainName].correct++;
-
-            answerRecords.push({
-                attemptId,
-                questionId: q.id,
-                selectedChoices,
-                isCorrect,
-                isMarked: submitted?.isMarked ?? false,
-            });
-        }
+        const { totalCorrect, domainScores, answerRecords } = this.evaluateAnswers(attemptId, dto, examQuestions);
 
         const totalQuestions = examQuestions.length;
         const score = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
@@ -200,7 +191,114 @@ export class AttemptsService {
         return this.findResult(attemptId);
     }
 
-    async findResult(attemptId: string) {
+    async finish(userId: string, attemptId: string): Promise<AttemptResultResponse> {
+        const attempt = await this.prisma.examAttempt.findUnique({
+            where: { id: attemptId },
+            include: {
+                exam: {
+                    include: {
+                        examQuestions: {
+                            include: {
+                                question: {
+                                    include: {
+                                        choices: { orderBy: { sortOrder: 'asc' } },
+                                        domain: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                answers: true,
+            },
+        });
+
+        if (!attempt) throw new NotFoundException('Attempt not found');
+        if (attempt.userId !== userId) throw new ForbiddenException('Not your attempt');
+        if (attempt.status !== AttemptStatus.IN_PROGRESS) {
+            throw new BadRequestException('Attempt already submitted');
+        }
+
+        const examQuestions = attempt.exam.examQuestions;
+        let totalCorrect = 0;
+        const domainScores: Record<string, { correct: number; total: number }> = {};
+
+        for (const eq of examQuestions) {
+            const q = eq.question;
+            const answer = attempt.answers.find(a => a.questionId === q.id);
+            const isCorrect = answer?.isCorrect ?? false;
+            
+            if (isCorrect) totalCorrect++;
+
+            const domainName = q.domain?.name ?? 'Unknown';
+            if (!domainScores[domainName]) domainScores[domainName] = { correct: 0, total: 0 };
+            domainScores[domainName].total++;
+            if (isCorrect) domainScores[domainName].correct++;
+        }
+
+        const totalQuestions = examQuestions.length;
+        const score = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+        const timeSpent = Math.floor((Date.now() - attempt.startedAt.getTime()) / 1000);
+
+        await this.prisma.$transaction([
+            this.prisma.examAttempt.update({
+                where: { id: attemptId },
+                data: {
+                    status: AttemptStatus.SUBMITTED,
+                    submittedAt: new Date(),
+                    score,
+                    totalCorrect,
+                    totalQuestions,
+                    domainScores,
+                    timeSpent,
+                },
+            }),
+            this.prisma.exam.update({
+                where: { id: attempt.examId },
+                data: { attemptCount: { increment: 1 } },
+            }),
+        ]);
+
+        await this.gamification.awardPoints(userId, POINTS.COMPLETE_EXAM);
+        await this.examsService.updateAvgScore(attempt.examId);
+
+        return this.findResult(attemptId);
+    }
+
+    private evaluateAnswers(attemptId: string, dto: SubmitAttemptDto, examQuestions: { question: QuestionWithChoices }[]) {
+        const domainScores: Record<string, { correct: number; total: number }> = {};
+        let totalCorrect = 0;
+        const answerRecords: Prisma.AnswerCreateManyInput[] = [];
+
+        for (const eq of examQuestions) {
+            const q = eq.question;
+            const submitted = dto.answers.find(a => a.questionId === q.id);
+            const selectedChoices = submitted?.selectedChoices ?? [];
+            const correctChoiceIds = q.choices.filter(c => c.isCorrect).map(c => c.id);
+
+            const isCorrect = correctChoiceIds.length === selectedChoices.length &&
+                correctChoiceIds.every((id: string) => selectedChoices.includes(id));
+
+            if (isCorrect) totalCorrect++;
+
+            const domainName = q.domain?.name ?? 'Unknown';
+            if (!domainScores[domainName]) domainScores[domainName] = { correct: 0, total: 0 };
+            domainScores[domainName].total++;
+            if (isCorrect) domainScores[domainName].correct++;
+
+            answerRecords.push({
+                attemptId,
+                questionId: q.id,
+                selectedChoices,
+                isCorrect,
+                isMarked: submitted?.isMarked ?? false,
+            });
+        }
+
+        return { totalCorrect, domainScores, answerRecords };
+    }
+
+    async findResult(attemptId: string): Promise<AttemptResultResponse> {
         const attempt = await this.prisma.examAttempt.findUnique({
             where: { id: attemptId },
             include: {
@@ -224,15 +322,15 @@ export class AttemptsService {
 
         if (!attempt) throw new NotFoundException('Attempt not found');
 
-        const questionResults = attempt.answers.map(a => ({
+        const questionResults: QuestionResultResponse[] = attempt.answers.map(a => ({
             answerId: a.id,
             questionId: a.questionId,
             title: a.question.title,
-            description: a.question.description,
-            explanation: a.question.explanation,
+            description: a.question.description ?? undefined,
+            explanation: a.question.explanation ?? undefined,
             domain: a.question.domain?.name ?? 'Unknown',
             correct: a.isCorrect ?? false,
-            mistakeType: a.mistakeType,
+            mistakeType: a.mistakeType ?? undefined,
             selectedAnswers: a.selectedChoices,
             correctAnswers: a.question.choices.filter(c => c.isCorrect).map(c => c.id),
             choices: a.question.choices.map(c => ({
@@ -256,7 +354,7 @@ export class AttemptsService {
             domainScores: attempt.domainScores as Record<string, { correct: number; total: number }>,
             timeSpent: attempt.timeSpent ?? 0,
             startedAt: attempt.startedAt,
-            submittedAt: attempt.submittedAt,
+            submittedAt: attempt.submittedAt ?? undefined,
             questionResults,
         };
     }

@@ -1,43 +1,13 @@
 import api from './api';
+import {
+    ExamSummary,
+    CreateExamPayload,
+    PaginatedResponse
+} from '@/types/api-types';
 
-export interface ExamSummary {
-    id: string;
-    title: string;
-    description?: string;
-    certificationId: string;
-    questionCount: number;
-    timeLimit: number;
-    visibility: string;
-    attemptCount: number;
-    avgScore?: number;
-    shareCode?: string;
-    createdAt: string;
-    certification: {
-        id: string;
-        name: string;
-        code: string;
-        provider: string;
-    };
-    author?: {
-        id: string;
-        displayName: string;
-    };
-}
+export type { ExamSummary, CreateExamPayload };
 
-export interface PaginatedExams {
-    data: ExamSummary[];
-    meta: { total: number; page: number; lastPage: number };
-}
-
-export interface CreateExamPayload {
-    title: string;
-    description?: string;
-    certificationId: string;
-    questionCount: number;
-    timeLimit: number;
-    visibility?: string;
-    questionIds?: string[];
-}
+export type PaginatedExams = PaginatedResponse<ExamSummary>;
 
 export const getExams = async (
     certificationId?: string,

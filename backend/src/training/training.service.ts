@@ -111,7 +111,7 @@ export class TrainingService {
         question: {
           include: {
             domain: true,
-            choices: { select: { id: true, label: true, content: true } }, // Exclude isCorrect
+            choices: { select: { id: true, label: true, content: true, isCorrect: true } }, // Exclude isCorrect
           },
         },
       },
@@ -262,6 +262,7 @@ export class TrainingService {
             id: c.id,
             label: c.label,
             content: c.content,
+            isCorrect: c.isCorrect,
           })),
         sortOrder: index,
       }));

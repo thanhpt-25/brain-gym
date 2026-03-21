@@ -1,40 +1,16 @@
 import api from './api';
+import {
+  AnalyticsSummary,
+  HistoryItem,
+  DomainPerformance,
+  ReadinessScore,
+  MistakePatterns,
+  PaginatedResponse,
+} from '@/types/api-types';
 
-export interface AnalyticsSummary {
-  totalExams: number;
-  totalPassed: number;
-  passRate: number;
-  avgScore: number;
-  bestScore: number;
-  totalStudyTime: number;
-  totalQuestions: number;
-}
+export type { AnalyticsSummary, HistoryItem, DomainPerformance, ReadinessScore, MistakePatterns };
 
-export interface HistoryItem {
-  id: string;
-  examTitle: string;
-  certification: { id: string; name: string; code: string; provider: string };
-  score: number;
-  totalCorrect: number;
-  totalQuestions: number;
-  passed: boolean;
-  timeSpent: number;
-  domainScores: Record<string, { correct: number; total: number }> | null;
-  startedAt: string;
-  submittedAt: string;
-}
-
-export interface PaginatedHistory {
-  data: HistoryItem[];
-  meta: { total: number; page: number; lastPage: number };
-}
-
-export interface DomainPerformance {
-  domain: string;
-  correct: number;
-  total: number;
-  percentage: number;
-}
+export type PaginatedHistory = PaginatedResponse<HistoryItem>;
 
 export const getAnalyticsSummary = async (certificationId?: string): Promise<AnalyticsSummary> => {
   const params = certificationId ? `?certificationId=${certificationId}` : '';
@@ -64,18 +40,6 @@ export const getWeakTopics = async (certificationId?: string, topN = 5): Promise
   const response = await api.get<DomainPerformance[]>(`/analytics/me/weak-topics?${params}`);
   return response.data;
 };
-
-export interface ReadinessScore {
-  readinessScore: number;
-  domainConfidences: { domain: string; confidence: number }[];
-  totalExams: number;
-  weightedAvgScore: number;
-}
-
-export interface MistakePatterns {
-  total: number;
-  breakdown: Record<string, number>;
-}
 
 export const getReadiness = async (certificationId: string): Promise<ReadinessScore> => {
   const response = await api.get<ReadinessScore>(`/analytics/readiness/${certificationId}`);

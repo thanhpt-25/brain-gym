@@ -1,14 +1,7 @@
 import api from './api';
-import { Question } from '@/types/exam';
+import { Question, PaginatedResponse } from '@/types/api-types';
 
-export interface PaginatedQuestions {
-    data: Question[];
-    meta: {
-        total: number;
-        page: number;
-        lastPage: number;
-    };
-}
+export type PaginatedQuestions = PaginatedResponse<Question>;
 
 export const getQuestions = async (certificationId?: string, page = 1, limit = 10): Promise<PaginatedQuestions> => {
     const params = new URLSearchParams();

@@ -21,7 +21,9 @@ import ExamLibrary from "./pages/ExamLibrary";
 import ExamBuilder from "./pages/ExamBuilder";
 import ExamShare from "./pages/ExamShare";
 import TrainingHub from "./pages/TrainingHub";
-import FlashcardPage from "./pages/Flashcards";
+import FlashcardDecks from "./pages/FlashcardDecks";
+import DeckDetail from "./pages/DeckDetail";
+import FlashcardStudy from "./pages/FlashcardStudy";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import BottomTabBar from "./components/BottomTabBar";
 
@@ -43,7 +45,9 @@ const AnimatedRoutes = () => {
         <Route path="/exams/share/:shareCode" element={<PageTransition><ExamShare /></PageTransition>} />
         <Route path="/dashboard" element={<PageTransition><Dashboard /></PageTransition>} />
         <Route path="/training" element={<PageTransition><TrainingHub /></PageTransition>} />
-        <Route path="/flashcards" element={<PageTransition><FlashcardPage /></PageTransition>} />
+        <Route path="/decks" element={<PageTransition><ProtectedRoute><FlashcardDecks /></ProtectedRoute></PageTransition>} />
+        <Route path="/decks/:deckId" element={<PageTransition><ProtectedRoute><DeckDetail /></ProtectedRoute></PageTransition>} />
+        <Route path="/decks/:deckId/study" element={<PageTransition><ProtectedRoute><FlashcardStudy /></ProtectedRoute></PageTransition>} />
         <Route path="/exam-results" element={<PageTransition><ExamResults /></PageTransition>} />
         <Route path="/leaderboard" element={<PageTransition><Leaderboard /></PageTransition>} />
         <Route path="/admin" element={<PageTransition><ProtectedRoute><AdminPage /></ProtectedRoute></PageTransition>} />

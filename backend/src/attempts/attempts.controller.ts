@@ -4,6 +4,7 @@ import { AttemptsService } from './attempts.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../common/interfaces/request.interface';
 
 @ApiTags('attempts')
 @Controller()
@@ -14,8 +15,8 @@ export class AttemptsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Start an exam attempt — returns questions without correct answers' })
-    start(@Req() req: any, @Param('examId') examId: string) {
-        const userId = req.user.sub || req.user.id;
+    start(@Req() req: AuthenticatedRequest, @Param('examId') examId: string) {
+        const userId = req.user.id;
         return this.attemptsService.start(userId, examId);
     }
 
@@ -23,8 +24,8 @@ export class AttemptsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Save/update a single answer during exam' })
-    saveAnswer(@Req() req: any, @Param('id') attemptId: string, @Body() dto: SubmitAnswerDto) {
-        const userId = req.user.sub || req.user.id;
+    saveAnswer(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string, @Body() dto: SubmitAnswerDto) {
+        const userId = req.user.id;
         return this.attemptsService.saveAnswer(userId, attemptId, dto);
     }
 
@@ -32,9 +33,18 @@ export class AttemptsController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Submit exam attempt — calculates score and returns results' })
-    submit(@Req() req: any, @Param('id') attemptId: string, @Body() dto: SubmitAttemptDto) {
-        const userId = req.user.sub || req.user.id;
+    submit(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string, @Body() dto: SubmitAttemptDto) {
+        const userId = req.user.id;
         return this.attemptsService.submit(userId, attemptId, dto);
+    }
+
+    @Post('attempts/:id/finish')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Finish an attempt using already saved answers' })
+    finish(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
+        const userId = req.user.id;
+        return this.attemptsService.finish(userId, attemptId);
     }
 
     @Get('attempts/:id')
@@ -52,11 +62,11 @@ export class AttemptsController {
     @ApiQuery({ name: 'page', required: false })
     @ApiQuery({ name: 'limit', required: false })
     findMyAttempts(
-        @Req() req: any,
+        @Req() req: AuthenticatedRequest,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
     ) {
-        const userId = req.user.sub || req.user.id;
+        const userId = req.user.id;
         return this.attemptsService.findMyAttempts(
             userId,
             page ? parseInt(page, 10) : 1,

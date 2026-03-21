@@ -1,9 +1,17 @@
 import { Controller, Get, Param, Query, UseGuards, Req, Body, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
 import { UpdateMistakeTypeDto } from './dto/update-mistake-type.dto';
+import type { AuthenticatedRequest } from '../common/interfaces/request.interface';
+import {
+  AnalyticsSummaryResponse,
+  AnalyticsHistoryResponse,
+  DomainStatsResponse,
+  ReadinessResponse,
+  MistakePatternsResponse,
+} from './dto/analytics-response.dto';
 
 @ApiTags('analytics')
 @Controller('analytics')
@@ -15,8 +23,9 @@ export class AnalyticsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get aggregate stats for current user' })
   @ApiQuery({ name: 'certificationId', required: false })
-  getSummary(@Req() req: any, @Query('certificationId') certificationId?: string) {
-    const userId = req.user.sub || req.user.id;
+  @ApiResponse({ status: 200, type: AnalyticsSummaryResponse })
+  getSummary(@Req() req: AuthenticatedRequest, @Query('certificationId') certificationId?: string) {
+    const userId = req.user.id;
     return this.analyticsService.getSummary(userId, certificationId);
   }
 
@@ -27,13 +36,14 @@ export class AnalyticsController {
   @ApiQuery({ name: 'certificationId', required: false })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, type: AnalyticsHistoryResponse })
   getHistory(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Query('certificationId') certificationId?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id;
     return this.analyticsService.getHistory(userId, certificationId, page ? +page : 1, limit ? +limit : 20);
   }
 
@@ -42,8 +52,9 @@ export class AnalyticsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get per-domain performance across all attempts' })
   @ApiQuery({ name: 'certificationId', required: false })
-  getDomains(@Req() req: any, @Query('certificationId') certificationId?: string) {
-    const userId = req.user.sub || req.user.id;
+  @ApiResponse({ status: 200, type: [DomainStatsResponse] })
+  getDomains(@Req() req: AuthenticatedRequest, @Query('certificationId') certificationId?: string) {
+    const userId = req.user.id;
     return this.analyticsService.getDomains(userId, certificationId);
   }
 
@@ -53,12 +64,13 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get weakest domains/topics' })
   @ApiQuery({ name: 'certificationId', required: false })
   @ApiQuery({ name: 'topN', required: false, type: Number })
+  @ApiResponse({ status: 200, type: [DomainStatsResponse] })
   getWeakTopics(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Query('certificationId') certificationId?: string,
     @Query('topN') topN?: string,
   ) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id;
     return this.analyticsService.getWeakTopics(userId, certificationId, topN ? +topN : 5);
   }
 
@@ -73,8 +85,9 @@ export class AnalyticsController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get readiness score for a specific certification' })
-  getReadiness(@Req() req: any, @Param('certificationId') certificationId: string) {
-    const userId = req.user.sub || req.user.id;
+  @ApiResponse({ status: 200, type: ReadinessResponse })
+  getReadiness(@Req() req: AuthenticatedRequest, @Param('certificationId') certificationId: string) {
+    const userId = req.user.id;
     return this.analyticsService.getReadiness(userId, certificationId);
   }
 
@@ -84,11 +97,11 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Update mistake type for a specific answer' })
   @ApiBody({ type: UpdateMistakeTypeDto })
   updateMistakeType(
-    @Req() req: any,
+    @Req() req: AuthenticatedRequest,
     @Param('answerId') answerId: string,
     @Body() dto: UpdateMistakeTypeDto,
   ) {
-    const userId = req.user.sub || req.user.id;
+    const userId = req.user.id;
     return this.analyticsService.updateMistakeType(userId, answerId, dto);
   }
 
@@ -97,8 +110,9 @@ export class AnalyticsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get mistake patterns aggregation' })
   @ApiQuery({ name: 'certificationId', required: false })
-  getMistakePatterns(@Req() req: any, @Query('certificationId') certificationId?: string) {
-    const userId = req.user.sub || req.user.id;
+  @ApiResponse({ status: 200, type: MistakePatternsResponse })
+  getMistakePatterns(@Req() req: AuthenticatedRequest, @Query('certificationId') certificationId?: string) {
+    const userId = req.user.id;
     return this.analyticsService.getMistakePatterns(userId, certificationId);
   }
 }

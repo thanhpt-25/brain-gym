@@ -13,6 +13,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { GamificationModule } from './gamification/gamification.module';
 import { TagsModule } from './tags/tags.module';
 import { TrainingModule } from './training/training.module';
+import { FlashcardsModule } from './flashcards/flashcards.module';
+import { CaptureModule } from './capture/capture.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { TrainingModule } from './training/training.module';
     GamificationModule,
     TagsModule,
     TrainingModule,
+    FlashcardsModule,
+    CaptureModule,
   ],
 })
 export class AppModule { }

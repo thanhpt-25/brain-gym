@@ -1,14 +1,22 @@
 import { Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AttemptStatus, MistakeType } from '@prisma/client';
+import { AttemptStatus, MistakeType, Prisma } from '@prisma/client';
 import { UpdateMistakeTypeDto } from './dto/update-mistake-type.dto';
+import {
+  AnalyticsSummaryResponse,
+  AnalyticsHistoryResponse,
+  DomainStatsResponse,
+  ReadinessResponse,
+  MistakePatternsResponse,
+  HistoryItemResponse,
+} from './dto/analytics-response.dto';
 
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSummary(userId: string, certificationId?: string) {
-    const where: any = { userId, status: AttemptStatus.SUBMITTED };
+  async getSummary(userId: string, certificationId?: string): Promise<AnalyticsSummaryResponse> {
+    const where: Prisma.ExamAttemptWhereInput = { userId, status: AttemptStatus.SUBMITTED };
     if (certificationId) {
       where.exam = { certificationId };
     }
@@ -21,9 +29,6 @@ export class AnalyticsService {
         totalQuestions: true,
         timeSpent: true,
         domainScores: true,
-        exam: {
-          select: { certificationId: true },
-        },
       },
     });
 
@@ -53,9 +58,9 @@ export class AnalyticsService {
     };
   }
 
-  async getHistory(userId: string, certificationId?: string, page = 1, limit = 20) {
+  async getHistory(userId: string, certificationId?: string, page = 1, limit = 20): Promise<AnalyticsHistoryResponse> {
     const skip = (page - 1) * limit;
-    const where: any = { userId, status: AttemptStatus.SUBMITTED };
+    const where: Prisma.ExamAttemptWhereInput = { userId, status: AttemptStatus.SUBMITTED };
     if (certificationId) {
       where.exam = { certificationId };
     }
@@ -87,16 +92,16 @@ export class AnalyticsService {
         totalQuestions: a.totalQuestions ?? 0,
         passed: Number(a.score ?? 0) >= 70,
         timeSpent: a.timeSpent ?? 0,
-        domainScores: a.domainScores as Record<string, { correct: number; total: number }> | null,
+        domainScores: (a.domainScores as Record<string, { correct: number; total: number }>) ?? undefined,
         startedAt: a.startedAt,
-        submittedAt: a.submittedAt,
+        submittedAt: a.submittedAt ?? undefined,
       })),
       meta: { total, page, lastPage: Math.ceil(total / limit) },
     };
   }
 
-  async getDomains(userId: string, certificationId?: string) {
-    const where: any = { userId, status: AttemptStatus.SUBMITTED };
+  async getDomains(userId: string, certificationId?: string): Promise<DomainStatsResponse[]> {
+    const where: Prisma.ExamAttemptWhereInput = { userId, status: AttemptStatus.SUBMITTED };
     if (certificationId) {
       where.exam = { certificationId };
     }
@@ -106,7 +111,6 @@ export class AnalyticsService {
       select: { domainScores: true },
     });
 
-    // Aggregate domain scores across all attempts
     const agg: Record<string, { correct: number; total: number }> = {};
     for (const a of attempts) {
       const ds = a.domainScores as Record<string, { correct: number; total: number }> | null;
@@ -128,7 +132,7 @@ export class AnalyticsService {
       .sort((a, b) => a.percentage - b.percentage);
   }
 
-  async getWeakTopics(userId: string, certificationId?: string, topN = 5) {
+  async getWeakTopics(userId: string, certificationId?: string, topN = 5): Promise<DomainStatsResponse[]> {
     const domains = await this.getDomains(userId, certificationId);
     return domains.slice(0, topN);
   }
@@ -155,12 +159,12 @@ export class AnalyticsService {
     };
   }
 
-  async getReadiness(userId: string, certificationId: string) {
+  async getReadiness(userId: string, certificationId: string): Promise<ReadinessResponse> {
     const certification = await this.prisma.certification.findUnique({
       where: { id: certificationId },
     });
     if (!certification) {
-      throw new Error('Certification not found');
+      throw new NotFoundException('Certification not found');
     }
 
     const attempts = await this.prisma.examAttempt.findMany({
@@ -261,14 +265,17 @@ export class AnalyticsService {
     });
   }
 
-  async getMistakePatterns(userId: string, certificationId?: string) {
-    const where: any = {
+  async getMistakePatterns(userId: string, certificationId?: string): Promise<MistakePatternsResponse> {
+    const where: Prisma.AnswerWhereInput = {
       attempt: { userId },
       mistakeType: { not: null },
     };
 
     if (certificationId) {
-      where.attempt.exam = { certificationId };
+      where.attempt = {
+        userId,
+        exam: { certificationId },
+      };
     }
 
     const mistakes = await this.prisma.answer.findMany({
