@@ -152,7 +152,7 @@ const FlashcardPage = () => {
 
         {/* Flashcard */}
         {card && (
-          <div className="perspective-1000 mb-6">
+          <div className="perspective-1000 mb-6 touch-pan-y">
             <AnimatePresence mode="wait" custom={direction}>
               <motion.div
                 key={card.id + (isFlipped ? '-back' : '-front')}
@@ -161,6 +161,13 @@ const FlashcardPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: direction * -60 }}
                 transition={{ duration: 0.25 }}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.3}
+                onDragEnd={(_e, info) => {
+                  if (info.offset.x < -80) goNext();
+                  else if (info.offset.x > 80) goPrev();
+                }}
                 onClick={() => setIsFlipped(f => !f)}
                 className={`glass-card p-8 min-h-[280px] md:min-h-[320px] flex flex-col justify-center cursor-pointer select-none transition-shadow ${
                   knownIds.has(card.id) ? 'border-primary/40 shadow-[0_0_20px_hsl(var(--primary)/0.1)]' : ''
