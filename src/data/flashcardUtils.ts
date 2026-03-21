@@ -18,7 +18,7 @@ export function questionsToFlashcards(questions: Question[]): Flashcard[] {
       id: q.id,
       front: q.title,
       back: `✅ ${correct?.content ?? 'N/A'}\n\n${q.explanation ?? ''}`,
-      tags: q.tags ?? [],
+      tags: tagStrings,
       certificationId: q.certificationId ?? '',
       difficulty: q.difficulty,
     };
