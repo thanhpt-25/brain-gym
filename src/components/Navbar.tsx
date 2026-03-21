@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell } from 'lucide-react';
+import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/auth.store';
@@ -16,6 +16,7 @@ const navLinks = [
   { label: 'Questions', href: '/questions', icon: BookOpen },
   { label: 'Exams', href: '/exams', icon: Target },
   { label: 'Training', href: '/training', icon: Dumbbell },
+  { label: 'Flashcards', href: '/flashcards', icon: Layers },
   { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];

@@ -21,6 +21,7 @@ import ExamLibrary from "./pages/ExamLibrary";
 import ExamBuilder from "./pages/ExamBuilder";
 import ExamShare from "./pages/ExamShare";
 import TrainingHub from "./pages/TrainingHub";
+import FlashcardPage from "./pages/Flashcards";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import BottomTabBar from "./components/BottomTabBar";
 
@@ -42,6 +43,7 @@ const AnimatedRoutes = () => {
         <Route path="/exams/share/:shareCode" element={<PageTransition><ExamShare /></PageTransition>} />
         <Route path="/dashboard" element={<PageTransition><Dashboard /></PageTransition>} />
         <Route path="/training" element={<PageTransition><TrainingHub /></PageTransition>} />
+        <Route path="/flashcards" element={<PageTransition><FlashcardPage /></PageTransition>} />
         <Route path="/exam-results" element={<PageTransition><ExamResults /></PageTransition>} />
         <Route path="/leaderboard" element={<PageTransition><Leaderboard /></PageTransition>} />
         <Route path="/admin" element={<PageTransition><ProtectedRoute><AdminPage /></ProtectedRoute></PageTransition>} />
