@@ -20,6 +20,7 @@ import ExamBuilder from "./pages/ExamBuilder";
 import ExamShare from "./pages/ExamShare";
 import TrainingHub from "./pages/TrainingHub";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import BottomTabBar from "./components/BottomTabBar";
 
 const queryClient = new QueryClient();
 
