@@ -21,6 +21,7 @@ import ExamLibrary from "./pages/ExamLibrary";
 import ExamBuilder from "./pages/ExamBuilder";
 import ExamShare from "./pages/ExamShare";
 import TrainingHub from "./pages/TrainingHub";
+import FlashcardPage from "./pages/Flashcards";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import BottomTabBar from "./components/BottomTabBar";
 
