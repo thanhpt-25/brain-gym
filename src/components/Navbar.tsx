@@ -16,6 +16,7 @@ const navLinks = [
   { label: 'Questions', href: '/questions', icon: BookOpen },
   { label: 'Exams', href: '/exams', icon: Target },
   { label: 'Training', href: '/training', icon: Dumbbell },
+  { label: 'Flashcards', href: '/flashcards', icon: Layers },
   { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];
