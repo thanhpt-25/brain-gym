@@ -1,199 +1,153 @@
-# Brain Gym
+# 🧠 CertGym (Brain Gym)
 
-A comprehensive platform for practicing certification exams, particularly cloud certifications. Think of it as a "gym for your brain" where learners can create mock exams, practice with community-shared questions, and track their progress toward certification success.
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
+[![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)](https://www.prisma.io/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 
-## Features
+**CertGym** is a comprehensive, community-driven platform designed to help you ace certification exams. It leverages modern learning techniques like **Spaced Repetition (SRS)** to ensure long-term retention of complex cloud concepts, networking, and project management topics.
 
-### 🧠 Question Management
-- Create and manage multiple-choice questions (MCQs)
-- Support for scenario-based questions with images/diagrams
-- Multiple correct answers capability
-- Difficulty levels and tagging system
-- Rich explanations and reference links
+---
 
-### 📝 Exam Builder
-- Create custom mock exams for various certifications
-- Configurable exam settings (time limits, question count, difficulty distribution)
-- Public, private, and link-shared exam visibility options
+## ✨ Key Features
 
-### 🎯 Exam Simulation
-- Realistic exam experience with countdown timers
-- Question navigation and review marking
-- Instant results with detailed breakdowns
-- Domain-wise performance analysis
+### 🗂️ Spaced Repetition System (SRS)
+- **Flashcard Decks**: Create and organize flashcards by certification domains.
+- **Daily Review**: Smart scheduling using spaced repetition algorithms to focus on your weak areas.
+- **Study Mode**: Interactive study sessions with instant feedback and progress tracking.
 
-### 📊 Analytics & Progress Tracking
-- Personal dashboard with exam history
-- Score trends and pass probability calculations
-- Weak topic identification
-- Performance insights and recommendations
+### 📝 Exam Simulation & Builder
+- **Mock Exams**: Participate in realistic exam simulations with countdown timers and domain-wise breakdowns.
+- **Custom Builder**: Create your own exams by selecting specific domains, difficulty levels, and question counts.
+- **Detailed Analytics**: Review your performance with beautiful charts and domain-level performance insights.
 
-### 👥 Community Features
-- Share questions and exams with the community
-- Discussion threads on questions
-- Voting and quality control systems
-- Expert verification badges
+### 🧠 Question & Training Hub
+- **Rich Media Support**: Scenario-based questions with images, diagrams, and multi-choice support.
+- **Training Hub**: A centralized dashboard to track your daily progress, upcoming reviews, and recent exam attempts.
+- **Community Library**: Access thousands of community-shared questions and exams.
 
-### 🎮 Gamification
-- Points system for contributions
-- Achievement badges
-- Leaderboards for top contributors
+### 👥 Community & Social
+- **Sharing**: Share your custom exams and questions with a simple link or publish them to the community library.
+- **Leaderboards**: Compete with others and earn badges for your contributions and exam scores.
+- **Discussion**: Engage in discussions on specific questions to deepen your understanding.
 
-## Tech Stack
+---
 
-### Frontend
-- **React 18** - Modern React with hooks
-- **TypeScript** - Type-safe development
-- **Vite** - Fast build tool and dev server
-- **shadcn/ui** - Beautiful, accessible UI components
-- **Tailwind CSS** - Utility-first CSS framework
-- **React Query** - Powerful data synchronization
-- **Zustand** - Lightweight state management
-- **React Router** - Client-side routing
-- **React Hook Form** - Performant forms with validation
+## 🛠️ Tech Stack
 
-### Backend
-- **NestJS** - Progressive Node.js framework
-- **TypeScript** - Type-safe backend development
-- **Prisma** - Next-generation ORM
-- **PostgreSQL** - Primary database
-- **Redis** - Caching and session storage
-- **JWT** - Authentication and authorization
-- **Swagger** - API documentation
+| Component | Technology |
+| :--- | :--- |
+| **Frontend** | React 18, TypeScript, Vite, TanStack Query, Zustand, React Router, shadcn/ui, Tailwind CSS |
+| **Backend** | NestJS, TypeScript, Prisma ORM, JWT Auth, Swagger |
+| **Database** | PostgreSQL |
+| **Caching** | Redis |
+| **Infrastructure** | Docker, Docker Compose, Nginx |
+| **Testing** | Vitest (Frontend), Jest (Backend) |
 
-### Development & Testing
-- **Docker & Docker Compose** - Containerized development
-- **Vitest** - Fast unit testing for frontend
-- **Jest** - Testing framework for backend
-- **ESLint** - Code linting
-- **Prettier** - Code formatting
+---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js 18+ and npm (or bun)
-- Docker and Docker Compose
-- Git
+- [Docker](https://www.docker.com/products/docker-desktop/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [bun](https://bun.sh/) (optional, but recommended for faster installs)
 
-### Installation
+### ⚡ Quick Start (Recommended)
+The easiest way to get the entire stack (Frontend, Backend, Database, Redis, Nginx) running is using Docker Compose:
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd brain-gym
-   ```
+```bash
+# Clone the repository
+git clone <repository-url>
+cd brain-gym
 
-2. **Start the database services**
-   ```bash
-   docker-compose up -d
-   ```
-
-3. **Install frontend dependencies**
-   ```bash
-   npm install
-   ```
-
-4. **Install backend dependencies**
-   ```bash
-   cd backend
-   npm install
-   cd ..
-   ```
-
-5. **Set up the database**
-   ```bash
-   cd backend
-   npx prisma migrate dev
-   npx prisma db seed
-   cd ..
-   ```
-
-6. **Start the development servers**
-
-   **Terminal 1 - Backend:**
-   ```bash
-   cd backend
-   npm run start:dev
-   ```
-
-   **Terminal 2 - Frontend:**
-   ```bash
-   npm run dev
-   ```
-
-7. **Open your browser**
-   
-   Navigate to `http://localhost:5173` for the frontend and `http://localhost:3000` for the backend API.
-
-## Available Scripts
-
-### Frontend Scripts
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run test` - Run tests once
-- `npm run test:watch` - Run tests in watch mode
-- `npm run lint` - Run ESLint
-
-### Backend Scripts
-- `npm run start:dev` - Start development server with hot reload
-- `npm run start:prod` - Start production server
-- `npm run build` - Build the application
-- `npm run test` - Run unit tests
-- `npm run test:e2e` - Run end-to-end tests
-- `npm run lint` - Run ESLint
-
-### Database Scripts
-- `npx prisma migrate dev` - Run database migrations
-- `npx prisma db seed` - Seed the database
-- `npx prisma studio` - Open Prisma Studio
-
-## Project Structure
-
+# Start all services
+docker-compose up -d
 ```
+
+Once started, the services will be available at:
+- **Frontend**: [http://localhost](http://localhost) (via Nginx) or [http://localhost:5173](http://localhost:5173) (direct)
+- **Backend API**: [http://localhost/api](http://localhost/api) or [http://localhost:3000](http://localhost:3000) (direct)
+- **API Documentation**: [http://localhost:3000/api](http://localhost:3000/api) (Swagger)
+
+---
+
+### 🛠️ Manual Setup (Development)
+If you want to run services independently for development:
+
+#### 1. Database & Caching
+```bash
+docker-compose up -d postgres redis
+```
+
+#### 2. Backend Setup
+```bash
+cd backend
+npm install
+# Copy .env configuration (check .env for defaults)
+npx prisma migrate dev
+npx prisma db seed
+npm run start:dev
+```
+
+#### 3. Frontend Setup
+```bash
+# In the root directory
+npm install
+npm run dev
+```
+
+---
+
+## 📂 Project Structure
+
+```text
 brain-gym/
-├── src/                    # Frontend source code
-│   ├── components/         # Reusable UI components
-│   ├── pages/             # Page components
-│   ├── services/          # API service functions
-│   ├── stores/            # Zustand state stores
-│   ├── types/             # TypeScript type definitions
-│   └── lib/               # Utility functions
-├── backend/               # Backend source code
-│   ├── src/
-│   │   ├── auth/          # Authentication module
-│   │   ├── users/         # User management
-│   │   ├── questions/     # Question management
-│   │   ├── certifications/# Certification management
-│   │   └── prisma/        # Database service
-│   └── prisma/            # Database schema and migrations
-├── docs/                  # Documentation
-└── public/                # Static assets
+├── src/                    # Frontend source code (React + Vite)
+│   ├── components/         # Reusable UI components (shadcn/ui)
+│   ├── pages/             # Page components & routing
+│   ├── services/          # API service functions & React Query hooks
+│   ├── stores/            # Zustand state management
+│   └── lib/               # Utility functions & formatting
+├── backend/               # Backend source code (NestJS)
+│   ├── src/               # Application logic (Modules, Controllers, Services)
+│   ├── prisma/            # Database schema, migrations, and seeds
+│   └── test/              # E2E test suites
+├── nginx/                 # Nginx configuration for reverse proxy
+├── docker-compose.yml     # Orchestration for all services
+└── docs/                  # Additional project documentation
 ```
 
-## API Documentation
+---
 
-When the backend is running, visit `http://localhost:3000/api` to access the Swagger API documentation.
+## 📊 Available Scripts
 
-## Contributing
+### Frontend
+- `npm run dev` - Start Vite development server
+- `npm run build` - Create production bundle
+- `npm run test` - Run Vitest unit tests
+- `npm run lint` - Run ESLint checks
 
-We welcome contributions! Please see our contributing guidelines for details on:
+### Backend
+- `npm run start:dev` - Start NestJS server with watch mode
+- `npm run test` - Run Jest unit tests
+- `npm run test:e2e` - Run end-to-end tests
+- `npx prisma studio` - Interactive GUI for your database
 
-- Setting up your development environment
-- Code style and standards
-- Submitting pull requests
-- Reporting issues
+---
 
-## Target Certifications
+## 🎯 Target Certifications
+CertGym provides curated content for popular certifications including:
+- **AWS**: Solutions Architect, Developer, SysOps
+- **Azure**: AZ-900, AZ-104, AZ-305
+- **GCP**: Cloud Digital Leader, Associate Cloud Engineer
+- **Others**: PMP, CKA, Security+, and more.
 
-The platform is designed to support various certification exams, with initial focus on:
+---
 
-- AWS Certified Solutions Architect
-- Microsoft Azure Fundamentals
-- Google Cloud Professional Cloud Architect
-- PMI PMP Certification
-- CNCF Certified Kubernetes Administrator
+## 📄 License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+Developed with ❤️ by the CertGym Community.
