@@ -1,0 +1,87 @@
+9c469dc4f03f86cce3e204b9b26aeab6
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.GamificationController = void 0;
+const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
+const gamification_service_1 = require("./gamification.service");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const public_decorator_1 = require("../common/decorators/public.decorator");
+let GamificationController = class GamificationController {
+    gamificationService;
+    constructor(gamificationService) {
+        this.gamificationService = gamificationService;
+    }
+    getLeaderboard(certificationId, limit) {
+        return this.gamificationService.getLeaderboard(certificationId, limit ? +limit : 20);
+    }
+    getBadges() {
+        return this.gamificationService.getBadges();
+    }
+    getUserBadges(userId) {
+        return this.gamificationService.getUserBadges(userId);
+    }
+    getMyPoints(req) {
+        const userId = req.user.sub || req.user.id;
+        return this.gamificationService.getUserPoints(userId);
+    }
+};
+exports.GamificationController = GamificationController;
+__decorate([
+    (0, common_1.Get)('leaderboard'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get leaderboard — by points (global) or best score (per cert)' }),
+    (0, swagger_1.ApiQuery)({ name: 'certificationId', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false, type: Number }),
+    __param(0, (0, common_1.Query)('certificationId')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], GamificationController.prototype, "getLeaderboard", null);
+__decorate([
+    (0, common_1.Get)('badges'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List all available badges' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], GamificationController.prototype, "getBadges", null);
+__decorate([
+    (0, common_1.Get)('users/:userId/badges'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: "Get a user's earned badges" }),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], GamificationController.prototype, "getUserBadges", null);
+__decorate([
+    (0, common_1.Get)('me/points'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get current user points' }),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], GamificationController.prototype, "getMyPoints", null);
+exports.GamificationController = GamificationController = __decorate([
+    (0, swagger_1.ApiTags)('gamification'),
+    (0, common_1.Controller)(),
+    __metadata("design:paramtypes", [typeof (_a = typeof gamification_service_1.GamificationService !== "undefined" && gamification_service_1.GamificationService) === "function" ? _a : Object])
+], GamificationController);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2dhbWlmaWNhdGlvbi9nYW1pZmljYXRpb24uY29udHJvbGxlci50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7Ozs7O0FBQUEsMkNBQStFO0FBQy9FLDZDQUFpRjtBQUNqRixpRUFBNkQ7QUFDN0Qsa0VBQTZEO0FBQzdELDRFQUErRDtBQUl4RCxJQUFNLHNCQUFzQixHQUE1QixNQUFNLHNCQUFzQjtJQUNKO0lBQTdCLFlBQTZCLG1CQUF3QztRQUF4Qyx3QkFBbUIsR0FBbkIsbUJBQW1CLENBQXFCO0lBQUcsQ0FBQztJQU96RSxjQUFjLENBQ2MsZUFBd0IsRUFDbEMsS0FBYztRQUU5QixPQUFPLElBQUksQ0FBQyxtQkFBbUIsQ0FBQyxjQUFjLENBQUMsZUFBZSxFQUFFLEtBQUssQ0FBQyxDQUFDLENBQUMsQ0FBQyxLQUFLLENBQUMsQ0FBQyxDQUFDLEVBQUUsQ0FBQyxDQUFDO0lBQ3ZGLENBQUM7SUFLRCxTQUFTO1FBQ1AsT0FBTyxJQUFJLENBQUMsbUJBQW1CLENBQUMsU0FBUyxFQUFFLENBQUM7SUFDOUMsQ0FBQztJQUtELGFBQWEsQ0FBa0IsTUFBYztRQUMzQyxPQUFPLElBQUksQ0FBQyxtQkFBbUIsQ0FBQyxhQUFhLENBQUMsTUFBTSxDQUFDLENBQUM7SUFDeEQsQ0FBQztJQU1ELFdBQVcsQ0FBUSxHQUFRO1FBQ3pCLE1BQU0sTUFBTSxHQUFHLEdBQUcsQ0FBQyxJQUFJLENBQUMsR0FBRyxJQUFJLEdBQUcsQ0FBQyxJQUFJLENBQUMsRUFBRSxDQUFDO1FBQzNDLE9BQU8sSUFBSSxDQUFDLG1CQUFtQixDQUFDLGFBQWEsQ0FBQyxNQUFNLENBQUMsQ0FBQztJQUN4RCxDQUFDO0NBQ0YsQ0FBQTtBQXJDWSx3REFBc0I7QUFRakM7SUFMQyxJQUFBLFlBQUcsRUFBQyxhQUFhLENBQUM7SUFDbEIsSUFBQSx5QkFBTSxHQUFFO0lBQ1IsSUFBQSxzQkFBWSxFQUFDLEVBQUUsT0FBTyxFQUFFLCtEQUErRCxFQUFFLENBQUM7SUFDMUYsSUFBQSxrQkFBUSxFQUFDLEVBQUUsSUFBSSxFQUFFLGlCQUFpQixFQUFFLFFBQVEsRUFBRSxLQUFLLEVBQUUsQ0FBQztJQUN0RCxJQUFBLGtCQUFRLEVBQUMsRUFBRSxJQUFJLEVBQUUsT0FBTyxFQUFFLFFBQVEsRUFBRSxLQUFLLEVBQUUsSUFBSSxFQUFFLE1BQU0sRUFBRSxDQUFDO0lBRXhELFdBQUEsSUFBQSxjQUFLLEVBQUMsaUJBQWlCLENBQUMsQ0FBQTtJQUN4QixXQUFBLElBQUEsY0FBSyxFQUFDLE9BQU8sQ0FBQyxDQUFBOzs7OzREQUdoQjtBQUtEO0lBSEMsSUFBQSxZQUFHLEVBQUMsUUFBUSxDQUFDO0lBQ2IsSUFBQSx5QkFBTSxHQUFFO0lBQ1IsSUFBQSxzQkFBWSxFQUFDLEVBQUUsT0FBTyxFQUFFLDJCQUEyQixFQUFFLENBQUM7Ozs7dURBR3REO0FBS0Q7SUFIQyxJQUFBLFlBQUcsRUFBQyxzQkFBc0IsQ0FBQztJQUMzQixJQUFBLHlCQUFNLEdBQUU7SUFDUixJQUFBLHNCQUFZLEVBQUMsRUFBRSxPQUFPLEVBQUUsNEJBQTRCLEVBQUUsQ0FBQztJQUN6QyxXQUFBLElBQUEsY0FBSyxFQUFDLFFBQVEsQ0FBQyxDQUFBOzs7OzJEQUU3QjtBQU1EO0lBSkMsSUFBQSxZQUFHLEVBQUMsV0FBVyxDQUFDO0lBQ2hCLElBQUEsa0JBQVMsRUFBQyw2QkFBWSxDQUFDO0lBQ3ZCLElBQUEsdUJBQWEsR0FBRTtJQUNmLElBQUEsc0JBQVksRUFBQyxFQUFFLE9BQU8sRUFBRSx5QkFBeUIsRUFBRSxDQUFDO0lBQ3hDLFdBQUEsSUFBQSxZQUFHLEdBQUUsQ0FBQTs7Ozt5REFHakI7aUNBcENVLHNCQUFzQjtJQUZsQyxJQUFBLGlCQUFPLEVBQUMsY0FBYyxDQUFDO0lBQ3ZCLElBQUEsbUJBQVUsR0FBRTt5REFFdUMsMENBQW1CLG9CQUFuQiwwQ0FBbUI7R0FEMUQsc0JBQXNCLENBcUNsQyIsIm5hbWVzIjpbXSwic291cmNlcyI6WyIvVXNlcnMvdGhhbmhwdC9Qcm9qZWN0cy9icmFpbi1neW0vYmFja2VuZC9zcmMvZ2FtaWZpY2F0aW9uL2dhbWlmaWNhdGlvbi5jb250cm9sbGVyLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IENvbnRyb2xsZXIsIEdldCwgUGFyYW0sIFF1ZXJ5LCBVc2VHdWFyZHMsIFJlcSB9IGZyb20gJ0BuZXN0anMvY29tbW9uJztcbmltcG9ydCB7IEFwaVRhZ3MsIEFwaU9wZXJhdGlvbiwgQXBpQmVhcmVyQXV0aCwgQXBpUXVlcnkgfSBmcm9tICdAbmVzdGpzL3N3YWdnZXInO1xuaW1wb3J0IHsgR2FtaWZpY2F0aW9uU2VydmljZSB9IGZyb20gJy4vZ2FtaWZpY2F0aW9uLnNlcnZpY2UnO1xuaW1wb3J0IHsgSnd0QXV0aEd1YXJkIH0gZnJvbSAnLi4vYXV0aC9ndWFyZHMvand0LWF1dGguZ3VhcmQnO1xuaW1wb3J0IHsgUHVibGljIH0gZnJvbSAnLi4vY29tbW9uL2RlY29yYXRvcnMvcHVibGljLmRlY29yYXRvcic7XG5cbkBBcGlUYWdzKCdnYW1pZmljYXRpb24nKVxuQENvbnRyb2xsZXIoKVxuZXhwb3J0IGNsYXNzIEdhbWlmaWNhdGlvbkNvbnRyb2xsZXIge1xuICBjb25zdHJ1Y3Rvcihwcml2YXRlIHJlYWRvbmx5IGdhbWlmaWNhdGlvblNlcnZpY2U6IEdhbWlmaWNhdGlvblNlcnZpY2UpIHt9XG5cbiAgQEdldCgnbGVhZGVyYm9hcmQnKVxuICBAUHVibGljKClcbiAgQEFwaU9wZXJhdGlvbih7IHN1bW1hcnk6ICdHZXQgbGVhZGVyYm9hcmQg4oCUIGJ5IHBvaW50cyAoZ2xvYmFsKSBvciBiZXN0IHNjb3JlIChwZXIgY2VydCknIH0pXG4gIEBBcGlRdWVyeSh7IG5hbWU6ICdjZXJ0aWZpY2F0aW9uSWQnLCByZXF1aXJlZDogZmFsc2UgfSlcbiAgQEFwaVF1ZXJ5KHsgbmFtZTogJ2xpbWl0JywgcmVxdWlyZWQ6IGZhbHNlLCB0eXBlOiBOdW1iZXIgfSlcbiAgZ2V0TGVhZGVyYm9hcmQoXG4gICAgQFF1ZXJ5KCdjZXJ0aWZpY2F0aW9uSWQnKSBjZXJ0aWZpY2F0aW9uSWQ/OiBzdHJpbmcsXG4gICAgQFF1ZXJ5KCdsaW1pdCcpIGxpbWl0Pzogc3RyaW5nLFxuICApIHtcbiAgICByZXR1cm4gdGhpcy5nYW1pZmljYXRpb25TZXJ2aWNlLmdldExlYWRlcmJvYXJkKGNlcnRpZmljYXRpb25JZCwgbGltaXQgPyArbGltaXQgOiAyMCk7XG4gIH1cblxuICBAR2V0KCdiYWRnZXMnKVxuICBAUHVibGljKClcbiAgQEFwaU9wZXJhdGlvbih7IHN1bW1hcnk6ICdMaXN0IGFsbCBhdmFpbGFibGUgYmFkZ2VzJyB9KVxuICBnZXRCYWRnZXMoKSB7XG4gICAgcmV0dXJuIHRoaXMuZ2FtaWZpY2F0aW9uU2VydmljZS5nZXRCYWRnZXMoKTtcbiAgfVxuXG4gIEBHZXQoJ3VzZXJzLzp1c2VySWQvYmFkZ2VzJylcbiAgQFB1YmxpYygpXG4gIEBBcGlPcGVyYXRpb24oeyBzdW1tYXJ5OiBcIkdldCBhIHVzZXIncyBlYXJuZWQgYmFkZ2VzXCIgfSlcbiAgZ2V0VXNlckJhZGdlcyhAUGFyYW0oJ3VzZXJJZCcpIHVzZXJJZDogc3RyaW5nKSB7XG4gICAgcmV0dXJuIHRoaXMuZ2FtaWZpY2F0aW9uU2VydmljZS5nZXRVc2VyQmFkZ2VzKHVzZXJJZCk7XG4gIH1cblxuICBAR2V0KCdtZS9wb2ludHMnKVxuICBAVXNlR3VhcmRzKEp3dEF1dGhHdWFyZClcbiAgQEFwaUJlYXJlckF1dGgoKVxuICBAQXBpT3BlcmF0aW9uKHsgc3VtbWFyeTogJ0dldCBjdXJyZW50IHVzZXIgcG9pbnRzJyB9KVxuICBnZXRNeVBvaW50cyhAUmVxKCkgcmVxOiBhbnkpIHtcbiAgICBjb25zdCB1c2VySWQgPSByZXEudXNlci5zdWIgfHwgcmVxLnVzZXIuaWQ7XG4gICAgcmV0dXJuIHRoaXMuZ2FtaWZpY2F0aW9uU2VydmljZS5nZXRVc2VyUG9pbnRzKHVzZXJJZCk7XG4gIH1cbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

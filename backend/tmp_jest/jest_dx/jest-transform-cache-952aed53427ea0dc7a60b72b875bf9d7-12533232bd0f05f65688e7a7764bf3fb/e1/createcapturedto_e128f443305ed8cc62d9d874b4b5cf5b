@@ -1,0 +1,44 @@
+32dfa96c89431ce62e25932bab04e28d
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CreateCaptureDto = void 0;
+const class_validator_1 = require("class-validator");
+class CreateCaptureDto {
+    word;
+    context;
+    examAttemptId;
+    questionId;
+}
+exports.CreateCaptureDto = CreateCaptureDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], CreateCaptureDto.prototype, "word", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateCaptureDto.prototype, "context", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateCaptureDto.prototype, "examAttemptId", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateCaptureDto.prototype, "questionId", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2NhcHR1cmUvZHRvL2NyZWF0ZS1jYXB0dXJlLmR0by50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7QUFBQSxxREFBMkU7QUFFM0UsTUFBYSxnQkFBZ0I7SUFHM0IsSUFBSSxDQUFTO0lBSWIsT0FBTyxDQUFVO0lBS2pCLGFBQWEsQ0FBVTtJQUt2QixVQUFVLENBQVU7Q0FDckI7QUFsQkQsNENBa0JDO0FBZkM7SUFGQyxJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDRCQUFVLEdBQUU7OzhDQUNBO0FBSWI7SUFGQyxJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDRCQUFVLEdBQUU7O2lEQUNJO0FBS2pCO0lBSEMsSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSx3QkFBTSxHQUFFOzt1REFDYztBQUt2QjtJQUhDLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsd0JBQU0sR0FBRTs7b0RBQ1ciLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2NhcHR1cmUvZHRvL2NyZWF0ZS1jYXB0dXJlLmR0by50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBJc1N0cmluZywgSXNOb3RFbXB0eSwgSXNPcHRpb25hbCwgSXNVVUlEIH0gZnJvbSAnY2xhc3MtdmFsaWRhdG9yJztcblxuZXhwb3J0IGNsYXNzIENyZWF0ZUNhcHR1cmVEdG8ge1xuICBASXNTdHJpbmcoKVxuICBASXNOb3RFbXB0eSgpXG4gIHdvcmQ6IHN0cmluZztcblxuICBASXNTdHJpbmcoKVxuICBASXNPcHRpb25hbCgpXG4gIGNvbnRleHQ/OiBzdHJpbmc7XG5cbiAgQElzU3RyaW5nKClcbiAgQElzT3B0aW9uYWwoKVxuICBASXNVVUlEKClcbiAgZXhhbUF0dGVtcHRJZD86IHN0cmluZztcblxuICBASXNTdHJpbmcoKVxuICBASXNPcHRpb25hbCgpXG4gIEBJc1VVSUQoKVxuICBxdWVzdGlvbklkPzogc3RyaW5nO1xufVxuIl0sInZlcnNpb24iOjN9

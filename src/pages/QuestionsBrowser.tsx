@@ -3,7 +3,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getCertifications } from '@/services/certifications';
 import { getQuestions } from '@/services/questions';
-import { Brain, Search, FileText, Loader2 } from 'lucide-react';
+import { Brain, Search, FileText, Loader2, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Navbar from '@/components/Navbar';
@@ -110,6 +110,11 @@ const QuestionsBrowser = () => {
                                             <span className="px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-mono">
                                                 {q.certificationId}
                                             </span>
+                                            {q.isScenario && (
+                                                <span className="px-2.5 py-0.5 rounded-full bg-accent/20 text-accent text-xs font-mono flex items-center gap-1">
+                                                    <BookOpen className="h-3 w-3" /> Scenario
+                                                </span>
+                                            )}
                                         </div>
                                         <h3 className="text-lg font-medium mb-2">{q.title}</h3>
                                         

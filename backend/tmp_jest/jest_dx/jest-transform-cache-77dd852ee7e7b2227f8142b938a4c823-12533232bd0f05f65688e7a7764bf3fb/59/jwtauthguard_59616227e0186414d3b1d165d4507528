@@ -1,0 +1,56 @@
+248c46220c81132b2d627aafa683e216
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.JwtAuthGuard = void 0;
+const common_1 = require("@nestjs/common");
+const passport_1 = require("@nestjs/passport");
+const core_1 = require("@nestjs/core");
+const public_decorator_1 = require("../../common/decorators/public.decorator");
+let JwtAuthGuard = class JwtAuthGuard extends (0, passport_1.AuthGuard)('jwt') {
+    reflector;
+    constructor(reflector) {
+        super();
+        this.reflector = reflector;
+    }
+    canActivate(context) {
+        const isPublic = this.reflector.getAllAndOverride(public_decorator_1.IS_PUBLIC_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (isPublic) {
+            // Still try to extract user from token, but don't fail if missing
+            return super.canActivate(context);
+        }
+        return super.canActivate(context);
+    }
+    handleRequest(err, user, info, context) {
+        const isPublic = this.reflector.getAllAndOverride(public_decorator_1.IS_PUBLIC_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        // For public routes, allow unauthenticated access but attach user if available
+        if (isPublic && !user) {
+            return null;
+        }
+        if (err || !user) {
+            throw err || new common_1.UnauthorizedException('Invalid or missing token');
+        }
+        return user;
+    }
+};
+exports.JwtAuthGuard = JwtAuthGuard;
+exports.JwtAuthGuard = JwtAuthGuard = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [typeof (_a = typeof core_1.Reflector !== "undefined" && core_1.Reflector) === "function" ? _a : Object])
+], JwtAuthGuard);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2F1dGgvZ3VhcmRzL2p3dC1hdXRoLmd1YXJkLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7QUFBQSwyQ0FBcUY7QUFDckYsK0NBQTZDO0FBQzdDLHVDQUF5QztBQUN6QywrRUFBeUU7QUFHbEUsSUFBTSxZQUFZLEdBQWxCLE1BQU0sWUFBYSxTQUFRLElBQUEsb0JBQVMsRUFBQyxLQUFLLENBQUM7SUFDMUI7SUFBcEIsWUFBb0IsU0FBb0I7UUFDcEMsS0FBSyxFQUFFLENBQUM7UUFEUSxjQUFTLEdBQVQsU0FBUyxDQUFXO0lBRXhDLENBQUM7SUFFRCxXQUFXLENBQUMsT0FBeUI7UUFDakMsTUFBTSxRQUFRLEdBQUcsSUFBSSxDQUFDLFNBQVMsQ0FBQyxpQkFBaUIsQ0FBVSxnQ0FBYSxFQUFFO1lBQ3RFLE9BQU8sQ0FBQyxVQUFVLEVBQUU7WUFDcEIsT0FBTyxDQUFDLFFBQVEsRUFBRTtTQUNyQixDQUFDLENBQUM7UUFFSCxJQUFJLFFBQVEsRUFBRSxDQUFDO1lBQ1gsa0VBQWtFO1lBQ2xFLE9BQU8sS0FBSyxDQUFDLFdBQVcsQ0FBQyxPQUFPLENBQUMsQ0FBQztRQUN0QyxDQUFDO1FBRUQsT0FBTyxLQUFLLENBQUMsV0FBVyxDQUFDLE9BQU8sQ0FBQyxDQUFDO0lBQ3RDLENBQUM7SUFFRCxhQUFhLENBQUMsR0FBUSxFQUFFLElBQVMsRUFBRSxJQUFTLEVBQUUsT0FBeUI7UUFDbkUsTUFBTSxRQUFRLEdBQUcsSUFBSSxDQUFDLFNBQVMsQ0FBQyxpQkFBaUIsQ0FBVSxnQ0FBYSxFQUFFO1lBQ3RFLE9BQU8sQ0FBQyxVQUFVLEVBQUU7WUFDcEIsT0FBTyxDQUFDLFFBQVEsRUFBRTtTQUNyQixDQUFDLENBQUM7UUFFSCwrRUFBK0U7UUFDL0UsSUFBSSxRQUFRLElBQUksQ0FBQyxJQUFJLEVBQUUsQ0FBQztZQUNwQixPQUFPLElBQUksQ0FBQztRQUNoQixDQUFDO1FBRUQsSUFBSSxHQUFHLElBQUksQ0FBQyxJQUFJLEVBQUUsQ0FBQztZQUNmLE1BQU0sR0FBRyxJQUFJLElBQUksOEJBQXFCLENBQUMsMEJBQTBCLENBQUMsQ0FBQztRQUN2RSxDQUFDO1FBQ0QsT0FBTyxJQUFJLENBQUM7SUFDaEIsQ0FBQztDQUNKLENBQUE7QUFuQ1ksb0NBQVk7dUJBQVosWUFBWTtJQUR4QixJQUFBLG1CQUFVLEdBQUU7eURBRXNCLGdCQUFTLG9CQUFULGdCQUFTO0dBRC9CLFlBQVksQ0FtQ3hCIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy90aGFuaHB0L1Byb2plY3RzL2JyYWluLWd5bS9iYWNrZW5kL3NyYy9hdXRoL2d1YXJkcy9qd3QtYXV0aC5ndWFyZC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBJbmplY3RhYmxlLCBFeGVjdXRpb25Db250ZXh0LCBVbmF1dGhvcml6ZWRFeGNlcHRpb24gfSBmcm9tICdAbmVzdGpzL2NvbW1vbic7XG5pbXBvcnQgeyBBdXRoR3VhcmQgfSBmcm9tICdAbmVzdGpzL3Bhc3Nwb3J0JztcbmltcG9ydCB7IFJlZmxlY3RvciB9IGZyb20gJ0BuZXN0anMvY29yZSc7XG5pbXBvcnQgeyBJU19QVUJMSUNfS0VZIH0gZnJvbSAnLi4vLi4vY29tbW9uL2RlY29yYXRvcnMvcHVibGljLmRlY29yYXRvcic7XG5cbkBJbmplY3RhYmxlKClcbmV4cG9ydCBjbGFzcyBKd3RBdXRoR3VhcmQgZXh0ZW5kcyBBdXRoR3VhcmQoJ2p3dCcpIHtcbiAgICBjb25zdHJ1Y3Rvcihwcml2YXRlIHJlZmxlY3RvcjogUmVmbGVjdG9yKSB7XG4gICAgICAgIHN1cGVyKCk7XG4gICAgfVxuXG4gICAgY2FuQWN0aXZhdGUoY29udGV4dDogRXhlY3V0aW9uQ29udGV4dCkge1xuICAgICAgICBjb25zdCBpc1B1YmxpYyA9IHRoaXMucmVmbGVjdG9yLmdldEFsbEFuZE92ZXJyaWRlPGJvb2xlYW4+KElTX1BVQkxJQ19LRVksIFtcbiAgICAgICAgICAgIGNvbnRleHQuZ2V0SGFuZGxlcigpLFxuICAgICAgICAgICAgY29udGV4dC5nZXRDbGFzcygpLFxuICAgICAgICBdKTtcblxuICAgICAgICBpZiAoaXNQdWJsaWMpIHtcbiAgICAgICAgICAgIC8vIFN0aWxsIHRyeSB0byBleHRyYWN0IHVzZXIgZnJvbSB0b2tlbiwgYnV0IGRvbid0IGZhaWwgaWYgbWlzc2luZ1xuICAgICAgICAgICAgcmV0dXJuIHN1cGVyLmNhbkFjdGl2YXRlKGNvbnRleHQpO1xuICAgICAgICB9XG5cbiAgICAgICAgcmV0dXJuIHN1cGVyLmNhbkFjdGl2YXRlKGNvbnRleHQpO1xuICAgIH1cblxuICAgIGhhbmRsZVJlcXVlc3QoZXJyOiBhbnksIHVzZXI6IGFueSwgaW5mbzogYW55LCBjb250ZXh0OiBFeGVjdXRpb25Db250ZXh0KSB7XG4gICAgICAgIGNvbnN0IGlzUHVibGljID0gdGhpcy5yZWZsZWN0b3IuZ2V0QWxsQW5kT3ZlcnJpZGU8Ym9vbGVhbj4oSVNfUFVCTElDX0tFWSwgW1xuICAgICAgICAgICAgY29udGV4dC5nZXRIYW5kbGVyKCksXG4gICAgICAgICAgICBjb250ZXh0LmdldENsYXNzKCksXG4gICAgICAgIF0pO1xuXG4gICAgICAgIC8vIEZvciBwdWJsaWMgcm91dGVzLCBhbGxvdyB1bmF1dGhlbnRpY2F0ZWQgYWNjZXNzIGJ1dCBhdHRhY2ggdXNlciBpZiBhdmFpbGFibGVcbiAgICAgICAgaWYgKGlzUHVibGljICYmICF1c2VyKSB7XG4gICAgICAgICAgICByZXR1cm4gbnVsbDtcbiAgICAgICAgfVxuXG4gICAgICAgIGlmIChlcnIgfHwgIXVzZXIpIHtcbiAgICAgICAgICAgIHRocm93IGVyciB8fCBuZXcgVW5hdXRob3JpemVkRXhjZXB0aW9uKCdJbnZhbGlkIG9yIG1pc3NpbmcgdG9rZW4nKTtcbiAgICAgICAgfVxuICAgICAgICByZXR1cm4gdXNlcjtcbiAgICB9XG59XG4iXSwidmVyc2lvbiI6M30=

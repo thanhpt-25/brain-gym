@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Brain, ChevronLeft, ThumbsUp, ThumbsDown, MessageSquare, Flag, Trash2, Reply, Loader2, Send } from 'lucide-react';
+import { Brain, ChevronLeft, ThumbsUp, ThumbsDown, MessageSquare, Flag, Trash2, Reply, Loader2, Send, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -228,11 +228,31 @@ const QuestionDetail = () => {
               {q.domain && (
                 <span className="text-xs text-muted-foreground">· {q.domain.name}</span>
               )}
+              {q.isScenario && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono flex items-center gap-1">
+                  <BookOpen className="h-3 w-3" /> Scenario
+                </span>
+              )}
             </div>
 
             {/* Title & Description */}
-            <h1 className="text-xl font-medium mb-2">{q.title}</h1>
-            {q.description && <p className="text-sm text-muted-foreground mb-4">{q.description}</p>}
+            <h1 className="text-xl font-medium mb-4">{q.title}</h1>
+            
+            {q.isScenario && q.description ? (
+              <div className="p-5 rounded-xl bg-accent/5 border border-accent/20 mb-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-3 opacity-10">
+                  <BookOpen className="h-12 w-12" />
+                </div>
+                <div className="flex items-center gap-2 text-accent font-mono text-[10px] uppercase tracking-widest mb-3">
+                  <BookOpen className="h-3 w-3" /> Technical Scenario
+                </div>
+                <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed relative z-10">
+                  {q.description}
+                </p>
+              </div>
+            ) : (
+              q.description && <p className="text-sm text-muted-foreground mb-4">{q.description}</p>
+            )}
 
             {/* Code Snippet */}
             {q.codeSnippet && (

@@ -68,7 +68,7 @@ export class UsersService {
       }),
     ]);
 
-    return { data: users, meta: { total, page, lastPage: Math.ceil(total / limit) } };
+    return { data: users, meta: { total, page, limit, lastPage: Math.ceil(total / limit) } };
   }
 
   async updateRole(userId: string, role: UserRole) {

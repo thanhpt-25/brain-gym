@@ -49,6 +49,7 @@ export class QuestionsService {
             meta: {
                 total,
                 page,
+                limit,
                 lastPage: Math.ceil(total / limit),
             },
         };
@@ -275,6 +276,6 @@ export class QuestionsService {
             }),
         ]);
 
-        return { data: questions, meta: { total, page, lastPage: Math.ceil(total / limit) } };
+        return { data: questions, meta: { total, page, limit, lastPage: Math.ceil(total / limit) } };
     }
 }

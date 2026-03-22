@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { UserRole } from '@prisma/client';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('questions')
 @Controller('questions')
@@ -25,25 +26,25 @@ export class QuestionsController {
         @Req() req: any,
         @Query('certificationId') certificationId?: string,
         @Query('status') status?: string,
-        @Query('page') page?: string,
-        @Query('limit') limit?: string,
+        @Query() pagination?: PaginationDto,
     ) {
         const userId = req.user?.sub || req.user?.id;
-        const pageNumber = page ? parseInt(page, 10) : 1;
-        const limitNumber = limit ? parseInt(limit, 10) : 10;
-        return this.questionsService.findAll(certificationId, status, pageNumber, limitNumber, userId);
+        return this.questionsService.findAll(
+            certificationId, 
+            status, 
+            pagination?.page, 
+            pagination?.limit, 
+            userId
+        );
     }
 
     @Get('queue/pending')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles(UserRole.REVIEWER, UserRole.ADMIN)
     @ApiBearerAuth()
-    @ApiBearerAuth()
     @ApiOperation({ summary: 'Get pending questions for review' })
-    @ApiQuery({ name: 'page', required: false, type: Number })
-    @ApiQuery({ name: 'limit', required: false, type: Number })
-    findPending(@Query('page') page?: string, @Query('limit') limit?: string) {
-        return this.questionsService.findPending(page ? +page : 1, limit ? +limit : 20);
+    findPending(@Query() pagination?: PaginationDto) {
+        return this.questionsService.findPending(pagination?.page, pagination?.limit);
     }
 
     @Get(':id')

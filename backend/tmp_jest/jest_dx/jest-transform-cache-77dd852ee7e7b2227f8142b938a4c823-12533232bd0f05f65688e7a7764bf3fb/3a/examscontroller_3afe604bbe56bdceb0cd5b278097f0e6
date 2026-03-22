@@ -1,0 +1,143 @@
+2a601f495090d55f4947b12a3aaa69ca
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a, _b, _c;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ExamsController = void 0;
+const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
+const exams_service_1 = require("./exams.service");
+const create_exam_dto_1 = require("./dto/create-exam.dto");
+const update_exam_dto_1 = require("./dto/update-exam.dto");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const public_decorator_1 = require("../common/decorators/public.decorator");
+let ExamsController = class ExamsController {
+    examsService;
+    constructor(examsService) {
+        this.examsService = examsService;
+    }
+    create(req, dto) {
+        const userId = req.user.sub || req.user.id;
+        return this.examsService.create(userId, dto);
+    }
+    findAll(certificationId, page, limit, sort) {
+        return this.examsService.findAll(certificationId, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 10, sort ?? 'latest');
+    }
+    findMyExams(req, page, limit) {
+        const userId = req.user.sub || req.user.id;
+        return this.examsService.findMyExams(userId, page ? parseInt(page, 10) : 1, limit ? parseInt(limit, 10) : 10);
+    }
+    findByShareCode(shareCode) {
+        return this.examsService.findByShareCode(shareCode);
+    }
+    findOne(id) {
+        return this.examsService.findOne(id);
+    }
+    update(req, id, dto) {
+        const userId = req.user.sub || req.user.id;
+        return this.examsService.update(userId, id, dto);
+    }
+    remove(req, id) {
+        const userId = req.user.sub || req.user.id;
+        const userRole = req.user.role;
+        return this.examsService.remove(userId, userRole, id);
+    }
+};
+exports.ExamsController = ExamsController;
+__decorate([
+    (0, common_1.Post)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new exam' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_b = typeof create_exam_dto_1.CreateExamDto !== "undefined" && create_exam_dto_1.CreateExamDto) === "function" ? _b : Object]),
+    __metadata("design:returntype", void 0)
+], ExamsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Get)(),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List public exams' }),
+    (0, swagger_1.ApiQuery)({ name: 'certificationId', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'page', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'limit', required: false }),
+    (0, swagger_1.ApiQuery)({ name: 'sort', required: false, enum: ['latest', 'popular'] }),
+    __param(0, (0, common_1.Query)('certificationId')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __param(3, (0, common_1.Query)('sort')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", void 0)
+], ExamsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('me'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'List my exams' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], ExamsController.prototype, "findMyExams", null);
+__decorate([
+    (0, common_1.Get)('share/:shareCode'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get exam by share code' }),
+    __param(0, (0, common_1.Param)('shareCode')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ExamsController.prototype, "findByShareCode", null);
+__decorate([
+    (0, common_1.Get)(':id'),
+    (0, public_decorator_1.Public)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Get exam by ID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ExamsController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Put)(':id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Update an exam (owner only)' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, typeof (_c = typeof update_exam_dto_1.UpdateExamDto !== "undefined" && update_exam_dto_1.UpdateExamDto) === "function" ? _c : Object]),
+    __metadata("design:returntype", void 0)
+], ExamsController.prototype, "update", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete an exam (owner or admin)' }),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], ExamsController.prototype, "remove", null);
+exports.ExamsController = ExamsController = __decorate([
+    (0, swagger_1.ApiTags)('exams'),
+    (0, common_1.Controller)('exams'),
+    __metadata("design:paramtypes", [typeof (_a = typeof exams_service_1.ExamsService !== "undefined" && exams_service_1.ExamsService) === "function" ? _a : Object])
+], ExamsController);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2V4YW1zL2V4YW1zLmNvbnRyb2xsZXIudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLDJDQUF3RztBQUN4Ryw2Q0FBaUY7QUFDakYsbURBQStDO0FBQy9DLDJEQUFzRDtBQUN0RCwyREFBc0Q7QUFDdEQsa0VBQTZEO0FBQzdELDRFQUErRDtBQUl4RCxJQUFNLGVBQWUsR0FBckIsTUFBTSxlQUFlO0lBQ0s7SUFBN0IsWUFBNkIsWUFBMEI7UUFBMUIsaUJBQVksR0FBWixZQUFZLENBQWM7SUFBSSxDQUFDO0lBTTVELE1BQU0sQ0FBUSxHQUFRLEVBQVUsR0FBa0I7UUFDOUMsTUFBTSxNQUFNLEdBQUcsR0FBRyxDQUFDLElBQUksQ0FBQyxHQUFHLElBQUksR0FBRyxDQUFDLElBQUksQ0FBQyxFQUFFLENBQUM7UUFDM0MsT0FBTyxJQUFJLENBQUMsWUFBWSxDQUFDLE1BQU0sQ0FBQyxNQUFNLEVBQUUsR0FBRyxDQUFDLENBQUM7SUFDakQsQ0FBQztJQVNELE9BQU8sQ0FDdUIsZUFBd0IsRUFDbkMsSUFBYSxFQUNaLEtBQWMsRUFDZixJQUEyQjtRQUUxQyxPQUFPLElBQUksQ0FBQyxZQUFZLENBQUMsT0FBTyxDQUM1QixlQUFlLEVBQ2YsSUFBSSxDQUFDLENBQUMsQ0FBQyxRQUFRLENBQUMsSUFBSSxFQUFFLEVBQUUsQ0FBQyxDQUFDLENBQUMsQ0FBQyxDQUFDLEVBQzdCLEtBQUssQ0FBQyxDQUFDLENBQUMsUUFBUSxDQUFDLEtBQUssRUFBRSxFQUFFLENBQUMsQ0FBQyxDQUFDLENBQUMsRUFBRSxFQUNoQyxJQUFJLElBQUksUUFBUSxDQUNuQixDQUFDO0lBQ04sQ0FBQztJQU1ELFdBQVcsQ0FBUSxHQUFRLEVBQWlCLElBQWEsRUFBa0IsS0FBYztRQUNyRixNQUFNLE1BQU0sR0FBRyxHQUFHLENBQUMsSUFBSSxDQUFDLEdBQUcsSUFBSSxHQUFHLENBQUMsSUFBSSxDQUFDLEVBQUUsQ0FBQztR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Q0FBQztJQUNyRCxXQUFBLElBQUEsWUFBRyxHQUFFLENBQUE7SUFBWSxXQUFBLElBQUEsY0FBSyxFQUFDLElBQUksQ0FBQyxDQUFBOzs7OzZDQUluQzswQkF6RVEsZUFBZTtJQUYzQixJQUFBLGlCQUFPLEVBQUMsT0FBTyxDQUFDO0lBQ2hCLElBQUEsbUJBQVUsRUFBQyxPQUFPLENBQUM7eURBRTJCLDRCQUFZLG9CQUFaLDRCQUFZO0dBRDlDLGVBQWUsQ0EwRTNCIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy90aGFuaHB0L1Byb2plY3RzL2JyYWluLWd5bS9iYWNrZW5kL3NyYy9leGFtcy9leGFtcy5jb250cm9sbGVyLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IENvbnRyb2xsZXIsIEdldCwgUG9zdCwgUHV0LCBEZWxldGUsIEJvZHksIFBhcmFtLCBRdWVyeSwgUmVxLCBVc2VHdWFyZHMgfSBmcm9tICdAbmVzdGpzL2NvbW1vbic7XG5pbXBvcnQgeyBBcGlUYWdzLCBBcGlPcGVyYXRpb24sIEFwaUJlYXJlckF1dGgsIEFwaVF1ZXJ5IH0gZnJvbSAnQG5lc3Rqcy9zd2FnZ2VyJztcbmltcG9ydCB7IEV4YW1zU2VydmljZSB9IGZyb20gJy4vZXhhbXMuc2VydmljZSc7XG5pbXBvcnQgeyBDcmVhdGVFeGFtRHRvIH0gZnJvbSAnLi9kdG8vY3JlYXRlLWV4YW0uZHRvJztcbmltcG9ydCB7IFVwZGF0ZUV4YW1EdG8gfSBmcm9tICcuL2R0by91cGRhdGUtZXhhbS5kdG8nO1xuaW1wb3J0IHsgSnd0QXV0aEd1YXJkIH0gZnJvbSAnLi4vYXV0aC9ndWFyZHMvand0LWF1dGguZ3VhcmQnO1xuaW1wb3J0IHsgUHVibGljIH0gZnJvbSAnLi4vY29tbW9uL2RlY29yYXRvcnMvcHVibGljLmRlY29yYXRvcic7XG5cbkBBcGlUYWdzKCdleGFtcycpXG5AQ29udHJvbGxlcignZXhhbXMnKVxuZXhwb3J0IGNsYXNzIEV4YW1zQ29udHJvbGxlciB7XG4gICAgY29uc3RydWN0b3IocHJpdmF0ZSByZWFkb25seSBleGFtc1NlcnZpY2U6IEV4YW1zU2VydmljZSkgeyB9XG5cbiAgICBAUG9zdCgpXG4gICAgQFVzZUd1YXJkcyhKd3RBdXRoR3VhcmQpXG4gICAgQEFwaUJlYXJlckF1dGgoKVxuICAgIEBBcGlPcGVyYXRpb24oeyBzdW1tYXJ5OiAnQ3JlYXRlIGEgbmV3IGV4YW0nIH0pXG4gICAgY3JlYXRlKEBSZXEoKSByZXE6IGFueSwgQEJvZHkoKSBkdG86IENyZWF0ZUV4YW1EdG8pIHtcbiAgICAgICAgY29uc3QgdXNlcklkID0gcmVxLnVzZXIuc3ViIHx8IHJlcS51c2VyLmlkO1xuICAgICAgICByZXR1cm4gdGhpcy5leGFtc1NlcnZpY2UuY3JlYXRlKHVzZXJJZCwgZHRvKTtcbiAgICB9XG5cbiAgICBAR2V0KClcbiAgICBAUHVibGljKClcbiAgICBAQXBpT3BlcmF0aW9uKHsgc3VtbWFyeTogJ0xpc3QgcHVibGljIGV4YW1zJyB9KVxuICAgIEBBcGlRdWVyeSh7IG5hbWU6ICdjZXJ0aWZpY2F0aW9uSWQnLCByZXF1aXJlZDogZmFsc2UgfSlcbiAgICBAQXBpUXVlcnkoeyBuYW1lOiAncGFnZScsIHJlcXVpcmVkOiBmYWxzZSB9KVxuICAgIEBBcGlRdWVyeSh7IG5hbWU6ICdsaW1pdCcsIHJlcXVpcmVkOiBmYWxzZSB9KVxuICAgIEBBcGlRdWVyeSh7IG5hbWU6ICdzb3J0JywgcmVxdWlyZWQ6IGZhbHNlLCBlbnVtOiBbJ2xhdGVzdCcsICdwb3B1bGFyJ10gfSlcbiAgICBmaW5kQWxsKFxuICAgICAgICBAUXVlcnkoJ2NlcnRpZmljYXRpb25JZCcpIGNlcnRpZmljYXRpb25JZD86IHN0cmluZyxcbiAgICAgICAgQFF1ZXJ5KCdwYWdlJykgcGFnZT86IHN0cmluZyxcbiAgICAgICAgQFF1ZXJ5KCdsaW1pdCcpIGxpbWl0Pzogc3RyaW5nLFxuICAgICAgICBAUXVlcnkoJ3NvcnQnKSBzb3J0PzogJ2xhdGVzdCcgfCAncG9wdWxhcicsXG4gICAgKSB7XG4gICAgICAgIHJldHVybiB0aGlzLmV4YW1zU2VydmljZS5maW5kQWxsKFxuICAgICAgICAgICAgY2VydGlmaWNhdGlvbklkLFxuICAgICAgICAgICAgcGFnZSA/IHBhcnNlSW50KHBhZ2UsIDEwKSA6IDEsXG4gICAgICAgICAgICBsaW1pdCA/IHBhcnNlSW50KGxpbWl0LCAxMCkgOiAxMCxcbiAgICAgICAgICAgIHNvcnQgPz8gJ2xhdGVzdCcsXG4gICAgICAgICk7XG4gICAgfVxuXG4gICAgQEdldCgnbWUnKVxuICAgIEBVc2VHdWFyZHMoSnd0QXV0aEd1YXJkKVxuICAgIEBBcGlCZWFyZXJBdXRoKClcbiAgICBAQXBpT3BlcmF0aW9uKHsgc3VtbWFyeTogJ0xpc3QgbXkgZXhhbXMnIH0pXG4gICAgZmluZE15RXhhbXMoQFJlcSgpIHJlcTogYW55LCBAUXVlcnkoJ3BhZ2UnKSBwYWdlPzogc3RyaW5nLCBAUXVlcnkoJ2xpbWl0JykgbGltaXQ/OiBzdHJpbmcpIHtcbiAgICAgICAgY29uc3QgdXNlcklkID0gcmVxLnVzZXIuc3ViIHx8IHJlcS51c2VyLmlkO1xuICAgICAgICByZXR1cm4gdGhpcy5leGFtc1NlcnZpY2UuZmluZE15RXhhbXModXNlcklkLCBwYWdlID8gcGFyc2VJbnQocGFnZSwgMTApIDogMSwgbGltaXQgPyBwYXJzZUludChsaW1pdCwgMTApIDogMTApO1xuICAgIH1cblxuICAgIEBHZXQoJ3NoYXJlLzpzaGFyZUNvZGUnKVxuICAgIEBQdWJsaWMoKVxuICAgIEBBcGlPcGVyYXRpb24oeyBzdW1tYXJ5OiAnR2V0IGV4YW0gYnkgc2hhcmUgY29kZScgfSlcbiAgICBmaW5kQnlTaGFyZUNvZGUoQFBhcmFtKCdzaGFyZUNvZGUnKSBzaGFyZUNvZGU6IHN0cmluZykge1xuICAgICAgICByZXR1cm4gdGhpcy5leGFtc1NlcnZpY2UuZmluZEJ5U2hhcmVDb2RlKHNoYXJlQ29kZSk7XG4gICAgfVxuXG4gICAgQEdldCgnOmlkJylcbiAgICBAUHVibGljKClcbiAgICBAQXBpT3BlcmF0aW9uKHsgc3VtbWFyeTogJ0dldCBleGFtIGJ5IElEJyB9KVxuICAgIGZpbmRPbmUoQFBhcmFtKCdpZCcpIGlkOiBzdHJpbmcpIHtcbiAgICAgICAgcmV0dXJuIHRoaXMuZXhhbXNTZXJ2aWNlLmZpbmRPbmUoaWQpO1xuICAgIH1cblxuICAgIEBQdXQoJzppZCcpXG4gICAgQFVzZUd1YXJkcyhKd3RBdXRoR3VhcmQpXG4gICAgQEFwaUJlYXJlckF1dGgoKVxuICAgIEBBcGlPcGVyYXRpb24oeyBzdW1tYXJ5OiAnVXBkYXRlIGFuIGV4YW0gKG93bmVyIG9ubHkpJyB9KVxuICAgIHVwZGF0ZShAUmVxKCkgcmVxOiBhbnksIEBQYXJhbSgnaWQnKSBpZDogc3RyaW5nLCBAQm9keSgpIGR0bzogVXBkYXRlRXhhbUR0bykge1xuICAgICAgICBjb25zdCB1c2VySWQgPSByZXEudXNlci5zdWIgfHwgcmVxLnVzZXIuaWQ7XG4gICAgICAgIHJldHVybiB0aGlzLmV4YW1zU2VydmljZS51cGRhdGUodXNlcklkLCBpZCwgZHRvKTtcbiAgICB9XG5cbiAgICBARGVsZXRlKCc6aWQnKVxuICAgIEBVc2VHdWFyZHMoSnd0QXV0aEd1YXJkKVxuICAgIEBBcGlCZWFyZXJBdXRoKClcbiAgICBAQXBpT3BlcmF0aW9uKHsgc3VtbWFyeTogJ0RlbGV0ZSBhbiBleGFtIChvd25lciBvciBhZG1pbiknIH0pXG4gICAgcmVtb3ZlKEBSZXEoKSByZXE6IGFueSwgQFBhcmFtKCdpZCcpIGlkOiBzdHJpbmcpIHtcbiAgICAgICAgY29uc3QgdXNlcklkID0gcmVxLnVzZXIuc3ViIHx8IHJlcS51c2VyLmlkO1xuICAgICAgICBjb25zdCB1c2VyUm9sZSA9IHJlcS51c2VyLnJvbGU7XG4gICAgICAgIHJldHVybiB0aGlzLmV4YW1zU2VydmljZS5yZW1vdmUodXNlcklkLCB1c2VyUm9sZSwgaWQpO1xuICAgIH1cbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

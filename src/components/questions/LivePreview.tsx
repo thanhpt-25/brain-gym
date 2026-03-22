@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, Eye } from 'lucide-react';
+import { CheckCircle2, Eye, BookOpen } from 'lucide-react';
 import { Difficulty, QuestionType } from '@/types/api-types';
 
 interface ChoiceInput {
@@ -14,6 +14,7 @@ interface LivePreviewProps {
   domainId: string;
   domains: any[];
   questionType: QuestionType;
+  isScenario?: boolean;
   title: string;
   description: string;
   choices: ChoiceInput[];
@@ -28,6 +29,7 @@ export function LivePreview({
   domainId,
   domains,
   questionType,
+  isScenario,
   title,
   description,
   choices,
@@ -71,14 +73,30 @@ export function LivePreview({
             {questionType === 'MULTIPLE' && (
               <span className="text-xs text-primary font-mono">MULTI</span>
             )}
+            {isScenario && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/20 text-accent font-mono flex items-center gap-1 border border-accent/20">
+                <BookOpen className="h-3 w-3" /> SCENARIO
+              </span>
+            )}
           </div>
 
           {/* Question */}
           <h2 className="text-base font-medium mb-1">
             {title || <span className="text-muted-foreground italic">Nội dung câu hỏi...</span>}
           </h2>
-          {description && (
-            <p className="text-sm text-muted-foreground mb-4">{description}</p>
+          {isScenario && description ? (
+            <div className="p-4 rounded-lg bg-accent/5 border border-accent/10 mb-4 relative">
+              <div className="absolute top-0 right-0 p-2 opacity-5">
+                <BookOpen className="h-8 w-8" />
+              </div>
+              <p className="text-xs text-foreground/80 whitespace-pre-wrap leading-relaxed italic border-l-2 border-accent/20 pl-3">
+                {description}
+              </p>
+            </div>
+          ) : (
+            description && (
+              <p className="text-sm text-muted-foreground mb-4">{description}</p>
+            )
           )}
 
           {/* Choices */}

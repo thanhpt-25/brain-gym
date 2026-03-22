@@ -23,6 +23,7 @@ export interface Question {
   description?: string;
   questionType?: QuestionType;
   choices: Choice[];
+  isScenario?: boolean;
   explanation: string;
   referenceUrl?: string;
   difficulty: Difficulty | 'EASY' | 'MEDIUM' | 'HARD';

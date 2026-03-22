@@ -394,7 +394,7 @@ export class AttemptsService {
                 startedAt: a.startedAt,
                 submittedAt: a.submittedAt,
             })),
-            meta: { total, page, lastPage: Math.ceil(total / limit) },
+            meta: { total, page, limit, lastPage: Math.ceil(total / limit) },
         };
     }
 }

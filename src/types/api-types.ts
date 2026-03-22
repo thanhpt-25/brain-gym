@@ -43,6 +43,7 @@ export interface Question {
   description?: string;
   questionType: QuestionType | string;
   choices: Choice[];
+  isScenario?: boolean;
   explanation: string;
   referenceUrl?: string;
   difficulty: Difficulty | string;
@@ -172,6 +173,7 @@ export interface AttemptQuestion {
   id: string;
   title: string;
   description?: string;
+  isScenario?: boolean;
   questionType: string;
   difficulty: string;
   domain?: Domain;

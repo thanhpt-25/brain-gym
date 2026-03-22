@@ -11,7 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Brain, ArrowLeft, Save, Eye, Plus, X, Tag, Sparkles } from 'lucide-react';
+import { Brain, ArrowLeft, Save, Eye, Plus, X, Tag, Sparkles, BookOpen } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LivePreview } from '@/components/questions/LivePreview';
 
@@ -27,6 +29,7 @@ export default function QuestionForm() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [isScenario, setIsScenario] = useState(false);
   const [explanation, setExplanation] = useState('');
   const [referenceUrl, setReferenceUrl] = useState('');
   const [certificationId, setCertificationId] = useState('');
@@ -124,6 +127,7 @@ export default function QuestionForm() {
         certificationId, domainId: domainId || undefined, difficulty: difficulty as Difficulty, questionType,
         choices: choices.map((c) => ({ label: c.label, content: c.content, isCorrect: c.isCorrect })),
         tags: tags,
+        isScenario: isScenario,
       });
       
       // Move from DRAFT to PENDING
@@ -243,19 +247,32 @@ export default function QuestionForm() {
 
             {/* Question Content */}
             <div className="glass-card p-5 space-y-4">
-              <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">Question</div>
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">Question</div>
+                <div className="flex items-center space-x-2">
+                  <Switch id="is-scenario" checked={isScenario} onCheckedChange={setIsScenario} />
+                  <Label htmlFor="is-scenario" className="text-xs font-mono text-muted-foreground cursor-pointer">Scenario Mode</Label>
+                </div>
+              </div>
               <Textarea
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Nội dung câu hỏi chính..."
                 className="bg-secondary border-border min-h-[80px] text-sm"
               />
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Mô tả thêm / scenario (optional)..."
-                className="bg-secondary border-border min-h-[60px] text-sm"
-              />
+              <div className={`space-y-2 transition-all duration-300 ${isScenario ? 'p-3 rounded-lg bg-accent/5 border border-accent/20' : ''}`}>
+                {isScenario && (
+                  <div className="flex items-center gap-1.5 text-[10px] font-mono text-accent uppercase tracking-widest px-1">
+                    <BookOpen className="w-3 h-3" /> Technical Context / Scenario
+                  </div>
+                )}
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={isScenario ? "Mô tả chi tiết tình huống / scenario..." : "Mô tả thêm / context (optional)..."}
+                  className={`bg-secondary border-border text-sm transition-all duration-300 ${isScenario ? 'min-h-[140px] border-accent/30' : 'min-h-[60px]'}`}
+                />
+              </div>
             </div>
 
             {/* Choices */}
@@ -393,6 +410,7 @@ export default function QuestionForm() {
               domainId={domainId}
               domains={domains}
               questionType={questionType}
+              isScenario={isScenario}
               title={title}
               description={description}
               choices={choices}

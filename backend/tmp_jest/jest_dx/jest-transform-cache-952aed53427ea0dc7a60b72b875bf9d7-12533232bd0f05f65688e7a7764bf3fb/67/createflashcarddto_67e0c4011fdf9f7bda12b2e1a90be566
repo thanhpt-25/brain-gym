@@ -1,0 +1,52 @@
+311283332493bfc160b895d31ecdc071
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CreateFlashcardDto = void 0;
+const class_validator_1 = require("class-validator");
+const swagger_1 = require("@nestjs/swagger");
+class CreateFlashcardDto {
+    deckId;
+    front;
+    back;
+    hint;
+    tags;
+}
+exports.CreateFlashcardDto = CreateFlashcardDto;
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], CreateFlashcardDto.prototype, "deckId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateFlashcardDto.prototype, "front", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateFlashcardDto.prototype, "back", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateFlashcardDto.prototype, "hint", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ type: [String] }),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Array)
+], CreateFlashcardDto.prototype, "tags", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2ZsYXNoY2FyZHMvZHRvL2NyZWF0ZS1mbGFzaGNhcmQuZHRvLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7OztBQUFBLHFEQUF3RTtBQUN4RSw2Q0FBbUU7QUFFbkUsTUFBYSxrQkFBa0I7SUFHN0IsTUFBTSxDQUFTO0lBSWYsS0FBSyxDQUFTO0lBSWQsSUFBSSxDQUFTO0lBS2IsSUFBSSxDQUFVO0lBTWQsSUFBSSxDQUFZO0NBQ2pCO0FBdkJELGdEQXVCQztBQXBCQztJQUZDLElBQUEscUJBQVcsR0FBRTtJQUNiLElBQUEsd0JBQU0sR0FBRTs7a0RBQ007QUFJZjtJQUZDLElBQUEscUJBQVcsR0FBRTtJQUNiLElBQUEsMEJBQVEsR0FBRTs7aURBQ0c7QUFJZDtJQUZDLElBQUEscUJBQVcsR0FBRTtJQUNiLElBQUEsMEJBQVEsR0FBRTs7Z0RBQ0U7QUFLYjtJQUhDLElBQUEsNkJBQW1CLEdBQUU7SUFDckIsSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSw0QkFBVSxHQUFFOztnREFDQztBQU1kO0lBSkMsSUFBQSw2QkFBbUIsRUFBQyxFQUFFLElBQUksRUFBRSxDQUFDLE1BQU0sQ0FBQyxFQUFFLENBQUM7SUFDdkMsSUFBQSx5QkFBTyxHQUFFO0lBQ1QsSUFBQSwwQkFBUSxFQUFDLEVBQUUsSUFBSSxFQUFFLElBQUksRUFBRSxDQUFDO0lBQ3hCLElBQUEsNEJBQVUsR0FBRTs7Z0RBQ0ciLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2ZsYXNoY2FyZHMvZHRvL2NyZWF0ZS1mbGFzaGNhcmQuZHRvLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IElzU3RyaW5nLCBJc09wdGlvbmFsLCBJc0FycmF5LCBJc1VVSUQgfSBmcm9tICdjbGFzcy12YWxpZGF0b3InO1xuaW1wb3J0IHsgQXBpUHJvcGVydHksIEFwaVByb3BlcnR5T3B0aW9uYWwgfSBmcm9tICdAbmVzdGpzL3N3YWdnZXInO1xuXG5leHBvcnQgY2xhc3MgQ3JlYXRlRmxhc2hjYXJkRHRvIHtcbiAgQEFwaVByb3BlcnR5KClcbiAgQElzVVVJRCgpXG4gIGRlY2tJZDogc3RyaW5nO1xuXG4gIEBBcGlQcm9wZXJ0eSgpXG4gIEBJc1N0cmluZygpXG4gIGZyb250OiBzdHJpbmc7XG5cbiAgQEFwaVByb3BlcnR5KClcbiAgQElzU3RyaW5nKClcbiAgYmFjazogc3RyaW5nO1xuXG4gIEBBcGlQcm9wZXJ0eU9wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQElzT3B0aW9uYWwoKVxuICBoaW50Pzogc3RyaW5nO1xuXG4gIEBBcGlQcm9wZXJ0eU9wdGlvbmFsKHsgdHlwZTogW1N0cmluZ10gfSlcbiAgQElzQXJyYXkoKVxuICBASXNTdHJpbmcoeyBlYWNoOiB0cnVlIH0pXG4gIEBJc09wdGlvbmFsKClcbiAgdGFncz86IHN0cmluZ1tdO1xufVxuIl0sInZlcnNpb24iOjN9

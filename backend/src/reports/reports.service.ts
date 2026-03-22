@@ -44,7 +44,7 @@ export class ReportsService {
       }),
     ]);
 
-    return { data: reports, meta: { total, page, lastPage: Math.ceil(total / limit) } };
+    return { data: reports, meta: { total, page, limit, lastPage: Math.ceil(total / limit) } };
   }
 
   async update(reportId: string, dto: UpdateReportDto) {

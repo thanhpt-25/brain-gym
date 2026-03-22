@@ -1,0 +1,78 @@
+5c3f87bae7955436990f462aa9019d0c
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a, _b;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CaptureController = void 0;
+const common_1 = require("@nestjs/common");
+const capture_service_1 = require("./capture.service");
+const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const create_capture_dto_1 = require("./dto/create-capture.dto");
+let CaptureController = class CaptureController {
+    captureService;
+    constructor(captureService) {
+        this.captureService = captureService;
+    }
+    async capture(req, dto) {
+        return this.captureService.captureWord(req.user.id, dto);
+    }
+    async getPending(req) {
+        return this.captureService.getPendingCaptures(req.user.id);
+    }
+    async updateStatus(req, id, status) {
+        return this.captureService.updateStatus(req.user.id, id, status);
+    }
+    async delete(req, id) {
+        return this.captureService.deleteCapture(req.user.id, id);
+    }
+};
+exports.CaptureController = CaptureController;
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, typeof (_b = typeof create_capture_dto_1.CreateCaptureDto !== "undefined" && create_capture_dto_1.CreateCaptureDto) === "function" ? _b : Object]),
+    __metadata("design:returntype", Promise)
+], CaptureController.prototype, "capture", null);
+__decorate([
+    (0, common_1.Get)(),
+    __param(0, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], CaptureController.prototype, "getPending", null);
+__decorate([
+    (0, common_1.Put)(':id/status'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)('status')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CaptureController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], CaptureController.prototype, "delete", null);
+exports.CaptureController = CaptureController = __decorate([
+    (0, common_1.Controller)('capture'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __metadata("design:paramtypes", [typeof (_a = typeof capture_service_1.CaptureService !== "undefined" && capture_service_1.CaptureService) === "function" ? _a : Object])
+], CaptureController);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2NhcHR1cmUvY2FwdHVyZS5jb250cm9sbGVyLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7QUFBQSwyQ0FBaUc7QUFDakcsdURBQW1EO0FBQ25ELGtFQUE2RDtBQUM3RCxpRUFBNEQ7QUFJckQsSUFBTSxpQkFBaUIsR0FBdkIsTUFBTSxpQkFBaUI7SUFDQztJQUE3QixZQUE2QixjQUE4QjtRQUE5QixtQkFBYyxHQUFkLGNBQWMsQ0FBZ0I7SUFBRyxDQUFDO0lBR3pELEFBQU4sS0FBSyxDQUFDLE9BQU8sQ0FBUSxHQUFRLEVBQVUsR0FBcUI7UUFDMUQsT0FBTyxJQUFJLENBQUMsY0FBYyxDQUFDLFdBQVcsQ0FBQyxHQUFHLENBQUMsSUFBSSxDQUFDLEVBQUUsRUFBRSxHQUFHLENBQUMsQ0FBQztJQUMzRCxDQUFDO0lBR0ssQUFBTixLQUFLLENBQUMsVUFBVSxDQUFRLEdBQVE7UUFDOUIsT0FBTyxJQUFJLENBQUMsY0FBYyxDQUFDLGtCQUFrQixDQUFDLEdBQUcsQ0FBQyxJQUFJLENBQUMsRUFBRSxDQUFDLENBQUM7SUFDN0QsQ0FBQztJQUdLLEFBQU4sS0FBSyxDQUFDLFlBQVksQ0FDVCxHQUFRLEVBQ0YsRUFBVSxFQUNQLE1BQWlDO1FBRWpELE9BQU8sSUFBSSxDQUFDLGNBQWMsQ0FBQyxZQUFZLENBQUMsR0FBRyxDQUFDLElBQUksQ0FBQyxFQUFFLEVBQUUsRUFBRSxFQUFFLE1BQU0sQ0FBQyxDQUFDO0lBQ25FLENBQUM7SUFHSyxBQUFOLEtBQUssQ0FBQyxNQUFNLENBQVEsR0FBUSxFQUFlLEVBQVU7UUFDbkQsT0FBTyxJQUFJLENBQUMsY0FBYyxDQUFDLGFBQWEsQ0FBQyxHQUFHLENBQUMsSUFBSSxDQUFDLEVBQUUsRUFBRSxFQUFFLENBQUMsQ0FBQztJQUM1RCxDQUFDO0NBQ0YsQ0FBQTtBQTFCWSw4Q0FBaUI7QUFJdEI7SUFETCxJQUFBLGFBQUksR0FBRTtJQUNRLFdBQUEsSUFBQSxZQUFHLEdBQUUsQ0FBQTtJQUFZLFdBQUEsSUFBQSxhQUFJLEdBQUUsQ0FBQTs7aUVBQU0scUNBQWdCLG9CQUFoQixxQ0FBZ0I7O2dEQUUzRDtBQUdLO0lBREwsSUFBQSxZQUFHLEdBQUU7SUFDWSxXQUFBLElBQUEsWUFBRyxHQUFFLENBQUE7Ozs7bURBRXRCO0FBR0s7SUFETCxJQUFBLFlBQUcsRUFBQyxZQUFZLENBQUM7SUFFZixXQUFBLElBQUEsWUFBRyxHQUFFLENBQUE7SUFDTCxXQUFBLElBQUEsY0FBSyxFQUFDLElBQUksQ0FBQyxDQUFBO0lBQ1gsV0FBQSxJQUFBLGFBQUksRUFBQyxRQUFRLENBQUMsQ0FBQTs7OztxREFHaEI7QUFHSztJQURMLElBQUEsZUFBTSxFQUFDLEtBQUssQ0FBQztJQUNBLFdBQUEsSUFBQSxZQUFHLEdBQUUsQ0FBQTtJQUFZLFdBQUEsSUFBQSxjQUFLLEVBQUMsSUFBSSxDQUFDLENBQUE7Ozs7K0NBRXpDOzRCQXpCVSxpQkFBaUI7SUFGN0IsSUFBQSxtQkFBVSxFQUFDLFNBQVMsQ0FBQztJQUNyQixJQUFBLGtCQUFTLEVBQUMsNkJBQVksQ0FBQzt5REFFdUIsZ0NBQWMsb0JBQWQsZ0NBQWM7R0FEaEQsaUJBQWlCLENBMEI3QiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyIvVXNlcnMvdGhhbmhwdC9Qcm9qZWN0cy9icmFpbi1neW0vYmFja2VuZC9zcmMvY2FwdHVyZS9jYXB0dXJlLmNvbnRyb2xsZXIudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgQ29udHJvbGxlciwgUG9zdCwgR2V0LCBQdXQsIERlbGV0ZSwgQm9keSwgVXNlR3VhcmRzLCBSZXEsIFBhcmFtIH0gZnJvbSAnQG5lc3Rqcy9jb21tb24nO1xuaW1wb3J0IHsgQ2FwdHVyZVNlcnZpY2UgfSBmcm9tICcuL2NhcHR1cmUuc2VydmljZSc7XG5pbXBvcnQgeyBKd3RBdXRoR3VhcmQgfSBmcm9tICcuLi9hdXRoL2d1YXJkcy9qd3QtYXV0aC5ndWFyZCc7XG5pbXBvcnQgeyBDcmVhdGVDYXB0dXJlRHRvIH0gZnJvbSAnLi9kdG8vY3JlYXRlLWNhcHR1cmUuZHRvJztcblxuQENvbnRyb2xsZXIoJ2NhcHR1cmUnKVxuQFVzZUd1YXJkcyhKd3RBdXRoR3VhcmQpXG5leHBvcnQgY2xhc3MgQ2FwdHVyZUNvbnRyb2xsZXIge1xuICBjb25zdHJ1Y3Rvcihwcml2YXRlIHJlYWRvbmx5IGNhcHR1cmVTZXJ2aWNlOiBDYXB0dXJlU2VydmljZSkge31cblxuICBAUG9zdCgpXG4gIGFzeW5jIGNhcHR1cmUoQFJlcSgpIHJlcTogYW55LCBAQm9keSgpIGR0bzogQ3JlYXRlQ2FwdHVyZUR0bykge1xuICAgIHJldHVybiB0aGlzLmNhcHR1cmVTZXJ2aWNlLmNhcHR1cmVXb3JkKHJlcS51c2VyLmlkLCBkdG8pO1xuICB9XG5cbiAgQEdldCgpXG4gIGFzeW5jIGdldFBlbmRpbmcoQFJlcSgpIHJlcTogYW55KSB7XG4gICAgcmV0dXJuIHRoaXMuY2FwdHVyZVNlcnZpY2UuZ2V0UGVuZGluZ0NhcHR1cmVzKHJlcS51c2VyLmlkKTtcbiAgfVxuXG4gIEBQdXQoJzppZC9zdGF0dXMnKVxuICBhc3luYyB1cGRhdGVTdGF0dXMoXG4gICAgQFJlcSgpIHJlcTogYW55LFxuICAgIEBQYXJhbSgnaWQnKSBpZDogc3RyaW5nLFxuICAgIEBCb2R5KCdzdGF0dXMnKSBzdGF0dXM6ICdwcm9jZXNzZWQnIHwgJ2Rpc2NhcmRlZCcsXG4gICkge1xuICAgIHJldHVybiB0aGlzLmNhcHR1cmVTZXJ2aWNlLnVwZGF0ZVN0YXR1cyhyZXEudXNlci5pZCwgaWQsIHN0YXR1cyk7XG4gIH1cblxuICBARGVsZXRlKCc6aWQnKVxuICBhc3luYyBkZWxldGUoQFJlcSgpIHJlcTogYW55LCBAUGFyYW0oJ2lkJykgaWQ6IHN0cmluZykge1xuICAgIHJldHVybiB0aGlzLmNhcHR1cmVTZXJ2aWNlLmRlbGV0ZUNhcHR1cmUocmVxLnVzZXIuaWQsIGlkKTtcbiAgfVxufVxuIl0sInZlcnNpb24iOjN9

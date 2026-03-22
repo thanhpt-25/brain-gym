@@ -1,0 +1,24 @@
+8741077c3190b4389d77524622a50cbd
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ExamsModule = void 0;
+const common_1 = require("@nestjs/common");
+const exams_controller_1 = require("./exams.controller");
+const exams_service_1 = require("./exams.service");
+let ExamsModule = class ExamsModule {
+};
+exports.ExamsModule = ExamsModule;
+exports.ExamsModule = ExamsModule = __decorate([
+    (0, common_1.Module)({
+        controllers: [exams_controller_1.ExamsController],
+        providers: [exams_service_1.ExamsService],
+        exports: [exams_service_1.ExamsService],
+    })
+], ExamsModule);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL3RoYW5ocHQvUHJvamVjdHMvYnJhaW4tZ3ltL2JhY2tlbmQvc3JjL2V4YW1zL2V4YW1zLm1vZHVsZS50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7QUFBQSwyQ0FBd0M7QUFDeEMseURBQXFEO0FBQ3JELG1EQUErQztBQU94QyxJQUFNLFdBQVcsR0FBakIsTUFBTSxXQUFXO0NBQUksQ0FBQTtBQUFmLGtDQUFXO3NCQUFYLFdBQVc7SUFMdkIsSUFBQSxlQUFNLEVBQUM7UUFDSixXQUFXLEVBQUUsQ0FBQyxrQ0FBZSxDQUFDO1FBQzlCLFNBQVMsRUFBRSxDQUFDLDRCQUFZLENBQUM7UUFDekIsT0FBTyxFQUFFLENBQUMsNEJBQVksQ0FBQztLQUMxQixDQUFDO0dBQ1csV0FBVyxDQUFJIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy90aGFuaHB0L1Byb2plY3RzL2JyYWluLWd5bS9iYWNrZW5kL3NyYy9leGFtcy9leGFtcy5tb2R1bGUudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgTW9kdWxlIH0gZnJvbSAnQG5lc3Rqcy9jb21tb24nO1xuaW1wb3J0IHsgRXhhbXNDb250cm9sbGVyIH0gZnJvbSAnLi9leGFtcy5jb250cm9sbGVyJztcbmltcG9ydCB7IEV4YW1zU2VydmljZSB9IGZyb20gJy4vZXhhbXMuc2VydmljZSc7XG5cbkBNb2R1bGUoe1xuICAgIGNvbnRyb2xsZXJzOiBbRXhhbXNDb250cm9sbGVyXSxcbiAgICBwcm92aWRlcnM6IFtFeGFtc1NlcnZpY2VdLFxuICAgIGV4cG9ydHM6IFtFeGFtc1NlcnZpY2VdLFxufSlcbmV4cG9ydCBjbGFzcyBFeGFtc01vZHVsZSB7IH1cbiJdLCJ2ZXJzaW9uIjozfQ==

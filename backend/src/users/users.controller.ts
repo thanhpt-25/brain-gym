@@ -8,6 +8,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { UserRole } from '@prisma/client';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -42,10 +43,9 @@ export class UsersController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   findAll(
     @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query() pagination?: PaginationDto,
   ) {
-    return this.usersService.findAll(search, page ? +page : 1, limit ? +limit : 20);
+    return this.usersService.findAll(search, pagination?.page, pagination?.limit);
   }
 
   @Put(':id/role')

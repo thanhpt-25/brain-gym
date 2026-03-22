@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('reports')
 @Controller()
@@ -31,15 +32,11 @@ export class ReportsController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List reports (admin only)' })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
   findAll(
     @Query('status') status?: string,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
+    @Query() pagination?: PaginationDto,
   ) {
-    return this.reportsService.findAll(status, page ? +page : 1, limit ? +limit : 20);
+    return this.reportsService.findAll(status, pagination?.page, pagination?.limit);
   }
 
   @Put('reports/:id')

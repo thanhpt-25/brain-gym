@@ -1,11 +1,3 @@
-cd backend
-npx prisma migrate dev
-npx prisma db seed
-npm run start:dev
-cd backend
-npx prisma migrate dev
-npx prisma db seed
-npm run start:dev
 # Brain Gym — Implementation Plan
 
 > Gap analysis between the [vision document](./vision.md) and current codebase, with a phased task list for remaining work.
@@ -45,29 +37,31 @@ npm run start:dev
 | **Gamification (BE)** | Points system (+10 create question, +5 vote, +3 complete exam), auto-badge awards, `GET /leaderboard`, `GET /badges`, `GET /users/:id/badges`, `GET /me/points` |
 | **Flashcards (BE/FE)** | Full SRS Flashcard system with decks, in-exam word capture, and training hub integration |
 | **Leaderboard (FE)** | Real API-driven leaderboard with global (by points) and per-cert (by best score) modes, podium + table |
-| **Infrastructure** | Docker Compose (PostgreSQL + Redis), Prisma migrations, Swagger docs |
+| **Infrastructure** | Docker Compose (PostgreSQL + Redis) with parameterized environment variables, Prisma migrations, Swagger docs, Nginx reverse proxy |
+| **UI/UX Performance** | Route-level lazy loading, infinite scroll, search debouncing, error boundaries, scroll restoration |
+| **Optimistic UI** | Instant feedback for voting and quick actions |
+| **Gamification** | Points system (+10 create/vote), auto-badge awards, leaderboard (global/per-cert) |
+| **Admin & Workflow** | Question moderation queue, report resolution, user role management |
+| **Exam Engine** | Builder (custom count/time), library browsing, social sharing (share codes) |
+| **System Polish** | Standardized `PaginationDto` across all controllers, `@nestjs/throttler` rate limiting |
+| **Questions UI** | Full support for multi-paragraph Scenario questions with distinct styling |
+| **Adaptive Training** | SM-2 SRS reviews, weak-topic targeting, readiness prediction |
+| **Community** | Threaded comments, question reports, voting, public profiles |
 
 ### ⚠️ Partially Implemented
-
-| Area | Gap |
-|------|-----|
-| **Common DTOs** | `PaginationDto` exists but not used in questions controller (manual parsing) |
+*(No major technical gaps remaining in core features.)*
 
 ### ❌ Not Implemented
 
-| Vision Feature | Backend | Frontend |
-|----------------|---------|----------|
-| Comments | ✅ Full CRUD + threaded replies | ✅ Comment thread on question detail |
-| Reports | ✅ Create + admin management | ✅ Report dialog on question detail |
-| Analytics / Dashboard | ✅ Full analytics module | ✅ Dashboard with real API data |
-| Gamification | ✅ Points + badges + leaderboard | ✅ Leaderboard + points in nav |
-| Question Review Workflow | ✅ Status management + pending queue | ✅ Moderation queue in admin |
-| User Management | ✅ Full CRUD + role management | ✅ Admin panel with user table |
-| Social Sharing | ✅ Full share endpoints | ✅ Full share UI |
-| Exam Builder UI | ✅ Backend ready | ✅ Full create exam page |
-| Exam Library UI | ✅ Backend ready | ✅ Browse exams page |
-| Adaptive Exam | ✅ Full implementation (Phase 9) | ✅ Training Hub integration |
-| Tags Management | ✅ CRUD + suggestions | ✅ Tags in form + displayed in UI |
+| Vision Feature | Priority | Missing Components |
+|----------------|----------|--------------------|
+| **Resistance training** | P2 | Accelerated timer mode, red timer UI hints, time-per-question analytics |
+| **Trap Question Library** | P2 | `isTrapQuestion` flag, dedicated UI module for "tricky" questions |
+| **Social Squads** | P3 | `Squad` model, collaborative leaderboards, private squad chats |
+| **AI Coach (NotebookLM)** | P3 | ELI5 explanation rewriter, automated semantic duplicate detection |
+| **Burnout Detection** | P4 | AI monitoring of response time variance during sessions |
+| **Cross-Cert Knowledge Graph** | P4 | Mapping overlapping domains across different cloud providers |
+| **Dynamic Difficulty Scaling** | P4 | Automated modification of distractors/values to prevent rote memorization |
 
 ---
 
@@ -84,7 +78,8 @@ npm run start:dev
 - [x] Randomize question order per attempt
 - [x] Randomize choice order per question in attempt response
 - [x] Ensure `isCorrect` is never exposed during test
-- [ ] Rate-limit exam starts per user
+- [x] Rate-limit exam starts per user (5/min via `@nestjs/throttler`)
+- [x] Standardize `PaginationDto` usage across all core controllers
 
 ### 7.2 Tags & Categories
 - [x] `GET /tags` & `POST /tags`
@@ -147,8 +142,8 @@ npm run start:dev
 
 ### 10.2 Trap Question Library & Scenarios
 - [ ] Add `isTrapQuestion` boolean to `Question` model.
-- [ ] Add `scenarioText` to `Question` model for multi-paragraph context.
-- [ ] Create UI view "Trap Question Training" that specifically serves high-failure-rate tricky questions.
+- [x] Scenario Questions: Visual support for multi-paragraph context in Detail/Browser/Form.
+- [ ] Trap Question Library: Create UI view that specifically serves high-failure-rate tricky questions.
 
 ---
 
@@ -186,15 +181,53 @@ npm run start:dev
 
 ---
 
+## Phase 13 — UI/UX Performance & Resilience ✅ COMPLETED
+
+> 🟠 **Priority: P1** — Ensures a smooth, professional, and reliable user experience.
+
+- [x] **Route-level Lazy Loading**: Implemented via `React.lazy` and `Suspense` for all main pages.
+- [x] **Infinite Scroll**: Added to Questions Browser with Intersection Observer and `useInfiniteQuery`.
+- [x] **Search Debouncing**: Optimized API calls in search inputs (400ms delay).
+- [x] **Global Error Boundary**: Graceful error handling for React rendering crashes.
+- [x] **Scroll Restoration**: Automatically resets scroll position on navigation.
+- [x] **Optimistic UI**: Implemented for voting to provide instant feedback.
+
+---
+
+## Phase 14 — Infrastructure DevSecOps ✅ COMPLETED
+
+> 🔵 **Priority: P3** — Robust deployment and configuration management.
+
+- [x] **Parameterized Environment Variables**: Full parameterization of `docker-compose.yml` with intelligent defaults.
+- [x] **Config Management**: Centralized `.env.example` and secret separation.
+- [x] **Container Security**: Read-only volumes for Nginx config, non-root alpine images.
+- [x] **Health Checks**: Redis and PostgreSQL health monitoring in orchestration.
+
+---
+
+## Phase 15 — System Polish & Security Verification ✅ COMPLETED
+
+> 🔵 **Priority: P4** — Finalizing core security and standardization.
+
+- [x] **Pagination Standardization**: Unified `PaginationDto` across Questions, Users, Reports, and Attempts controllers.
+- [x] **Rate Limiting**: Integrated `@nestjs/throttler` with multi-tier limits (Global: 60/min, Exam Start: 5/min).
+- [x] **Scenario UI**: Visual support for multi-paragraph technical context with premium styling and icons.
+- [x] **Testing & Verification**: Successful execution of Unit (UT) and Integration (IT) tests for the new security layers.
+
+---
+
 ## Summary
 
 | Phase | Focus | Priority | Est. Effort |
 |-------|-------|----------|-------------|
 | **Phase 1-6** | Core Platform Features | ✅ Done | — |
-| **Phase 7** | Anti-cheat | 🔵 P4 | Small |
-| **Phase 8** | Advanced Analytics & Readiness Strategy | 🟠 P1 | Medium |
-| **Phase 9** | Cognitive Training & Spaced Repetition | 🟠 P1 | Large |
+| **Phase 7** | Anti-cheat & Security | ✅ Done | Small |
+| **Phase 8** | Advanced Analytics & Readiness Strategy | ✅ Done | Medium |
+| **Phase 9** | Cognitive Training & Spaced Repetition | ✅ Done | Large |
 | **Phase 10** | High-Pressure Simulation & Exam Tactics | 🟡 P2 | Medium |
 | **Phase 11** | Social Squads & AI Coaching | 🔵 P3 | Large |
 | **Phase 12** | Flashcards & Word Capture | ✅ Done | Large |
+| **Phase 13** | UI/UX Performance & Resilience | ✅ Done | Medium |
+| **Phase 14** | Infrastructure DevSecOps | ✅ Done | Small |
+| **Phase 15** | System Polish & Security Verification | ✅ Done | Small |
 
