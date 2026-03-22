@@ -2,10 +2,12 @@ import { motion } from 'framer-motion';
 import { Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { HistoryItem } from '@/types/api-types';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { getAnalyticsHistory } from '@/services/analytics';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 
 interface ExamHistoryListProps {
-  history: HistoryItem[];
-  isLoading: boolean;
+  certificationId?: string;
 }
 
 function formatTime(seconds: number) {
@@ -16,7 +18,33 @@ function formatTime(seconds: number) {
   return `${h}h ${m % 60}m`;
 }
 
-export function ExamHistoryList({ history, isLoading }: ExamHistoryListProps) {
+export function ExamHistoryList({ certificationId }: ExamHistoryListProps) {
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['analytics-history', certificationId],
+    queryFn: ({ pageParam = 1 }) => getAnalyticsHistory(certificationId, pageParam, 12),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.meta.page < lastPage.meta.lastPage) {
+        return lastPage.meta.page + 1;
+      }
+      return undefined;
+    },
+  });
+
+  const sentinelRef = useInfiniteScroll({
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage
+  });
+
+  const history = data?.pages.flatMap(p => p.data) ?? [];
+
   return (
     <div className="space-y-3">
       {isLoading ? (
@@ -26,16 +54,25 @@ export function ExamHistoryList({ history, isLoading }: ExamHistoryListProps) {
       ) : history.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-8">Chưa có lịch sử thi.</p>
       ) : (
-        history.map((h, i) => (
-          <motion.div
-            key={h.id}
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.04 }}
-          >
-            <HistoryCard item={h} />
-          </motion.div>
-        ))
+        <>
+          {history.map((h, i) => (
+            <motion.div
+              key={h.id}
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: Math.min(i * 0.04, 0.4) }}
+            >
+              <HistoryCard item={h} />
+            </motion.div>
+          ))}
+          
+          <div ref={sentinelRef} className="py-4 flex justify-center">
+             {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+             {!hasNextPage && history.length > 5 && (
+                 <p className="text-[10px] text-muted-foreground font-mono opacity-50 uppercase tracking-wider">End of history</p>
+             )}
+          </div>
+        </>
       )}
     </div>
   );
@@ -73,3 +110,4 @@ function HistoryCard({ item }: { item: HistoryItem }) {
     </Card>
   );
 }
+

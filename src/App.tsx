@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -5,29 +6,47 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "./components/PageTransition";
-import Index from "./pages/Index";
-import ExamPage from "./pages/ExamPage";
-import StudyMode from "./pages/StudyMode";
-import NotFound from "./pages/NotFound";
-import AuthPage from "./pages/Auth";
-import QuestionsBrowser from "./pages/QuestionsBrowser";
-import QuestionForm from "./pages/QuestionForm";
-import QuestionDetail from "./pages/QuestionDetail";
-import Dashboard from "./pages/Dashboard";
-import ExamResults from "./pages/ExamResults";
-import Leaderboard from "./pages/Leaderboard";
-import AdminPage from "./pages/Admin";
-import ExamLibrary from "./pages/ExamLibrary";
-import ExamBuilder from "./pages/ExamBuilder";
-import ExamShare from "./pages/ExamShare";
-import TrainingHub from "./pages/TrainingHub";
-import FlashcardDecks from "./pages/FlashcardDecks";
-import DeckDetail from "./pages/DeckDetail";
-import FlashcardStudy from "./pages/FlashcardStudy";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import BottomTabBar from "./components/BottomTabBar";
+import ScrollToTop from "./components/ScrollToTop";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { Loader2 } from "lucide-react";
 
-const queryClient = new QueryClient();
+// Lazy load all pages
+const Index = lazy(() => import("./pages/Index"));
+const ExamPage = lazy(() => import("./pages/ExamPage"));
+const StudyMode = lazy(() => import("./pages/StudyMode"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const AuthPage = lazy(() => import("./pages/Auth"));
+const QuestionsBrowser = lazy(() => import("./pages/QuestionsBrowser"));
+const QuestionForm = lazy(() => import("./pages/QuestionForm"));
+const QuestionDetail = lazy(() => import("./pages/QuestionDetail"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ExamResults = lazy(() => import("./pages/ExamResults"));
+const Leaderboard = lazy(() => import("./pages/Leaderboard"));
+const AdminPage = lazy(() => import("./pages/Admin"));
+const ExamLibrary = lazy(() => import("./pages/ExamLibrary"));
+const ExamBuilder = lazy(() => import("./pages/ExamBuilder"));
+const ExamShare = lazy(() => import("./pages/ExamShare"));
+const TrainingHub = lazy(() => import("./pages/TrainingHub"));
+const FlashcardDecks = lazy(() => import("./pages/FlashcardDecks"));
+const DeckDetail = lazy(() => import("./pages/DeckDetail"));
+const FlashcardStudy = lazy(() => import("./pages/FlashcardStudy"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+const LoadingFallback = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -60,16 +79,22 @@ const AnimatedRoutes = () => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AnimatedRoutes />
-        <BottomTabBar />
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ScrollToTop />
+          <Suspense fallback={<LoadingFallback />}>
+            <AnimatedRoutes />
+          </Suspense>
+          <BottomTabBar />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
+

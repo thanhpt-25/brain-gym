@@ -189,7 +189,7 @@ const Dashboard = () => {
           </TabsContent>
 
           <TabsContent value="history">
-            <ExamHistoryList history={history} isLoading={historyLoading} />
+            <ExamHistoryList certificationId={certFilter || undefined} />
           </TabsContent>
         </Tabs>
       </div>

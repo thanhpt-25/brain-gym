@@ -47,8 +47,35 @@ const QuestionDetail = () => {
 
   const voteMutation = useMutation({
     mutationFn: ({ value }: { value: number }) => voteQuestion(id!, value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['question', id] }),
-    onError: () => toast.error('Sign in to vote'),
+    onMutate: async ({ value }) => {
+      await queryClient.cancelQueries({ queryKey: ['question', id] });
+      const previousQuestion = queryClient.getQueryData(['question', id]);
+
+      if (previousQuestion) {
+        const q = previousQuestion as any;
+        const currentVote = q.userVote || 0;
+        const newUpvotes = q.upvotes + (value === 1 ? 1 : (currentVote === 1 ? -1 : 0));
+        const newDownvotes = q.downvotes + (value === -1 ? 1 : (currentVote === -1 ? -1 : 0));
+
+        queryClient.setQueryData(['question', id], {
+          ...q,
+          upvotes: newUpvotes,
+          downvotes: newDownvotes,
+          userVote: value,
+        });
+      }
+
+      return { previousQuestion };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousQuestion) {
+        queryClient.setQueryData(['question', id], context.previousQuestion);
+      }
+      toast.error('Sign in to vote');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['question', id] });
+    },
   });
 
   const commentMutation = useMutation({

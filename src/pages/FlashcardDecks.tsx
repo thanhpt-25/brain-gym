@@ -38,9 +38,35 @@ const FlashcardDecks = () => {
 
   const deleteMutation = useMutation({
     mutationFn: deleteDeck,
+    onMutate: async (deckId) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['decks'] });
+
+      // Snapshot the previous value
+      const previousDecks = queryClient.getQueryData<any[]>(['decks']);
+
+      // Optimistically update to the new value
+      if (previousDecks) {
+        queryClient.setQueryData(['decks'], 
+          previousDecks.filter(d => d.id !== deckId)
+        );
+      }
+
+      return { previousDecks };
+    },
+    onError: (err, deckId, context: any) => {
+      // Rollback to previous value if mutation fails
+      if (context?.previousDecks) {
+        queryClient.setQueryData(['decks'], context.previousDecks);
+      }
+      toast.error('Failed to delete deck');
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['decks'] });
       toast.success('Deck deleted');
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure we're in sync with the server
+      queryClient.invalidateQueries({ queryKey: ['decks'] });
     },
   });
 
