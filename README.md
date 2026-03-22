@@ -70,7 +70,7 @@ docker-compose up -d
 Once started, the services will be available at:
 - **Frontend**: [http://localhost](http://localhost) (via Nginx) or [http://localhost:5173](http://localhost:5173) (direct)
 - **Backend API**: [http://localhost/api](http://localhost/api) or [http://localhost:3000](http://localhost:3000) (direct)
-- **API Documentation**: [http://localhost:3000/api](http://localhost:3000/api) (Swagger)
+- **API Documentation**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs) (Swagger)
 
 ---
 
