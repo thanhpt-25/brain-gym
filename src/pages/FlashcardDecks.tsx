@@ -84,9 +84,9 @@ const FlashcardDecks = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background bg-grid">
+    <div className="min-h-screen bg-background bg-grid pb-20 md:pb-0">
       <Navbar title="Flashcards" icon={Layers} />
-      <div className="container max-w-4xl pt-24 px-4 pb-16">
+      <div className="container max-w-4xl pt-24 px-4">
         <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Flashcards' }]} />
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-6 mb-8 gap-4">

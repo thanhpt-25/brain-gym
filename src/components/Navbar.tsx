@@ -49,9 +49,14 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
             <LogoIcon className="h-6 w-6 text-primary" />
-            <span className="font-mono text-lg font-bold text-gradient-cyan hidden sm:inline">
-              {title || 'CertGym'}
-            </span>
+            <div className="flex items-center font-mono text-lg font-bold">
+              <span className="text-gradient-cyan">CertGym</span>
+              {title && (
+                <span className="hidden sm:flex items-center text-muted-foreground font-normal ml-2">
+                  <span className="mx-1 opacity-40">/</span> {title}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 

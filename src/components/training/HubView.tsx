@@ -16,23 +16,44 @@ interface HubViewProps {
 }
 
 export function HubView({ certFilter, setCertFilter, onModeSelect }: HubViewProps) {
-  const { data: certs } = useQuery({
+  const { data: certs, isLoading: certsLoading } = useQuery({
     queryKey: ['certifications'],
     queryFn: getCertifications,
   });
 
-  const { data: dueReviews } = useQuery({
+  const { data: dueReviews, isLoading: reviewsLoading } = useQuery({
     queryKey: ['flashcard-reviews-training', certFilter],
     queryFn: () => getDueFlashcardReviews(certFilter || undefined),
   });
 
-  const { data: flashStats } = useQuery({
+  const { data: flashStats, isLoading: statsLoading } = useQuery({
     queryKey: ['flashcard-stats-training'],
     queryFn: getFlashcardStats,
   });
 
   const streak = useMemo(() => getStreakData(), []);
   const dueCount = dueReviews?.length || 0;
+  const isLoading = certsLoading || reviewsLoading || statsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8 pb-20">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="space-y-4 w-full">
+            <div className="h-10 w-48 bg-muted animate-pulse rounded-md" />
+            <div className="h-4 w-3/4 bg-muted animate-pulse rounded-md" />
+          </div>
+          <div className="h-20 w-48 bg-muted animate-pulse rounded-xl self-end" />
+        </div>
+        <div className="h-12 w-full bg-muted animate-pulse rounded-lg" />
+        <div className="grid md:grid-cols-3 gap-6">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-48 bg-muted animate-pulse rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">

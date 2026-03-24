@@ -20,10 +20,10 @@ export default function TrainingHub() {
   const goBackItems = () => setActiveMode('hub');
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Navbar title="Training Hub" />
       
-      <div className="container pt-24 pb-16 space-y-8">
+      <div className="container pt-24 space-y-8">
         {activeMode === 'hub' && (
           <>
             <Breadcrumb items={[{ label: 'Training Hub' }]} className="mb-2" />

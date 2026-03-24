@@ -52,7 +52,11 @@ export function ExamHistoryList({ certificationId }: ExamHistoryListProps) {
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
       ) : history.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">Chưa có lịch sử thi.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center glass-card rounded-xl border-dashed">
+          <Clock className="h-10 w-10 text-muted-foreground/30 mb-4" />
+          <h3 className="font-mono font-medium text-muted-foreground">Chưa có lịch sử thi</h3>
+          <p className="text-xs text-muted-foreground/60 mt-1">Bắt đầu luyện tập để theo dõi tiến độ của bạn tại đây.</p>
+        </div>
       ) : (
         <>
           {history.map((h, i) => (

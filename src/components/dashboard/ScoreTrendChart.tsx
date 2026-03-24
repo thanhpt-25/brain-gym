@@ -34,9 +34,12 @@ export function ScoreTrendChart({ history }: ScoreTrendChartProps) {
       </CardHeader>
       <CardContent>
         {scoreTrend.length < 2 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            Cần ít nhất 2 bài thi để hiển thị biểu đồ.
-          </p>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <TrendingUp className="h-8 w-8 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              Cần ít nhất 2 bài thi để hiển thị biểu đồ xu hướng.
+            </p>
+          </div>
         ) : (
           <ChartContainer config={chartConfig} className="h-[280px] w-full">
             <LineChart data={scoreTrend} margin={{ top: 8, right: 12, bottom: 0, left: -16 }}>

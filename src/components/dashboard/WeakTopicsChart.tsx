@@ -23,9 +23,12 @@ export function WeakTopicsChart({ weakTopics, domains }: WeakTopicsChartProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         {!weakTopics?.length ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            Chưa có dữ liệu. Hãy hoàn thành ít nhất 1 bài thi.
-          </p>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertTriangle className="h-8 w-8 text-muted-foreground/30 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              Chưa có dữ liệu phân tích. Hãy hoàn thành ít nhất 1 bài thi để xem điểm yếu của bạn.
+            </p>
+          </div>
         ) : (
           <>
             <ChartContainer config={chartConfig} className="h-[260px] w-full">

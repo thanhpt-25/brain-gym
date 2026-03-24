@@ -91,10 +91,10 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Navbar title="Dashboard" />
 
-      <div className="container pt-24 pb-16 space-y-8">
+      <div className="container pt-24 space-y-8">
         <Breadcrumb items={[{ label: 'Dashboard' }]} className="mb-2" />
 
         {/* Cert filter */}
