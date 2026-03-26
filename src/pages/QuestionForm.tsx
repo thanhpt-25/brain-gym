@@ -30,6 +30,7 @@ export default function QuestionForm() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isScenario, setIsScenario] = useState(false);
+  const [isTrapQuestion, setIsTrapQuestion] = useState(false);
   const [explanation, setExplanation] = useState('');
   const [referenceUrl, setReferenceUrl] = useState('');
   const [certificationId, setCertificationId] = useState('');
@@ -128,6 +129,7 @@ export default function QuestionForm() {
         choices: choices.map((c) => ({ label: c.label, content: c.content, isCorrect: c.isCorrect })),
         tags: tags,
         isScenario: isScenario,
+        isTrapQuestion: isTrapQuestion,
       });
       
       // Move from DRAFT to PENDING
@@ -249,9 +251,15 @@ export default function QuestionForm() {
             <div className="glass-card p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">Question</div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="is-scenario" checked={isScenario} onCheckedChange={setIsScenario} />
-                  <Label htmlFor="is-scenario" className="text-xs font-mono text-muted-foreground cursor-pointer">Scenario Mode</Label>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch id="is-trap" checked={isTrapQuestion} onCheckedChange={setIsTrapQuestion} />
+                    <Label htmlFor="is-trap" className="text-xs font-mono text-destructive/80 cursor-pointer">Trap Question</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch id="is-scenario" checked={isScenario} onCheckedChange={setIsScenario} />
+                    <Label htmlFor="is-scenario" className="text-xs font-mono text-muted-foreground cursor-pointer">Scenario Mode</Label>
+                  </div>
                 </div>
               </div>
               <Textarea

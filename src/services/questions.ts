@@ -3,9 +3,10 @@ import { Question, PaginatedResponse } from '@/types/api-types';
 
 export type PaginatedQuestions = PaginatedResponse<Question>;
 
-export const getQuestions = async (certificationId?: string, page = 1, limit = 10): Promise<PaginatedQuestions> => {
+export const getQuestions = async (certificationId?: string, page = 1, limit = 10, isTrapQuestion?: boolean): Promise<PaginatedQuestions> => {
     const params = new URLSearchParams();
     if (certificationId) params.append('certificationId', certificationId);
+    if (isTrapQuestion !== undefined) params.append('isTrapQuestion', isTrapQuestion.toString());
     params.append('page', page.toString());
     params.append('limit', limit.toString());
 

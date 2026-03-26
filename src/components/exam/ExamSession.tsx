@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Flag, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AttemptQuestion, StartAttemptResponse } from '@/types/api-types';
+import { AttemptQuestion, StartAttemptResponse, TimerMode } from '@/types/api-types';
 
 interface ExamSessionProps {
   attemptData: StartAttemptResponse;
@@ -13,7 +13,20 @@ interface ExamSessionProps {
   marked: Set<string>;
   toggleMark: (qId: string) => void;
   timeLeft: number;
+  totalSeconds: number;
   onSubmit: () => void;
+}
+
+function getTimerClass(timeLeft: number, totalSeconds: number, timerMode?: TimerMode): string {
+  if (timerMode === 'RELAXED') return 'text-muted-foreground';
+  if (timerMode === 'ACCELERATED') {
+    const ratio = totalSeconds > 0 ? timeLeft / totalSeconds : 1;
+    if (ratio <= 0.25) return 'text-destructive animate-pulse';
+    if (ratio <= 0.5) return 'text-orange-400';
+    return 'text-foreground';
+  }
+  // STRICT (default)
+  return timeLeft < 300 ? 'text-destructive animate-pulse' : 'text-foreground';
 }
 
 export function ExamSession({
@@ -26,9 +39,11 @@ export function ExamSession({
   marked,
   toggleMark,
   timeLeft,
+  totalSeconds,
   onSubmit
 }: ExamSessionProps) {
   const currentQuestion = questions[currentIndex];
+  const timerMode = attemptData?.timerMode;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -38,8 +53,21 @@ export function ExamSession({
 
   if (!currentQuestion) return null;
 
+  const timerClass = getTimerClass(timeLeft, totalSeconds, timerMode);
+  const isAccelerated = timerMode === 'ACCELERATED';
+  const showOrangeWarning = isAccelerated && totalSeconds > 0 && timeLeft / totalSeconds <= 0.5 && timeLeft / totalSeconds > 0.25;
+
   return (
     <div className="flex-1 flex flex-col">
+      {/* Accelerated mode banner */}
+      {isAccelerated && (
+        <div className="bg-orange-500/10 border-b border-orange-500/30 px-4 py-1.5 flex items-center justify-center gap-2 text-xs font-mono text-orange-400">
+          <Zap className="h-3 w-3" />
+          Accelerated Mode — Time pressure active
+          {showOrangeWarning && <span className="ml-2 text-orange-300 font-semibold">· Halfway through your time!</span>}
+        </div>
+      )}
+
       {/* Top Bar */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="container flex items-center justify-between h-14">
@@ -49,7 +77,7 @@ export function ExamSession({
             <span className="text-sm font-mono text-foreground">Q{currentIndex + 1}/{questions.length}</span>
           </div>
           <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-1.5 font-mono text-sm ${timeLeft < 300 ? 'text-destructive animate-pulse-glow' : 'text-foreground'}`}>
+            <div className={`flex items-center gap-1.5 font-mono text-sm ${timerClass}`}>
               <Clock className="h-4 w-4" />
               {formatTime(timeLeft)}
             </div>
@@ -153,14 +181,14 @@ export function ExamSession({
             <div className="grid grid-cols-5 gap-2">
               {questions.map((q, i) => {
                 const isAnswered = !!answers[q.id]?.length;
-                const isMarked = marked.has(q.id);
+                const isMarkedQ = marked.has(q.id);
                 const isCurrent = i === currentIndex;
                 return (
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(i)}
                     className={`w-8 h-8 rounded text-xs font-mono font-semibold transition-all ${isCurrent ? 'bg-primary text-primary-foreground' :
-                      isMarked ? 'bg-warning/20 text-warning border border-warning/30' :
+                      isMarkedQ ? 'bg-warning/20 text-warning border border-warning/30' :
                         isAnswered ? 'bg-accent/20 text-accent' :
                           'bg-secondary text-muted-foreground hover:bg-secondary/80'
                       }`}

@@ -39,6 +39,7 @@ export class ExamsService {
                 questionCount: questionIds.length,
                 timeLimit: dto.timeLimit,
                 visibility: dto.visibility ?? ExamVisibility.PUBLIC,
+                timerMode: dto.timerMode,
                 shareCode,
                 examQuestions: {
                     create: questionIds.map((qId, index) => ({

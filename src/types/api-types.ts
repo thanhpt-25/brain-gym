@@ -44,6 +44,7 @@ export interface Question {
   questionType: QuestionType | string;
   choices: Choice[];
   isScenario?: boolean;
+  isTrapQuestion?: boolean;
   explanation: string;
   referenceUrl?: string;
   difficulty: Difficulty | string;
@@ -165,6 +166,7 @@ export interface StartAttemptResponse {
     domains?: Domain[];
   };
   timeLimit: number;
+  timerMode?: TimerMode;
   totalQuestions: number;
   questions: AttemptQuestion[];
 }
@@ -230,6 +232,8 @@ export interface ReviewSchedule {
   question: Question;
 }
 
+export type TimerMode = 'STRICT' | 'ACCELERATED' | 'RELAXED';
+
 export interface ExamSummary {
   id: string;
   title: string;
@@ -238,6 +242,7 @@ export interface ExamSummary {
   questionCount: number;
   timeLimit: number;
   visibility: string;
+  timerMode?: TimerMode;
   attemptCount: number;
   avgScore?: number;
   shareCode?: string;
@@ -261,5 +266,6 @@ export interface CreateExamPayload {
   questionCount: number;
   timeLimit: number;
   visibility?: string;
+  timerMode?: TimerMode;
   questionIds?: string[];
 }

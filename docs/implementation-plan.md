@@ -47,6 +47,8 @@
 | **Questions UI** | Full support for multi-paragraph Scenario questions with distinct styling |
 | **Adaptive Training** | SM-2 SRS reviews, weak-topic targeting, readiness prediction |
 | **Community** | Threaded comments, question reports, voting, public profiles |
+| **Resistance training** | Accelerated timer mode, red timer UI hints, time-per-question analytics |
+| **Trap Question Library** | `isTrapQuestion` flag, dedicated UI module for "tricky" questions |
 
 ### ⚠️ Partially Implemented
 *(No major technical gaps remaining in core features.)*
@@ -55,8 +57,6 @@
 
 | Vision Feature | Priority | Missing Components |
 |----------------|----------|--------------------|
-| **Resistance training** | P2 | Accelerated timer mode, red timer UI hints, time-per-question analytics |
-| **Trap Question Library** | P2 | `isTrapQuestion` flag, dedicated UI module for "tricky" questions |
 | **Social Squads** | P3 | `Squad` model, collaborative leaderboards, private squad chats |
 | **AI Coach (NotebookLM)** | P3 | ELI5 explanation rewriter, automated semantic duplicate detection |
 | **Burnout Detection** | P4 | AI monitoring of response time variance during sessions |
@@ -131,19 +131,19 @@
 
 ---
 
-## Phase 10 — High-Pressure Simulation & Exam Tactics
+## Phase 10 — High-Pressure Simulation & Exam Tactics ✅ COMPLETED
 
 > 🟡 **Priority: P2** — Focus on time pressure and scenario reasoning matching real exam conditions.
 
 ### 10.1 Resistance Training Mode
-- [ ] Add `timerMode` option to `CreateExamDto` (`STRICT`, `ACCELERATED`, `RELAXED`).
-- [ ] Frontend: Implement visual cues (red timer, warnings) in Accelerated Mode.
-- [ ] Backend: Track "time per question" in analytics to detect hesitation.
+- [x] Add `timerMode` enum (`STRICT`, `ACCELERATED`, `RELAXED`) to Prisma schema and `CreateExamDto`.
+- [x] Frontend: Timer mode selector in ExamIntro and ExamBuilder. Mode-aware visual cues (orange at 50%, red+pulse at 25% for ACCELERATED; muted for RELAXED).
+- [x] Backend: `GET /analytics/me/hesitation` — detects questions where avg time > 2× per-question budget.
 
 ### 10.2 Trap Question Library & Scenarios
-- [ ] Add `isTrapQuestion` boolean to `Question` model.
+- [x] Add `isTrapQuestion` boolean to `Question` model (migration applied).
 - [x] Scenario Questions: Visual support for multi-paragraph context in Detail/Browser/Form.
-- [ ] Trap Question Library: Create UI view that specifically serves high-failure-rate tricky questions.
+- [x] Trap Question Library: `/trap-questions` page with cert filter, infinite scroll, trap badges. Nav link added. Question form toggle for contributors.
 
 ---
 
@@ -224,7 +224,7 @@
 | **Phase 7** | Anti-cheat & Security | ✅ Done | Small |
 | **Phase 8** | Advanced Analytics & Readiness Strategy | ✅ Done | Medium |
 | **Phase 9** | Cognitive Training & Spaced Repetition | ✅ Done | Large |
-| **Phase 10** | High-Pressure Simulation & Exam Tactics | 🟡 P2 | Medium |
+| **Phase 10** | High-Pressure Simulation & Exam Tactics | ✅ Done | Medium |
 | **Phase 11** | Social Squads & AI Coaching | 🔵 P3 | Large |
 | **Phase 12** | Flashcards & Word Capture | ✅ Done | Large |
 | **Phase 13** | UI/UX Performance & Resilience | ✅ Done | Medium |

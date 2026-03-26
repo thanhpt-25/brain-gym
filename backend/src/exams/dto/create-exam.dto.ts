@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, IsArray, Min, IsUUID } from 'class-validator';
-import { ExamVisibility } from '@prisma/client';
+import { ExamVisibility, TimerMode } from '@prisma/client';
 
 export class CreateExamDto {
     @ApiProperty({ example: 'AWS SAA Mock Test #1' })
@@ -32,6 +32,11 @@ export class CreateExamDto {
     @IsEnum(ExamVisibility)
     @IsOptional()
     visibility?: ExamVisibility;
+
+    @ApiPropertyOptional({ enum: TimerMode, example: TimerMode.STRICT, description: 'Timer pressure mode for the exam' })
+    @IsEnum(TimerMode)
+    @IsOptional()
+    timerMode?: TimerMode;
 
     @ApiPropertyOptional({ description: 'Specific question IDs to include. If empty, questions are randomly selected.' })
     @IsArray()

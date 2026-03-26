@@ -76,6 +76,11 @@ export class CreateQuestionDto {
     @IsOptional()
     isScenario?: boolean;
 
+    @ApiPropertyOptional({ example: false, description: 'Mark as a trap/tricky question for the Trap Question Library' })
+    @IsBoolean()
+    @IsOptional()
+    isTrapQuestion?: boolean;
+
     @ApiProperty({ type: [CreateChoiceDto] })
     @IsArray()
     @ValidateNested({ each: true })

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Brain, ChevronLeft, ThumbsUp, ThumbsDown, MessageSquare, Flag, Trash2, Reply, Loader2, Send, BookOpen } from 'lucide-react';
+import { Brain, ChevronLeft, ThumbsUp, ThumbsDown, MessageSquare, Flag, Trash2, Reply, Loader2, Send, BookOpen, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
@@ -231,6 +231,11 @@ const QuestionDetail = () => {
               {q.isScenario && (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-accent/20 text-accent font-mono flex items-center gap-1">
                   <BookOpen className="h-3 w-3" /> Scenario
+                </span>
+              )}
+              {q.isTrapQuestion && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/20 text-destructive font-mono flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> Trap
                 </span>
               )}
             </div>

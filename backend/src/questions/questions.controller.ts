@@ -20,21 +20,25 @@ export class QuestionsController {
     @ApiOperation({ summary: 'Get paginated questions' })
     @ApiQuery({ name: 'certificationId', required: false, type: String })
     @ApiQuery({ name: 'status', required: false, type: String })
+    @ApiQuery({ name: 'isTrapQuestion', required: false, type: Boolean })
     @ApiQuery({ name: 'page', required: false, type: Number })
     @ApiQuery({ name: 'limit', required: false, type: Number })
     findAll(
         @Req() req: any,
         @Query('certificationId') certificationId?: string,
         @Query('status') status?: string,
+        @Query('isTrapQuestion') isTrapQuestion?: string,
         @Query() pagination?: PaginationDto,
     ) {
         const userId = req.user?.sub || req.user?.id;
+        const trapFilter = isTrapQuestion !== undefined ? isTrapQuestion === 'true' : undefined;
         return this.questionsService.findAll(
-            certificationId, 
-            status, 
-            pagination?.page, 
-            pagination?.limit, 
-            userId
+            certificationId,
+            status,
+            pagination?.page,
+            pagination?.limit,
+            userId,
+            trapFilter,
         );
     }
 

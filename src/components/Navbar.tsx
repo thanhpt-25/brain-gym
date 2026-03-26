@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers, Library } from 'lucide-react';
+import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers, Library, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/auth.store';
@@ -15,6 +15,7 @@ interface NavbarProps {
 
 const navLinks = [
   { label: 'Questions', href: '/questions', icon: BookOpen },
+  { label: 'Trap Questions', href: '/trap-questions', icon: AlertTriangle },
   { label: 'Exams', href: '/exams', icon: Target },
   { label: 'Training', href: '/training', icon: Dumbbell },
   { label: 'Flashcards', href: '/decks', icon: Layers },

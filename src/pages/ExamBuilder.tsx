@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronLeft, Loader2, Plus, Search } from 'lucide-react';
+import { ChevronLeft, Loader2, Plus, Search, Clock, Coffee, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
+import type { TimerMode } from '@/types/api-types';
 
 const ExamBuilder = () => {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ const ExamBuilder = () => {
   const [questionCount, setQuestionCount] = useState(20);
   const [timeLimit, setTimeLimit] = useState(60);
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE' | 'LINK'>('PUBLIC');
+  const [timerMode, setTimerMode] = useState<TimerMode>('STRICT');
   const [mode, setMode] = useState<'random' | 'pick'>('random');
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [questionPage, setQuestionPage] = useState(1);
@@ -62,6 +64,7 @@ const ExamBuilder = () => {
       questionCount: mode === 'pick' ? selectedQuestionIds.length : questionCount,
       timeLimit,
       visibility,
+      timerMode,
       questionIds: mode === 'pick' ? selectedQuestionIds : undefined,
     };
 
@@ -149,6 +152,28 @@ const ExamBuilder = () => {
                       <SelectItem value="LINK">Link Only</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* Timer Mode */}
+              <div>
+                <label className="text-sm font-mono text-muted-foreground mb-2 block">Timer Mode</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'RELAXED' as TimerMode, label: 'Relaxed', desc: 'No pressure indicators', icon: <Coffee className="h-3.5 w-3.5" /> },
+                    { value: 'STRICT' as TimerMode, label: 'Standard', desc: 'Red timer at 5 min', icon: <Clock className="h-3.5 w-3.5" /> },
+                    { value: 'ACCELERATED' as TimerMode, label: 'Accelerated', desc: '0.75× time budget', icon: <Zap className="h-3.5 w-3.5" /> },
+                  ]).map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTimerMode(opt.value)}
+                      className={`p-3 rounded-lg border text-left text-sm font-mono transition-all ${timerMode === opt.value ? 'border-primary bg-primary/10 text-primary' : 'border-white/10 bg-white/5 text-muted-foreground hover:border-white/20'}`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-0.5 font-semibold">{opt.icon}{opt.label}</div>
+                      <div className="text-xs opacity-70">{opt.desc}</div>
+                    </button>
+                  ))}
                 </div>
               </div>
 

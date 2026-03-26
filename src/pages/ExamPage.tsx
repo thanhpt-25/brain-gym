@@ -14,6 +14,7 @@ import { ExamResult } from '@/components/exam/ExamResult';
 import { WordCaptureTooltip } from '@/components/exam/WordCaptureTooltip';
 import { useTimer } from '@/hooks/useTimer';
 import { useTextSelection } from '@/hooks/useTextSelection';
+import type { TimerMode } from '@/types/api-types';
 
 type ExamPhase = 'intro' | 'loading' | 'exam' | 'result';
 
@@ -41,6 +42,8 @@ const ExamPage = () => {
 
   const [phase, setPhase] = useState<ExamPhase>(passedAttempt ? 'exam' : 'intro');
   const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(passedAttempt ?? null);
+  const [totalSeconds, setTotalSeconds] = useState<number>(passedAttempt ? passedAttempt.timeLimit * 60 : 0);
+  const [selectedTimerMode, setSelectedTimerMode] = useState<TimerMode>('STRICT');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
@@ -77,7 +80,7 @@ const ExamPage = () => {
 
   const { selection, clearSelection } = useTextSelection(phase === 'exam');
 
-  const startExam = async () => {
+  const startExam = async (timerMode: TimerMode = selectedTimerMode) => {
     if (!cert) return;
     setPhase('loading');
     try {
@@ -86,11 +89,14 @@ const ExamPage = () => {
         certificationId: cert.id,
         questionCount: Math.min(questionCount, 65),
         timeLimit: 130,
+        timerMode,
       });
 
       const attempt = await startAttempt(exam.id);
       setAttemptData(attempt);
-      setTimeLeft(attempt.timeLimit * 60);
+      const secs = attempt.timeLimit * 60;
+      setTotalSeconds(secs);
+      setTimeLeft(secs);
       setAnswers({});
       setMarked(new Set());
       setCurrentIndex(0);
@@ -168,7 +174,16 @@ const ExamPage = () => {
   }
 
   if (phase === 'intro') {
-    return <ExamIntro cert={cert} questionCount={questionCount} onBack={() => navigate('/')} onStart={startExam} />;
+    return (
+      <ExamIntro
+        cert={cert}
+        questionCount={questionCount}
+        timerMode={selectedTimerMode}
+        onTimerModeChange={setSelectedTimerMode}
+        onBack={() => navigate('/')}
+        onStart={() => startExam(selectedTimerMode)}
+      />
+    );
   }
 
   if (phase === 'result' && result) {
@@ -188,6 +203,7 @@ const ExamPage = () => {
           marked={marked}
           toggleMark={toggleMark}
           timeLeft={timeLeft}
+          totalSeconds={totalSeconds}
           onSubmit={handleSubmit}
         />
       )}

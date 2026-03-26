@@ -76,6 +76,12 @@ enum FlashcardSource {
   EXAM_CAPTURE
 }
 
+enum TimerMode {
+  STRICT
+  ACCELERATED
+  RELAXED
+}
+
 enum FlashcardMastery {
   NEW
   LEARNING
@@ -157,6 +163,7 @@ model Question {
   codeSnippet     String?        @map("code_snippet")
   imageUrl        String?        @map("image_url")
   isScenario      Boolean        @default(false) @map("is_scenario")
+  isTrapQuestion  Boolean        @default(false) @map("is_trap_question")
   status          QuestionStatus @default(DRAFT)
   upvotes         Int            @default(0)
   downvotes       Int            @default(0)
@@ -229,6 +236,7 @@ model Exam {
   visibility      ExamVisibility @default(PUBLIC)
   shareCode       String?        @unique @map("share_code")
   isAdaptive      Boolean        @default(false) @map("is_adaptive")
+  timerMode       TimerMode      @default(STRICT) @map("timer_mode")
   attemptCount    Int            @default(0) @map("attempt_count")
   avgScore        Decimal?       @map("avg_score") @db.Decimal(5, 2)
   createdAt       DateTime       @default(now()) @map("created_at")

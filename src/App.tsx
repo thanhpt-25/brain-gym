@@ -32,6 +32,7 @@ const TrainingHub = lazy(() => import("./pages/TrainingHub"));
 const FlashcardDecks = lazy(() => import("./pages/FlashcardDecks"));
 const DeckDetail = lazy(() => import("./pages/DeckDetail"));
 const FlashcardStudy = lazy(() => import("./pages/FlashcardStudy"));
+const TrapQuestionsPage = lazy(() => import("./pages/TrapQuestionsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +58,7 @@ const AnimatedRoutes = () => {
         <Route path="/" element={<PageTransition><Index /></PageTransition>} />
         <Route path="/auth" element={<PageTransition><AuthPage /></PageTransition>} />
         <Route path="/questions" element={<PageTransition><QuestionsBrowser /></PageTransition>} />
+        <Route path="/trap-questions" element={<PageTransition><TrapQuestionsPage /></PageTransition>} />
         <Route path="/questions/new" element={<PageTransition><QuestionForm /></PageTransition>} />
         <Route path="/questions/:id" element={<PageTransition><QuestionDetail /></PageTransition>} />
         <Route path="/exams" element={<PageTransition><ExamLibrary /></PageTransition>} />

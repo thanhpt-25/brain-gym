@@ -301,4 +301,65 @@ export class AnalyticsService {
       breakdown,
     };
   }
+
+  async getHesitationPatterns(userId: string) {
+    // Fetch all submitted attempts for the user, including per-question time and the exam's timeLimit
+    const attempts = await this.prisma.examAttempt.findMany({
+      where: { userId, status: AttemptStatus.SUBMITTED },
+      select: {
+        exam: { select: { timeLimit: true, questionCount: true } },
+        answers: {
+          select: {
+            questionId: true,
+            timeSpent: true,
+            question: {
+              select: { id: true, title: true },
+            },
+          },
+        },
+      },
+    });
+
+    // Aggregate per-question average time spent across all attempts
+    const questionStats: Map<string, { title: string; totalTime: number; count: number; budgetSeconds: number }> = new Map();
+
+    for (const attempt of attempts) {
+      // Per-question time budget: total minutes / number of questions, converted to seconds
+      const budgetSeconds = attempt.exam.questionCount > 0
+        ? (attempt.exam.timeLimit * 60) / attempt.exam.questionCount
+        : 120; // fallback 2 min
+
+      for (const answer of attempt.answers) {
+        if (answer.timeSpent === null || answer.timeSpent === undefined) continue;
+        const existing = questionStats.get(answer.questionId);
+        if (existing) {
+          existing.totalTime += answer.timeSpent;
+          existing.count += 1;
+          // keep the most recent budget estimate
+          existing.budgetSeconds = budgetSeconds;
+        } else {
+          questionStats.set(answer.questionId, {
+            title: answer.question.title,
+            totalTime: answer.timeSpent,
+            count: 1,
+            budgetSeconds,
+          });
+        }
+      }
+    }
+
+    // Filter to questions where avg time > 2× per-question budget
+    const hesitating = Array.from(questionStats.entries())
+      .map(([questionId, stats]) => ({
+        questionId,
+        title: stats.title,
+        avgTimeSpent: Math.round(stats.totalTime / stats.count),
+        budgetSeconds: Math.round(stats.budgetSeconds),
+        hesitationRatio: parseFloat(((stats.totalTime / stats.count) / stats.budgetSeconds).toFixed(2)),
+      }))
+      .filter(q => q.hesitationRatio >= 2)
+      .sort((a, b) => b.hesitationRatio - a.hesitationRatio);
+
+    return { data: hesitating, total: hesitating.length };
+  }
 }

@@ -47,6 +47,15 @@ export class AnalyticsController {
     return this.analyticsService.getHistory(userId, certificationId, page ? +page : 1, limit ? +limit : 20);
   }
 
+  @Get('me/hesitation')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get questions where user hesitates (avg time > 2× per-question budget)' })
+  getHesitationPatterns(@Req() req: AuthenticatedRequest) {
+    const userId = req.user.id;
+    return this.analyticsService.getHesitationPatterns(userId);
+  }
+
   @Get('me/domains')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

@@ -11,11 +11,12 @@ export class QuestionsService {
         private readonly gamification: GamificationService,
     ) { }
 
-    async findAll(certificationId?: string, status?: string, page: number = 1, limit: number = 10, userId?: string) {
+    async findAll(certificationId?: string, status?: string, page: number = 1, limit: number = 10, userId?: string, isTrapQuestion?: boolean) {
         const skip = (page - 1) * limit;
 
         const where: any = {};
         if (certificationId) where.certificationId = certificationId;
+        if (isTrapQuestion !== undefined) where.isTrapQuestion = isTrapQuestion;
         where.status = (status as QuestionStatus) || QuestionStatus.APPROVED;
 
         const [total, questions] = await Promise.all([

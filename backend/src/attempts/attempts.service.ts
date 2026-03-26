@@ -83,6 +83,7 @@ export class AttemptsService {
             title: exam.title,
             certification: exam.certification,
             timeLimit: exam.timeLimit,
+            timerMode: exam.timerMode,
             totalQuestions: questions.length,
             questions,
         };
