@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
+import { AuditService } from '../audit/audit.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -15,6 +16,10 @@ describe('UsersController', () => {
             findById: jest.fn(),
             update: jest.fn(),
           },
+        },
+        {
+          provide: AuditService,
+          useValue: { log: jest.fn() },
         },
       ],
     }).compile();
