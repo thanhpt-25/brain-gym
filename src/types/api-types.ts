@@ -66,6 +66,7 @@ export interface Certification {
   passingScore?: number;
   icon?: string;
   color?: string;
+  isActive: boolean;
 }
 
 export interface Flashcard {

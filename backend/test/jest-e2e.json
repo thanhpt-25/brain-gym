@@ -5,5 +5,12 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "moduleNameMapper": {
+    "^uuid$": "uuid",
+    "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
+  },
+  "transformIgnorePatterns": [
+    "node_modules/(?!(@prisma/client|uuid))"
+  ]
 }
