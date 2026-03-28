@@ -3,42 +3,56 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
-import { ExecutionContext } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 
 describe('Certifications CRUD (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-
-  const mockAdmin = { id: 'admin-id', email: 'admin@example.com', role: UserRole.ADMIN };
+  let adminToken: string;
+  let testProviderId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({
-        canActivate: (context: ExecutionContext) => {
-          const req = context.switchToHttp().getRequest();
-          req.user = mockAdmin;
-          return true;
-        },
-      })
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe());
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
+    const jwtService = app.get<JwtService>(JwtService);
+    const configService = app.get<ConfigService>(ConfigService);
+    const jwtSecret = configService.get<string>('JWT_SECRET');
+
+    // Create test admin user
+    const admin = await prisma.user.create({
+      data: {
+        email: 'e2e-cert-admin@test.com',
+        passwordHash: 'e2e-test-hash',
+        displayName: 'E2E Cert Admin',
+        role: UserRole.ADMIN,
+      },
+    });
+
+    // Create test provider
+    const provider = await prisma.provider.create({
+      data: { name: 'E2E Test Provider', slug: 'e2e-test-provider' },
+    });
+    testProviderId = provider.id;
+
+    adminToken = jwtService.sign(
+      { sub: admin.id, email: admin.email, role: admin.role },
+      { secret: jwtSecret, expiresIn: '1h' },
+    );
   });
 
   afterAll(async () => {
-    // Cleanup the unique code used in tests
-    await prisma.certification.deleteMany({
-      where: { code: { in: ['E2E-TEST-01', 'E2E-UPDATED'] } }
-    });
+    await prisma.certification.deleteMany({ where: { code: { startsWith: 'E2E-' } } });
+    await prisma.provider.deleteMany({ where: { slug: 'e2e-test-provider' } });
+    await prisma.user.deleteMany({ where: { email: 'e2e-cert-admin@test.com' } });
     await prisma.$disconnect();
     await app.close();
   });
@@ -47,12 +61,13 @@ describe('Certifications CRUD (e2e)', () => {
     // 1. Create (POST)
     const createRes = await request(app.getHttpServer())
       .post('/certifications')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({
         name: 'E2E Test Certification',
-        provider: 'Cloud Provider',
+        providerId: testProviderId,
         code: 'E2E-TEST-01',
         description: 'E2E test desc',
-        domains: ['Domain 1', 'Domain 2']
+        domains: ['Domain 1', 'Domain 2'],
       })
       .expect(201);
 
@@ -60,23 +75,22 @@ describe('Certifications CRUD (e2e)', () => {
     expect(certId).toBeDefined();
     expect(createRes.body.domains).toHaveLength(2);
 
-    // 2. Read All (GET)
+    // 2. Read All (GET - public)
     const listRes = await request(app.getHttpServer())
       .get('/certifications')
       .expect(200);
-    
-    expect(listRes.body.some((c: any) => c.id === certId)).toBeTruthy();
+    expect(listRes.body.some((c: { id: string }) => c.id === certId)).toBeTruthy();
 
     // 3. Update (PUT)
     const updateRes = await request(app.getHttpServer())
       .put(`/certifications/${certId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({
         name: 'Updated E2E Name',
         code: 'E2E-UPDATED',
-        domains: ['New Domain only']
+        domains: ['New Domain only'],
       })
       .expect(200);
-    
     expect(updateRes.body.name).toBe('Updated E2E Name');
     expect(updateRes.body.domains).toHaveLength(1);
     expect(updateRes.body.domains[0].name).toBe('New Domain only');
@@ -84,33 +98,35 @@ describe('Certifications CRUD (e2e)', () => {
     // 4. Soft Delete (DELETE)
     await request(app.getHttpServer())
       .delete(`/certifications/${certId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    
-    // Verify it's no longer in the public list
+
+    // Verify not in public list
     const publicList = await request(app.getHttpServer())
       .get('/certifications')
       .expect(200);
-    expect(publicList.body.some((c: any) => c.id === certId)).toBeFalsy();
+    expect(publicList.body.some((c: { id: string }) => c.id === certId)).toBeFalsy();
 
-    // Verify it IS in the admin list
+    // Verify in admin list
     const adminList = await request(app.getHttpServer())
       .get('/certifications?includeInactive=true')
+      .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(adminList.body.some((c: any) => c.id === certId)).toBeTruthy();
+    expect(adminList.body.some((c: { id: string }) => c.id === certId)).toBeTruthy();
   });
 
   it('should enforce code uniqueness', async () => {
-    // Create first cert
-    const code = 'UNIQUE-CODE-' + Date.now();
+    const code = 'E2E-UNIQUE-' + Date.now();
     await request(app.getHttpServer())
       .post('/certifications')
-      .send({ name: 'First', provider: 'P', code })
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'First', providerId: testProviderId, code })
       .expect(201);
 
-    // Attempt second cert with same code
     await request(app.getHttpServer())
       .post('/certifications')
-      .send({ name: 'Second', provider: 'P', code })
-      .expect(409); // Conflict
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Second', providerId: testProviderId, code })
+      .expect(409);
   });
 });
