@@ -69,14 +69,14 @@ describe('CertificationsService', () => {
   describe('create', () => {
     it('should throw ConflictException if code already exists', async () => {
       prisma.certification.findUnique.mockResolvedValue(mockCertification);
-      await expect(service.create({ name: 'New', provider: 'P', code: 'T-01' }))
+      await expect(service.create({ name: 'New', providerId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', code: 'T-01' }))
         .rejects.toThrow(ConflictException);
     });
 
     it('should create certification if code is unique', async () => {
       prisma.certification.findUnique.mockResolvedValue(null);
       prisma.certification.create.mockResolvedValue(mockCertification);
-      const result = await service.create({ name: 'New', provider: 'P', code: 'T-NEW' });
+      const result = await service.create({ name: 'New', providerId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', code: 'T-NEW' });
       expect(result).toEqual(mockCertification);
     });
   });

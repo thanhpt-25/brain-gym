@@ -7,10 +7,10 @@ export class CreateCertificationDto {
     @IsNotEmpty()
     name: string;
 
-    @ApiProperty({ example: 'AWS' })
+    @ApiProperty({ example: 'uuid-of-provider' })
     @IsString()
     @IsNotEmpty()
-    provider: string;
+    providerId: string;
 
     @ApiProperty({ example: 'SAA-C03' })
     @IsString()

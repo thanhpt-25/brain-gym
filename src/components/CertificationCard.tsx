@@ -19,7 +19,7 @@ const CertificationCard = ({ cert, onClick }: CertificationCardProps) => {
             {cert.code}
           </span>
         </div>
-        <div className="text-xs text-muted-foreground font-mono mb-1">{cert.provider}</div>
+        <div className="text-xs text-muted-foreground font-mono mb-1">{typeof cert.provider === 'object' ? cert.provider?.name : cert.provider}</div>
         <h3 className="font-mono font-semibold mb-2 group-hover:text-primary transition-colors">
           {cert.name}
         </h3>

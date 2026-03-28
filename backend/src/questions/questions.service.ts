@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
+import { AdminUpdateQuestionDto } from './dto/admin-update-question.dto';
 import { QuestionStatus, VoteTargetType, UserRole } from '@prisma/client';
 import { GamificationService, POINTS } from '../gamification/gamification.service';
 
@@ -14,7 +15,7 @@ export class QuestionsService {
     async findAll(certificationId?: string, status?: string, page: number = 1, limit: number = 10, userId?: string, isTrapQuestion?: boolean) {
         const skip = (page - 1) * limit;
 
-        const where: any = {};
+        const where: any = { deletedAt: null };
         if (certificationId) where.certificationId = certificationId;
         if (isTrapQuestion !== undefined) where.isTrapQuestion = isTrapQuestion;
         where.status = (status as QuestionStatus) || QuestionStatus.APPROVED;
@@ -61,7 +62,7 @@ export class QuestionsService {
             where: { id },
             include: {
                 author: { select: { id: true, displayName: true, avatarUrl: true } },
-                certification: { select: { id: true, name: true, code: true, provider: true } },
+                certification: { select: { id: true, name: true, code: true, provider: { select: { id: true, name: true, slug: true } } } },
                 domain: true,
                 choices: { orderBy: { sortOrder: 'asc' } },
                 tags: { include: { tag: true } },
@@ -271,7 +272,7 @@ export class QuestionsService {
 
     async findPending(page = 1, limit = 20) {
         const skip = (page - 1) * limit;
-        const where = { status: QuestionStatus.PENDING };
+        const where = { status: QuestionStatus.PENDING, deletedAt: null };
 
         const [total, questions] = await Promise.all([
             this.prisma.question.count({ where }),
@@ -291,5 +292,111 @@ export class QuestionsService {
         ]);
 
         return { data: questions, meta: { total, page, limit, lastPage: Math.ceil(total / limit) } };
+    }
+
+    async adminUpdate(questionId: string, dto: AdminUpdateQuestionDto) {
+        const question = await this.prisma.question.findUnique({ where: { id: questionId } });
+        if (!question) throw new NotFoundException('Question not found');
+        if (question.deletedAt) throw new NotFoundException('Question has been deleted');
+
+        const { choices, tags, ...questionData } = dto;
+
+        // Replace choices if provided
+        if (choices) {
+            await this.prisma.choice.deleteMany({ where: { questionId } });
+            await this.prisma.choice.createMany({
+                data: choices.map((c, index) => ({
+                    questionId,
+                    label: c.label,
+                    content: c.content,
+                    isCorrect: c.isCorrect ?? false,
+                    sortOrder: index,
+                })),
+            });
+        }
+
+        // Replace tags if provided
+        if (tags) {
+            await this.prisma.questionTag.deleteMany({ where: { questionId } });
+            if (tags.length > 0) {
+                const certId = dto.certificationId || question.certificationId;
+                const tagRecords = await Promise.all(
+                    tags.map(tagName =>
+                        this.prisma.tag.upsert({
+                            where: { name_certificationId: { name: tagName.toLowerCase().trim(), certificationId: certId } },
+                            update: {},
+                            create: { name: tagName.toLowerCase().trim(), certificationId: certId },
+                        }),
+                    ),
+                );
+                await this.prisma.questionTag.createMany({
+                    data: tagRecords.map(t => ({ questionId, tagId: t.id })),
+                });
+            }
+        }
+
+        return this.prisma.question.update({
+            where: { id: questionId },
+            data: questionData,
+            include: {
+                author: { select: { id: true, displayName: true, avatarUrl: true } },
+                certification: { select: { id: true, name: true, code: true } },
+                domain: true,
+                choices: { orderBy: { sortOrder: 'asc' } },
+                tags: { include: { tag: true } },
+            },
+        });
+    }
+
+    async adminDelete(questionId: string) {
+        const question = await this.prisma.question.findUnique({ where: { id: questionId } });
+        if (!question) throw new NotFoundException('Question not found');
+
+        return this.prisma.question.update({
+            where: { id: questionId },
+            data: { deletedAt: new Date() },
+        });
+    }
+
+    async findAllAdmin(params: {
+        certificationId?: string;
+        status?: string;
+        search?: string;
+        page?: number;
+        limit?: number;
+        includeDeleted?: boolean;
+    }) {
+        const { certificationId, status, search, page = 1, limit = 20, includeDeleted = false } = params;
+        const where: any = {};
+        if (!includeDeleted) where.deletedAt = null;
+        if (certificationId) where.certificationId = certificationId;
+        if (status) where.status = status as QuestionStatus;
+        if (search) {
+            where.OR = [
+                { title: { contains: search, mode: 'insensitive' } },
+                { description: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
+        const [data, total] = await Promise.all([
+            this.prisma.question.findMany({
+                where,
+                include: {
+                    author: { select: { id: true, displayName: true } },
+                    certification: { select: { id: true, name: true, code: true } },
+                    domain: { select: { id: true, name: true } },
+                    _count: { select: { choices: true, comments: true, reports: true } },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.question.count({ where }),
+        ]);
+
+        return {
+            data,
+            meta: { total, page, lastPage: Math.ceil(total / limit) },
+        };
     }
 }

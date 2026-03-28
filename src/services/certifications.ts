@@ -3,7 +3,7 @@ import { Certification } from '@/types/api-types';
 
 export interface CreateCertificationPayload {
     name: string;
-    provider: string;
+    providerId: string;
     code: string;
     description?: string;
     domains?: string[];
@@ -13,8 +13,9 @@ export interface UpdateCertificationPayload extends Partial<CreateCertificationP
     isActive?: boolean;
 }
 
-export const getCertifications = async (includeInactive = false): Promise<Certification[]> => {
-    const response = await api.get<Certification[]>(`/certifications?includeInactive=${includeInactive}`);
+export const getCertifications = async (includeInactive?: boolean | unknown): Promise<Certification[]> => {
+    const inactive = typeof includeInactive === 'boolean' ? includeInactive : false;
+    const response = await api.get<Certification[]>(`/certifications?includeInactive=${inactive}`);
     return Array.isArray(response.data) ? response.data : [];
 };
 

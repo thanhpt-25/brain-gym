@@ -1,8 +1,9 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
+import { UserStatus } from '@prisma/client';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -27,6 +28,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
+
+        if (user.status === UserStatus.BANNED) {
+            throw new ForbiddenException('Your account has been banned');
+        }
+
+        if (user.status === UserStatus.SUSPENDED) {
+            if (user.suspendedUntil && new Date(user.suspendedUntil) > new Date()) {
+                throw new ForbiddenException('Your account is suspended until ' + user.suspendedUntil.toISOString());
+            }
+            // Auto-reactivate if suspension period has passed
+            if (user.suspendedUntil && new Date(user.suspendedUntil) <= new Date()) {
+                await this.usersService.reactivateUser(user.id);
+            }
+        }
+
         return user;
     }
 }

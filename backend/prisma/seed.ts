@@ -8,7 +8,7 @@ async function main() {
 
   // 1. Create Admins and Contributors
   const passwordHash = await bcrypt.hash('password123', 10);
-  
+
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@braingym.com' },
     update: {},
@@ -33,11 +33,33 @@ async function main() {
 
   console.log('Users seeded');
 
-  // 2. Create Certifications and Domains
+  // 2. Create Providers
+  const providersData = [
+    { name: 'AWS', slug: 'aws', website: 'https://aws.amazon.com', description: 'Amazon Web Services cloud platform' },
+    { name: 'Azure', slug: 'azure', website: 'https://azure.microsoft.com', description: 'Microsoft Azure cloud platform' },
+    { name: 'Google Cloud', slug: 'google-cloud', website: 'https://cloud.google.com', description: 'Google Cloud Platform' },
+    { name: 'CNCF', slug: 'cncf', website: 'https://www.cncf.io', description: 'Cloud Native Computing Foundation' },
+    { name: 'PMI', slug: 'pmi', website: 'https://www.pmi.org', description: 'Project Management Institute' },
+  ];
+
+  const providerMap = new Map<string, string>();
+
+  for (const p of providersData) {
+    const provider = await prisma.provider.upsert({
+      where: { slug: p.slug },
+      update: {},
+      create: p,
+    });
+    providerMap.set(p.name, provider.id);
+  }
+
+  console.log('Providers seeded');
+
+  // 3. Create Certifications and Domains
   const certsData = [
     {
       id: 'aws-saa',
-      provider: 'AWS',
+      providerName: 'AWS',
       name: 'Solutions Architect Associate',
       code: 'SAA-C03',
       description: 'Design distributed systems on AWS with high availability and fault tolerance.',
@@ -45,7 +67,7 @@ async function main() {
     },
     {
       id: 'az-900',
-      provider: 'Azure',
+      providerName: 'Azure',
       name: 'Azure Fundamentals',
       code: 'AZ-900',
       description: 'Foundational knowledge of cloud concepts and Azure services.',
@@ -53,7 +75,7 @@ async function main() {
     },
     {
       id: 'gcp-pca',
-      provider: 'Google Cloud',
+      providerName: 'Google Cloud',
       name: 'Professional Cloud Architect',
       code: 'PCA',
       description: 'Design and manage solutions using Google Cloud technologies.',
@@ -61,7 +83,7 @@ async function main() {
     },
     {
       id: 'cka',
-      provider: 'CNCF',
+      providerName: 'CNCF',
       name: 'Certified Kubernetes Administrator',
       code: 'CKA',
       description: 'Demonstrate competence in Kubernetes cluster administration.',
@@ -69,7 +91,7 @@ async function main() {
     },
     {
       id: 'pmp',
-      provider: 'PMI',
+      providerName: 'PMI',
       name: 'Project Management Professional',
       code: 'PMP',
       description: 'Globally recognized project management certification.',
@@ -80,12 +102,14 @@ async function main() {
   const domainMap = new Map<string, string>(); // 'certId-domainName' -> domainId
 
   for (const cert of certsData) {
+    const providerId = providerMap.get(cert.providerName)!;
+
     const createdCert = await prisma.certification.upsert({
       where: { code: cert.code },
-      update: {},
+      update: { providerId },
       create: {
         id: cert.id,
-        provider: cert.provider,
+        providerId,
         name: cert.name,
         code: cert.code,
         description: cert.description,
@@ -112,7 +136,7 @@ async function main() {
 
   console.log('Certifications seeded');
 
-  // 3. Create Questions and Choices
+  // 4. Create Questions and Choices
   const questionsData = [
     {
       title: 'Which AWS service provides a managed relational database?',
@@ -158,7 +182,7 @@ async function main() {
 
   for (const q of questionsData) {
     const domainId = domainMap.get(`${q.certificationId}-${q.domain}`);
-    
+
     // Check if question already exists by title
     const existingQ = await prisma.question.findFirst({
       where: { title: q.title }

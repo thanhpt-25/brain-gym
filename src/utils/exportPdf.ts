@@ -29,7 +29,7 @@ export async function exportExamResultPDF(
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...primary);
-  doc.text(`${cert.provider} | ${cert.name} (${cert.code})`, margin, y + 16);
+  doc.text(`${typeof cert.provider === 'object' ? cert.provider?.name : cert.provider} | ${cert.name} (${cert.code})`, margin, y + 16);
 
   doc.setFontSize(9);
   doc.setTextColor(...muted);

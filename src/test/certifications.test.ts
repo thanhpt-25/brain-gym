@@ -42,7 +42,7 @@ describe('Frontend Certification Service', () => {
 
   describe('createCertification', () => {
     it('should send POST with data', async () => {
-      const data = { name: 'New', provider: 'AWS', code: 'T2' };
+      const data = { name: 'New', providerId: 'provider-1', code: 'T2' };
       (api.post as any).mockResolvedValueOnce({ data: { ...data, id: '2' } });
       const result = await createCertification(data);
       expect(api.post).toHaveBeenCalledWith('/certifications', data);

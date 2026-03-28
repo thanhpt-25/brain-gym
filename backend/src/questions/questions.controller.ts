@@ -1,19 +1,24 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, Query, Req, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Query, Req, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { QuestionsService } from './questions.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionStatusDto } from './dto/update-question-status.dto';
+import { AdminUpdateQuestionDto } from './dto/admin-update-question.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { AuditService } from '../audit/audit.service';
 import { UserRole } from '@prisma/client';
 import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('questions')
 @Controller('questions')
 export class QuestionsController {
-    constructor(private readonly questionsService: QuestionsService) { }
+    constructor(
+        private readonly questionsService: QuestionsService,
+        private readonly auditService: AuditService,
+    ) { }
 
     @Get()
     @Public()
@@ -89,5 +94,67 @@ export class QuestionsController {
         const userId = req.user.sub || req.user.id;
         const userRole = req.user.role;
         return this.questionsService.updateStatus(userId, userRole, id, dto.status);
+    }
+
+    @Get('admin/all')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Admin: List all questions with filters' })
+    @ApiQuery({ name: 'certificationId', required: false })
+    @ApiQuery({ name: 'status', required: false })
+    @ApiQuery({ name: 'search', required: false })
+    @ApiQuery({ name: 'page', required: false, type: Number })
+    @ApiQuery({ name: 'limit', required: false, type: Number })
+    @ApiQuery({ name: 'includeDeleted', required: false, type: Boolean })
+    findAllAdmin(
+        @Query('certificationId') certificationId?: string,
+        @Query('status') status?: string,
+        @Query('search') search?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('includeDeleted') includeDeleted?: string,
+    ) {
+        return this.questionsService.findAllAdmin({
+            certificationId,
+            status,
+            search,
+            page: page ? parseInt(page) : undefined,
+            limit: limit ? parseInt(limit) : undefined,
+            includeDeleted: includeDeleted === 'true',
+        });
+    }
+
+    @Put(':id/admin')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Admin: Full edit of a question' })
+    async adminUpdate(@Req() req: any, @Param('id') id: string, @Body() dto: AdminUpdateQuestionDto) {
+        const result = await this.questionsService.adminUpdate(id, dto);
+        await this.auditService.log({
+            userId: req.user.sub || req.user.id,
+            action: 'QUESTION_EDITED',
+            targetType: 'Question',
+            targetId: id,
+            metadata: { fields: Object.keys(dto) },
+        });
+        return result;
+    }
+
+    @Delete(':id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(UserRole.ADMIN)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Admin: Soft-delete a question' })
+    async adminDelete(@Req() req: any, @Param('id') id: string) {
+        const result = await this.questionsService.adminDelete(id);
+        await this.auditService.log({
+            userId: req.user.sub || req.user.id,
+            action: 'QUESTION_DELETED',
+            targetType: 'Question',
+            targetId: id,
+        });
+        return result;
     }
 }
