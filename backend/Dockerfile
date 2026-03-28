@@ -31,5 +31,7 @@ COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3000
 
-# Start the application
-CMD npx prisma migrate deploy && npm run start:prod
+# Start: migrate schema, seed initial data (all upserts — safe to re-run), then serve
+CMD npx prisma migrate deploy && \
+    npx ts-node --compiler-options '{"module":"CommonJS"}' --transpile-only prisma/seed.ts && \
+    npm run start:prod
