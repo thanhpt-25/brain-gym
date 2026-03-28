@@ -46,6 +46,7 @@ services:
       JWT_REFRESH_EXPIRES_IN: "${JWT_REFRESH_EXPIRES_IN:-7d}"
       PORT: ${PORT:-3000}
       NODE_ENV: ${NODE_ENV:-production}
+      LLM_KEY_ENCRYPTION_SECRET: "${LLM_KEY_ENCRYPTION_SECRET:-braingym-llm-encryption-secret-change-in-production}"
     depends_on:
       postgres:
         condition: service_healthy
