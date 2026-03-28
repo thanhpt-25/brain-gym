@@ -28,10 +28,10 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x docker-entrypoint.sh
 
 EXPOSE 3000
 
-# Start: migrate schema, seed initial data (all upserts — safe to re-run), then serve
-CMD npx prisma migrate deploy && \
-    npx ts-node --compiler-options '{"module":"CommonJS"}' --transpile-only prisma/seed.ts && \
-    npm run start:prod
+# Start: migrate schema (with P3005 baseline handling), seed initial data, then serve
+CMD ["sh", "docker-entrypoint.sh"]
