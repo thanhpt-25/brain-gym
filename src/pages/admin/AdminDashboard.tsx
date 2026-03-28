@@ -1,14 +1,33 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getDashboard } from '@/services/admin';
+import { getDashboard, exportUsers, exportQuestions, exportAnalytics } from '@/services/admin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, FileText, AlertTriangle, Loader2, BookOpen, Brain, Building2, Award, Cpu } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, FileText, AlertTriangle, Loader2, BookOpen, Brain, Building2, Award, Cpu, Download } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AdminDashboard() {
+  const [exporting, setExporting] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: getDashboard,
     refetchInterval: 30000,
   });
+
+  const handleExport = async (type: 'users' | 'questions' | 'analytics') => {
+    setExporting(type);
+    try {
+      if (type === 'users') await exportUsers();
+      else if (type === 'questions') await exportQuestions();
+      else await exportAnalytics();
+      toast.success(`${type} exported`);
+    } catch {
+      toast.error('Export failed');
+    } finally {
+      setExporting(null);
+    }
+  };
 
   if (isLoading || !data) {
     return <div className="flex justify-center py-16"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -41,6 +60,26 @@ export default function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Export section */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-sm font-mono flex items-center gap-2"><Download className="h-4 w-4 text-primary" /> Data Export</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-3">
+            <Button size="sm" variant="outline" className="font-mono text-xs" onClick={() => handleExport('users')} disabled={exporting === 'users'}>
+              <Download className="h-3 w-3 mr-1" /> {exporting === 'users' ? 'Exporting...' : 'Export Users (CSV)'}
+            </Button>
+            <Button size="sm" variant="outline" className="font-mono text-xs" onClick={() => handleExport('questions')} disabled={exporting === 'questions'}>
+              <Download className="h-3 w-3 mr-1" /> {exporting === 'questions' ? 'Exporting...' : 'Export Questions (CSV)'}
+            </Button>
+            <Button size="sm" variant="outline" className="font-mono text-xs" onClick={() => handleExport('analytics')} disabled={exporting === 'analytics'}>
+              <Download className="h-3 w-3 mr-1" /> {exporting === 'analytics' ? 'Exporting...' : 'Export Analytics (CSV)'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="glass-card">

@@ -265,4 +265,81 @@ export class AdminService {
   async revokeBadge(badgeId: string, userId: string) {
     return this.prisma.badgeAward.delete({ where: { userId_badgeId: { userId, badgeId } } });
   }
+
+  // ─── Bulk Operations ─────────────────────────────────────────────────────────
+
+  async bulkUpdateQuestionStatus(ids: string[], status: string) {
+    const result = await this.prisma.question.updateMany({
+      where: { id: { in: ids }, deletedAt: null },
+      data: { status: status as any },
+    });
+    return { updated: result.count };
+  }
+
+  async bulkUpdateUserRole(userIds: string[], role: string) {
+    const result = await this.prisma.user.updateMany({
+      where: { id: { in: userIds }, role: { not: 'ADMIN' as any } },
+      data: { role: role as any },
+    });
+    return { updated: result.count };
+  }
+
+  // ─── CSV Export ───────────────────────────────────────────────────────────────
+
+  private escapeCsv(value: any): string {
+    if (value == null) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  private toCsv(headers: string[], rows: any[][]): string {
+    const headerRow = headers.join(',');
+    const dataRows = rows.map(row => row.map(v => this.escapeCsv(v)).join(','));
+    return [headerRow, ...dataRows].join('\n');
+  }
+
+  async exportUsers(): Promise<string> {
+    const users = await this.prisma.user.findMany({
+      select: { id: true, email: true, displayName: true, role: true, status: true, points: true, createdAt: true, _count: { select: { questions: true, examAttempts: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return this.toCsv(
+      ['id', 'email', 'displayName', 'role', 'status', 'points', 'questions', 'examAttempts', 'createdAt'],
+      users.map(u => [u.id, u.email, u.displayName, u.role, u.status, u.points, u._count.questions, u._count.examAttempts, u.createdAt.toISOString()]),
+    );
+  }
+
+  async exportQuestions(): Promise<string> {
+    const questions = await this.prisma.question.findMany({
+      where: { deletedAt: null },
+      include: {
+        certification: { select: { name: true, code: true } },
+        domain: { select: { name: true } },
+        author: { select: { displayName: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return this.toCsv(
+      ['id', 'title', 'status', 'difficulty', 'questionType', 'certification', 'domain', 'author', 'createdAt'],
+      questions.map(q => [q.id, q.title, q.status, q.difficulty, q.questionType, q.certification ? `${q.certification.code} - ${q.certification.name}` : '', q.domain?.name || '', (q as any).author?.displayName || '', q.createdAt.toISOString()]),
+    );
+  }
+
+  async exportAnalytics(): Promise<string> {
+    const attempts = await this.prisma.examAttempt.findMany({
+      where: { status: 'SUBMITTED' as any },
+      include: {
+        user: { select: { displayName: true, email: true } },
+        exam: { select: { title: true, certification: { select: { name: true, code: true } } } },
+      },
+      orderBy: { submittedAt: 'desc' },
+    });
+    return this.toCsv(
+      ['attemptId', 'user', 'email', 'exam', 'certification', 'score', 'passed', 'timeSpent', 'submittedAt'],
+      attempts.map(a => [a.id, a.user.displayName, a.user.email, a.exam.title, a.exam.certification ? `${a.exam.certification.code} - ${a.exam.certification.name}` : '', a.score, Number(a.score ?? 0) >= 70 ? 'YES' : 'NO', a.timeSpent, a.submittedAt?.toISOString() || '']),
+    );
+  }
 }

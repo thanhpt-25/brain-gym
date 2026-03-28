@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Patch, UseGuards, Query, Param, Body, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, UseGuards, Query, Param, Body, Req, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AuditService } from '../audit/audit.service';
@@ -227,5 +228,54 @@ export class AdminController {
   @ApiOperation({ summary: 'List all badges with award counts (admin view)' })
   getAdminBadges() {
     return this.adminService.getAdminBadges();
+  }
+
+  // ─── Bulk Operations ─────────────────────────────────────────────────────────
+
+  @Post('questions/bulk-status')
+  @ApiOperation({ summary: 'Bulk approve or reject questions' })
+  async bulkQuestionStatus(@Req() req: any, @Body() body: { ids: string[]; status: string }) {
+    const adminId = req.user.sub || req.user.id;
+    const result = await this.adminService.bulkUpdateQuestionStatus(body.ids, body.status);
+    await this.auditService.log({ userId: adminId, action: 'BULK_QUESTION_STATUS', targetType: 'Question', targetId: 'bulk', metadata: { ids: body.ids, status: body.status, count: body.ids.length } });
+    return result;
+  }
+
+  @Post('users/bulk-role')
+  @ApiOperation({ summary: 'Bulk update user roles' })
+  async bulkUserRole(@Req() req: any, @Body() body: { userIds: string[]; role: string }) {
+    const adminId = req.user.sub || req.user.id;
+    const result = await this.adminService.bulkUpdateUserRole(body.userIds, body.role);
+    await this.auditService.log({ userId: adminId, action: 'BULK_USER_ROLE', targetType: 'User', targetId: 'bulk', metadata: { userIds: body.userIds, role: body.role, count: body.userIds.length } });
+    return result;
+  }
+
+  // ─── Data Export ─────────────────────────────────────────────────────────────
+
+  @Get('export/users')
+  @ApiOperation({ summary: 'Export users as CSV' })
+  async exportUsers(@Res() res: Response) {
+    const csv = await this.adminService.exportUsers();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="users.csv"');
+    res.send(csv);
+  }
+
+  @Get('export/questions')
+  @ApiOperation({ summary: 'Export questions as CSV' })
+  async exportQuestions(@Res() res: Response) {
+    const csv = await this.adminService.exportQuestions();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="questions.csv"');
+    res.send(csv);
+  }
+
+  @Get('export/analytics')
+  @ApiOperation({ summary: 'Export exam analytics as CSV' })
+  async exportAnalytics(@Res() res: Response) {
+    const csv = await this.adminService.exportAnalytics();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="analytics.csv"');
+    res.send(csv);
   }
 }

@@ -356,3 +356,41 @@ export const updateExamVisibility = async (id: string, visibility: string) => {
   const response = await api.patch(`/admin/exams/${id}/visibility`, { visibility });
   return response.data;
 };
+
+// ==================== Bulk Operations ====================
+
+export const bulkUpdateQuestionStatus = async (ids: string[], status: string) => {
+  const response = await api.post('/admin/questions/bulk-status', { ids, status });
+  return response.data;
+};
+
+export const bulkUpdateUserRole = async (userIds: string[], role: string) => {
+  const response = await api.post('/admin/users/bulk-role', { userIds, role });
+  return response.data;
+};
+
+// ==================== Data Export ====================
+
+const downloadCsv = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportUsers = async () => {
+  const response = await api.get('/admin/export/users', { responseType: 'blob' });
+  downloadCsv(response.data, 'users.csv');
+};
+
+export const exportQuestions = async () => {
+  const response = await api.get('/admin/export/questions', { responseType: 'blob' });
+  downloadCsv(response.data, 'questions.csv');
+};
+
+export const exportAnalytics = async () => {
+  const response = await api.get('/admin/export/analytics', { responseType: 'blob' });
+  downloadCsv(response.data, 'analytics.csv');
+};
