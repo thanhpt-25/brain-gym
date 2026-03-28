@@ -24,7 +24,7 @@
 - **Detailed Analytics**: Review your performance with beautiful charts and domain-level performance insights.
 
 ### 🧠 Question & Training Hub
-- **Rich Media Support**: Scenario-based questions with images, diagrams, and multi-choice support.
+- **Rich Media Support**: Scenario-based questions with images, diagrams, and multi-choice support (powered by Framer Motion).
 - **Training Hub**: A centralized dashboard to track your daily progress, upcoming reviews, and recent exam attempts.
 - **Community Library**: Access thousands of community-shared questions and exams.
 
@@ -39,10 +39,10 @@
 
 | Component | Technology |
 | :--- | :--- |
-| **Frontend** | React 18, TypeScript, Vite, TanStack Query, Zustand, React Router, shadcn/ui, Tailwind CSS |
-| **Backend** | NestJS, TypeScript, Prisma ORM, JWT Auth, Swagger |
-| **Database** | PostgreSQL |
-| **Caching** | Redis |
+| **Frontend** | React 18, TypeScript, Vite, TanStack Query, Zustand, React Router, shadcn/ui, Tailwind CSS, Framer Motion |
+| **Backend** | NestJS, TypeScript, Prisma ORM, Passport.js (JWT Auth), Swagger |
+| **Database** | PostgreSQL 16 |
+| **Caching** | Redis 7 |
 | **Infrastructure** | Docker, Docker Compose, Nginx |
 | **Testing** | Vitest (Frontend), Jest (Backend) |
 
@@ -53,24 +53,31 @@
 ### Prerequisites
 - [Docker](https://www.docker.com/products/docker-desktop/) and [Docker Compose](https://docs.docker.com/compose/install/)
 - [Node.js](https://nodejs.org/) (v18+ recommended)
-- [bun](https://bun.sh/) (optional, but recommended for faster installs)
 
 ### ⚡ Quick Start (Recommended)
 The easiest way to get the entire stack (Frontend, Backend, Database, Redis, Nginx) running is using Docker Compose:
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd brain-gym
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd brain-gym
+   ```
 
-# Start all services
-docker-compose up -d
-```
+2. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env if needed (optional)
+   ```
+
+3. **Start all services**
+   ```bash
+   docker-compose up -d --build
+   ```
 
 Once started, the services will be available at:
-- **Frontend**: [http://localhost](http://localhost) (via Nginx) or [http://localhost:5173](http://localhost:5173) (direct)
-- **Backend API**: [http://localhost/api](http://localhost/api) or [http://localhost:3000](http://localhost:3000) (direct)
-- **API Documentation**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs) (Swagger)
+- **Frontend**: [http://localhost](http://localhost) (via Nginx proxy)
+- **Backend API Docs**: [http://localhost/api/docs](http://localhost/api/docs) or [http://localhost:3000/api/docs](http://localhost:3000/api/docs) (Swagger)
+- **API Base**: [http://localhost/api/v1](http://localhost/api/v1)
 
 ---
 
@@ -79,6 +86,7 @@ If you want to run services independently for development:
 
 #### 1. Database & Caching
 ```bash
+# From the root directory
 docker-compose up -d postgres redis
 ```
 
@@ -86,7 +94,7 @@ docker-compose up -d postgres redis
 ```bash
 cd backend
 npm install
-# Copy .env configuration (check .env for defaults)
+# Ensure .env or backend environment is configured
 npx prisma migrate dev
 npx prisma db seed
 npm run start:dev
@@ -94,10 +102,11 @@ npm run start:dev
 
 #### 3. Frontend Setup
 ```bash
-# In the root directory
+# In the root directory (separate terminal)
 npm install
 npm run dev
 ```
+The frontend will be available at [http://localhost:5173](http://localhost:5173).
 
 ---
 
@@ -124,13 +133,13 @@ brain-gym/
 
 ## 📊 Available Scripts
 
-### Frontend
+### Frontend (Root)
 - `npm run dev` - Start Vite development server
 - `npm run build` - Create production bundle
 - `npm run test` - Run Vitest unit tests
 - `npm run lint` - Run ESLint checks
 
-### Backend
+### Backend (`/backend`)
 - `npm run start:dev` - Start NestJS server with watch mode
 - `npm run test` - Run Jest unit tests
 - `npm run test:e2e` - Run end-to-end tests
