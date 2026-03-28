@@ -50,7 +50,7 @@ describe('CertificationsController', () => {
 
   describe('create', () => {
     it('should call service.create', async () => {
-      const dto: CreateCertificationDto = { name: 'Test', provider: 'AWS', code: 'T1' };
+      const dto: CreateCertificationDto = { name: 'Test', providerId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', code: 'T1' };
       await controller.create(dto);
       expect(service.create).toHaveBeenCalledWith(dto);
     });

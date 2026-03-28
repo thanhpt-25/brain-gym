@@ -24,7 +24,7 @@ const QuestionDetail = lazy(() => import("./pages/QuestionDetail"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ExamResults = lazy(() => import("./pages/ExamResults"));
 const Leaderboard = lazy(() => import("./pages/Leaderboard"));
-const AdminPage = lazy(() => import("./pages/Admin"));
+const AdminPage = lazy(() => import("./pages/admin"));
 const ExamLibrary = lazy(() => import("./pages/ExamLibrary"));
 const ExamBuilder = lazy(() => import("./pages/ExamBuilder"));
 const ExamShare = lazy(() => import("./pages/ExamShare"));

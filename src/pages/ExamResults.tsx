@@ -108,7 +108,7 @@ const ExamResults = () => {
         >
           <div className="text-5xl mb-2">{cert.icon}</div>
           <div className="text-xs font-mono text-muted-foreground mb-3">
-            {cert.provider} · {cert.name}
+            {typeof cert.provider === 'object' ? cert.provider?.name : cert.provider} · {cert.name}
           </div>
           <div
             className={`text-6xl font-mono font-bold mb-2 ${

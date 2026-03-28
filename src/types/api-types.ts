@@ -56,7 +56,8 @@ export interface Question {
 
 export interface Certification {
   id: string;
-  provider: string;
+  providerId: string;
+  provider?: { id: string; name: string; slug: string; logoUrl?: string };
   name: string;
   code: string;
   description: string;
@@ -125,7 +126,7 @@ export interface AnalyticsSummary {
 export interface HistoryItem {
   id: string;
   examTitle: string;
-  certification: { id: string; name: string; code: string; provider: string };
+  certification: { id: string; name: string; code: string; provider?: { id: string; name: string; slug: string } };
   score: number;
   totalCorrect: number;
   totalQuestions: number;
@@ -163,7 +164,7 @@ export interface StartAttemptResponse {
     id: string;
     name: string;
     code: string;
-    provider: string;
+    provider?: { id: string; name: string; slug: string };
     domains?: Domain[];
   };
   timeLimit: number;
@@ -199,7 +200,7 @@ export interface AttemptResult {
   attemptId: string;
   examId: string;
   examTitle: string;
-  certification: { id: string; name: string; code: string; provider: string };
+  certification: { id: string; name: string; code: string; provider?: { id: string; name: string; slug: string } };
   status: string;
   score: number;
   totalCorrect: number;
@@ -252,7 +253,7 @@ export interface ExamSummary {
     id: string;
     name: string;
     code: string;
-    provider: string;
+    provider?: { id: string; name: string; slug: string };
   };
   author?: {
     id: string;

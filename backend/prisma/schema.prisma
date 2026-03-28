@@ -16,6 +16,12 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
 enum QuestionType {
   SINGLE
   MULTIPLE
@@ -117,15 +123,18 @@ enum MaterialContentType {
 // ==================== MODELS ====================
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  displayName  String   @map("display_name")
-  avatarUrl    String?  @map("avatar_url")
-  role         UserRole @default(LEARNER)
-  points       Int      @default(0)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id             String     @id @default(uuid())
+  email          String     @unique
+  passwordHash   String     @map("password_hash")
+  displayName    String     @map("display_name")
+  avatarUrl      String?    @map("avatar_url")
+  role           UserRole   @default(LEARNER)
+  status         UserStatus @default(ACTIVE)
+  points         Int        @default(0)
+  suspendedUntil DateTime?  @map("suspended_until")
+  banReason      String?    @map("ban_reason")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
 
   questions    Question[]
   examAttempts ExamAttempt[]
@@ -141,20 +150,39 @@ model User {
   llmConfigs                 UserLlmConfig[]
   generationJobs             QuestionGenerationJob[]
   sourceMaterials            SourceMaterial[]
+  auditLogs                  AuditLog[]
 
   @@map("users")
+}
+
+model Provider {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  logoUrl     String?  @map("logo_url")
+  website     String?
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  certifications Certification[]
+
+  @@map("providers")
 }
 
 model Certification {
   id          String   @id @default(uuid())
   name        String
-  provider    String
+  providerId  String   @map("provider_id")
   code        String   @unique
   description String?
   examFormat  Json?    @map("exam_format")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  provider       Provider @relation(fields: [providerId], references: [id])
   domains        Domain[]
   questions      Question[]
   exams          Exam[]
@@ -204,6 +232,7 @@ model Question {
   generationJobId String?        @map("generation_job_id")
   qualityTier     QualityTier?   @map("quality_tier")
   sourceChunkId   String?        @map("source_chunk_id")
+  deletedAt       DateTime?      @map("deleted_at")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
@@ -575,4 +604,24 @@ model QuestionGenerationJob {
   questions     Question[]
 
   @@map("question_generation_jobs")
+}
+
+// ==================== ADMIN ====================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  action     String
+  targetType String   @map("target_type")
+  targetId   String   @map("target_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { User, UserRole, AttemptStatus } from '@prisma/client';
+import { User, UserRole, UserStatus, AttemptStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const publicSelect = {
@@ -11,7 +11,10 @@ const publicSelect = {
   displayName: true,
   avatarUrl: true,
   role: true,
+  status: true,
   points: true,
+  suspendedUntil: true,
+  banReason: true,
   createdAt: true,
 };
 
@@ -124,5 +127,67 @@ export class UsersService {
       })),
       badgeAwards: undefined,
     };
+  }
+
+  async suspendUser(userId: string, reason: string, suspendedUntil?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role === UserRole.ADMIN) {
+      throw new ForbiddenException('Cannot suspend an admin user');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: UserStatus.SUSPENDED,
+        banReason: reason,
+        suspendedUntil: suspendedUntil ? new Date(suspendedUntil) : null,
+      },
+      select: publicSelect,
+    });
+  }
+
+  async banUser(userId: string, reason: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role === UserRole.ADMIN) {
+      throw new ForbiddenException('Cannot ban an admin user');
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: UserStatus.BANNED,
+        banReason: reason,
+        suspendedUntil: null,
+      },
+      select: publicSelect,
+    });
+  }
+
+  async reactivateUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: UserStatus.ACTIVE,
+        banReason: null,
+        suspendedUntil: null,
+      },
+      select: publicSelect,
+    });
+  }
+
+  async adjustPoints(userId: string, amount: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { points: { increment: amount } },
+      select: publicSelect,
+    });
   }
 }

@@ -35,7 +35,8 @@ export interface Question {
 
 export interface Certification {
   id: string;
-  provider: string;
+  providerId?: string;
+  provider?: string | { id: string; name: string; slug: string; logoUrl?: string };
   name: string;
   code: string;
   description: string;

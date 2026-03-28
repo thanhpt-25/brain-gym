@@ -46,7 +46,7 @@ export function ExamIntro({ cert, questionCount, timerMode, onTimerModeChange, o
           <ChevronLeft className="h-4 w-4 mr-1" /> Back
         </Button>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-8">
-          <div className="text-sm font-mono text-muted-foreground mb-1">{cert.provider} · {cert.code}</div>
+          <div className="text-sm font-mono text-muted-foreground mb-1">{typeof cert.provider === 'object' ? cert.provider?.name : cert.provider} · {cert.code}</div>
           <h1 className="text-2xl font-mono font-bold mb-2">{cert.name}</h1>
           <p className="text-muted-foreground mb-6">{cert.description}</p>
 

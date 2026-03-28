@@ -132,7 +132,7 @@ export class TrainingService {
           { code: certificationId },
         ],
       },
-      include: { domains: true },
+      include: { domains: true, provider: true },
     });
 
     if (!certification) {
@@ -275,7 +275,7 @@ export class TrainingService {
         id: certification.id,
         name: certification.name,
         code: certification.code,
-        provider: certification.provider,
+        provider: certification.provider?.name,
       },
       timeLimit: exam.timeLimit,
       totalQuestions: shuffledQuestions.length,

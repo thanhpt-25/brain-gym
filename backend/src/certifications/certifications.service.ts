@@ -11,6 +11,7 @@ export class CertificationsService {
         const certs = await this.prisma.certification.findMany({
             where: includeInactive ? {} : { isActive: true },
             include: {
+                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
                 domains: true,
                 _count: {
                     select: { questions: true }
@@ -32,6 +33,7 @@ export class CertificationsService {
         const cert = await this.prisma.certification.findUnique({
             where: { id },
             include: {
+                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
                 domains: true,
             },
         });
@@ -63,6 +65,7 @@ export class CertificationsService {
                 } : undefined,
             },
             include: {
+                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
                 domains: true,
             },
         });
@@ -99,6 +102,7 @@ export class CertificationsService {
                 } : undefined,
             },
             include: {
+                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
                 domains: true,
             },
         });

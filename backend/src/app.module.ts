@@ -18,6 +18,9 @@ import { TrainingModule } from './training/training.module';
 import { FlashcardsModule } from './flashcards/flashcards.module';
 import { CaptureModule } from './capture/capture.module';
 import { AiQuestionBankModule } from './ai-question-bank/ai-question-bank.module';
+import { ProvidersModule } from './providers/providers.module';
+import { AdminModule } from './admin/admin.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -27,8 +30,10 @@ import { AiQuestionBankModule } from './ai-question-bank/ai-question-bank.module
       limit: 60,
     }]),
     PrismaModule,
+    AuditModule,
     UsersModule,
     AuthModule,
+    ProvidersModule,
     CertificationsModule,
     QuestionsModule,
     ExamsModule,
@@ -42,6 +47,7 @@ import { AiQuestionBankModule } from './ai-question-bank/ai-question-bank.module
     FlashcardsModule,
     CaptureModule,
     AiQuestionBankModule,
+    AdminModule,
   ],
   providers: [
     {
