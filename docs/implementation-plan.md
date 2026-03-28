@@ -160,7 +160,18 @@
 - [ ] Map overlapping domains across certifications (e.g., AWS VPC -> Azure VNet).
 - [ ] "Skill Translation" UI showing how close a user is to secondary certs.
 
-### 11.3 AI Coaching Integration
+### 11.3 AI-Supported Question Banks ⚙️ IN PROGRESS
+- [x] Prisma schema: `UserLlmConfig`, `SourceMaterial`, `SourceChunk`, `QuestionGenerationJob` models + `LlmProvider`, `GenerationJobStatus`, `QualityTier`, `MaterialContentType` enums
+- [x] `Question` model extended: `isAiGenerated`, `generationJobId`, `qualityTier`, `sourceChunkId`
+- [x] `backend/src/ai-question-bank/` module: encryption service (AES-256-GCM), LLM provider adapters (OpenAI/Anthropic/Gemini), ingestion service (PDF/URL/text chunking), generation pipeline, two-pass quality gate (critic LLM), MCP intake endpoint
+- [x] API Key mode: users BYOK for OpenAI / Anthropic / Gemini; keys encrypted at rest
+- [x] MCP mode: `POST /ai-questions/mcp/intake` for Claude Desktop / NotebookLM to push questions
+- [x] Quality gate: score ≥ 0.85 → auto-APPROVED, 0.60–0.84 → PENDING review queue, <0.60 → discarded
+- [x] Frontend: `AiQuestionGenerator` page with settings, material library, generation form, review UI, history
+- [ ] Run `prisma migrate dev --name ai_question_bank && prisma generate` (requires DB)
+- [ ] Add `pdf-parse` and `@nestjs/platform-express` multer to backend dependencies
+
+### 11.4 AI Coaching (future)
 - [ ] Integrate with personal NotebookLM
 - [ ] Coach feature: automatically suggest simplifications for dense explanations.
 - [ ] Dynamic Difficulty Scaling (DDS): AI tweaks question numbers/details slightly on retries.

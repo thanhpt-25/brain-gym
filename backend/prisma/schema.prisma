@@ -89,6 +89,31 @@ enum FlashcardMastery {
   MASTERED
 }
 
+enum LlmProvider {
+  OPENAI
+  ANTHROPIC
+  GEMINI
+}
+
+enum GenerationJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum QualityTier {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum MaterialContentType {
+  PDF
+  URL
+  TEXT
+}
+
 // ==================== MODELS ====================
 
 model User {
@@ -113,6 +138,9 @@ model User {
   decks                      Deck[]
   flashcardReviewSchedules   FlashcardReviewSchedule[]
   capturedWords              CapturedWord[]
+  llmConfigs                 UserLlmConfig[]
+  generationJobs             QuestionGenerationJob[]
+  sourceMaterials            SourceMaterial[]
 
   @@map("users")
 }
@@ -127,11 +155,13 @@ model Certification {
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  domains   Domain[]
-  questions Question[]
-  exams     Exam[]
-  tags      Tag[]
-  decks     Deck[]
+  domains        Domain[]
+  questions      Question[]
+  exams          Exam[]
+  tags           Tag[]
+  decks          Deck[]
+  generationJobs QuestionGenerationJob[]
+  sourceMaterials SourceMaterial[]
 
   @@map("certifications")
 }
@@ -143,8 +173,9 @@ model Domain {
   weight          Decimal?      @db.Decimal(5, 2)
   description     String?
 
-  certification Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
-  questions     Question[]
+  certification  Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+  questions      Question[]
+  generationJobs QuestionGenerationJob[]
 
   @@map("domains")
 }
@@ -169,21 +200,27 @@ model Question {
   downvotes       Int            @default(0)
   attemptCount    Int            @default(0) @map("attempt_count")
   correctCount    Int            @default(0) @map("correct_count")
+  isAiGenerated   Boolean        @default(false) @map("is_ai_generated")
+  generationJobId String?        @map("generation_job_id")
+  qualityTier     QualityTier?   @map("quality_tier")
+  sourceChunkId   String?        @map("source_chunk_id")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  certification Certification   @relation(fields: [certificationId], references: [id])
-  domain        Domain?         @relation(fields: [domainId], references: [id])
-  author        User            @relation(fields: [createdBy], references: [id])
-  choices       Choice[]
-  tags          QuestionTag[]
-  examQuestions ExamQuestion[]
-  answers       Answer[]
-  comments      Comment[]
-  votes         Vote[]
-  reports       Report[]
+  certification   Certification   @relation(fields: [certificationId], references: [id])
+  domain          Domain?         @relation(fields: [domainId], references: [id])
+  author          User            @relation(fields: [createdBy], references: [id])
+  generationJob   QuestionGenerationJob? @relation(fields: [generationJobId], references: [id])
+  sourceChunk     SourceChunk?    @relation(fields: [sourceChunkId], references: [id])
+  choices         Choice[]
+  tags            QuestionTag[]
+  examQuestions   ExamQuestion[]
+  answers         Answer[]
+  comments        Comment[]
+  votes           Vote[]
+  reports         Report[]
   reviewSchedules ReviewSchedule[]
-  capturedWords CapturedWord[]
+  capturedWords   CapturedWord[]
 
   @@map("questions")
 }
@@ -457,4 +494,85 @@ model CapturedWord {
   question    Question?    @relation(fields: [questionId], references: [id])
 
   @@map("captured_words")
+}
+
+// ==================== AI QUESTION BANK ====================
+
+model UserLlmConfig {
+  id           String      @id @default(uuid())
+  userId       String      @map("user_id")
+  provider     LlmProvider
+  encryptedKey String      @map("encrypted_key")
+  modelId      String?     @map("model_id")
+  isActive     Boolean     @default(true) @map("is_active")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("user_llm_configs")
+}
+
+model SourceMaterial {
+  id              String              @id @default(uuid())
+  userId          String              @map("user_id")
+  certificationId String?             @map("certification_id")
+  title           String
+  originalFilename String?            @map("original_filename")
+  contentType     MaterialContentType @map("content_type")
+  sourceUrl       String?             @map("source_url")
+  chunkCount      Int                 @default(0) @map("chunk_count")
+  status          String              @default("processing")
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certification Certification? @relation(fields: [certificationId], references: [id])
+  chunks        SourceChunk[]
+  generationJobs QuestionGenerationJob[]
+
+  @@map("source_materials")
+}
+
+model SourceChunk {
+  id           String   @id @default(uuid())
+  materialId   String   @map("material_id")
+  content      String
+  chunkIndex   Int      @map("chunk_index")
+  pageNumber   Int?     @map("page_number")
+  sectionTitle String?  @map("section_title")
+  tokenCount   Int?     @map("token_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  material   SourceMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  questions  Question[]
+
+  @@map("source_chunks")
+}
+
+model QuestionGenerationJob {
+  id               String              @id @default(uuid())
+  userId           String              @map("user_id")
+  certificationId  String              @map("certification_id")
+  domainId         String?             @map("domain_id")
+  materialId       String?             @map("material_id")
+  provider         LlmProvider
+  modelId          String?             @map("model_id")
+  difficulty       Difficulty
+  questionCount    Int                 @map("question_count")
+  status           GenerationJobStatus @default(PENDING)
+  promptTokens     Int?                @map("prompt_tokens")
+  completionTokens Int?                @map("completion_tokens")
+  qualityScores    Json?               @map("quality_scores")
+  errorMessage     String?             @map("error_message")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  completedAt      DateTime?           @map("completed_at")
+
+  user          User           @relation(fields: [userId], references: [id])
+  certification Certification  @relation(fields: [certificationId], references: [id])
+  domain        Domain?        @relation(fields: [domainId], references: [id])
+  material      SourceMaterial? @relation(fields: [materialId], references: [id])
+  questions     Question[]
+
+  @@map("question_generation_jobs")
 }

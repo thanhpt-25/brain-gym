@@ -94,7 +94,14 @@ export class QuestionsService {
         return { ...question, userVote };
     }
 
-    async create(userId: string, dto: CreateQuestionDto) {
+    async create(
+        userId: string,
+        dto: CreateQuestionDto,
+        initialStatus?: QuestionStatus,
+        generationJobId?: string,
+        qualityTier?: import('@prisma/client').QualityTier,
+        sourceChunkId?: string,
+    ) {
         const { choices, tags, ...questionData } = dto;
 
         // Upsert tags if provided
@@ -116,11 +123,17 @@ export class QuestionsService {
             ))
             : [];
 
+        const isAiGenerated = !!generationJobId;
+
         const question = await this.prisma.question.create({
             data: {
                 ...questionData,
                 createdBy: userId,
-                status: QuestionStatus.DRAFT,
+                status: initialStatus ?? QuestionStatus.DRAFT,
+                isAiGenerated,
+                generationJobId: generationJobId || null,
+                qualityTier: qualityTier || null,
+                sourceChunkId: sourceChunkId || null,
                 choices: {
                     create: choices.map((c, index) => ({
                         label: c.label,

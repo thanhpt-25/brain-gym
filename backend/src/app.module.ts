@@ -17,6 +17,7 @@ import { TagsModule } from './tags/tags.module';
 import { TrainingModule } from './training/training.module';
 import { FlashcardsModule } from './flashcards/flashcards.module';
 import { CaptureModule } from './capture/capture.module';
+import { AiQuestionBankModule } from './ai-question-bank/ai-question-bank.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CaptureModule } from './capture/capture.module';
     TrainingModule,
     FlashcardsModule,
     CaptureModule,
+    AiQuestionBankModule,
   ],
   providers: [
     {
