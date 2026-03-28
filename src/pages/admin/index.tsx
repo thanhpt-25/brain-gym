@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Brain, ArrowLeft, Users, FileText, AlertTriangle, Shield, Award,
-  LayoutDashboard, Building2, BookOpen, ScrollText
+  LayoutDashboard, Building2, BookOpen, ScrollText, Tag, Layers, Sparkles, ClipboardList
 } from 'lucide-react';
 import AdminDashboard from './AdminDashboard';
 import UsersTab from './UsersTab';
@@ -13,6 +13,11 @@ import ProvidersTab from './ProvidersTab';
 import ModerationTab from './ModerationTab';
 import ReportsTab from './ReportsTab';
 import AuditLogTab from './AuditLogTab';
+import { DomainsTab } from './DomainsTab';
+import { TagsTab } from './TagsTab';
+import { BadgesTab } from './BadgesTab';
+import { AiGenerationTab } from './AiGenerationTab';
+import { ExamsTab } from './ExamsTab';
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -52,6 +57,11 @@ const AdminPage = () => {
             <TabsTrigger value="users" className="font-mono text-xs"><Users className="h-3 w-3 mr-1" /> Users</TabsTrigger>
             <TabsTrigger value="providers" className="font-mono text-xs"><Building2 className="h-3 w-3 mr-1" /> Providers</TabsTrigger>
             <TabsTrigger value="certifications" className="font-mono text-xs"><Award className="h-3 w-3 mr-1" /> Certifications</TabsTrigger>
+            <TabsTrigger value="domains" className="font-mono text-xs"><Layers className="h-3 w-3 mr-1" /> Domains</TabsTrigger>
+            <TabsTrigger value="tags" className="font-mono text-xs"><Tag className="h-3 w-3 mr-1" /> Tags</TabsTrigger>
+            <TabsTrigger value="badges" className="font-mono text-xs"><BookOpen className="h-3 w-3 mr-1" /> Badges</TabsTrigger>
+            <TabsTrigger value="exams" className="font-mono text-xs"><ClipboardList className="h-3 w-3 mr-1" /> Exams</TabsTrigger>
+            <TabsTrigger value="ai" className="font-mono text-xs"><Sparkles className="h-3 w-3 mr-1" /> AI Generation</TabsTrigger>
             <TabsTrigger value="moderation" className="font-mono text-xs"><FileText className="h-3 w-3 mr-1" /> Moderation</TabsTrigger>
             <TabsTrigger value="reports" className="font-mono text-xs"><AlertTriangle className="h-3 w-3 mr-1" /> Reports</TabsTrigger>
             <TabsTrigger value="audit" className="font-mono text-xs"><ScrollText className="h-3 w-3 mr-1" /> Audit Log</TabsTrigger>
@@ -61,6 +71,11 @@ const AdminPage = () => {
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="providers"><ProvidersTab /></TabsContent>
           <TabsContent value="certifications"><CertificationsTab /></TabsContent>
+          <TabsContent value="domains"><DomainsTab /></TabsContent>
+          <TabsContent value="tags"><TagsTab /></TabsContent>
+          <TabsContent value="badges"><BadgesTab /></TabsContent>
+          <TabsContent value="exams"><ExamsTab /></TabsContent>
+          <TabsContent value="ai"><AiGenerationTab /></TabsContent>
           <TabsContent value="moderation"><ModerationTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>
           <TabsContent value="audit"><AuditLogTab /></TabsContent>

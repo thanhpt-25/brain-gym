@@ -254,3 +254,105 @@ export const getAdminDomains = async (params: { certificationId?: string; page?:
   const response = await api.get(`/admin/domains?${searchParams}`);
   return response.data;
 };
+
+export const createDomain = async (data: { name: string; certificationId: string; description?: string; weight?: number }) => {
+  const response = await api.post('/admin/domains', data);
+  return response.data;
+};
+
+export const updateDomain = async (id: string, data: { name?: string; description?: string; weight?: number }) => {
+  const response = await api.put(`/admin/domains/${id}`, data);
+  return response.data;
+};
+
+export const deleteDomain = async (id: string) => {
+  const response = await api.delete(`/admin/domains/${id}`);
+  return response.data;
+};
+
+export const reorderDomains = async (certificationId: string, orderedIds: string[]) => {
+  const response = await api.put('/admin/domains/reorder', { certificationId, orderedIds });
+  return response.data;
+};
+
+// ==================== Tags ====================
+
+export const getAdminTags = async (certificationId?: string): Promise<any[]> => {
+  const params = certificationId ? `?certificationId=${certificationId}` : '';
+  const response = await api.get(`/tags${params}`);
+  return response.data;
+};
+
+export const createTag = async (data: { name: string; certificationId?: string }) => {
+  const response = await api.post('/tags', data);
+  return response.data;
+};
+
+export const updateTag = async (id: string, data: { name: string }) => {
+  const response = await api.put(`/tags/${id}`, data);
+  return response.data;
+};
+
+export const deleteTag = async (id: string) => {
+  const response = await api.delete(`/tags/${id}`);
+  return response.data;
+};
+
+export const mergeTags = async (data: { sourceIds: string[]; targetId: string }) => {
+  const response = await api.post('/tags/merge', data);
+  return response.data;
+};
+
+// ==================== Badges ====================
+
+export const getAdminBadges = async (): Promise<any[]> => {
+  const response = await api.get('/admin/badges');
+  return response.data;
+};
+
+export const createBadge = async (data: { name: string; description?: string; iconUrl?: string; criteria?: any }) => {
+  const response = await api.post('/admin/badges', data);
+  return response.data;
+};
+
+export const updateBadge = async (id: string, data: { name?: string; description?: string; iconUrl?: string; criteria?: any }) => {
+  const response = await api.put(`/admin/badges/${id}`, data);
+  return response.data;
+};
+
+export const deleteBadge = async (id: string) => {
+  const response = await api.delete(`/admin/badges/${id}`);
+  return response.data;
+};
+
+export const awardBadge = async (badgeId: string, userId: string) => {
+  const response = await api.post(`/admin/badges/${badgeId}/award`, { userId });
+  return response.data;
+};
+
+export const revokeBadge = async (badgeId: string, userId: string) => {
+  const response = await api.delete(`/admin/badges/${badgeId}/awards/${userId}`);
+  return response.data;
+};
+
+// ==================== Source Materials ====================
+
+export const getAdminSourceMaterials = async (params: { page?: number; limit?: number }): Promise<PaginatedResponse<any>> => {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.append('page', params.page.toString());
+  if (params.limit) searchParams.append('limit', params.limit.toString());
+  const response = await api.get(`/admin/source-materials?${searchParams}`);
+  return response.data;
+};
+
+export const deleteSourceMaterial = async (id: string) => {
+  const response = await api.delete(`/admin/source-materials/${id}`);
+  return response.data;
+};
+
+// ==================== Exam Visibility ====================
+
+export const updateExamVisibility = async (id: string, visibility: string) => {
+  const response = await api.patch(`/admin/exams/${id}/visibility`, { visibility });
+  return response.data;
+};

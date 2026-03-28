@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -154,5 +154,115 @@ export class AdminService {
       data,
       meta: { total, page, lastPage: Math.ceil(total / limit) },
     };
+  }
+
+  // ─── Domain CRUD ─────────────────────────────────────────────────────────────
+
+  async createDomain(data: { name: string; certificationId: string; description?: string; weight?: number }) {
+    return this.prisma.domain.create({
+      data: {
+        name: data.name,
+        certificationId: data.certificationId,
+        description: data.description,
+        weight: data.weight,
+      },
+      include: { certification: { select: { id: true, name: true, code: true } }, _count: { select: { questions: true } } },
+    });
+  }
+
+  async updateDomain(id: string, data: { name?: string; description?: string; weight?: number }) {
+    return this.prisma.domain.update({
+      where: { id },
+      data: { name: data.name, description: data.description, weight: data.weight },
+      include: { certification: { select: { id: true, name: true, code: true } }, _count: { select: { questions: true } } },
+    });
+  }
+
+  async deleteDomain(id: string) {
+    const questionCount = await this.prisma.question.count({ where: { domainId: id, deletedAt: null } });
+    if (questionCount > 0) {
+      throw new BadRequestException(`Cannot delete domain with ${questionCount} assigned questions`);
+    }
+    return this.prisma.domain.delete({ where: { id } });
+  }
+
+  async reorderDomains(certificationId: string, orderedIds: string[]) {
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        this.prisma.domain.update({ where: { id }, data: { weight: index + 1 } }),
+      ),
+    );
+    return this.getDomains({ certificationId });
+  }
+
+  // ─── Exam Visibility ─────────────────────────────────────────────────────────
+
+  async updateExamVisibility(id: string, visibility: string) {
+    return this.prisma.exam.update({
+      where: { id },
+      data: { visibility: visibility as any },
+      include: { author: { select: { id: true, displayName: true } }, certification: { select: { id: true, name: true, code: true } } },
+    });
+  }
+
+  // ─── Source Materials ─────────────────────────────────────────────────────────
+
+  async getSourceMaterials(params: { page?: number; limit?: number }) {
+    const { page = 1, limit = 20 } = params;
+    const [data, total] = await Promise.all([
+      this.prisma.sourceMaterial.findMany({
+        include: {
+          _count: { select: { chunks: true } },
+          certification: { select: { id: true, name: true, code: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.sourceMaterial.count(),
+    ]);
+    return { data, meta: { total, page, lastPage: Math.ceil(total / limit) } };
+  }
+
+  async deleteSourceMaterial(id: string) {
+    // Chunks are cascade-deleted via onDelete: Cascade in schema
+    return this.prisma.sourceMaterial.delete({ where: { id } });
+  }
+
+  // ─── Badge Admin ─────────────────────────────────────────────────────────────
+
+  async getAdminBadges() {
+    return this.prisma.badge.findMany({
+      include: { _count: { select: { awards: true } } },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async createBadge(data: { name: string; description?: string; iconUrl?: string; criteria?: any }) {
+    return this.prisma.badge.create({ data });
+  }
+
+  async updateBadge(id: string, data: { name?: string; description?: string; iconUrl?: string; criteria?: any }) {
+    return this.prisma.badge.update({ where: { id }, data });
+  }
+
+  async deleteBadge(id: string) {
+    await this.prisma.badgeAward.deleteMany({ where: { badgeId: id } });
+    return this.prisma.badge.delete({ where: { id } });
+  }
+
+  async awardBadge(badgeId: string, userId: string) {
+    const badge = await this.prisma.badge.findUnique({ where: { id: badgeId } });
+    if (!badge) throw new NotFoundException('Badge not found');
+    return this.prisma.badgeAward.upsert({
+      where: { userId_badgeId: { userId, badgeId } },
+      create: { userId, badgeId },
+      update: {},
+      include: { badge: true, user: { select: { id: true, displayName: true } } },
+    });
+  }
+
+  async revokeBadge(badgeId: string, userId: string) {
+    return this.prisma.badgeAward.delete({ where: { userId_badgeId: { userId, badgeId } } });
   }
 }

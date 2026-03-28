@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, UseGuards, Query, Param, Body, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AuditService } from '../audit/audit.service';
@@ -96,5 +96,136 @@ export class AdminController {
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
     });
+  }
+
+  // ─── Domain CRUD ─────────────────────────────────────────────────────────────
+
+  @Post('domains')
+  @ApiOperation({ summary: 'Create a domain for a certification' })
+  createDomain(@Req() req: any, @Body() body: { name: string; certificationId: string; description?: string; weight?: number }) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.createDomain(body).then(async (domain) => {
+      await this.auditService.log({ userId: adminId, action: 'CREATE_DOMAIN', targetType: 'Domain', targetId: domain.id, metadata: { name: domain.name } });
+      return domain;
+    });
+  }
+
+  @Put('domains/:id')
+  @ApiOperation({ summary: 'Update a domain' })
+  updateDomain(@Req() req: any, @Param('id') id: string, @Body() body: { name?: string; description?: string; weight?: number }) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.updateDomain(id, body).then(async (domain) => {
+      await this.auditService.log({ userId: adminId, action: 'UPDATE_DOMAIN', targetType: 'Domain', targetId: id });
+      return domain;
+    });
+  }
+
+  @Delete('domains/:id')
+  @ApiOperation({ summary: 'Delete a domain (only if no questions assigned)' })
+  deleteDomain(@Req() req: any, @Param('id') id: string) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.deleteDomain(id).then(async () => {
+      await this.auditService.log({ userId: adminId, action: 'DELETE_DOMAIN', targetType: 'Domain', targetId: id });
+      return { message: 'Domain deleted' };
+    });
+  }
+
+  @Put('domains/reorder')
+  @ApiOperation({ summary: 'Reorder domains within a certification' })
+  reorderDomains(@Body() body: { certificationId: string; orderedIds: string[] }) {
+    return this.adminService.reorderDomains(body.certificationId, body.orderedIds);
+  }
+
+  // ─── Exam Visibility ─────────────────────────────────────────────────────────
+
+  @Patch('exams/:id/visibility')
+  @ApiOperation({ summary: 'Update exam visibility' })
+  updateExamVisibility(@Req() req: any, @Param('id') id: string, @Body() body: { visibility: string }) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.updateExamVisibility(id, body.visibility).then(async (exam) => {
+      await this.auditService.log({ userId: adminId, action: 'UPDATE_EXAM_VISIBILITY', targetType: 'Exam', targetId: id, metadata: { visibility: body.visibility } });
+      return exam;
+    });
+  }
+
+  // ─── Source Materials ─────────────────────────────────────────────────────────
+
+  @Get('source-materials')
+  @ApiOperation({ summary: 'List all source materials (admin view)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getSourceMaterials(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.adminService.getSourceMaterials({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
+
+  @Delete('source-materials/:id')
+  @ApiOperation({ summary: 'Delete a source material' })
+  deleteSourceMaterial(@Req() req: any, @Param('id') id: string) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.deleteSourceMaterial(id).then(async () => {
+      await this.auditService.log({ userId: adminId, action: 'DELETE_SOURCE_MATERIAL', targetType: 'SourceMaterial', targetId: id });
+      return { message: 'Source material deleted' };
+    });
+  }
+
+  // ─── Badge Admin ─────────────────────────────────────────────────────────────
+
+  @Post('badges')
+  @ApiOperation({ summary: 'Create a badge' })
+  createBadge(@Req() req: any, @Body() body: { name: string; description?: string; iconUrl?: string; criteria?: any }) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.createBadge(body).then(async (badge) => {
+      await this.auditService.log({ userId: adminId, action: 'CREATE_BADGE', targetType: 'Badge', targetId: badge.id, metadata: { name: badge.name } });
+      return badge;
+    });
+  }
+
+  @Put('badges/:id')
+  @ApiOperation({ summary: 'Update a badge' })
+  updateBadge(@Req() req: any, @Param('id') id: string, @Body() body: { name?: string; description?: string; iconUrl?: string; criteria?: any }) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.updateBadge(id, body).then(async (badge) => {
+      await this.auditService.log({ userId: adminId, action: 'UPDATE_BADGE', targetType: 'Badge', targetId: id });
+      return badge;
+    });
+  }
+
+  @Delete('badges/:id')
+  @ApiOperation({ summary: 'Delete a badge' })
+  deleteBadge(@Req() req: any, @Param('id') id: string) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.deleteBadge(id).then(async () => {
+      await this.auditService.log({ userId: adminId, action: 'DELETE_BADGE', targetType: 'Badge', targetId: id });
+      return { message: 'Badge deleted' };
+    });
+  }
+
+  @Post('badges/:id/award')
+  @ApiOperation({ summary: 'Manually award a badge to a user' })
+  awardBadge(@Req() req: any, @Param('id') id: string, @Body() body: { userId: string }) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.awardBadge(id, body.userId).then(async (award) => {
+      await this.auditService.log({ userId: adminId, action: 'AWARD_BADGE', targetType: 'Badge', targetId: id, metadata: { awardedTo: body.userId } });
+      return award;
+    });
+  }
+
+  @Delete('badges/:id/awards/:userId')
+  @ApiOperation({ summary: 'Revoke a badge from a user' })
+  revokeBadge(@Req() req: any, @Param('id') id: string, @Param('userId') userId: string) {
+    const adminId = req.user.sub || req.user.id;
+    return this.adminService.revokeBadge(id, userId).then(async () => {
+      await this.auditService.log({ userId: adminId, action: 'REVOKE_BADGE', targetType: 'Badge', targetId: id, metadata: { revokedFrom: userId } });
+      return { message: 'Badge revoked' };
+    });
+  }
+
+  @Get('badges')
+  @ApiOperation({ summary: 'List all badges with award counts (admin view)' })
+  getAdminBadges() {
+    return this.adminService.getAdminBadges();
   }
 }
