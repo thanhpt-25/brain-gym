@@ -16,6 +16,7 @@ const QuestionsBrowser = () => {
     const navigate = useNavigate();
     const [certId, setCertId] = useState<string>('');
     const [search, setSearch] = useState('');
+    const [status, setStatus] = useState<string>('APPROVED');
     const debouncedSearch = useDebounce(search, 400);
 
     const { data: certifications } = useQuery({
@@ -30,8 +31,8 @@ const QuestionsBrowser = () => {
         hasNextPage,
         isFetchingNextPage
     } = useInfiniteQuery({
-        queryKey: ['questions', certId, debouncedSearch],
-        queryFn: ({ pageParam = 1 }) => getQuestions(certId, pageParam, 12),
+        queryKey: ['questions', certId, status],
+        queryFn: ({ pageParam = 1 }) => getQuestions(certId, pageParam, 12, undefined, status),
         initialPageParam: 1,
         getNextPageParam: (lastPage) => {
             if (lastPage.meta.page < lastPage.meta.lastPage) {
@@ -72,7 +73,7 @@ const QuestionsBrowser = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
-                            <Select value={certId} onValueChange={(val) => setCertId(val === 'all' ? '' : val)}>
+                            <Select value={certId || undefined} onValueChange={(val) => setCertId(val === 'all' ? '' : val)}>
                                 <SelectTrigger className="w-[180px] border-border bg-muted/50">
                                     <SelectValue placeholder="All Certs" />
                                 </SelectTrigger>
@@ -81,6 +82,16 @@ const QuestionsBrowser = () => {
                                     {certifications?.map(cert => (
                                         <SelectItem key={cert.id} value={cert.id}>{cert.code}</SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                            <Select value={status} onValueChange={setStatus}>
+                                <SelectTrigger className="w-[140px] border-border bg-muted/50">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="APPROVED">Approved</SelectItem>
+                                    <SelectItem value="PENDING">Pending</SelectItem>
+                                    <SelectItem value="REJECTED">Rejected</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
