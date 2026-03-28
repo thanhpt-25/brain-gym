@@ -21,12 +21,12 @@ const VISIBILITY_ICONS: Record<string, React.ReactNode> = {
 
 export function ExamsTab() {
   const qc = useQueryClient();
-  const [visFilter, setVisFilter] = useState('');
+  const [visFilter, setVisFilter] = useState('all');
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-exams', visFilter, page],
-    queryFn: () => getAdminExams({ visibility: visFilter || undefined, page }),
+    queryFn: () => getAdminExams({ visibility: visFilter === 'all' ? undefined : visFilter, page }),
   });
 
   const visMutation = useMutation({
@@ -43,7 +43,7 @@ export function ExamsTab() {
         <Select value={visFilter} onValueChange={v => { setVisFilter(v); setPage(1); }}>
           <SelectTrigger className="w-40 font-mono text-xs"><SelectValue placeholder="All visibility" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All visibility</SelectItem>
+            <SelectItem value="all">All visibility</SelectItem>
             <SelectItem value="PUBLIC">Public</SelectItem>
             <SelectItem value="PRIVATE">Private</SelectItem>
             <SelectItem value="LINK">Link only</SelectItem>

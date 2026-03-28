@@ -12,14 +12,14 @@ import { getCertifications } from '@/services/certifications';
 
 export function DomainsTab() {
   const qc = useQueryClient();
-  const [certFilter, setCertFilter] = useState('');
+  const [certFilter, setCertFilter] = useState('all');
   const [dialog, setDialog] = useState<{ mode: 'create' | 'edit'; id?: string; name: string; certificationId: string; description: string; weight: string } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: certs = [] } = useQuery({ queryKey: ['certifications', true], queryFn: () => getCertifications(true) });
   const { data, isLoading } = useQuery({
     queryKey: ['admin-domains', certFilter],
-    queryFn: () => getAdminDomains({ certificationId: certFilter || undefined, limit: 100 }),
+    queryFn: () => getAdminDomains({ certificationId: certFilter === 'all' ? undefined : certFilter, limit: 100 }),
   });
 
   const saveMutation = useMutation({
@@ -49,13 +49,13 @@ export function DomainsTab() {
               <SelectValue placeholder="All certifications" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All certifications</SelectItem>
+              <SelectItem value="all">All certifications</SelectItem>
               {certs.map(c => <SelectItem key={c.id} value={c.id}>{c.code} – {c.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <span className="text-xs text-muted-foreground font-mono">{domains.length} domains</span>
         </div>
-        <Button size="sm" className="font-mono text-xs" onClick={() => setDialog({ mode: 'create', name: '', certificationId: certFilter, description: '', weight: '' })}>
+        <Button size="sm" className="font-mono text-xs" onClick={() => setDialog({ mode: 'create', name: '', certificationId: certFilter === 'all' ? '' : certFilter, description: '', weight: '' })}>
           <Plus className="h-3 w-3 mr-1" /> Add Domain
         </Button>
       </div>

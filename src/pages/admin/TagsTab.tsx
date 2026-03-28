@@ -13,7 +13,7 @@ import { getCertifications } from '@/services/certifications';
 
 export function TagsTab() {
   const qc = useQueryClient();
-  const [certFilter, setCertFilter] = useState('');
+  const [certFilter, setCertFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [dialog, setDialog] = useState<{ mode: 'create' | 'edit'; id?: string; name: string; certificationId: string } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export function TagsTab() {
   const { data: certs = [] } = useQuery({ queryKey: ['certifications', true], queryFn: () => getCertifications(true) });
   const { data: tags = [], isLoading } = useQuery({
     queryKey: ['admin-tags', certFilter],
-    queryFn: () => getAdminTags(certFilter || undefined),
+    queryFn: () => getAdminTags(certFilter === 'all' ? undefined : certFilter),
   });
 
   const filtered = tags.filter((t: any) => t.name.toLowerCase().includes(search.toLowerCase()));
@@ -70,7 +70,7 @@ export function TagsTab() {
               <SelectValue placeholder="All certifications" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All certifications</SelectItem>
+              <SelectItem value="all">All certifications</SelectItem>
               {certs.map(c => <SelectItem key={c.id} value={c.id}>{c.code} – {c.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -82,7 +82,7 @@ export function TagsTab() {
               <Merge className="h-3 w-3 mr-1" /> Merge ({selected.size})
             </Button>
           )}
-          <Button size="sm" className="font-mono text-xs" onClick={() => setDialog({ mode: 'create', name: '', certificationId: certFilter })}>
+          <Button size="sm" className="font-mono text-xs" onClick={() => setDialog({ mode: 'create', name: '', certificationId: certFilter === 'all' ? '' : certFilter })}>
             <Plus className="h-3 w-3 mr-1" /> Add Tag
           </Button>
         </div>
@@ -140,10 +140,10 @@ export function TagsTab() {
             {dialog?.mode === 'create' && (
               <div>
                 <label className="text-xs font-mono text-muted-foreground mb-1 block">Certification (optional)</label>
-                <Select value={dialog?.certificationId ?? ''} onValueChange={v => setDialog(d => d ? { ...d, certificationId: v } : d)}>
+                <Select value={dialog?.certificationId || 'global'} onValueChange={v => setDialog(d => d ? { ...d, certificationId: v === 'global' ? '' : v } : d)}>
                   <SelectTrigger className="font-mono text-xs"><SelectValue placeholder="Global tag" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Global</SelectItem>
+                    <SelectItem value="global">Global</SelectItem>
                     {certs.map(c => <SelectItem key={c.id} value={c.id}>{c.code} – {c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>

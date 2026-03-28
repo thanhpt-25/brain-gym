@@ -25,14 +25,14 @@ const CONTENT_TYPE_ICON: Record<string, React.ReactNode> = {
 export function AiGenerationTab() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<'jobs' | 'materials'>('jobs');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [jobPage, setJobPage] = useState(1);
   const [matPage, setMatPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: jobsData, isLoading: jobsLoading } = useQuery({
     queryKey: ['admin-generation-jobs', statusFilter, jobPage],
-    queryFn: () => getAdminGenerationJobs({ status: statusFilter || undefined, page: jobPage }),
+    queryFn: () => getAdminGenerationJobs({ status: statusFilter === 'all' ? undefined : statusFilter, page: jobPage }),
   });
 
   const { data: matsData, isLoading: matsLoading } = useQuery({
@@ -66,7 +66,7 @@ export function AiGenerationTab() {
             <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setJobPage(1); }}>
               <SelectTrigger className="w-40 font-mono text-xs"><SelectValue placeholder="All statuses" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All statuses</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
                 <SelectItem value="PROCESSING">Processing</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
