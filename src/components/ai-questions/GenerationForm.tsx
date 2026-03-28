@@ -24,7 +24,7 @@ interface Props {
 export default function GenerationForm({ onResult }: Props) {
   const [provider, setProvider] = useState<LlmProvider | ''>('');
   const [certificationId, setCertificationId] = useState('');
-  const [domainId, setDomainId] = useState('');
+  const [domainId, setDomainId] = useState('all');
   const [materialId, setMaterialId] = useState('');
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM);
   const [questionType, setQuestionType] = useState<QuestionType | 'MIXED'>('MIXED');
@@ -41,7 +41,7 @@ export default function GenerationForm({ onResult }: Props) {
     mutationFn: () => estimateTokens({
       provider: provider as LlmProvider,
       certificationId,
-      domainId: domainId || undefined,
+      domainId: domainId !== 'all' ? domainId : undefined,
       materialId: materialId || undefined,
       difficulty,
       questionType: questionType === 'MIXED' ? undefined : questionType as QuestionType,
@@ -54,13 +54,13 @@ export default function GenerationForm({ onResult }: Props) {
     mutationFn: () => generateQuestions({
       provider: provider as LlmProvider,
       certificationId,
-      domainId: domainId || undefined,
+      domainId: domainId !== 'all' ? domainId : undefined,
       materialId: materialId || undefined,
       difficulty,
       questionType: questionType === 'MIXED' ? undefined : questionType as QuestionType,
       questionCount,
     }),
-    onSuccess: (data) => onResult(data, certificationId, domainId || undefined),
+    onSuccess: (data) => onResult(data, certificationId, domainId !== 'all' ? domainId : undefined),
   });
 
   const canGenerate = provider && certificationId;
@@ -88,7 +88,7 @@ export default function GenerationForm({ onResult }: Props) {
       {/* Certification */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Certification</label>
-        <Select value={certificationId} onValueChange={v => { setCertificationId(v); setDomainId(''); }}>
+        <Select value={certificationId} onValueChange={v => { setCertificationId(v); setDomainId('all'); }}>
           <SelectTrigger>
             <SelectValue placeholder="Select certification..." />
           </SelectTrigger>
@@ -109,7 +109,7 @@ export default function GenerationForm({ onResult }: Props) {
               <SelectValue placeholder="All domains" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All domains</SelectItem>
+              <SelectItem value="all">All domains</SelectItem>
               {domains.map((d: any) => (
                 <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
               ))}
