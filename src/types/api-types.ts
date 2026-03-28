@@ -269,3 +269,75 @@ export interface CreateExamPayload {
   timerMode?: TimerMode;
   questionIds?: string[];
 }
+
+// ─── AI Question Bank ────────────────────────────────────────────────────────
+
+export type LlmProvider = 'OPENAI' | 'ANTHROPIC' | 'GEMINI';
+export type QualityTier = 'HIGH' | 'MEDIUM' | 'LOW';
+export type GenerationJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type MaterialContentType = 'PDF' | 'URL' | 'TEXT';
+
+export interface LlmConfig {
+  id: string;
+  provider: LlmProvider;
+  modelId?: string;
+  isActive: boolean;
+  maskedKey: string;
+  createdAt: string;
+}
+
+export interface SourceMaterial {
+  id: string;
+  title: string;
+  contentType: MaterialContentType;
+  certificationId?: string;
+  sourceUrl?: string;
+  chunkCount: number;
+  status: string;
+  createdAt: string;
+  _count: { chunks: number };
+}
+
+export interface GeneratedQuestionPreview {
+  title: string;
+  description?: string;
+  questionType: QuestionType;
+  difficulty: Difficulty;
+  explanation: string;
+  choices: { label: string; content: string; isCorrect: boolean }[];
+  tags?: string[];
+  isScenario?: boolean;
+  isTrapQuestion?: boolean;
+  sourcePassage?: string;
+  qualityScore: number;
+  qualityTier: QualityTier | null;
+}
+
+export interface GenerationResult {
+  jobId: string;
+  questions: GeneratedQuestionPreview[];
+  tokenUsage: { prompt: number; completion: number };
+}
+
+export interface TokenEstimate {
+  estimatedPromptTokens: number;
+  estimatedCompletionTokens: number;
+  totalEstimatedTokens: number;
+}
+
+export interface GenerationJob {
+  id: string;
+  provider: LlmProvider;
+  modelId?: string;
+  difficulty: Difficulty;
+  questionCount: number;
+  status: GenerationJobStatus;
+  promptTokens?: number;
+  completionTokens?: number;
+  errorMessage?: string;
+  createdAt: string;
+  completedAt?: string;
+  certification: { name: string; code: string };
+  domain?: { name: string };
+  _count: { questions: number };
+}

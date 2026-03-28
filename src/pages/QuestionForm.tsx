@@ -191,7 +191,7 @@ export default function QuestionForm() {
             <div className="glass-card p-5 space-y-4">
               <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">Certification</div>
               <div className="grid grid-cols-2 gap-3">
-                <Select value={certificationId} onValueChange={(v) => { setCertificationId(v); setDomainId(''); }}>
+                <Select value={certificationId || undefined} onValueChange={(v) => { setCertificationId(v); setDomainId(''); }}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder="Chọn chứng chỉ" />
                   </SelectTrigger>
@@ -204,7 +204,7 @@ export default function QuestionForm() {
                   </SelectContent>
                 </Select>
 
-                <Select value={domainId} onValueChange={setDomainId} disabled={!domains.length}>
+                <Select value={domainId || undefined} onValueChange={setDomainId} disabled={!domains.length}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder="Chọn domain" />
                   </SelectTrigger>
@@ -217,7 +217,7 @@ export default function QuestionForm() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <Select value={difficulty} onValueChange={(v) => setDifficulty(v as Difficulty)}>
+                <Select value={difficulty || undefined} onValueChange={(v) => setDifficulty(v as Difficulty)}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder="Difficulty" />
                   </SelectTrigger>

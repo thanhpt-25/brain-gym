@@ -116,7 +116,7 @@ const ExamBuilder = () => {
               {/* Certification */}
               <div>
                 <label className="text-sm font-mono text-muted-foreground mb-1.5 block">Certification *</label>
-                <Select value={certId} onValueChange={v => { setCertId(v); setSelectedQuestionIds([]); setQuestionPage(1); }}>
+                <Select value={certId || undefined} onValueChange={v => { setCertId(v); setSelectedQuestionIds([]); setQuestionPage(1); }}>
                   <SelectTrigger className="bg-white/5 border-white/10">
                     <SelectValue placeholder="Select certification" />
                   </SelectTrigger>

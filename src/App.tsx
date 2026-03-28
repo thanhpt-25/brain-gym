@@ -33,6 +33,7 @@ const FlashcardDecks = lazy(() => import("./pages/FlashcardDecks"));
 const DeckDetail = lazy(() => import("./pages/DeckDetail"));
 const FlashcardStudy = lazy(() => import("./pages/FlashcardStudy"));
 const TrapQuestionsPage = lazy(() => import("./pages/TrapQuestionsPage"));
+const AiQuestionGenerator = lazy(() => import("./pages/AiQuestionGenerator"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ const AnimatedRoutes = () => {
         <Route path="/exam-results" element={<PageTransition><ExamResults /></PageTransition>} />
         <Route path="/leaderboard" element={<PageTransition><Leaderboard /></PageTransition>} />
         <Route path="/admin" element={<PageTransition><ProtectedRoute><AdminPage /></ProtectedRoute></PageTransition>} />
+        <Route path="/ai-generate" element={<PageTransition><ProtectedRoute><AiQuestionGenerator /></ProtectedRoute></PageTransition>} />
         <Route path="/study/:certId" element={<PageTransition><StudyMode /></PageTransition>} />
         <Route path="/exam/:certId" element={<PageTransition><ProtectedRoute><ExamPage /></ProtectedRoute></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
