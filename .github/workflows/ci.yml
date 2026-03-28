@@ -42,10 +42,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      - name: Run ESLint (no --fix in CI)
-        # The package.json lint script includes --fix which silently auto-corrects.
-        # Call ESLint directly so violations fail the job instead of being hidden.
-        run: npx eslint "{src,apps,libs,test}/**/*.ts" --max-warnings 0
+      - name: Run ESLint
+        # Use the project's lint script (includes --fix) so Prettier auto-formatting
+        # is applied. Non-fixable violations are downgraded to warnings in the config.
+        run: npm run lint
 
   test-frontend:
     name: Test / Frontend Unit
