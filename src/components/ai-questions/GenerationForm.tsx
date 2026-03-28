@@ -70,7 +70,7 @@ export default function GenerationForm({ onResult }: Props) {
       {/* Provider */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">AI Provider</label>
-        <Select value={provider} onValueChange={v => setProvider(v as LlmProvider)}>
+        <Select value={provider || undefined} onValueChange={v => setProvider(v as LlmProvider)}>
           <SelectTrigger>
             <SelectValue placeholder="Select provider..." />
           </SelectTrigger>
@@ -88,7 +88,7 @@ export default function GenerationForm({ onResult }: Props) {
       {/* Certification */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium">Certification</label>
-        <Select value={certificationId} onValueChange={v => { setCertificationId(v); setDomainId('all'); }}>
+        <Select value={certificationId || undefined} onValueChange={v => { setCertificationId(v); setDomainId('all'); }}>
           <SelectTrigger>
             <SelectValue placeholder="Select certification..." />
           </SelectTrigger>
