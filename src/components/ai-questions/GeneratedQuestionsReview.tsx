@@ -55,7 +55,7 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
   const toggleInclude = (i: number) => {
     setIncluded(prev => {
       const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
+      if (next.has(i)) { next.delete(i); } else { next.add(i); }
       return next;
     });
   };
@@ -63,7 +63,7 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
   const toggleExpand = (i: number) => {
     setExpanded(prev => {
       const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
+      if (next.has(i)) { next.delete(i); } else { next.add(i); }
       return next;
     });
   };
