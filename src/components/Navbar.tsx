@@ -14,14 +14,14 @@ interface NavbarProps {
 }
 
 const navLinks = [
+  { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+  { label: 'Training', href: '/training', icon: Dumbbell },
+  { label: 'Exams', href: '/exams', icon: Target },
   { label: 'Questions', href: '/questions', icon: BookOpen },
   { label: 'Trap Questions', href: '/trap-questions', icon: AlertTriangle },
-  { label: 'Exams', href: '/exams', icon: Target },
-  { label: 'Training', href: '/training', icon: Dumbbell },
   { label: 'Flashcards', href: '/decks', icon: Layers },
-  { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-  { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
   { label: 'AI Generate', href: '/ai-generate', icon: Bot },
+  { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];
 
 const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
