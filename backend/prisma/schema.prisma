@@ -152,6 +152,7 @@ model User {
   sourceMaterials            SourceMaterial[]
   auditLogs                  AuditLog[]
 
+  @@index([status])
   @@map("users")
 }
 
@@ -251,6 +252,9 @@ model Question {
   reviewSchedules ReviewSchedule[]
   capturedWords   CapturedWord[]
 
+  @@index([deletedAt])
+  @@index([status])
+  @@index([certificationId, status])
   @@map("questions")
 }
 

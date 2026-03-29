@@ -22,6 +22,7 @@ export class CommentsService {
         replies: {
           include: { user: { select: userSelect } },
           orderBy: { createdAt: 'asc' },
+          take: 100,
         },
       },
       orderBy: { createdAt: 'desc' },

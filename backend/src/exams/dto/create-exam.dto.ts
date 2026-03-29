@@ -1,16 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, IsArray, Min, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, IsArray, Min, IsUUID, MaxLength } from 'class-validator';
 import { ExamVisibility, TimerMode } from '@prisma/client';
 
 export class CreateExamDto {
     @ApiProperty({ example: 'AWS SAA Mock Test #1' })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(200)
     title: string;
 
     @ApiPropertyOptional({ example: 'Practice exam for AWS Solutions Architect Associate' })
     @IsString()
     @IsOptional()
+    @MaxLength(2000)
     description?: string;
 
     @ApiProperty({ example: 'aws-saa' })

@@ -34,13 +34,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         }
 
         if (user.status === UserStatus.SUSPENDED) {
+            // Still within suspension window — deny access
             if (user.suspendedUntil && new Date(user.suspendedUntil) > new Date()) {
                 throw new ForbiddenException('Your account is suspended until ' + user.suspendedUntil.toISOString());
             }
-            // Auto-reactivate if suspension period has passed
-            if (user.suspendedUntil && new Date(user.suspendedUntil) <= new Date()) {
-                await this.usersService.reactivateUser(user.id);
-            }
+            // Suspension has expired — allow through; reactivation happens on next login
         }
 
         return user;

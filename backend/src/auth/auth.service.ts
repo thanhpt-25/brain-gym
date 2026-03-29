@@ -1,4 +1,5 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { UserStatus } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
@@ -29,6 +30,19 @@ export class AuthService {
         if (!user) {
             throw new UnauthorizedException('Invalid credentials');
         }
+
+        if (user.status === UserStatus.BANNED) {
+            throw new ForbiddenException('Your account has been banned');
+        }
+
+        if (user.status === UserStatus.SUSPENDED) {
+            if (user.suspendedUntil && new Date(user.suspendedUntil) > new Date()) {
+                throw new ForbiddenException('Your account is suspended until ' + new Date(user.suspendedUntil).toISOString());
+            }
+            // Suspension expired — reactivate before issuing tokens
+            await this.usersService.reactivateUser(user.id);
+        }
+
         return this.generateTokens(user);
     }
 

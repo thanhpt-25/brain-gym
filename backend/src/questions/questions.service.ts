@@ -202,15 +202,12 @@ export class QuestionsService {
                         data: { value },
                     });
 
-                    // Adjust counts
-                    const upAdj = value === 1 ? 1 : -1;
-                    const downAdj = value === -1 ? 1 : -1;
-
+                    // Switching from upvote to downvote (or vice versa)
                     await tx.question.update({
                         where: { id: questionId },
                         data: {
-                            upvotes: { increment: upAdj },
-                            downvotes: { increment: downAdj },
+                            upvotes: value === 1 ? { increment: 1 } : { decrement: 1 },
+                            downvotes: value === -1 ? { increment: 1 } : { decrement: 1 },
                         },
                     });
                 } else {
