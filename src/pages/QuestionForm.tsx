@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { difficultyColor } from '@/lib/question-utils';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getCertifications } from '@/services/certifications';
@@ -138,16 +139,10 @@ export default function QuestionForm() {
       toast({ title: '✅ Saved!', description: 'Question submitted successfully for review.' });
       navigate('/questions');
     } catch (err: any) {
-      toast({ title: 'Lỗi', description: err.response?.data?.message || 'Không thể tạo câu hỏi.', variant: 'destructive' });
+      toast({ title: 'Error', description: err.response?.data?.message || 'Failed to create question.', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const difficultyColor = (d: string) => {
-    if (d === 'EASY') return 'bg-accent/10 text-accent';
-    if (d === 'MEDIUM') return 'bg-warning/10 text-[hsl(var(--warning))]';
-    return 'bg-destructive/10 text-destructive';
   };
 
   return (

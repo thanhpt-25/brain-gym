@@ -35,7 +35,7 @@ export const getExamByShareCode = async (shareCode: string) => {
 };
 
 export const getMyExams = async (page = 1, limit = 10): Promise<PaginatedExams> => {
-    const response = await api.get<PaginatedExams>(`/exams/me?page=${page}&limit=${limit}`);
+    const response = await api.get<PaginatedExams>('/exams/me', { params: { page, limit } });
     return response.data;
 };
 

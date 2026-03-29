@@ -30,12 +30,12 @@ export function AiGenerationTab() {
   const [matPage, setMatPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data: jobsData, isLoading: jobsLoading } = useQuery({
+  const { data: jobsData, isLoading: jobsLoading, isError: jobsError } = useQuery({
     queryKey: ['admin-generation-jobs', statusFilter, jobPage],
     queryFn: () => getAdminGenerationJobs({ status: statusFilter === 'all' ? undefined : statusFilter, page: jobPage }),
   });
 
-  const { data: matsData, isLoading: matsLoading } = useQuery({
+  const { data: matsData, isLoading: matsLoading, isError: matsError } = useQuery({
     queryKey: ['admin-source-materials', matPage],
     queryFn: () => getAdminSourceMaterials({ page: matPage }),
   });
@@ -94,6 +94,8 @@ export function AiGenerationTab() {
               <TableBody>
                 {jobsLoading ? (
                   <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground font-mono text-xs py-8">Loading...</TableCell></TableRow>
+                ) : jobsError ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-destructive font-mono text-xs py-8">Failed to load generation jobs. Try refreshing.</TableCell></TableRow>
                 ) : jobs.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground font-mono text-xs py-8">No jobs found</TableCell></TableRow>
                 ) : (jobs as any[]).map((j) => (
@@ -141,6 +143,8 @@ export function AiGenerationTab() {
               <TableBody>
                 {matsLoading ? (
                   <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground font-mono text-xs py-8">Loading...</TableCell></TableRow>
+                ) : matsError ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-destructive font-mono text-xs py-8">Failed to load source materials. Try refreshing.</TableCell></TableRow>
                 ) : mats.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground font-mono text-xs py-8">No materials found</TableCell></TableRow>
                 ) : (mats as any[]).map((m) => (
