@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
-import { ExamVisibility, QuestionStatus } from '@prisma/client';
+import { ExamVisibility, QuestionStatus, UserRole } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -175,10 +175,10 @@ export class ExamsService {
         });
     }
 
-    async remove(userId: string, userRole: string, id: string) {
+    async remove(userId: string, userRole: UserRole, id: string) {
         const exam = await this.prisma.exam.findUnique({ where: { id } });
         if (!exam) throw new NotFoundException(`Exam with ID ${id} not found`);
-        if (exam.createdBy !== userId && userRole !== 'ADMIN') {
+        if (exam.createdBy !== userId && userRole !== UserRole.ADMIN) {
             throw new ForbiddenException('You can only delete your own exams');
         }
 

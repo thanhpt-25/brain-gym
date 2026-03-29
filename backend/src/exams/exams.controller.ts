@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ExamsService } from './exams.service';
 import { CreateExamDto } from './dto/create-exam.dto';
@@ -52,6 +53,7 @@ export class ExamsController {
 
     @Get('share/:shareCode')
     @Public()
+    @Throttle({ default: { limit: 10, ttl: 60000 } })
     @ApiOperation({ summary: 'Get exam by share code' })
     findByShareCode(@Param('shareCode') shareCode: string) {
         return this.examsService.findByShareCode(shareCode);

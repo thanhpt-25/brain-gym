@@ -1,17 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, ValidateNested, IsArray } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, ValidateNested, IsArray, MaxLength } from 'class-validator';
 import { QuestionType, Difficulty } from '@prisma/client';
 
 export class CreateChoiceDto {
     @ApiProperty({ example: 'a' })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(1)
     label: string;
 
     @ApiProperty({ example: 'Amazon S3' })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(2000)
     content: string;
 
     @ApiPropertyOptional({ example: false })
@@ -24,11 +26,13 @@ export class CreateQuestionDto {
     @ApiProperty({ example: 'Which AWS service provides a managed relational database?' })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(500)
     title: string;
 
     @ApiPropertyOptional({ example: 'The company has regulatory requirements...' })
     @IsString()
     @IsOptional()
+    @MaxLength(2000)
     description?: string;
 
     @ApiPropertyOptional({ enum: QuestionType, example: QuestionType.SINGLE })
@@ -44,6 +48,7 @@ export class CreateQuestionDto {
     @ApiPropertyOptional({ example: 'Amazon RDS is a managed service that makes it easy to set up...' })
     @IsString()
     @IsOptional()
+    @MaxLength(5000)
     explanation?: string;
 
     @ApiProperty({ example: 'aws-saa' })
@@ -64,6 +69,7 @@ export class CreateQuestionDto {
     @ApiPropertyOptional()
     @IsString()
     @IsOptional()
+    @MaxLength(10000)
     codeSnippet?: string;
 
     @ApiPropertyOptional()

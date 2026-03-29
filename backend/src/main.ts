@@ -3,15 +3,29 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
+function validateEnv() {
+  const required = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL'];
+  for (const key of required) {
+    if (!process.env[key]) {
+      throw new Error(`Missing required environment variable: ${key}`);
+    }
+  }
+}
+
 async function bootstrap() {
+  validateEnv();
+
   const app = await NestFactory.create(AppModule);
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  // CORS
+  // CORS — configure via CORS_ORIGINS env var (comma-separated) or fall back to localhost for dev
+  const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+    : ['http://localhost', 'http://localhost:8080', 'http://localhost:5173'];
   app.enableCors({
-    origin: ['http://localhost', 'http://localhost:8080', 'http://localhost:5173'],
+    origin: corsOrigins,
     credentials: true,
   });
 
