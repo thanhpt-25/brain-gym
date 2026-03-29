@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Building2, Plus, Edit2, Trash2, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { sanitizeUrl } from '@/lib/question-utils';
 
 export default function ProvidersTab() {
   const queryClient = useQueryClient();
@@ -113,8 +114,8 @@ export default function ProvidersTab() {
                     <TableCell className="font-medium text-sm">{p.name}</TableCell>
                     <TableCell className="text-xs font-mono text-muted-foreground">{p.slug}</TableCell>
                     <TableCell className="text-sm">
-                      {p.website && (
-                        <a href={p.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1 text-xs">
+                      {p.website && sanitizeUrl(p.website) && (
+                        <a href={sanitizeUrl(p.website)!} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1 text-xs">
                           {new URL(p.website).hostname} <ExternalLink className="h-3 w-3" />
                         </a>
                       )}

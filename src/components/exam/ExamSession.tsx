@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Flag, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AttemptQuestion, StartAttemptResponse, TimerMode } from '@/types/api-types';
+import { formatTime } from '@/lib/time';
 
 interface ExamSessionProps {
   attemptData: StartAttemptResponse;
@@ -44,12 +45,6 @@ export function ExamSession({
 }: ExamSessionProps) {
   const currentQuestion = questions[currentIndex];
   const timerMode = attemptData?.timerMode;
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
 
   if (!currentQuestion) return null;
 

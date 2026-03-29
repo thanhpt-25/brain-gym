@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { CheckCircle2, Eye, BookOpen } from 'lucide-react';
-import { Difficulty, QuestionType } from '@/types/api-types';
+import { Certification, Difficulty, Domain, QuestionType } from '@/types/api-types';
+import { difficultyColor } from '@/lib/question-utils';
 
 interface ChoiceInput {
   label: string;
@@ -10,9 +11,9 @@ interface ChoiceInput {
 
 interface LivePreviewProps {
   difficulty: Difficulty | '';
-  selectedCert: any;
+  selectedCert: Certification | null;
   domainId: string;
-  domains: any[];
+  domains: Domain[];
   questionType: QuestionType;
   isScenario?: boolean;
   title: string;
@@ -37,12 +38,6 @@ export function LivePreview({
   referenceUrl,
   tags
 }: LivePreviewProps) {
-  const difficultyColor = (d: string) => {
-    if (d === 'EASY') return 'bg-accent/10 text-accent';
-    if (d === 'MEDIUM') return 'bg-warning/10 text-[hsl(var(--warning))]';
-    return 'bg-destructive/10 text-destructive';
-  };
-
   return (
     <div className="hidden lg:block">
       <div className="sticky top-20 space-y-4">
