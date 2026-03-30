@@ -52,7 +52,7 @@ const ExamLibrary = () => {
     fetchNextPage
   });
 
-  const exams = data?.pages.flatMap(p => p.data) ?? [];
+  const exams = data?.pages?.flatMap(p => p.data) ?? [];
 
   const handleStartExam = async (examId: string) => {
     if (!isAuthenticated) {

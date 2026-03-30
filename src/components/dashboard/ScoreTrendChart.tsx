@@ -16,11 +16,17 @@ const chartConfig = {
 export function ScoreTrendChart({ history }: ScoreTrendChartProps) {
   const scoreTrend = useMemo(() =>
     [...history]
-      .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
+      .sort((a, b) => {
+        const timeA = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+        const timeB = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+        return timeA - timeB;
+      })
       .map(h => ({
-        date: new Date(h.submittedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        date: h.submittedAt 
+          ? new Date(h.submittedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+          : 'N/A',
         score: h.score,
-        cert: h.certification.code,
+        cert: h.certification?.code || 'Unknown',
       })),
     [history],
   );

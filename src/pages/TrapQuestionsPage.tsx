@@ -43,7 +43,7 @@ const TrapQuestionsPage = () => {
         fetchNextPage
     });
 
-    const questions = data?.pages.flatMap(page => page.data) ?? [];
+    const questions = data?.pages?.flatMap(page => page.data) ?? [];
 
     return (
         <div className="min-h-screen bg-background">

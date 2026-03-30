@@ -41,7 +41,7 @@ const Dashboard = () => {
   });
 
   const { data: historyData, isLoading: historyLoading } = useQuery({
-    queryKey: ['analytics-history', certFilter],
+    queryKey: ['dashboard-analytics-history', certFilter],
     queryFn: () => getAnalyticsHistory(certFilter || undefined, 1, 50),
     enabled: isAuthenticated,
   });

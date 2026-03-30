@@ -26,7 +26,7 @@ export function ExamHistoryList({ certificationId }: ExamHistoryListProps) {
     hasNextPage,
     isFetchingNextPage
   } = useInfiniteQuery({
-    queryKey: ['analytics-history', certificationId],
+    queryKey: ['infinite-analytics-history', certificationId],
     queryFn: ({ pageParam = 1 }) => getAnalyticsHistory(certificationId, pageParam, 12),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
@@ -35,6 +35,7 @@ export function ExamHistoryList({ certificationId }: ExamHistoryListProps) {
       }
       return undefined;
     },
+    enabled: true,
   });
 
   const sentinelRef = useInfiniteScroll({
@@ -43,7 +44,7 @@ export function ExamHistoryList({ certificationId }: ExamHistoryListProps) {
     fetchNextPage
   });
 
-  const history = data?.pages.flatMap(p => p.data) ?? [];
+  const history = data?.pages?.flatMap(p => p.data) ?? [];
 
   return (
     <div className="space-y-3">
@@ -69,12 +70,12 @@ export function ExamHistoryList({ certificationId }: ExamHistoryListProps) {
               <HistoryCard item={h} />
             </motion.div>
           ))}
-          
+
           <div ref={sentinelRef} className="py-4 flex justify-center">
-             {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
-             {!hasNextPage && history.length > 5 && (
-                 <p className="text-[10px] text-muted-foreground font-mono opacity-50 uppercase tracking-wider">End of history</p>
-             )}
+            {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+            {!hasNextPage && history.length > 5 && (
+              <p className="text-[10px] text-muted-foreground font-mono opacity-50 uppercase tracking-wider">End of history</p>
+            )}
           </div>
         </>
       )}
@@ -88,10 +89,10 @@ function HistoryCard({ item }: { item: HistoryItem }) {
       <CardContent className="p-4 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono font-semibold text-sm">{item.certification.code}</span>
+            <span className="font-mono font-semibold text-sm">{item.certification?.code || 'N/A'}</span>
           </div>
           <div className="text-xs text-muted-foreground flex items-center gap-3">
-            <span>{new Date(item.submittedAt).toLocaleDateString('vi-VN')}</span>
+            <span>{item.submittedAt ? new Date(item.submittedAt).toLocaleDateString('vi-VN') : 'N/A'}</span>
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" /> {formatTime(item.timeSpent)}
             </span>
