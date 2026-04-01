@@ -34,6 +34,10 @@ const DeckDetail = lazy(() => import("./pages/DeckDetail"));
 const FlashcardStudy = lazy(() => import("./pages/FlashcardStudy"));
 const TrapQuestionsPage = lazy(() => import("./pages/TrapQuestionsPage"));
 const AiQuestionGenerator = lazy(() => import("./pages/AiQuestionGenerator"));
+const OrgDashboard = lazy(() => import("./pages/org/OrgDashboard"));
+const OrgMembers = lazy(() => import("./pages/org/OrgMembers"));
+const OrgSettings = lazy(() => import("./pages/org/OrgSettings"));
+const CreateOrg = lazy(() => import("./pages/org/CreateOrg"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +78,11 @@ const AnimatedRoutes = () => {
         <Route path="/leaderboard" element={<PageTransition><Leaderboard /></PageTransition>} />
         <Route path="/admin" element={<PageTransition><ProtectedRoute><AdminPage /></ProtectedRoute></PageTransition>} />
         <Route path="/ai-generate" element={<PageTransition><ProtectedRoute><AiQuestionGenerator /></ProtectedRoute></PageTransition>} />
+        <Route path="/org" element={<PageTransition><ProtectedRoute><OrgDashboard /></ProtectedRoute></PageTransition>} />
+        <Route path="/org/members" element={<PageTransition><ProtectedRoute><OrgMembers /></ProtectedRoute></PageTransition>} />
+        <Route path="/org/settings" element={<PageTransition><ProtectedRoute><OrgSettings /></ProtectedRoute></PageTransition>} />
+        <Route path="/org/create" element={<PageTransition><ProtectedRoute><CreateOrg /></ProtectedRoute></PageTransition>} />
+        <Route path="/org/analytics" element={<PageTransition><ProtectedRoute><OrgDashboard /></ProtectedRoute></PageTransition>} />
         <Route path="/study/:certId" element={<PageTransition><StudyMode /></PageTransition>} />
         <Route path="/exam/:certId" element={<PageTransition><ProtectedRoute><ExamPage /></ProtectedRoute></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />

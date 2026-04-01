@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers, Library, AlertTriangle, Bot } from 'lucide-react';
+import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers, Library, AlertTriangle, Bot, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/auth.store';
@@ -21,6 +21,7 @@ const navLinks = [
   { label: 'Trap Questions', href: '/trap-questions', icon: AlertTriangle },
   { label: 'Flashcards', href: '/decks', icon: Layers },
   { label: 'AI Generate', href: '/ai-generate', icon: Bot },
+  { label: 'Organization', href: '/org', icon: Building2 },
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];
 
