@@ -250,6 +250,15 @@ export class AdminController {
     return result;
   }
 
+  @Patch('users/:userId/plan')
+  @ApiOperation({ summary: 'Upgrade or change user plan' })
+  async updateUserPlan(@Req() req: any, @Param('userId') userId: string, @Body() body: { plan: string }) {
+    const adminId = req.user.sub || req.user.id;
+    const result = await this.adminService.updateUserPlan(userId, body.plan);
+    await this.auditService.log({ userId: adminId, action: 'UPDATE_USER_PLAN', targetType: 'User', targetId: userId, metadata: { plan: body.plan } });
+    return result;
+  }
+
   // ─── Data Export ─────────────────────────────────────────────────────────────
 
   @Get('export/users')

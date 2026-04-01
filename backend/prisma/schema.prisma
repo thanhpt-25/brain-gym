@@ -22,6 +22,12 @@ enum UserStatus {
   BANNED
 }
 
+enum UserPlan {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
 enum QuestionType {
   SINGLE
   MULTIPLE
@@ -120,6 +126,48 @@ enum MaterialContentType {
   TEXT
 }
 
+// ==================== ENTERPRISE ENUMS ====================
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum OrgInviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum AssessmentStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum CandidateAttemptStatus {
+  INVITED
+  STARTED
+  SUBMITTED
+  EXPIRED
+}
+
+enum ExamCatalogItemType {
+  FIXED
+  DYNAMIC
+}
+
+enum OrgQuestionStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
 // ==================== MODELS ====================
 
 model User {
@@ -130,6 +178,7 @@ model User {
   avatarUrl      String?    @map("avatar_url")
   role           UserRole   @default(LEARNER)
   status         UserStatus @default(ACTIVE)
+  plan           UserPlan   @default(FREE)
   points         Int        @default(0)
   suspendedUntil DateTime?  @map("suspended_until")
   banReason      String?    @map("ban_reason")
@@ -151,6 +200,7 @@ model User {
   generationJobs             QuestionGenerationJob[]
   sourceMaterials            SourceMaterial[]
   auditLogs                  AuditLog[]
+  orgMemberships             OrgMember[]
 
   @@index([status])
   @@map("users")
@@ -191,6 +241,7 @@ model Certification {
   decks          Deck[]
   generationJobs QuestionGenerationJob[]
   sourceMaterials SourceMaterial[]
+  catalogItems   ExamCatalogItem[]
 
   @@map("certifications")
 }
@@ -251,6 +302,7 @@ model Question {
   reports         Report[]
   reviewSchedules ReviewSchedule[]
   capturedWords   CapturedWord[]
+  catalogLinks    ExamCatalogQuestion[]
 
   @@index([deletedAt])
   @@index([status])
@@ -628,4 +680,276 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ==================== ENTERPRISE ====================
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  logoUrl     String?  @map("logo_url")
+  description String?
+  industry    String?
+  accentColor String?  @map("accent_color")
+  maxSeats    Int      @default(10) @map("max_seats")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  members          OrgMember[]
+  invites          OrgInvite[]
+  groups           OrgGroup[]
+  privateQuestions OrgQuestion[]
+  catalogItems     ExamCatalogItem[]
+  assessments      Assessment[]
+  joinLinks        OrgJoinLink[]
+  learningTracks   LearningTrack[]
+
+  @@map("organizations")
+}
+
+model OrgMember {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  userId    String   @map("user_id")
+  role      OrgRole  @default(MEMBER)
+  groupId   String?  @map("group_id")
+  joinedAt  DateTime @default(now()) @map("joined_at")
+  isActive  Boolean  @default(true) @map("is_active")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+  group        OrgGroup?    @relation(fields: [groupId], references: [id])
+
+  @@unique([orgId, userId])
+  @@map("org_members")
+}
+
+model OrgGroup {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  members      OrgMember[]
+  assignments  OrgExamAssignment[]
+
+  @@map("org_groups")
+}
+
+model OrgInvite {
+  id        String          @id @default(uuid())
+  orgId     String          @map("org_id")
+  email     String
+  role      OrgRole         @default(MEMBER)
+  token     String          @unique
+  status    OrgInviteStatus @default(PENDING)
+  invitedBy String          @map("invited_by")
+  expiresAt DateTime        @map("expires_at")
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("org_invites")
+}
+
+model OrgJoinLink {
+  id          String    @id @default(uuid())
+  orgId       String    @map("org_id")
+  code        String    @unique
+  maxUses     Int?      @map("max_uses")
+  currentUses Int       @default(0) @map("current_uses")
+  expiresAt   DateTime? @map("expires_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("org_join_links")
+}
+
+model OrgQuestion {
+  id               String            @id @default(uuid())
+  orgId            String            @map("org_id")
+  createdBy        String            @map("created_by")
+  sourceQuestionId String?           @map("source_question_id")
+  title            String
+  description      String?
+  questionType     QuestionType      @default(SINGLE) @map("question_type")
+  difficulty       Difficulty        @default(MEDIUM)
+  explanation      String?
+  referenceUrl     String?           @map("reference_url")
+  codeSnippet      String?           @map("code_snippet")
+  isScenario       Boolean           @default(false) @map("is_scenario")
+  isTrapQuestion   Boolean           @default(false) @map("is_trap_question")
+  status           OrgQuestionStatus @default(DRAFT)
+  category         String?
+  tags             String[]          @default([])
+  version          Int               @default(1)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  choices      OrgQuestionChoice[]
+  catalogLinks ExamCatalogQuestion[]
+
+  @@index([orgId, status])
+  @@map("org_questions")
+}
+
+model OrgQuestionChoice {
+  id            String  @id @default(uuid())
+  orgQuestionId String  @map("org_question_id")
+  label         String  @db.Char(1)
+  content       String
+  isCorrect     Boolean @default(false) @map("is_correct")
+  sortOrder     Int     @default(0) @map("sort_order")
+
+  orgQuestion OrgQuestion @relation(fields: [orgQuestionId], references: [id], onDelete: Cascade)
+
+  @@map("org_question_choices")
+}
+
+model ExamCatalogItem {
+  id              String              @id @default(uuid())
+  orgId           String              @map("org_id")
+  title           String
+  description     String?
+  type            ExamCatalogItemType @default(FIXED)
+  certificationId String?             @map("certification_id")
+  questionCount   Int                 @map("question_count")
+  timeLimit       Int                 @map("time_limit")
+  passingScore    Int?                @map("passing_score")
+  timerMode       TimerMode           @default(STRICT) @map("timer_mode")
+  maxAttempts     Int?                @map("max_attempts")
+  availableFrom   DateTime?           @map("available_from")
+  availableUntil  DateTime?           @map("available_until")
+  isMandatory     Boolean             @default(false) @map("is_mandatory")
+  sortOrder       Int                 @default(0) @map("sort_order")
+  trackId         String?             @map("track_id")
+  prerequisiteId  String?             @map("prerequisite_id")
+  createdBy       String              @map("created_by")
+  isActive        Boolean             @default(true) @map("is_active")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  organization  Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  certification Certification?       @relation(fields: [certificationId], references: [id])
+  prerequisite  ExamCatalogItem?     @relation("Prerequisites", fields: [prerequisiteId], references: [id])
+  dependents    ExamCatalogItem[]    @relation("Prerequisites")
+  questions     ExamCatalogQuestion[]
+  assignments   OrgExamAssignment[]
+  track         LearningTrack?       @relation(fields: [trackId], references: [id])
+
+  @@map("exam_catalog_items")
+}
+
+model ExamCatalogQuestion {
+  id               String  @id @default(uuid())
+  catalogItemId    String  @map("catalog_item_id")
+  orgQuestionId    String? @map("org_question_id")
+  publicQuestionId String? @map("public_question_id")
+  sortOrder        Int     @default(0) @map("sort_order")
+
+  catalogItem    ExamCatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  orgQuestion    OrgQuestion?    @relation(fields: [orgQuestionId], references: [id])
+  publicQuestion Question?       @relation(fields: [publicQuestionId], references: [id])
+
+  @@map("exam_catalog_questions")
+}
+
+model LearningTrack {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  organization Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalogItems ExamCatalogItem[]
+
+  @@map("learning_tracks")
+}
+
+model OrgExamAssignment {
+  id            String    @id @default(uuid())
+  catalogItemId String    @map("catalog_item_id")
+  groupId       String?   @map("group_id")
+  memberId      String?   @map("member_id")
+  dueDate       DateTime? @map("due_date")
+  assignedAt    DateTime  @default(now()) @map("assigned_at")
+
+  catalogItem ExamCatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  group       OrgGroup?       @relation(fields: [groupId], references: [id])
+
+  @@map("org_exam_assignments")
+}
+
+// ─── CANDIDATE ASSESSMENT (External Invitations) ───
+
+model Assessment {
+  id                 String           @id @default(uuid())
+  orgId              String           @map("org_id")
+  title              String
+  description        String?
+  status             AssessmentStatus @default(DRAFT)
+  questionCount      Int              @map("question_count")
+  timeLimit          Int              @map("time_limit")
+  passingScore       Int?             @map("passing_score")
+  randomizeQuestions Boolean          @default(true) @map("randomize_questions")
+  randomizeChoices   Boolean          @default(true) @map("randomize_choices")
+  detectTabSwitch    Boolean          @default(false) @map("detect_tab_switch")
+  blockCopyPaste     Boolean          @default(false) @map("block_copy_paste")
+  linkExpiryHours    Int              @default(72) @map("link_expiry_hours")
+  createdBy          String           @map("created_by")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  organization     Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  candidateInvites CandidateInvite[]
+
+  @@map("assessments")
+}
+
+model CandidateInvite {
+  id             String                 @id @default(uuid())
+  assessmentId   String                 @map("assessment_id")
+  candidateEmail String                 @map("candidate_email")
+  candidateName  String?                @map("candidate_name")
+  token          String                 @unique
+  status         CandidateAttemptStatus @default(INVITED)
+  score          Decimal?               @db.Decimal(5, 2)
+  totalCorrect   Int?                   @map("total_correct")
+  totalQuestions Int?                   @map("total_questions")
+  domainScores   Json?                  @map("domain_scores")
+  timeSpent      Int?                   @map("time_spent")
+  tabSwitchCount Int?                   @map("tab_switch_count")
+  ipAddress      String?                @map("ip_address")
+  startedAt      DateTime?              @map("started_at")
+  submittedAt    DateTime?              @map("submitted_at")
+  expiresAt      DateTime               @map("expires_at")
+  createdAt      DateTime               @default(now()) @map("created_at")
+
+  assessment Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    CandidateAnswer[]
+
+  @@map("candidate_invites")
+}
+
+model CandidateAnswer {
+  id              String   @id @default(uuid())
+  inviteId        String   @map("invite_id")
+  questionId      String   @map("question_id")
+  selectedChoices String[] @map("selected_choices")
+  isCorrect       Boolean? @map("is_correct")
+  timeSpent       Int?     @map("time_spent")
+  answeredAt      DateTime @default(now()) @map("answered_at")
+
+  invite CandidateInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+
+  @@map("candidate_answers")
 }

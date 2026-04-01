@@ -19,6 +19,7 @@ if ! deploy_output=$(npx prisma migrate deploy 2>&1); then
     npx prisma migrate resolve --applied "20260328000001_add_user_status"
     npx prisma migrate resolve --applied "20260328000002_fix_schema_drift"
     npx prisma migrate resolve --applied "20260328000003_add_question_soft_delete"
+    npx prisma migrate resolve --applied "20260401000000_enterprise_plan"
     echo "Baseline complete. Running migrate deploy..."
     npx prisma migrate deploy
   else

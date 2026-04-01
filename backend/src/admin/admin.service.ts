@@ -284,6 +284,14 @@ export class AdminService {
     return { updated: result.count };
   }
 
+  async updateUserPlan(userId: string, plan: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { plan: plan as any },
+      select: { id: true, email: true, plan: true }
+    });
+  }
+
   // ─── CSV Export ───────────────────────────────────────────────────────────────
 
   private escapeCsv(value: any): string {
