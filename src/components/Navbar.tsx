@@ -21,6 +21,7 @@ const navLinks = [
   { label: 'Trap Questions', href: '/trap-questions', icon: AlertTriangle },
   { label: 'Flashcards', href: '/decks', icon: Layers },
   { label: 'AI Generate', href: '/ai-generate', icon: Bot },
+  { label: 'Organization', href: '/org', icon: Building2 },
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];
 
