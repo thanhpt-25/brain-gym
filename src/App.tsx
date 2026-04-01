@@ -34,6 +34,10 @@ const DeckDetail = lazy(() => import("./pages/DeckDetail"));
 const FlashcardStudy = lazy(() => import("./pages/FlashcardStudy"));
 const TrapQuestionsPage = lazy(() => import("./pages/TrapQuestionsPage"));
 const AiQuestionGenerator = lazy(() => import("./pages/AiQuestionGenerator"));
+const OrgDashboard = lazy(() => import("./pages/org/OrgDashboard"));
+const OrgMembers = lazy(() => import("./pages/org/OrgMembers"));
+const OrgSettings = lazy(() => import("./pages/org/OrgSettings"));
+const CreateOrg = lazy(() => import("./pages/org/CreateOrg"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
