@@ -37,6 +37,9 @@ export class OrgRoleGuard implements CanActivate {
       throw new ForbiddenException('You are not an active member of this organization');
     }
 
+    // Attach membership to request for downstream use
+    request.orgMembership = membership;
+
     if (!requiredRoles || requiredRoles.length === 0) {
       return true; // Any role is fine (must be member)
     }

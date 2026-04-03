@@ -23,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
 import { MailModule } from './mail/mail.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { OrgQuestionsModule } from './org-questions/org-questions.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
     AdminModule,
     MailModule,
     OrganizationsModule,
+    OrgQuestionsModule,
   ],
   providers: [
     {
