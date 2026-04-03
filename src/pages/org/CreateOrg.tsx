@@ -1,28 +1,46 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import Navbar from '@/components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, ArrowRight, Upload, Globe, Users } from 'lucide-react';
+import { Building2, ArrowRight, Upload, Globe, Users, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { createOrg } from '@/services/organizations';
+import type { CreateOrgPayload } from '@/types/org-types';
 
 const CreateOrg = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [domain, setDomain] = useState('');
+  const [description, setDescription] = useState('');
+  const [industry, setIndustry] = useState('');
 
   const generateSlug = (val: string) => {
     setName(val);
     setSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
   };
 
+  const { mutate, isPending } = useMutation({
+    mutationFn: (payload: CreateOrgPayload) => createOrg(payload),
+    onSuccess: (org) => {
+      toast.success('Organization created successfully!');
+      navigate(`/org/${org.slug}`);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to create organization');
+    },
+  });
+
   const handleCreate = () => {
-    toast.success('Organization created successfully!');
-    navigate('/org');
+    mutate({
+      name,
+      description: description || undefined,
+      industry: industry || undefined,
+    });
   };
 
   return (
@@ -87,22 +105,28 @@ const CreateOrg = () => {
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle className="font-mono flex items-center gap-2">
-                <Globe className="h-5 w-5 text-accent" /> Domain & Access
+                <Globe className="h-5 w-5 text-accent" /> Details
               </CardTitle>
-              <CardDescription className="text-xs">Configure who can join your organization</CardDescription>
+              <CardDescription className="text-xs">Additional information about your organization</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label className="font-mono text-xs">Company Email Domain (optional)</Label>
+                <Label className="font-mono text-xs">Industry (optional)</Label>
                 <Input
-                  placeholder="company.com"
-                  value={domain}
-                  onChange={e => setDomain(e.target.value)}
+                  placeholder="Technology, Finance, Healthcare..."
+                  value={industry}
+                  onChange={e => setIndustry(e.target.value)}
                   className="bg-muted border-border"
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  Users with this email domain can automatically join your organization
-                </p>
+              </div>
+              <div className="space-y-2">
+                <Label className="font-mono text-xs">Description (optional)</Label>
+                <Input
+                  placeholder="Brief description of your organization"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  className="bg-muted border-border"
+                />
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1">Back</Button>
@@ -132,17 +156,27 @@ const CreateOrg = () => {
                   <span className="text-xs text-muted-foreground font-mono">Slug</span>
                   <span className="text-sm font-mono">/{slug}</span>
                 </div>
-                {domain && (
+                {industry && (
                   <div className="flex justify-between">
-                    <span className="text-xs text-muted-foreground font-mono">Domain</span>
-                    <span className="text-sm font-mono">{domain}</span>
+                    <span className="text-xs text-muted-foreground font-mono">Industry</span>
+                    <span className="text-sm font-mono">{industry}</span>
+                  </div>
+                )}
+                {description && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-muted-foreground font-mono">Description</span>
+                    <span className="text-sm font-mono truncate max-w-[200px]">{description}</span>
                   </div>
                 )}
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep(2)} className="flex-1">Back</Button>
-                <Button onClick={handleCreate} className="flex-1 glow-cyan">
-                  <Building2 className="h-4 w-4 mr-1.5" /> Create Organization
+                <Button onClick={handleCreate} className="flex-1 glow-cyan" disabled={isPending}>
+                  {isPending ? (
+                    <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Creating...</>
+                  ) : (
+                    <><Building2 className="h-4 w-4 mr-1.5" /> Create Organization</>
+                  )}
                 </Button>
               </div>
             </CardContent>

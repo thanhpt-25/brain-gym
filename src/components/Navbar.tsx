@@ -5,6 +5,7 @@ import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Targe
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { useAuthStore } from '@/stores/auth.store';
+import { useOrgStore } from '@/stores/org.store';
 import { getMyPoints } from '@/services/gamification';
 
 interface NavbarProps {
@@ -13,7 +14,7 @@ interface NavbarProps {
   icon?: React.ElementType;
 }
 
-const navLinks = [
+const staticNavLinks = [
   { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
   { label: 'Training', href: '/training', icon: Dumbbell },
   { label: 'Exams', href: '/exams', icon: Target },
@@ -21,7 +22,6 @@ const navLinks = [
   { label: 'Trap Questions', href: '/trap-questions', icon: AlertTriangle },
   { label: 'Flashcards', href: '/decks', icon: Layers },
   { label: 'AI Generate', href: '/ai-generate', icon: Bot },
-  { label: 'Organization', href: '/org', icon: Building2 },
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
 ];
 
@@ -29,7 +29,15 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuthStore();
+  const currentOrg = useOrgStore((s) => s.currentOrg);
   const [open, setOpen] = useState(false);
+
+  const orgHref = currentOrg ? `/org/${currentOrg.slug}` : '/org';
+  const navLinks = [
+    ...staticNavLinks.slice(0, 7), // before Leaderboard
+    { label: 'Organization', href: orgHref, icon: Building2 },
+    ...staticNavLinks.slice(7), // Leaderboard
+  ];
 
   const { data: pointsData } = useQuery({
     queryKey: ['my-points'],

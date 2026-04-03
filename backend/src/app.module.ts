@@ -21,6 +21,9 @@ import { AiQuestionBankModule } from './ai-question-bank/ai-question-bank.module
 import { ProvidersModule } from './providers/providers.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { MailModule } from './mail/mail.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { OrgQuestionsModule } from './org-questions/org-questions.module';
 
 @Module({
   imports: [
@@ -48,6 +51,9 @@ import { AuditModule } from './audit/audit.module';
     CaptureModule,
     AiQuestionBankModule,
     AdminModule,
+    MailModule,
+    OrganizationsModule,
+    OrgQuestionsModule,
   ],
   providers: [
     {
