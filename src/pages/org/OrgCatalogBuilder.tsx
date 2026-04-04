@@ -252,12 +252,12 @@ const OrgCatalogBuilder = () => {
                 <SelectItem value="DYNAMIC">Dynamic (Random)</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={certificationId} onValueChange={setCertificationId}>
+              <Select value={certificationId || 'none'} onValueChange={(v) => setCertificationId(v === 'none' ? '' : v)}>
               <SelectTrigger className="bg-secondary border-border">
                 <SelectValue placeholder="Certification" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {certifications.map((c) => (
                   <SelectItem key={c.id} value={c.id}>{c.code} — {c.name}</SelectItem>
                 ))}
@@ -343,12 +343,12 @@ const OrgCatalogBuilder = () => {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs font-mono">Learning Track</Label>
-              <Select value={trackId} onValueChange={setTrackId}>
+              <Select value={trackId || 'none'} onValueChange={(v) => setTrackId(v === 'none' ? '' : v)}>
                 <SelectTrigger className="bg-secondary border-border">
                   <SelectValue placeholder="No track" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No track</SelectItem>
+                  <SelectItem value="none">No track</SelectItem>
                   {tracks.map((t) => (
                     <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                   ))}

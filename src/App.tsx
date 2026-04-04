@@ -129,9 +129,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
-          <Suspense fallback={<LoadingFallback />}>
-            <AnimatedRoutes />
-          </Suspense>
+          <AnimatedRoutes />
           <BottomTabBar />
         </BrowserRouter>
       </TooltipProvider>

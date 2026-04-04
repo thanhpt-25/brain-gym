@@ -7,11 +7,11 @@ import { ExamCatalogItemType, TimerMode } from '@prisma/client';
 
 export class CatalogQuestionDto {
   @IsOptional()
-  @IsUUID()
+  @IsString()
   orgQuestionId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   publicQuestionId?: string;
 
   @IsOptional()
@@ -36,7 +36,7 @@ export class CreateCatalogItemDto {
   type?: ExamCatalogItemType;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   certificationId?: string;
 
   @IsInt()
@@ -84,11 +84,11 @@ export class CreateCatalogItemDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   trackId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   prerequisiteId?: string;
 
   @IsOptional()

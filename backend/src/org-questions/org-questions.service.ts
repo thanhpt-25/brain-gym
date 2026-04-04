@@ -268,7 +268,7 @@ export class OrgQuestionsService {
         codeSnippet: source.codeSnippet,
         isScenario: source.isScenario,
         isTrapQuestion: source.isTrapQuestion,
-        status: OrgQuestionStatus.DRAFT,
+        status: OrgQuestionStatus.APPROVED,
         tags: [],
         choices: {
           create: source.choices.map((c) => ({
