@@ -47,6 +47,10 @@ const OrgAcceptInvite = lazy(() => import("./pages/org/OrgAcceptInvite"));
 const OrgQuestionBank = lazy(() => import("./pages/org/OrgQuestionBank"));
 const OrgQuestionForm = lazy(() => import("./pages/org/OrgQuestionForm"));
 const OrgQuestionDetail = lazy(() => import("./pages/org/OrgQuestionDetail"));
+const OrgExamCatalog = lazy(() => import("./pages/org/OrgExamCatalog"));
+const OrgCatalogManage = lazy(() => import("./pages/org/OrgCatalogManage"));
+const OrgCatalogBuilder = lazy(() => import("./pages/org/OrgCatalogBuilder"));
+const OrgLearningTracks = lazy(() => import("./pages/org/OrgLearningTracks"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -101,6 +105,11 @@ const AnimatedRoutes = () => {
           <Route path="questions/new" element={<OrgQuestionForm />} />
           <Route path="questions/:questionId" element={<OrgQuestionDetail />} />
           <Route path="questions/:questionId/edit" element={<OrgQuestionForm />} />
+          <Route path="catalog" element={<OrgExamCatalog />} />
+          <Route path="catalog/manage" element={<OrgCatalogManage />} />
+          <Route path="catalog/create" element={<OrgCatalogBuilder />} />
+          <Route path="catalog/:cid/edit" element={<OrgCatalogBuilder />} />
+          <Route path="tracks" element={<OrgLearningTracks />} />
           <Route path="settings" element={<OrgSettings />} />
         </Route>
 

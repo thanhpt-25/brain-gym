@@ -24,6 +24,7 @@ import { AuditModule } from './audit/audit.module';
 import { MailModule } from './mail/mail.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgQuestionsModule } from './org-questions/org-questions.module';
+import { ExamCatalogModule } from './exam-catalog/exam-catalog.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { OrgQuestionsModule } from './org-questions/org-questions.module';
     MailModule,
     OrganizationsModule,
     OrgQuestionsModule,
+    ExamCatalogModule,
   ],
   providers: [
     {

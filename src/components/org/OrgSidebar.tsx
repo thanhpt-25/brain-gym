@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useOrgStore } from '@/stores/org.store';
 import {
   LayoutDashboard, Users, Settings, Shield, BookOpen,
+  GraduationCap, Library, BookMarked,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { OrgRole } from '@/types/org-types';
@@ -23,6 +24,9 @@ const OrgSidebar = () => {
     { label: 'Members', href: `/org/${slug}/members`, icon: Users },
     { label: 'Groups', href: `/org/${slug}/groups`, icon: Shield },
     { label: 'Questions', href: `/org/${slug}/questions`, icon: BookOpen },
+    { label: 'Exam Catalog', href: `/org/${slug}/catalog`, icon: GraduationCap },
+    { label: 'Manage Catalog', href: `/org/${slug}/catalog/manage`, icon: Library, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
+    { label: 'Tracks', href: `/org/${slug}/tracks`, icon: BookMarked, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
     { label: 'Settings', href: `/org/${slug}/settings`, icon: Settings, roles: ['OWNER', 'ADMIN'] as OrgRole[] },
   ];
 
