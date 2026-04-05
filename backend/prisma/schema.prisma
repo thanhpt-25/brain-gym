@@ -303,6 +303,7 @@ model Question {
   reviewSchedules ReviewSchedule[]
   capturedWords   CapturedWord[]
   catalogLinks    ExamCatalogQuestion[]
+  assessmentLinks AssessmentQuestion[]
 
   @@index([deletedAt])
   @@index([status])
@@ -792,9 +793,10 @@ model OrgQuestion {
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
-  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  choices      OrgQuestionChoice[]
-  catalogLinks ExamCatalogQuestion[]
+  organization    Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  choices         OrgQuestionChoice[]
+  catalogLinks    ExamCatalogQuestion[]
+  assessmentLinks AssessmentQuestion[]
 
   @@index([orgId, status])
   @@map("org_questions")
@@ -909,10 +911,25 @@ model Assessment {
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
 
-  organization     Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization     Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   candidateInvites CandidateInvite[]
+  questions        AssessmentQuestion[]
 
   @@map("assessments")
+}
+
+model AssessmentQuestion {
+  id               String  @id @default(uuid())
+  assessmentId     String  @map("assessment_id")
+  orgQuestionId    String? @map("org_question_id")
+  publicQuestionId String? @map("public_question_id")
+  sortOrder        Int     @default(0) @map("sort_order")
+
+  assessment     Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  orgQuestion    OrgQuestion? @relation(fields: [orgQuestionId], references: [id])
+  publicQuestion Question?    @relation(fields: [publicQuestionId], references: [id])
+
+  @@map("assessment_questions")
 }
 
 model CandidateInvite {

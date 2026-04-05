@@ -51,6 +51,11 @@ const OrgExamCatalog = lazy(() => import("./pages/org/OrgExamCatalog"));
 const OrgCatalogManage = lazy(() => import("./pages/org/OrgCatalogManage"));
 const OrgCatalogBuilder = lazy(() => import("./pages/org/OrgCatalogBuilder"));
 const OrgLearningTracks = lazy(() => import("./pages/org/OrgLearningTracks"));
+const OrgAssessments = lazy(() => import("./pages/org/OrgAssessments"));
+const AssessmentBuilder = lazy(() => import("./pages/org/AssessmentBuilder"));
+const AssessmentResults = lazy(() => import("./pages/org/AssessmentResults"));
+const CandidateExam = lazy(() => import("./pages/CandidateExam"));
+const CandidateResult = lazy(() => import("./pages/CandidateResult"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,8 +115,16 @@ const AnimatedRoutes = () => {
           <Route path="catalog/create" element={<OrgCatalogBuilder />} />
           <Route path="catalog/:cid/edit" element={<OrgCatalogBuilder />} />
           <Route path="tracks" element={<OrgLearningTracks />} />
+          <Route path="assessments" element={<OrgAssessments />} />
+          <Route path="assessments/create" element={<AssessmentBuilder />} />
+          <Route path="assessments/:aid" element={<AssessmentResults />} />
+          <Route path="assessments/:aid/edit" element={<AssessmentBuilder />} />
           <Route path="settings" element={<OrgSettings />} />
         </Route>
+
+        {/* Candidate assessment routes (public, no auth) */}
+        <Route path="/assess/:token" element={<PageTransition><CandidateExam /></PageTransition>} />
+        <Route path="/assess/:token/result" element={<PageTransition><CandidateResult /></PageTransition>} />
 
         <Route path="/study/:certId" element={<PageTransition><StudyMode /></PageTransition>} />
         <Route path="/exam/:certId" element={<PageTransition><ProtectedRoute><ExamPage /></ProtectedRoute></PageTransition>} />
