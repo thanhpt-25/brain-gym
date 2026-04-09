@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useOrgStore } from '@/stores/org.store';
 import {
   LayoutDashboard, Users, Settings, Shield, BookOpen,
-  GraduationCap, Library, BookMarked, ClipboardList,
+  GraduationCap, Library, BookMarked, ClipboardList, BarChart3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { OrgRole } from '@/types/org-types';
@@ -28,6 +28,7 @@ const OrgSidebar = () => {
     { label: 'Manage Catalog', href: `/org/${slug}/catalog/manage`, icon: Library, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
     { label: 'Tracks', href: `/org/${slug}/tracks`, icon: BookMarked, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
     { label: 'Assessments', href: `/org/${slug}/assessments`, icon: ClipboardList, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
+    { label: 'Analytics', href: `/org/${slug}/analytics`, icon: BarChart3, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
     { label: 'Settings', href: `/org/${slug}/settings`, icon: Settings, roles: ['OWNER', 'ADMIN'] as OrgRole[] },
   ];
 

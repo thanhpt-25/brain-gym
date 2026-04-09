@@ -54,6 +54,7 @@ const OrgLearningTracks = lazy(() => import("./pages/org/OrgLearningTracks"));
 const OrgAssessments = lazy(() => import("./pages/org/OrgAssessments"));
 const AssessmentBuilder = lazy(() => import("./pages/org/AssessmentBuilder"));
 const AssessmentResults = lazy(() => import("./pages/org/AssessmentResults"));
+const OrgAnalytics = lazy(() => import("./pages/org/OrgAnalytics"));
 const CandidateExam = lazy(() => import("./pages/CandidateExam"));
 const CandidateResult = lazy(() => import("./pages/CandidateResult"));
 
@@ -119,6 +120,7 @@ const AnimatedRoutes = () => {
           <Route path="assessments/create" element={<AssessmentBuilder />} />
           <Route path="assessments/:aid" element={<AssessmentResults />} />
           <Route path="assessments/:aid/edit" element={<AssessmentBuilder />} />
+          <Route path="analytics" element={<OrgAnalytics />} />
           <Route path="settings" element={<OrgSettings />} />
         </Route>
 

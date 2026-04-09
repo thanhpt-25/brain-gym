@@ -26,6 +26,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgQuestionsModule } from './org-questions/org-questions.module';
 import { ExamCatalogModule } from './exam-catalog/exam-catalog.module';
 import { AssessmentsModule } from './assessments/assessments.module';
+import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { AssessmentsModule } from './assessments/assessments.module';
     OrgQuestionsModule,
     ExamCatalogModule,
     AssessmentsModule,
+    OrgAnalyticsModule,
   ],
   providers: [
     {
