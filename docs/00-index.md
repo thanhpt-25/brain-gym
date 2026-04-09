@@ -15,6 +15,9 @@ This directory contains the core system design and architecture documentation fo
 | **[05-deployment.md](./05-deployment.md)** | Infrastructure, Docker containerization, reverse proxy, and environments. |
 | **[06-security.md](./06-security.md)** | Authentication, authorization flow (JWT), RBAC, and data protection. |
 
+## Comprehensive References
+- **[Basic Design Document](./basic-design.md)** — Full system design in a single document (architecture, data model, API, frontend, security, deployment)
+
 ## Product References
 - [Vision & Product Strategy](./vision.md)
 - [Flashcard Feature SRS](./10-srs_flashcard.md)
