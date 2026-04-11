@@ -84,28 +84,41 @@ export interface MemberAnalytics {
   recentAttempts: MemberAttempt[];
 }
 
-export const getOrgOverview = async (slug: string): Promise<OrgOverview> => {
-  const res = await api.get<OrgOverview>(`${base(slug)}/overview`);
+export interface AnalyticsFilters {
+  groupId?: string;
+  weeks?: number;
+}
+
+const buildParams = (filters: AnalyticsFilters = {}): string => {
+  const p = new URLSearchParams();
+  if (filters.groupId) p.append('groupId', filters.groupId);
+  if (filters.weeks) p.append('weeks', String(filters.weeks));
+  const s = p.toString();
+  return s ? `?${s}` : '';
+};
+
+export const getOrgOverview = async (slug: string, filters: AnalyticsFilters = {}): Promise<OrgOverview> => {
+  const res = await api.get<OrgOverview>(`${base(slug)}/overview${buildParams(filters)}`);
   return res.data;
 };
 
-export const getOrgReadiness = async (slug: string): Promise<CertReadiness[]> => {
-  const res = await api.get<CertReadiness[]>(`${base(slug)}/readiness`);
+export const getOrgReadiness = async (slug: string, filters: AnalyticsFilters = {}): Promise<CertReadiness[]> => {
+  const res = await api.get<CertReadiness[]>(`${base(slug)}/readiness${buildParams(filters)}`);
   return res.data;
 };
 
-export const getOrgSkillGaps = async (slug: string): Promise<DomainGap[]> => {
-  const res = await api.get<DomainGap[]>(`${base(slug)}/skill-gaps`);
+export const getOrgSkillGaps = async (slug: string, filters: AnalyticsFilters = {}): Promise<DomainGap[]> => {
+  const res = await api.get<DomainGap[]>(`${base(slug)}/skill-gaps${buildParams(filters)}`);
   return res.data;
 };
 
-export const getOrgProgress = async (slug: string, weeks = 12): Promise<WeeklyProgress[]> => {
-  const res = await api.get<WeeklyProgress[]>(`${base(slug)}/progress?weeks=${weeks}`);
+export const getOrgProgress = async (slug: string, filters: AnalyticsFilters = {}): Promise<WeeklyProgress[]> => {
+  const res = await api.get<WeeklyProgress[]>(`${base(slug)}/progress${buildParams({ weeks: 12, ...filters })}`);
   return res.data;
 };
 
-export const getOrgEngagement = async (slug: string): Promise<OrgEngagement> => {
-  const res = await api.get<OrgEngagement>(`${base(slug)}/engagement`);
+export const getOrgEngagement = async (slug: string, filters: AnalyticsFilters = {}): Promise<OrgEngagement> => {
+  const res = await api.get<OrgEngagement>(`${base(slug)}/engagement${buildParams(filters)}`);
   return res.data;
 };
 

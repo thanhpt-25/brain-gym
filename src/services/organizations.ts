@@ -77,6 +77,15 @@ export const removeMember = async (slugOrId: string, userId: string): Promise<Or
   return response.data;
 };
 
+export const assignMemberToGroup = async (
+  slugOrId: string,
+  userId: string,
+  groupId: string | null,
+): Promise<OrgMember> => {
+  const response = await api.patch<OrgMember>(`/organizations/${slugOrId}/members/${userId}`, { groupId });
+  return response.data;
+};
+
 // Invites & Join Links
 
 export const acceptInvite = async (token: string): Promise<OrgMember> => {

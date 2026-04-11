@@ -10,8 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from '@/components/ui/sheet';
+import {
   Users, UserPlus, Search, Mail, Link2, MoreHorizontal,
-  Shield, Crown, UserCog, User, Copy, Check, X, Plus, Loader2,
+  Shield, Crown, UserCog, User, Check, X, Plus, Loader2,
+  FolderOpen, Trash2, ChevronDown,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -20,9 +24,11 @@ import { toast } from 'sonner';
 import { useOrgStore } from '@/stores/org.store';
 import {
   getMembers, getGroups, inviteMember, updateMemberRole,
-  removeMember, createGroup, createJoinLink,
+  removeMember, createGroup, createJoinLink, assignMemberToGroup,
 } from '@/services/organizations';
-import type { OrgRole } from '@/types/org-types';
+import { getMemberAnalytics } from '@/services/org-analytics';
+import MemberAnalyticsCard from '@/components/org/MemberAnalyticsCard';
+import type { OrgRole, OrgMember } from '@/types/org-types';
 
 const roleIcons: Record<OrgRole, React.ElementType> = {
   OWNER: Crown, ADMIN: Shield, MANAGER: UserCog, MEMBER: User,
@@ -54,6 +60,16 @@ const OrgMembers = () => {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDesc, setNewGroupDesc] = useState('');
 
+  // Phase 5.2: Bulk selection
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<'role' | 'group' | 'remove' | null>(null);
+  const [bulkRoleValue, setBulkRoleValue] = useState<OrgRole>('MEMBER');
+  const [bulkGroupId, setBulkGroupId] = useState<string>('');
+  const [bulkPending, setBulkPending] = useState(false);
+
+  // Phase 5.3: Activity slide-over
+  const [slideoverId, setSlideoverId] = useState<string | null>(null);
+
   const { data: membersData, isLoading: membersLoading } = useQuery({
     queryKey: ['org-members', slug],
     queryFn: () => getMembers(slug),
@@ -64,6 +80,14 @@ const OrgMembers = () => {
     queryKey: ['org-groups', slug],
     queryFn: () => getGroups(slug),
     enabled: !!slug,
+  });
+
+  // Activity slide-over data
+  const slideoverMember = membersData?.data.find((m) => m.userId === slideoverId);
+  const { data: memberAnalytics, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['org-analytics-member', slug, slideoverId],
+    queryFn: () => getMemberAnalytics(slug, slideoverId!),
+    enabled: !!slug && !!slideoverId,
   });
 
   const inviteMutation = useMutation({
@@ -85,6 +109,17 @@ const OrgMembers = () => {
       queryClient.invalidateQueries({ queryKey: ['org-members', slug] });
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to update role'),
+  });
+
+  // Phase 5.1: Group assignment
+  const groupAssignMutation = useMutation({
+    mutationFn: ({ userId, groupId }: { userId: string; groupId: string | null }) =>
+      assignMemberToGroup(slug, userId, groupId),
+    onSuccess: () => {
+      toast.success('Group updated');
+      queryClient.invalidateQueries({ queryKey: ['org-members', slug] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to update group'),
   });
 
   const removeMutation = useMutation({
@@ -128,6 +163,53 @@ const OrgMembers = () => {
     const matchRole = roleFilter === 'all' || m.role === roleFilter;
     return matchSearch && matchRole;
   });
+
+  // Bulk selection helpers
+  const toggleSelect = (userId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const selectableIds = filtered.filter((m) => m.role !== 'OWNER').map((m) => m.userId);
+    if (selected.size === selectableIds.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(selectableIds));
+    }
+  };
+
+  const handleBulkApply = async () => {
+    if (!bulkAction || selected.size === 0) return;
+    setBulkPending(true);
+    const ids = Array.from(selected);
+    try {
+      if (bulkAction === 'role') {
+        for (const uid of ids) await updateMemberRole(slug, uid, { role: bulkRoleValue });
+        toast.success(`Role changed to ${bulkRoleValue} for ${ids.length} members`);
+      } else if (bulkAction === 'group') {
+        for (const uid of ids) await assignMemberToGroup(slug, uid, bulkGroupId || null);
+        toast.success(`Moved ${ids.length} members to group`);
+      } else if (bulkAction === 'remove') {
+        if (!window.confirm(`Remove ${ids.length} members?`)) { setBulkPending(false); return; }
+        for (const uid of ids) await removeMember(slug, uid);
+        toast.success(`Removed ${ids.length} members`);
+      }
+      setSelected(new Set());
+      setBulkAction(null);
+      queryClient.invalidateQueries({ queryKey: ['org-members', slug] });
+    } catch {
+      toast.error('Some operations failed');
+    } finally {
+      setBulkPending(false);
+    }
+  };
+
+  const allSelectableIds = filtered.filter((m) => m.role !== 'OWNER').map((m) => m.userId);
+  const allSelected = allSelectableIds.length > 0 && allSelectableIds.every((id) => selected.has(id));
 
   return (
     <div className="space-y-6">
@@ -238,29 +320,143 @@ const OrgMembers = () => {
             </Select>
           </div>
 
+          {/* Bulk Action Toolbar */}
+          {selected.size > 0 && canManage && (
+            <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-primary/10 border border-primary/30">
+              <span className="text-xs font-mono text-primary font-semibold shrink-0">
+                {selected.size} selected
+              </span>
+              <div className="flex items-center gap-2 flex-1 flex-wrap">
+                <Select value={bulkAction || ''} onValueChange={(v) => setBulkAction(v as any)}>
+                  <SelectTrigger className="h-7 w-[140px] text-xs font-mono bg-muted border-border">
+                    <SelectValue placeholder="Bulk action..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="role">Change Role</SelectItem>
+                    <SelectItem value="group">Move to Group</SelectItem>
+                    <SelectItem value="remove">Remove</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {bulkAction === 'role' && (
+                  <Select value={bulkRoleValue} onValueChange={(v) => setBulkRoleValue(v as OrgRole)}>
+                    <SelectTrigger className="h-7 w-[120px] text-xs font-mono bg-muted border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ADMIN">Admin</SelectItem>
+                      <SelectItem value="MANAGER">Manager</SelectItem>
+                      <SelectItem value="MEMBER">Member</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {bulkAction === 'group' && (
+                  <Select value={bulkGroupId} onValueChange={setBulkGroupId}>
+                    <SelectTrigger className="h-7 w-[140px] text-xs font-mono bg-muted border-border">
+                      <SelectValue placeholder="Select group..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No Group</SelectItem>
+                      {groups?.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                {bulkAction && (
+                  <Button
+                    size="sm"
+                    className={`h-7 text-xs font-mono ${bulkAction === 'remove' ? 'bg-destructive hover:bg-destructive/90' : 'glow-cyan'}`}
+                    onClick={handleBulkApply}
+                    disabled={bulkPending}
+                  >
+                    {bulkPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                    Apply
+                  </Button>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => { setSelected(new Set()); setBulkAction(null); }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+
           {membersLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
             <Card className="bg-card border-border overflow-hidden">
+              {/* Header row with select-all */}
+              {canManage && filtered.length > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-muted/30">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    className="rounded border-border accent-primary cursor-pointer"
+                  />
+                  <span className="text-xs font-mono text-muted-foreground">
+                    {allSelected ? 'Deselect all' : `Select all (${allSelectableIds.length})`}
+                  </span>
+                </div>
+              )}
               <div className="divide-y divide-border">
                 {filtered.map((member) => {
                   const RoleIcon = roleIcons[member.role];
+                  const isSelected = selected.has(member.userId);
+                  const canSelect = canManage && member.role !== 'OWNER';
                   return (
-                    <div key={member.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-9 w-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+                    <div
+                      key={member.id}
+                      className={`flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors ${
+                        isSelected ? 'bg-primary/5' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {canSelect && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(member.userId)}
+                            className="rounded border-border accent-primary cursor-pointer shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                        {!canSelect && canManage && <div className="w-4 shrink-0" />}
+                        {/* Clickable avatar → activity slide-over */}
+                        <button
+                          className="h-9 w-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 hover:border-primary/50 transition-colors"
+                          onClick={() => setSlideoverId(member.userId)}
+                          title="View activity"
+                        >
                           <span className="text-xs font-mono font-bold">
                             {member.user.displayName.split(' ').map((n) => n[0]).join('')}
                           </span>
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-mono font-medium truncate">{member.user.displayName}</p>
+                        </button>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              className="text-sm font-mono font-medium truncate hover:text-primary transition-colors text-left"
+                              onClick={() => setSlideoverId(member.userId)}
+                            >
+                              {member.user.displayName}
+                            </button>
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${roleColors[member.role]}`}>
                               <RoleIcon className="h-2.5 w-2.5 mr-0.5" />{member.role}
                             </Badge>
+                            {member.group && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-primary border-primary/30">
+                                {member.group.name}
+                              </Badge>
+                            )}
                             {!member.isActive && (
                               <Badge className="text-[10px] px-1.5 py-0 border-0 bg-red-500/20 text-red-400">
                                 INACTIVE
@@ -270,47 +466,70 @@ const OrgMembers = () => {
                           <p className="text-xs text-muted-foreground truncate">{member.user.email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        {member.group && (
-                          <Badge variant="outline" className="text-[10px] hidden sm:flex">{member.group.name}</Badge>
-                        )}
-                        {canManage && member.role !== 'OWNER' && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-card border-border">
-                              <DropdownMenuItem
-                                className="font-mono text-xs"
-                                onClick={() => roleChangeMutation.mutate({ userId: member.userId, role: 'ADMIN' })}
-                              >
-                                <Shield className="h-3 w-3 mr-2" /> Make Admin
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="font-mono text-xs"
-                                onClick={() => roleChangeMutation.mutate({ userId: member.userId, role: 'MANAGER' })}
-                              >
-                                <UserCog className="h-3 w-3 mr-2" /> Make Manager
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="font-mono text-xs"
-                                onClick={() => roleChangeMutation.mutate({ userId: member.userId, role: 'MEMBER' })}
-                              >
-                                <User className="h-3 w-3 mr-2" /> Make Member
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="font-mono text-xs text-destructive"
-                                onClick={() => removeMutation.mutate(member.userId)}
-                              >
-                                <X className="h-3 w-3 mr-2" /> Remove
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
+                      {canManage && member.role !== 'OWNER' && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-card border-border">
+                            {/* 5.1: Move to Group */}
+                            {groups && groups.length > 0 && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-xs font-mono outline-none transition-colors hover:bg-accent hover:text-accent-foreground">
+                                    <FolderOpen className="h-3 w-3 mr-2" /> Move to Group
+                                    <ChevronDown className="h-3 w-3 ml-auto" />
+                                  </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="bg-card border-border">
+                                  <DropdownMenuItem
+                                    className="font-mono text-xs text-muted-foreground"
+                                    onClick={() => groupAssignMutation.mutate({ userId: member.userId, groupId: null })}
+                                  >
+                                    No Group
+                                  </DropdownMenuItem>
+                                  {groups.map((g) => (
+                                    <DropdownMenuItem
+                                      key={g.id}
+                                      className="font-mono text-xs"
+                                      onClick={() => groupAssignMutation.mutate({ userId: member.userId, groupId: g.id })}
+                                    >
+                                      {g.name}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
+                            <DropdownMenuItem
+                              className="font-mono text-xs"
+                              onClick={() => roleChangeMutation.mutate({ userId: member.userId, role: 'ADMIN' })}
+                            >
+                              <Shield className="h-3 w-3 mr-2" /> Make Admin
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="font-mono text-xs"
+                              onClick={() => roleChangeMutation.mutate({ userId: member.userId, role: 'MANAGER' })}
+                            >
+                              <UserCog className="h-3 w-3 mr-2" /> Make Manager
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="font-mono text-xs"
+                              onClick={() => roleChangeMutation.mutate({ userId: member.userId, role: 'MEMBER' })}
+                            >
+                              <User className="h-3 w-3 mr-2" /> Make Member
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="font-mono text-xs text-destructive"
+                              onClick={() => removeMutation.mutate(member.userId)}
+                            >
+                              <X className="h-3 w-3 mr-2" /> Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   );
                 })}
@@ -374,21 +593,45 @@ const OrgMembers = () => {
           )}
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {groups?.map((group) => (
-              <Card key={group.id} className="bg-card border-border hover:border-primary/30 transition-colors">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-mono font-medium">{group.name}</h3>
-                  </div>
-                  {group.description && (
-                    <p className="text-xs text-muted-foreground mb-3">{group.description}</p>
-                  )}
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Users className="h-3 w-3" /> {group._count.members} members
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {groups?.map((group) => {
+              const groupMembers = members.filter((m) => m.groupId === group.id);
+              return (
+                <Card key={group.id} className="bg-card border-border hover:border-primary/30 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-mono font-medium">{group.name}</h3>
+                    </div>
+                    {group.description && (
+                      <p className="text-xs text-muted-foreground mb-3">{group.description}</p>
+                    )}
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+                      <Users className="h-3 w-3" /> {group._count.members} members
+                    </div>
+                    {/* Mini member list */}
+                    {groupMembers.length > 0 && (
+                      <div className="flex -space-x-2">
+                        {groupMembers.slice(0, 5).map((m) => (
+                          <div
+                            key={m.id}
+                            className="h-6 w-6 rounded-full bg-muted border-2 border-card flex items-center justify-center"
+                            title={m.user.displayName}
+                          >
+                            <span className="text-[8px] font-mono font-bold">
+                              {m.user.displayName.split(' ').map((n) => n[0]).join('')}
+                            </span>
+                          </div>
+                        ))}
+                        {groupMembers.length > 5 && (
+                          <div className="h-6 w-6 rounded-full bg-muted border-2 border-card flex items-center justify-center">
+                            <span className="text-[8px] font-mono text-muted-foreground">+{groupMembers.length - 5}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
             {(!groups || groups.length === 0) && (
               <div className="col-span-full text-center py-8 text-sm text-muted-foreground font-mono">
                 No groups yet
@@ -397,6 +640,41 @@ const OrgMembers = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Phase 5.3: Member Activity Slide-over */}
+      <Sheet open={!!slideoverId} onOpenChange={(open) => { if (!open) setSlideoverId(null); }}>
+        <SheetContent className="w-full sm:max-w-lg bg-card border-l border-border overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="font-mono flex items-center gap-2">
+              {slideoverMember && (
+                <>
+                  <div className="h-8 w-8 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+                    <span className="text-xs font-mono font-bold">
+                      {slideoverMember.user.displayName.split(' ').map((n) => n[0]).join('')}
+                    </span>
+                  </div>
+                  <div>
+                    <div>{slideoverMember.user.displayName}</div>
+                    <div className="text-xs text-muted-foreground font-normal">{slideoverMember.user.email}</div>
+                  </div>
+                </>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+
+          {analyticsLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : memberAnalytics ? (
+            <MemberAnalyticsCard data={memberAnalytics} />
+          ) : (
+            <div className="text-center py-12 text-sm text-muted-foreground font-mono">
+              No activity data available
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

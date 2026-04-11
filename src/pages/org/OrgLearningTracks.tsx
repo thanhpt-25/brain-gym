@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOrgStore } from '@/stores/org.store';
 import {
-  getTracks, createTrack, updateTrack, deleteTrack,
+  getTracks, createTrack, updateTrack, deleteTrack, getMyAssignments,
 } from '@/services/exam-catalog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import {
   BookMarked, Plus, MoreHorizontal, Pencil, Trash2,
-  Loader2, FileText, Clock, AlertCircle,
+  Loader2, FileText, Clock, AlertCircle, Globe, EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { LearningTrack } from '@/types/exam-catalog-types';
@@ -38,7 +38,23 @@ const OrgLearningTracks = () => {
     enabled: !!slug,
   });
 
+  const { data: myAssignments = [] } = useQuery({
+    queryKey: ['my-assignments', slug],
+    queryFn: () => getMyAssignments(slug),
+    enabled: !!slug,
+  });
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['org-tracks', slug] });
+
+  const publishMutation = useMutation({
+    mutationFn: ({ tid, isActive }: { tid: string; isActive: boolean }) =>
+      updateTrack(slug, tid, { isActive }),
+    onSuccess: (_, { isActive }) => {
+      toast.success(isActive ? 'Track published' : 'Track set to draft');
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'Update failed'),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: (tid: string) => deleteTrack(slug, tid),
@@ -81,18 +97,26 @@ const OrgLearningTracks = () => {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tracks.map((track) => (
-            <TrackCard
-              key={track.id}
-              track={track}
-              onEdit={() => openEdit(track)}
-              onDelete={() => {
-                if (window.confirm(`Delete track "${track.name}"? Catalog items will be unassigned from this track.`)) {
-                  deleteMutation.mutate(track.id);
-                }
-              }}
-            />
-          ))}
+          {tracks.map((track) => {
+            const trackItemIds = (track.catalogItems || []).map((ci) => ci.id);
+            const completedCount = myAssignments.filter(
+              (a) => trackItemIds.includes(a.catalogItemId) && a.passed === true,
+            ).length;
+            return (
+              <TrackCard
+                key={track.id}
+                track={track}
+                myProgress={{ completed: completedCount, total: track.catalogItems?.length ?? 0 }}
+                onEdit={() => openEdit(track)}
+                onPublishToggle={() => publishMutation.mutate({ tid: track.id, isActive: !track.isActive })}
+                onDelete={() => {
+                  if (window.confirm(`Delete track "${track.name}"? Catalog items will be unassigned from this track.`)) {
+                    deleteMutation.mutate(track.id);
+                  }
+                }}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -116,16 +140,21 @@ const OrgLearningTracks = () => {
 
 interface TrackCardProps {
   track: LearningTrack;
+  myProgress: { completed: number; total: number };
   onEdit: () => void;
+  onPublishToggle: () => void;
   onDelete: () => void;
 }
 
-const TrackCard = ({ track, onEdit, onDelete }: TrackCardProps) => {
+const TrackCard = ({ track, myProgress, onEdit, onPublishToggle, onDelete }: TrackCardProps) => {
   const itemCount = track._count?.catalogItems ?? track.catalogItems?.length ?? 0;
+  const progressPct = myProgress.total > 0
+    ? Math.round((myProgress.completed / myProgress.total) * 100)
+    : 0;
 
   return (
     <Card className={`bg-card border-border transition-colors ${
-      track.isActive ? 'hover:border-primary/30' : 'opacity-60'
+      track.isActive ? 'hover:border-primary/30' : 'opacity-70'
     }`}>
       <CardHeader className="pb-2 flex flex-row items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -133,11 +162,17 @@ const TrackCard = ({ track, onEdit, onDelete }: TrackCardProps) => {
             <BookMarked className="h-4 w-4 text-primary shrink-0" />
             <span className="truncate">{track.name}</span>
           </CardTitle>
-          {!track.isActive && (
-            <Badge variant="outline" className="text-[10px] text-muted-foreground mt-1">
-              Inactive
-            </Badge>
-          )}
+          <div className="flex items-center gap-1.5 mt-1">
+            {track.isActive ? (
+              <Badge className="text-[10px] bg-emerald-500/15 text-emerald-400 border-0 py-0">
+                <Globe className="h-2.5 w-2.5 mr-0.5" /> Published
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground py-0">
+                <EyeOff className="h-2.5 w-2.5 mr-0.5" /> Draft
+              </Badge>
+            )}
+          </div>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -149,6 +184,13 @@ const TrackCard = ({ track, onEdit, onDelete }: TrackCardProps) => {
             <DropdownMenuItem className="font-mono text-xs" onClick={onEdit}>
               <Pencil className="h-3 w-3 mr-2" /> Edit
             </DropdownMenuItem>
+            <DropdownMenuItem className="font-mono text-xs" onClick={onPublishToggle}>
+              {track.isActive ? (
+                <><EyeOff className="h-3 w-3 mr-2" /> Set to Draft</>
+              ) : (
+                <><Globe className="h-3 w-3 mr-2" /> Publish</>
+              )}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="font-mono text-xs text-destructive" onClick={onDelete}>
               <Trash2 className="h-3 w-3 mr-2" /> Delete
@@ -156,16 +198,34 @@ const TrackCard = ({ track, onEdit, onDelete }: TrackCardProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 space-y-3">
         {track.description && (
-          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{track.description}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2">{track.description}</p>
         )}
 
         {/* Exam count */}
-        <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono mb-3">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
           <FileText className="h-3 w-3" />
           <span>{itemCount} exam{itemCount !== 1 ? 's' : ''}</span>
         </div>
+
+        {/* My Progress bar (7.1) */}
+        {myProgress.total > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+              <span>My Progress</span>
+              <span>{myProgress.completed}/{myProgress.total} ({progressPct}%)</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  progressPct === 100 ? 'bg-emerald-500' : 'bg-primary'
+                }`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Catalog items preview */}
         {track.catalogItems && track.catalogItems.length > 0 && (

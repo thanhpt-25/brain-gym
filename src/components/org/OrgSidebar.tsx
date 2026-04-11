@@ -37,6 +37,23 @@ const OrgSidebar = () => {
 
   return (
     <aside className="hidden lg:flex flex-col w-56 shrink-0 border-r border-border py-4 pr-4 space-y-1">
+      {/* Org identity */}
+      <div className="flex items-center gap-2 px-2 pb-3 mb-1 border-b border-border">
+        {currentOrg?.logoUrl ? (
+          <img
+            src={currentOrg.logoUrl}
+            alt={currentOrg.name}
+            className="h-7 w-7 rounded-lg object-cover shrink-0 border border-border"
+          />
+        ) : (
+          <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
+            <span className="text-[10px] font-mono font-bold text-primary">
+              {currentOrg?.name.slice(0, 2).toUpperCase()}
+            </span>
+          </div>
+        )}
+        <span className="text-xs font-mono font-medium truncate">{currentOrg?.name}</span>
+      </div>
       {links
         .filter((link) => !link.roles || (role && link.roles.includes(role)))
         .map((link) => (

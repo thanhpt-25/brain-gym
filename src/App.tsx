@@ -50,11 +50,13 @@ const OrgQuestionDetail = lazy(() => import("./pages/org/OrgQuestionDetail"));
 const OrgExamCatalog = lazy(() => import("./pages/org/OrgExamCatalog"));
 const OrgCatalogManage = lazy(() => import("./pages/org/OrgCatalogManage"));
 const OrgCatalogBuilder = lazy(() => import("./pages/org/OrgCatalogBuilder"));
+const OrgCatalogPreview = lazy(() => import("./pages/org/OrgCatalogPreview"));
 const OrgLearningTracks = lazy(() => import("./pages/org/OrgLearningTracks"));
 const OrgAssessments = lazy(() => import("./pages/org/OrgAssessments"));
 const AssessmentBuilder = lazy(() => import("./pages/org/AssessmentBuilder"));
 const AssessmentResults = lazy(() => import("./pages/org/AssessmentResults"));
 const OrgAnalytics = lazy(() => import("./pages/org/OrgAnalytics"));
+const OrgAuditLog = lazy(() => import("./pages/org/OrgAuditLog"));
 const CandidateExam = lazy(() => import("./pages/CandidateExam"));
 const CandidateResult = lazy(() => import("./pages/CandidateResult"));
 
@@ -115,6 +117,7 @@ const AnimatedRoutes = () => {
           <Route path="catalog/manage" element={<OrgCatalogManage />} />
           <Route path="catalog/create" element={<OrgCatalogBuilder />} />
           <Route path="catalog/:cid/edit" element={<OrgCatalogBuilder />} />
+          <Route path="catalog/:cid/preview" element={<OrgCatalogPreview />} />
           <Route path="tracks" element={<OrgLearningTracks />} />
           <Route path="assessments" element={<OrgAssessments />} />
           <Route path="assessments/create" element={<AssessmentBuilder />} />
@@ -122,6 +125,7 @@ const AnimatedRoutes = () => {
           <Route path="assessments/:aid/edit" element={<AssessmentBuilder />} />
           <Route path="analytics" element={<OrgAnalytics />} />
           <Route path="settings" element={<OrgSettings />} />
+          <Route path="settings/audit" element={<OrgAuditLog />} />
         </Route>
 
         {/* Candidate assessment routes (public, no auth) */}

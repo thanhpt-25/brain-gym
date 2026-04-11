@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOrgStore } from '@/stores/org.store';
 import {
   getCatalogItemsManage, deleteCatalogItem, updateCatalogItem,
-  assignExam, getTracks,
+  assignExam, getTracks, getCatalogItem, createCatalogItem,
 } from '@/services/exam-catalog';
 import { getGroups, getMembers } from '@/services/organizations';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label';
 import {
   Plus, Search, MoreHorizontal, Pencil, Trash2, Users,
   ToggleLeft, ToggleRight, Loader2, GraduationCap, Clock,
-  FileText, ChevronLeft, ChevronRight,
+  FileText, ChevronLeft, ChevronRight, Eye, Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ExamCatalogItem } from '@/types/exam-catalog-types';
@@ -56,6 +56,40 @@ const OrgCatalogManage = () => {
     queryKey: ['org-members', slug],
     queryFn: () => getMembers(slug),
     enabled: !!slug,
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async (cid: string) => {
+      const item = await getCatalogItem(slug, cid);
+      const qs = ('questions' in item && Array.isArray((item as any).questions))
+        ? (item as any).questions as any[]
+        : [];
+      return createCatalogItem(slug, {
+        title: `${item.title} (Copy)`,
+        description: item.description ?? undefined,
+        type: item.type,
+        certificationId: item.certificationId ?? undefined,
+        questionCount: item.questionCount,
+        timeLimit: item.timeLimit,
+        passingScore: item.passingScore ?? undefined,
+        timerMode: item.timerMode,
+        maxAttempts: item.maxAttempts ?? undefined,
+        isMandatory: item.isMandatory,
+        isActive: false,
+        trackId: item.trackId ?? undefined,
+        questions: qs.map((q: any, i: number) => ({
+          publicQuestionId: q.publicQuestionId ?? undefined,
+          orgQuestionId: q.orgQuestionId ?? undefined,
+          sortOrder: i,
+        })),
+      });
+    },
+    onSuccess: (newItem) => {
+      toast.success('Exam duplicated');
+      queryClient.invalidateQueries({ queryKey: ['org-catalog-manage', slug] });
+      navigate(`/org/${slug}/catalog/${newItem.id}/edit`);
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'Duplicate failed'),
   });
 
   const deleteMutation = useMutation({
@@ -171,6 +205,12 @@ const OrgCatalogManage = () => {
                     <DropdownMenuContent align="end" className="bg-card border-border">
                       <DropdownMenuItem
                         className="font-mono text-xs"
+                        onClick={() => navigate(`/org/${slug}/catalog/${item.id}/preview`)}
+                      >
+                        <Eye className="h-3 w-3 mr-2" /> Preview
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="font-mono text-xs"
                         onClick={() => navigate(`/org/${slug}/catalog/${item.id}/edit`)}
                       >
                         <Pencil className="h-3 w-3 mr-2" /> Edit
@@ -180,6 +220,14 @@ const OrgCatalogManage = () => {
                         onClick={() => setAssignItem(item)}
                       >
                         <Users className="h-3 w-3 mr-2" /> Assign
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="font-mono text-xs"
+                        onClick={() => duplicateMutation.mutate(item.id)}
+                        disabled={duplicateMutation.isPending}
+                      >
+                        {duplicateMutation.isPending ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Copy className="h-3 w-3 mr-2" />}
+                        Duplicate
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="font-mono text-xs"
