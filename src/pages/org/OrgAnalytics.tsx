@@ -3,11 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
-  BarChart3, Users, TrendingUp, Target, Award, Activity, Search,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  BarChart3, Users, TrendingUp, Target, Award, Activity, Search, Download,
 } from 'lucide-react';
 import { useOrgStore } from '@/stores/org.store';
-import { getMembers } from '@/services/organizations';
+import { getMembers, getGroups } from '@/services/organizations';
 import {
   getOrgOverview,
   getOrgReadiness,
@@ -15,6 +19,7 @@ import {
   getOrgProgress,
   getOrgEngagement,
   getMemberAnalytics,
+  type AnalyticsFilters,
 } from '@/services/org-analytics';
 import ReadinessHeatmap from '@/components/org/ReadinessHeatmap';
 import SkillGapChart from '@/components/org/SkillGapChart';
@@ -22,39 +27,71 @@ import EngagementChart from '@/components/org/EngagementChart';
 import MemberAnalyticsCard from '@/components/org/MemberAnalyticsCard';
 import AssessmentFunnel from '@/components/org/AssessmentFunnel';
 
+const WEEKS_OPTIONS = [
+  { label: '4 weeks', value: 4 },
+  { label: '12 weeks', value: 12 },
+  { label: '26 weeks', value: 26 },
+  { label: '52 weeks', value: 52 },
+];
+
+const downloadCsv = (rows: string[][], filename: string) => {
+  const content = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([content], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const OrgAnalytics = () => {
   const currentOrg = useOrgStore((s) => s.currentOrg);
   const slug = currentOrg?.slug || '';
+
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
+  const [groupId, setGroupId] = useState<string>('all');
+  const [weeks, setWeeks] = useState<number>(12);
+
+  const filters: AnalyticsFilters = {
+    ...(groupId !== 'all' ? { groupId } : {}),
+    weeks,
+  };
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ['org-groups', slug],
+    queryFn: () => getGroups(slug),
+    enabled: !!slug,
+  });
 
   const { data: overview, isLoading: loadingOverview } = useQuery({
-    queryKey: ['org-analytics-overview', slug],
-    queryFn: () => getOrgOverview(slug),
+    queryKey: ['org-analytics-overview', slug, filters],
+    queryFn: () => getOrgOverview(slug, filters),
     enabled: !!slug,
   });
 
   const { data: readiness } = useQuery({
-    queryKey: ['org-analytics-readiness', slug],
-    queryFn: () => getOrgReadiness(slug),
+    queryKey: ['org-analytics-readiness', slug, filters],
+    queryFn: () => getOrgReadiness(slug, filters),
     enabled: !!slug,
   });
 
   const { data: skillGaps } = useQuery({
-    queryKey: ['org-analytics-skill-gaps', slug],
-    queryFn: () => getOrgSkillGaps(slug),
+    queryKey: ['org-analytics-skill-gaps', slug, filters],
+    queryFn: () => getOrgSkillGaps(slug, filters),
     enabled: !!slug,
   });
 
   const { data: progress } = useQuery({
-    queryKey: ['org-analytics-progress', slug],
-    queryFn: () => getOrgProgress(slug),
+    queryKey: ['org-analytics-progress', slug, filters],
+    queryFn: () => getOrgProgress(slug, filters),
     enabled: !!slug,
   });
 
   const { data: engagement } = useQuery({
-    queryKey: ['org-analytics-engagement', slug],
-    queryFn: () => getOrgEngagement(slug),
+    queryKey: ['org-analytics-engagement', slug, filters],
+    queryFn: () => getOrgEngagement(slug, filters),
     enabled: !!slug,
   });
 
@@ -90,15 +127,71 @@ const OrgAnalytics = () => {
       ]
     : [];
 
+  const handleExportOverview = () => {
+    if (!overview) return;
+    const rows = [
+      ['Metric', 'Value'],
+      ['Members', String(overview.memberCount)],
+      ['Active (7d)', String(overview.activeUsersLast7d)],
+      ['Exams Taken', String(overview.totalExamsTaken)],
+      ['Avg Score (%)', String(overview.avgScore)],
+      ['Pass Rate (%)', String(overview.passRate)],
+      ['Candidates Invited', String(overview.totalCandidatesInvited)],
+    ];
+    downloadCsv(rows, `${slug}-analytics-overview.csv`);
+  };
+
+  const handleExportReadiness = () => {
+    if (!readiness?.length) return;
+    const rows = [
+      ['Certification', 'Code', 'Members Attempted', 'Total Members', 'Avg Score (%)', 'Passed', 'Pass Rate (%)'],
+      ...readiness.map((r) => [
+        r.certificationName, r.certificationCode,
+        String(r.membersAttempted), String(r.totalMembers),
+        String(r.avgScore), String(r.passedMembers), String(r.passRate),
+      ]),
+    ];
+    downloadCsv(rows, `${slug}-analytics-readiness.csv`);
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-mono font-bold flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-primary" /> Analytics
-        </h1>
-        <p className="text-sm text-muted-foreground font-mono mt-1">
-          Team performance and engagement insights
-        </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-mono font-bold flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-primary" /> Analytics
+          </h1>
+          <p className="text-sm text-muted-foreground font-mono mt-1">
+            Team performance and engagement insights
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {groups.length > 0 && (
+            <Select value={groupId} onValueChange={setGroupId}>
+              <SelectTrigger className="w-[150px] bg-muted border-border text-xs font-mono h-8">
+                <SelectValue placeholder="All Groups" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Groups</SelectItem>
+                {groups.map((g: any) => (
+                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={String(weeks)} onValueChange={(v) => setWeeks(Number(v))}>
+            <SelectTrigger className="w-[120px] bg-muted border-border text-xs font-mono h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WEEKS_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
@@ -121,6 +214,12 @@ const OrgAnalytics = () => {
             </div>
           ) : (
             <>
+              <div className="flex justify-end">
+                <Button variant="outline" size="sm" onClick={handleExportOverview} disabled={!overview}>
+                  <Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV
+                </Button>
+              </div>
+
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 {overviewStats.map((stat) => (
                   <Card key={stat.label} className="bg-card border-border">
@@ -157,7 +256,12 @@ const OrgAnalytics = () => {
         </TabsContent>
 
         {/* Readiness Tab */}
-        <TabsContent value="readiness">
+        <TabsContent value="readiness" className="space-y-3">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={handleExportReadiness} disabled={!readiness?.length}>
+              <Download className="h-3.5 w-3.5 mr-1.5" /> Export CSV
+            </Button>
+          </div>
           <ReadinessHeatmap data={readiness || []} />
         </TabsContent>
 
@@ -197,10 +301,7 @@ const OrgAnalytics = () => {
                     >
                       <div className="h-8 w-8 rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
                         <span className="text-[10px] font-mono font-bold">
-                          {m.user.displayName
-                            .split(' ')
-                            .map((n) => n[0])
-                            .join('')}
+                          {m.user.displayName.split(' ').map((n) => n[0]).join('')}
                         </span>
                       </div>
                       <div className="min-w-0">

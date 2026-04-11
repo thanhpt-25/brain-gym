@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
-  Building2, Palette, Shield, CreditCard,
-  Save, Upload, AlertTriangle, Loader2,
+  Building2, Palette, CreditCard,
+  Save, Upload, AlertTriangle, Loader2, X, FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrgStore } from '@/stores/org.store';
@@ -26,6 +26,9 @@ const OrgSettings = () => {
   const [description, setDescription] = useState('');
   const [industry, setIndustry] = useState('');
   const [accentColor, setAccentColor] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoPreview, setLogoPreview] = useState('');
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (currentOrg) {
@@ -33,8 +36,22 @@ const OrgSettings = () => {
       setDescription(currentOrg.description || '');
       setIndustry(currentOrg.industry || '');
       setAccentColor(currentOrg.accentColor || '#00bcd4');
+      setLogoUrl(currentOrg.logoUrl || '');
+      setLogoPreview(currentOrg.logoUrl || '');
     }
   }, [currentOrg]);
+
+  const handleLogoFile = (file: File) => {
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      setLogoPreview(dataUrl);
+      setLogoUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -43,6 +60,7 @@ const OrgSettings = () => {
         description: description || undefined,
         industry: industry || undefined,
         accentColor: accentColor || undefined,
+        logoUrl: logoUrl || undefined,
       }),
     onSuccess: () => {
       toast.success('Settings saved successfully');
@@ -119,11 +137,65 @@ const OrgSettings = () => {
           </div>
           <div className="space-y-2">
             <Label className="font-mono text-xs">Logo</Label>
-            <div className="flex items-center gap-3">
-              <div className="h-16 w-16 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center">
-                <Upload className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-start gap-4">
+              {/* Preview or drop zone */}
+              <div
+                className={`h-20 w-20 rounded-xl border-2 flex items-center justify-center cursor-pointer shrink-0 overflow-hidden transition-colors ${
+                  logoPreview ? 'border-primary/30' : 'border-dashed border-border hover:border-primary/40'
+                }`}
+                onClick={() => logoFileRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleLogoFile(file);
+                }}
+              >
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo" className="h-full w-full object-cover" />
+                ) : (
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                )}
               </div>
-              <Button variant="outline" size="sm"><Upload className="h-3 w-3 mr-1.5" /> Upload</Button>
+              <div className="space-y-2 flex-1">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => logoFileRef.current?.click()}
+                  >
+                    <Upload className="h-3 w-3 mr-1.5" /> Upload Image
+                  </Button>
+                  {logoPreview && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { setLogoPreview(''); setLogoUrl(''); }}
+                    >
+                      <X className="h-3 w-3 mr-1" /> Remove
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground font-mono">
+                  PNG, JPG, WEBP · Max 2MB · Drag &amp; drop or click
+                </p>
+                {/* URL input as alternative */}
+                <Input
+                  placeholder="Or paste an image URL..."
+                  value={logoUrl.startsWith('data:') ? '' : logoUrl}
+                  onChange={(e) => { setLogoUrl(e.target.value); setLogoPreview(e.target.value); }}
+                  className="bg-muted border-border text-xs h-7"
+                />
+              </div>
+              <input
+                ref={logoFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoFile(f); }}
+              />
             </div>
           </div>
         </CardContent>
@@ -179,6 +251,28 @@ const OrgSettings = () => {
           </p>
         </CardContent>
       </Card>
+
+      {/* Audit Log */}
+      {(currentOrg.myRole === 'OWNER' || currentOrg.myRole === 'ADMIN') && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="font-mono text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" /> Audit Log
+            </CardTitle>
+            <CardDescription className="text-xs">View a history of actions taken in your organization</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              size="sm"
+              className="font-mono text-xs"
+              onClick={() => navigate(`/org/${slug}/settings/audit`)}
+            >
+              <FileText className="h-3 w-3 mr-1.5" /> View Audit Log
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Danger Zone */}
       {currentOrg.myRole === 'OWNER' && (

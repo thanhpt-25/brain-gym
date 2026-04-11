@@ -50,6 +50,16 @@ const AssessmentResults = () => {
     onError: (e: any) => toast.error(e?.response?.data?.message || 'Invite failed'),
   });
 
+  const reinviteMutation = useMutation({
+    mutationFn: (email: string) =>
+      inviteCandidates(slug, aid!, { candidates: [{ email }] }),
+    onSuccess: () => {
+      toast.success('Invite re-sent');
+      queryClient.invalidateQueries({ queryKey: ['assessment-results', slug, aid] });
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'Re-invite failed'),
+  });
+
   const statusMutation = useMutation({
     mutationFn: (status: 'ACTIVE' | 'CLOSED') =>
       updateAssessmentStatus(slug, aid!, status),
@@ -150,6 +160,8 @@ const AssessmentResults = () => {
         <CandidateRanking
           candidates={candidates}
           passingScore={assessment.passingScore}
+          onReinvite={assessment.status === 'ACTIVE' ? (email) => reinviteMutation.mutate(email) : undefined}
+          isReinviting={reinviteMutation.isPending}
         />
       ) : (
         <div className="text-center py-12">

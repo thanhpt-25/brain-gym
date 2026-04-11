@@ -135,10 +135,10 @@ const OrgCatalogBuilder = () => {
         timerMode: timerMode as any, maxAttempts: maxAttempts !== '' ? maxAttempts : undefined,
         availableFrom: availableFrom || undefined, availableUntil: availableUntil || undefined,
         isMandatory, isActive, trackId: trackId || undefined, prerequisiteId: prerequisiteId || undefined,
-        questions: type === 'FIXED' ? selectedQuestions.map((q, i): CatalogQuestionPayload => ({
+        questions: selectedQuestions.length > 0 ? selectedQuestions.map((q, i): CatalogQuestionPayload => ({
           publicQuestionId: q.publicQuestionId,
           orgQuestionId: q.orgQuestionId,
-          sortOrder: i,
+          sortOrder: type === 'FIXED' ? i : undefined,
         })) : undefined,
       }),
     onSuccess: () => {
@@ -157,10 +157,10 @@ const OrgCatalogBuilder = () => {
         timerMode: timerMode as any, maxAttempts: maxAttempts !== '' ? maxAttempts : undefined,
         availableFrom: availableFrom || undefined, availableUntil: availableUntil || undefined,
         isMandatory, isActive, trackId: trackId || undefined, prerequisiteId: prerequisiteId || undefined,
-        questions: type === 'FIXED' ? selectedQuestions.map((q, i): CatalogQuestionPayload => ({
+        questions: selectedQuestions.length > 0 ? selectedQuestions.map((q, i): CatalogQuestionPayload => ({
           publicQuestionId: q.publicQuestionId,
           orgQuestionId: q.orgQuestionId,
-          sortOrder: i,
+          sortOrder: type === 'FIXED' ? i : undefined,
         })) : undefined,
       }),
     onSuccess: () => {
@@ -481,14 +481,102 @@ const OrgCatalogBuilder = () => {
         )}
 
         {type === 'DYNAMIC' && (
-          <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground font-mono">
-              Dynamic exams randomly select <strong>{questionCount}</strong> questions from
-              approved public questions for the selected certification at exam time.
+          <div className="glass-card p-5 space-y-4">
+            <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">
+              Question Pool ({selectedQuestions.length} selected)
+            </div>
+            <p className="text-xs text-muted-foreground font-mono">
+              At exam time, <strong>{questionCount}</strong> questions will be randomly drawn from this pool.
               {!certificationId && (
-                <span className="text-amber-400 block mt-1">⚠ Select a certification above to enable dynamic exams.</span>
+                <span className="text-amber-400 block mt-1">⚠ Select a certification above to scope the pool.</span>
               )}
             </p>
+
+            {/* Pool selected list */}
+            {selectedQuestions.length > 0 && (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {selectedQuestions.map((q) => (
+                  <div key={q.id} className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50 border border-border">
+                    <span className="flex-1 text-xs truncate">{q.title}</span>
+                    <Badge variant="outline" className={`text-[10px] shrink-0 ${q.type === 'org' ? 'border-primary/30 text-primary' : ''}`}>
+                      {q.type}
+                    </Badge>
+                    <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 hover:text-destructive shrink-0" onClick={() => removeQuestion(q.id)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Pool Question Picker */}
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="flex border-b border-border">
+                {(['public', 'org'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={`flex-1 py-2 text-xs font-mono font-semibold transition-colors ${
+                      pickerTab === tab ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                    onClick={() => setPickerTab(tab)}
+                  >
+                    {tab === 'public' ? 'Public Questions' : 'Org Questions'}
+                  </button>
+                ))}
+              </div>
+              <div className="p-3">
+                <div className="flex gap-2 mb-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      placeholder="Search..."
+                      className="pl-8 bg-secondary border-border text-xs h-8"
+                    />
+                  </div>
+                  {pickerTab === 'org' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 font-mono text-xs gap-1 shrink-0"
+                      onClick={() => setShowSmartFill(true)}
+                    >
+                      <Sparkles className="h-3 w-3 text-primary" /> Smart Fill
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {(pickerTab === 'public' ? publicQuestions : orgQuestions).map((q: any) => {
+                    const alreadyAdded = selectedQuestions.some(
+                      (s) => s.publicQuestionId === q.id || s.orgQuestionId === q.id,
+                    );
+                    return (
+                      <div
+                        key={q.id}
+                        className={`flex items-center justify-between p-2 rounded text-xs cursor-pointer transition-colors ${
+                          alreadyAdded ? 'opacity-50 cursor-default' : 'hover:bg-secondary/80'
+                        }`}
+                        onClick={() => {
+                          if (!alreadyAdded) {
+                            if (pickerTab === 'public') { addPublicQuestion(q); } else { addOrgQuestion(q); }
+                          }
+                        }}
+                      >
+                        <span className="truncate flex-1 mr-2">{q.title}</span>
+                        {alreadyAdded ? (
+                          <span className="text-primary text-[10px] shrink-0">Added</span>
+                        ) : (
+                          <Plus className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
