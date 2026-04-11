@@ -156,6 +156,17 @@ CertGym provides curated content for popular certifications including:
 
 ---
 
+## 🚀 Changelog
+
+### Phase 6 — Integration & Polish (April 2026)
+- **Auth Enhancement**: Login and refresh token responses now include `orgMemberships` (orgId, slug, name, role) so the frontend knows the user's org context without extra API calls.
+- **Auth Store**: The Zustand `useAuthStore` user state now stores `orgMemberships`, persisted across sessions.
+- **Navbar**: The "Organization" nav link is now conditionally shown only for users with org memberships. For single-org users it links directly to `/org/:slug`; for multi-org users it links to the org selector.
+- **Bottom Tab Bar**: An "Org" tab is conditionally shown on mobile for users with org memberships.
+- **Dashboard**: An Organization card is shown on the dashboard for org members, displaying org name, role, and a quick link to the org dashboard. Multi-org users see a "View all" option.
+
+---
+
 ## 📄 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

@@ -32,10 +32,17 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
   const currentOrg = useOrgStore((s) => s.currentOrg);
   const [open, setOpen] = useState(false);
 
-  const orgHref = currentOrg ? `/org/${currentOrg.slug}` : '/org';
+  const orgMemberships = user?.orgMemberships ?? [];
+  const orgHref = orgMemberships.length === 1
+    ? `/org/${orgMemberships[0].slug}`
+    : currentOrg
+      ? `/org/${currentOrg.slug}`
+      : '/org';
   const navLinks = [
     ...staticNavLinks.slice(0, 7), // before Leaderboard
-    { label: 'Organization', href: orgHref, icon: Building2 },
+    ...(orgMemberships.length > 0
+      ? [{ label: 'Organization', href: orgHref, icon: Building2 }]
+      : []),
     ...staticNavLinks.slice(7), // Leaderboard
   ];
 

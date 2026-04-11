@@ -1,11 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+interface OrgMembership {
+    orgId: string;
+    slug: string;
+    name: string;
+    role: string;
+}
+
 interface User {
     id: string;
     email: string;
     displayName: string;
     role: string;
+    orgMemberships: OrgMembership[];
 }
 
 interface AuthState {
