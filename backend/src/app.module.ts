@@ -33,7 +33,7 @@ import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{
       ttl: 60000,
-      limit: 60,
+      limit: 300,
     }]),
     PrismaModule,
     AuditModule,

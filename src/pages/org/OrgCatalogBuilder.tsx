@@ -20,8 +20,9 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import {
   ArrowLeft, Save, Plus, Trash2, Loader2, GraduationCap,
-  Search, ChevronUp, ChevronDown,
+  Search, ChevronUp, ChevronDown, Sparkles,
 } from 'lucide-react';
+import SmartFillDialog from '@/components/org/SmartFillDialog';
 import type { ExamCatalogItemType, CatalogQuestionPayload } from '@/types/exam-catalog-types';
 
 interface QuestionEntry {
@@ -62,6 +63,7 @@ const OrgCatalogBuilder = () => {
   // Question picker state
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerTab, setPickerTab] = useState<'public' | 'org'>('public');
+  const [showSmartFill, setShowSmartFill] = useState(false);
 
   const { data: existingItem, isLoading: loadingItem } = useQuery({
     queryKey: ['org-catalog-item', slug, cid],
@@ -193,6 +195,14 @@ const OrgCatalogBuilder = () => {
 
   const removeQuestion = (id: string) =>
     setSelectedQuestions((prev) => prev.filter((q) => q.id !== id));
+
+  const handleSmartFill = (questions: QuestionEntry[]) => {
+    setSelectedQuestions((prev) => {
+      const existingOrgIds = new Set(prev.map((q) => q.orgQuestionId).filter(Boolean));
+      const newOnes = questions.filter((q) => q.orgQuestionId && !existingOrgIds.has(q.orgQuestionId));
+      return [...prev, ...newOnes.map((q) => ({ ...q, id: `org-${q.orgQuestionId}` }))];
+    });
+  };
 
   const moveQuestion = (id: string, dir: 'up' | 'down') => {
     setSelectedQuestions((prev) => {
@@ -414,14 +424,27 @@ const OrgCatalogBuilder = () => {
                 ))}
               </div>
               <div className="p-3">
-                <div className="relative mb-3">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                  <Input
-                    value={pickerSearch}
-                    onChange={(e) => setPickerSearch(e.target.value)}
-                    placeholder="Search..."
-                    className="pl-8 bg-secondary border-border text-xs h-8"
-                  />
+                <div className="flex gap-2 mb-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <Input
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      placeholder="Search..."
+                      className="pl-8 bg-secondary border-border text-xs h-8"
+                    />
+                  </div>
+                  {pickerTab === 'org' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 font-mono text-xs gap-1 shrink-0"
+                      onClick={() => setShowSmartFill(true)}
+                    >
+                      <Sparkles className="h-3 w-3 text-primary" /> Smart Fill
+                    </Button>
+                  )}
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {(pickerTab === 'public' ? publicQuestions : orgQuestions).map((q: any) => {
@@ -475,6 +498,14 @@ const OrgCatalogBuilder = () => {
           {isBusy ? 'Saving...' : isEditing ? 'Update Exam' : 'Create Exam'}
         </Button>
       </form>
+
+      <SmartFillDialog
+        open={showSmartFill}
+        onClose={() => setShowSmartFill(false)}
+        onFill={handleSmartFill}
+        slug={slug}
+        existingIds={selectedQuestions.map((q) => q.orgQuestionId).filter(Boolean) as string[]}
+      />
     </div>
   );
 };

@@ -21,6 +21,7 @@ import {
   getOrgQuestions, submitOrgQuestion, approveOrgQuestion,
   rejectOrgQuestion, deleteOrgQuestion,
 } from '@/services/org-questions';
+import { getCertifications } from '@/services/certifications';
 import CloneQuestionDialog from '@/components/org/CloneQuestionDialog';
 import type { OrgQuestionStatus, OrgQuestionFilters } from '@/types/org-question-types';
 
@@ -48,15 +49,22 @@ const OrgQuestionBank = () => {
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
+  const [certFilter, setCertFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [cloneOpen, setCloneOpen] = useState(false);
+
+  const { data: certifications = [] } = useQuery({
+    queryKey: ['certifications'],
+    queryFn: getCertifications,
+  });
 
   const filters: OrgQuestionFilters = {
     page,
     limit: 20,
     ...(statusFilter !== 'all' ? { status: statusFilter as OrgQuestionStatus } : {}),
     ...(difficultyFilter !== 'all' ? { difficulty: difficultyFilter } : {}),
+    ...(certFilter !== 'all' ? { certificationId: certFilter } : {}),
     ...(search ? { search } : {}),
   };
 
@@ -151,6 +159,17 @@ const OrgQuestionBank = () => {
             <SelectItem value="HARD">Hard</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={certFilter} onValueChange={(v) => { setCertFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[160px] bg-muted border-border">
+            <SelectValue placeholder="Certification" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Certs</SelectItem>
+            {certifications.map((c: any) => (
+              <SelectItem key={c.id} value={c.id}>{c.code}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Questions List */}
@@ -186,6 +205,9 @@ const OrgQuestionBank = () => {
                         <Badge variant="outline" className={`text-[10px] ${difficultyColors[q.difficulty] || ''}`}>
                           {q.difficulty}
                         </Badge>
+                        {q.certification && (
+                          <Badge variant="outline" className="text-[10px] text-primary">{q.certification.code}</Badge>
+                        )}
                         {q.category && (
                           <Badge variant="outline" className="text-[10px]">{q.category}</Badge>
                         )}

@@ -27,6 +27,8 @@ export interface OrgQuestion {
   status: OrgQuestionStatus;
   category: string | null;
   tags: string[];
+  certificationId: string | null;
+  certification?: { id: string; name: string; code: string } | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -40,6 +42,7 @@ export interface OrgQuestionFilters {
   status?: OrgQuestionStatus;
   difficulty?: string;
   category?: string;
+  certificationId?: string;
   search?: string;
   createdBy?: string;
 }
@@ -55,6 +58,7 @@ export interface CreateOrgQuestionPayload {
   isScenario?: boolean;
   isTrapQuestion?: boolean;
   category?: string;
+  certificationId?: string;
   tags?: string[];
   choices: { label: string; content: string; isCorrect?: boolean }[];
 }

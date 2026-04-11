@@ -84,6 +84,11 @@ export class CreateOrgQuestionDto {
   @IsOptional()
   tags?: string[];
 
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  certificationId?: string;
+
   @ApiProperty({ type: [CreateOrgChoiceDto] })
   @IsArray()
   @ValidateNested({ each: true })

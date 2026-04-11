@@ -47,6 +47,7 @@ export class OrgQuestionsService {
     if (filters.status) where.status = filters.status;
     if (filters.difficulty) where.difficulty = filters.difficulty;
     if (filters.category) where.category = filters.category;
+    if (filters.certificationId) where.certificationId = filters.certificationId;
     if (filters.createdBy) where.createdBy = filters.createdBy;
     if (filters.search) {
       where.title = { contains: filters.search, mode: 'insensitive' };
@@ -58,6 +59,7 @@ export class OrgQuestionsService {
         where,
         include: {
           choices: { orderBy: { sortOrder: 'asc' } },
+          certification: { select: { id: true, name: true, code: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -250,7 +252,10 @@ export class OrgQuestionsService {
     const orgId = await this.resolveOrgId(orgSlugOrId);
     const source = await this.prisma.question.findUnique({
       where: { id: sourceQuestionId },
-      include: { choices: { orderBy: { sortOrder: 'asc' } } },
+      include: {
+        choices: { orderBy: { sortOrder: 'asc' } },
+        tags: { include: { tag: true } },
+      },
     });
     if (!source) throw new NotFoundException('Source question not found');
 
@@ -268,8 +273,9 @@ export class OrgQuestionsService {
         codeSnippet: source.codeSnippet,
         isScenario: source.isScenario,
         isTrapQuestion: source.isTrapQuestion,
-        status: OrgQuestionStatus.APPROVED,
-        tags: [],
+        status: OrgQuestionStatus.DRAFT,
+        certificationId: source.certificationId ?? null,
+        tags: source.tags?.map((t: any) => t.tag?.name ?? t) ?? [],
         choices: {
           create: source.choices.map((c) => ({
             label: c.label,

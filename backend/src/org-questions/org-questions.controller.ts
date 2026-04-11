@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { OrgQuestionsService } from './org-questions.service';
 import { CreateOrgQuestionDto } from './dto/create-org-question.dto';
 import { UpdateOrgQuestionDto } from './dto/update-org-question.dto';
@@ -12,6 +13,7 @@ import { OrgRole } from '@prisma/client';
 
 @ApiTags('org-questions')
 @ApiBearerAuth()
+@SkipThrottle()
 @Controller('organizations/:orgId/questions')
 @UseGuards(OrgRoleGuard)
 export class OrgQuestionsController {

@@ -242,6 +242,7 @@ model Certification {
   generationJobs QuestionGenerationJob[]
   sourceMaterials SourceMaterial[]
   catalogItems   ExamCatalogItem[]
+  orgQuestions   OrgQuestion[]
 
   @@map("certifications")
 }
@@ -789,11 +790,13 @@ model OrgQuestion {
   status           OrgQuestionStatus @default(DRAFT)
   category         String?
   tags             String[]          @default([])
+  certificationId  String?           @map("certification_id")
   version          Int               @default(1)
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
   organization    Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  certification   Certification?        @relation(fields: [certificationId], references: [id])
   choices         OrgQuestionChoice[]
   catalogLinks    ExamCatalogQuestion[]
   assessmentLinks AssessmentQuestion[]

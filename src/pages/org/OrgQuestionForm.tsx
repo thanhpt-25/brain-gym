@@ -5,6 +5,7 @@ import { useOrgStore } from '@/stores/org.store';
 import {
   createOrgQuestion, updateOrgQuestion, getOrgQuestion,
 } from '@/services/org-questions';
+import { getCertifications } from '@/services/certifications';
 import type { CreateOrgQuestionPayload } from '@/types/org-question-types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,7 @@ const OrgQuestionForm = () => {
   const [difficulty, setDifficulty] = useState('MEDIUM');
   const [questionType, setQuestionType] = useState('SINGLE');
   const [category, setCategory] = useState('');
+  const [certificationId, setCertificationId] = useState<string>('none');
   const [isScenario, setIsScenario] = useState(false);
   const [isTrapQuestion, setIsTrapQuestion] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -52,6 +54,11 @@ const OrgQuestionForm = () => {
     { label: 'c', content: '', isCorrect: false },
     { label: 'd', content: '', isCorrect: false },
   ]);
+
+  const { data: certifications = [] } = useQuery({
+    queryKey: ['certifications'],
+    queryFn: getCertifications,
+  });
 
   const { data: existingQuestion, isLoading: loadingQuestion } = useQuery({
     queryKey: ['org-question', slug, questionId],
@@ -69,6 +76,7 @@ const OrgQuestionForm = () => {
       setDifficulty(existingQuestion.difficulty);
       setQuestionType(existingQuestion.questionType);
       setCategory(existingQuestion.category || '');
+      setCertificationId(existingQuestion.certificationId || 'none');
       setIsScenario(existingQuestion.isScenario);
       setIsTrapQuestion(existingQuestion.isTrapQuestion);
       setTags(existingQuestion.tags);
@@ -168,6 +176,7 @@ const OrgQuestionForm = () => {
       difficulty,
       questionType,
       category: category.trim() || undefined,
+      certificationId: certificationId !== 'none' ? certificationId : undefined,
       isScenario,
       isTrapQuestion,
       tags: tags.length > 0 ? tags : undefined,
@@ -202,6 +211,14 @@ const OrgQuestionForm = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Cloned badge */}
+        {existingQuestion?.sourceQuestionId && (
+          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground bg-secondary/60 border border-border rounded-lg px-3 py-2">
+            <BookOpen className="h-3 w-3 text-primary shrink-0" />
+            Cloned from public bank — customize and submit for review when ready
+          </div>
+        )}
+
         {/* Meta */}
         <div className="glass-card p-5 space-y-4">
           <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">Settings</div>
@@ -239,6 +256,18 @@ const OrgQuestionForm = () => {
               placeholder="Category"
               className="bg-secondary border-border text-sm"
             />
+
+            <Select value={certificationId} onValueChange={setCertificationId}>
+              <SelectTrigger className="bg-secondary border-border col-span-2 sm:col-span-1">
+                <SelectValue placeholder="Certification" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Certification</SelectItem>
+                {certifications.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>{c.code} — {c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center space-x-2">

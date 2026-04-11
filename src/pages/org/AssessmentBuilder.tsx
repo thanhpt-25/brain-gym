@@ -14,10 +14,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, Save, Plus, Trash2, Loader2, ClipboardList,
-  Search, ChevronUp, ChevronDown,
+  Search, ChevronUp, ChevronDown, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AssessmentQuestionPayload } from '@/types/assessment-types';
+import SmartFillDialog from '@/components/org/SmartFillDialog';
 
 interface QuestionEntry {
   id: string;
@@ -46,6 +47,7 @@ const AssessmentBuilder = () => {
   const [linkExpiryHours, setLinkExpiryHours] = useState(72);
   const [selectedQuestions, setSelectedQuestions] = useState<QuestionEntry[]>([]);
   const [pickerSearch, setPickerSearch] = useState('');
+  const [showSmartFill, setShowSmartFill] = useState(false);
 
   const { data: existingItem, isLoading: loadingItem } = useQuery({
     queryKey: ['assessment-detail', slug, aid],
@@ -134,6 +136,14 @@ const AssessmentBuilder = () => {
 
   const removeQuestion = (id: string) => {
     setSelectedQuestions((prev) => prev.filter((q) => q.id !== id));
+  };
+
+  const handleSmartFill = (questions: QuestionEntry[]) => {
+    setSelectedQuestions((prev) => {
+      const existingOrgIds = new Set(prev.map((q) => q.orgQuestionId).filter(Boolean));
+      const newOnes = questions.filter((q) => q.orgQuestionId && !existingOrgIds.has(q.orgQuestionId));
+      return [...prev, ...newOnes.map((q) => ({ ...q, id: crypto.randomUUID() }))];
+    });
   };
 
   const moveQuestion = (index: number, dir: -1 | 1) => {
@@ -249,14 +259,25 @@ const AssessmentBuilder = () => {
 
         {/* Question picker */}
         <div className="border border-border rounded-md p-3 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search approved org questions..."
-              value={pickerSearch}
-              onChange={(e) => setPickerSearch(e.target.value)}
-              className="pl-10 bg-muted border-border text-sm"
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search approved org questions..."
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                className="pl-10 bg-muted border-border text-sm"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="font-mono text-xs gap-1.5 shrink-0"
+              onClick={() => setShowSmartFill(true)}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> Smart Fill
+            </Button>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
             {orgQuestions.map((q: any) => {
@@ -280,6 +301,14 @@ const AssessmentBuilder = () => {
           </div>
         </div>
       </div>
+
+      <SmartFillDialog
+        open={showSmartFill}
+        onClose={() => setShowSmartFill(false)}
+        onFill={handleSmartFill}
+        slug={slug}
+        existingIds={selectedQuestions.map((q) => q.orgQuestionId).filter(Boolean) as string[]}
+      />
 
       {/* Actions */}
       <div className="flex items-center gap-3 pt-4 border-t border-border">

@@ -14,6 +14,7 @@ export const getOrgQuestions = async (
   if (filters.status) params.append('status', filters.status);
   if (filters.difficulty) params.append('difficulty', filters.difficulty);
   if (filters.category) params.append('category', filters.category);
+  if (filters.certificationId) params.append('certificationId', filters.certificationId);
   if (filters.search) params.append('search', filters.search);
   if (filters.createdBy) params.append('createdBy', filters.createdBy);
   params.append('page', String(filters.page || 1));

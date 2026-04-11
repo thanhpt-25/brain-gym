@@ -27,6 +27,11 @@ export class ListOrgQuestionsDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  certificationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   createdBy?: string;
 
   @ApiPropertyOptional({ default: 1 })
