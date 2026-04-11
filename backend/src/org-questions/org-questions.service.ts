@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrgQuestionDto } from './dto/create-org-question.dto';
 import { UpdateOrgQuestionDto } from './dto/update-org-question.dto';
@@ -47,7 +52,8 @@ export class OrgQuestionsService {
     if (filters.status) where.status = filters.status;
     if (filters.difficulty) where.difficulty = filters.difficulty;
     if (filters.category) where.category = filters.category;
-    if (filters.certificationId) where.certificationId = filters.certificationId;
+    if (filters.certificationId)
+      where.certificationId = filters.certificationId;
     if (filters.createdBy) where.createdBy = filters.createdBy;
     if (filters.search) {
       where.title = { contains: filters.search, mode: 'insensitive' };
@@ -130,19 +136,28 @@ export class OrgQuestionsService {
 
     // Only author or admin can edit
     if (question.createdBy !== userId && !this.isAdmin(userRole)) {
-      throw new ForbiddenException('Only the author or an admin can edit this question');
+      throw new ForbiddenException(
+        'Only the author or an admin can edit this question',
+      );
     }
 
     // Only editable in DRAFT or REJECTED status
-    if (question.status !== OrgQuestionStatus.DRAFT && question.status !== OrgQuestionStatus.REJECTED) {
-      throw new BadRequestException('Can only edit questions in DRAFT or REJECTED status');
+    if (
+      question.status !== OrgQuestionStatus.DRAFT &&
+      question.status !== OrgQuestionStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'Can only edit questions in DRAFT or REJECTED status',
+      );
     }
 
     const { choices, tags, ...updateData } = dto;
 
     return this.prisma.$transaction(async (tx) => {
       if (choices) {
-        await tx.orgQuestionChoice.deleteMany({ where: { orgQuestionId: questionId } });
+        await tx.orgQuestionChoice.deleteMany({
+          where: { orgQuestionId: questionId },
+        });
       }
 
       return tx.orgQuestion.update({
@@ -171,7 +186,12 @@ export class OrgQuestionsService {
     });
   }
 
-  async remove(orgSlugOrId: string, questionId: string, userId: string, userRole: OrgRole) {
+  async remove(
+    orgSlugOrId: string,
+    questionId: string,
+    userId: string,
+    userRole: OrgRole,
+  ) {
     const orgId = await this.resolveOrgId(orgSlugOrId);
     const question = await this.prisma.orgQuestion.findFirst({
       where: { id: questionId, orgId },
@@ -181,17 +201,28 @@ export class OrgQuestionsService {
     // Author can delete own DRAFT/REJECTED; admin can delete any
     if (!this.isAdmin(userRole)) {
       if (question.createdBy !== userId) {
-        throw new ForbiddenException('Only the author or an admin can delete this question');
+        throw new ForbiddenException(
+          'Only the author or an admin can delete this question',
+        );
       }
-      if (question.status !== OrgQuestionStatus.DRAFT && question.status !== OrgQuestionStatus.REJECTED) {
-        throw new ForbiddenException('Members can only delete their own DRAFT or REJECTED questions');
+      if (
+        question.status !== OrgQuestionStatus.DRAFT &&
+        question.status !== OrgQuestionStatus.REJECTED
+      ) {
+        throw new ForbiddenException(
+          'Members can only delete their own DRAFT or REJECTED questions',
+        );
       }
     }
 
     await this.prisma.orgQuestion.delete({ where: { id: questionId } });
   }
 
-  async submitForReview(orgSlugOrId: string, questionId: string, userId: string) {
+  async submitForReview(
+    orgSlugOrId: string,
+    questionId: string,
+    userId: string,
+  ) {
     const orgId = await this.resolveOrgId(orgSlugOrId);
     const question = await this.prisma.orgQuestion.findFirst({
       where: { id: questionId, orgId },
@@ -201,7 +232,9 @@ export class OrgQuestionsService {
       throw new ForbiddenException('Only the author can submit for review');
     }
     if (question.status !== OrgQuestionStatus.DRAFT) {
-      throw new BadRequestException('Only DRAFT questions can be submitted for review');
+      throw new BadRequestException(
+        'Only DRAFT questions can be submitted for review',
+      );
     }
 
     return this.prisma.orgQuestion.update({
@@ -218,7 +251,9 @@ export class OrgQuestionsService {
     });
     if (!question) throw new NotFoundException('Question not found');
     if (question.status !== OrgQuestionStatus.UNDER_REVIEW) {
-      throw new BadRequestException('Only UNDER_REVIEW questions can be approved');
+      throw new BadRequestException(
+        'Only UNDER_REVIEW questions can be approved',
+      );
     }
 
     return this.prisma.orgQuestion.update({
@@ -238,7 +273,9 @@ export class OrgQuestionsService {
     });
     if (!question) throw new NotFoundException('Question not found');
     if (question.status !== OrgQuestionStatus.UNDER_REVIEW) {
-      throw new BadRequestException('Only UNDER_REVIEW questions can be rejected');
+      throw new BadRequestException(
+        'Only UNDER_REVIEW questions can be rejected',
+      );
     }
 
     return this.prisma.orgQuestion.update({
@@ -248,7 +285,11 @@ export class OrgQuestionsService {
     });
   }
 
-  async cloneFromPublic(orgSlugOrId: string, userId: string, sourceQuestionId: string) {
+  async cloneFromPublic(
+    orgSlugOrId: string,
+    userId: string,
+    sourceQuestionId: string,
+  ) {
     const orgId = await this.resolveOrgId(orgSlugOrId);
     const source = await this.prisma.question.findUnique({
       where: { id: sourceQuestionId },

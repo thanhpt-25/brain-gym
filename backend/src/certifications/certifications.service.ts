@@ -1,119 +1,141 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCertificationDto } from './dto/create-certification.dto';
 import { UpdateCertificationDto } from './dto/update-certification.dto';
 
 @Injectable()
 export class CertificationsService {
-    constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    async findAll(includeInactive = false) {
-        const certs = await this.prisma.certification.findMany({
-            where: includeInactive ? {} : { isActive: true },
-            include: {
-                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
-                domains: true,
-                _count: {
-                    select: { questions: true }
-                }
-            },
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
+  async findAll(includeInactive = false) {
+    const certs = await this.prisma.certification.findMany({
+      where: includeInactive ? {} : { isActive: true },
+      include: {
+        provider: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        domains: true,
+        _count: {
+          select: { questions: true },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
 
-        // Map _count.questions to questionCount for frontend consistency
-        return certs.map(cert => ({
-            ...cert,
-            questionCount: cert._count?.questions || 0,
-        }));
+    // Map _count.questions to questionCount for frontend consistency
+    return certs.map((cert) => ({
+      ...cert,
+      questionCount: cert._count?.questions || 0,
+    }));
+  }
+
+  async findOne(id: string) {
+    const cert = await this.prisma.certification.findUnique({
+      where: { id },
+      include: {
+        provider: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        domains: true,
+      },
+    });
+
+    if (!cert) {
+      throw new NotFoundException(`Certification with ID ${id} not found`);
     }
 
-    async findOne(id: string) {
-        const cert = await this.prisma.certification.findUnique({
-            where: { id },
-            include: {
-                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
-                domains: true,
-            },
-        });
+    return cert;
+  }
 
-        if (!cert) {
-            throw new NotFoundException(`Certification with ID ${id} not found`);
-        }
+  async create(dto: CreateCertificationDto) {
+    // Check for existing code (even inactive ones)
+    const existing = await this.prisma.certification.findUnique({
+      where: { code: dto.code },
+    });
 
-        return cert;
+    if (existing) {
+      throw new ConflictException(
+        `Certification code ${dto.code} is already in use (archived or active)`,
+      );
     }
 
-    async create(dto: CreateCertificationDto) {
-        // Check for existing code (even inactive ones)
-        const existing = await this.prisma.certification.findUnique({
-            where: { code: dto.code }
-        });
+    const { domains, ...certData } = dto;
 
-        if (existing) {
-            throw new ConflictException(`Certification code ${dto.code} is already in use (archived or active)`);
-        }
+    return this.prisma.certification.create({
+      data: {
+        ...certData,
+        domains:
+          domains && domains.length > 0
+            ? {
+                create: domains.map((name) => ({ name })),
+              }
+            : undefined,
+      },
+      include: {
+        provider: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        domains: true,
+      },
+    });
+  }
 
-        const { domains, ...certData } = dto;
+  async update(id: string, dto: UpdateCertificationDto) {
+    const cert = await this.findOne(id);
 
-        return this.prisma.certification.create({
-            data: {
-                ...certData,
-                domains: domains && domains.length > 0 ? {
-                    create: domains.map(name => ({ name })),
-                } : undefined,
-            },
-            include: {
-                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
-                domains: true,
-            },
-        });
+    if (dto.code && dto.code !== cert.code) {
+      const existing = await this.prisma.certification.findUnique({
+        where: { code: dto.code },
+      });
+
+      if (existing) {
+        throw new ConflictException(
+          `Certification code ${dto.code} is already in use`,
+        );
+      }
     }
 
-    async update(id: string, dto: UpdateCertificationDto) {
-        const cert = await this.findOne(id);
+    const { domains, ...certData } = dto;
 
-        if (dto.code && dto.code !== cert.code) {
-            const existing = await this.prisma.certification.findUnique({
-                where: { code: dto.code }
-            });
-
-            if (existing) {
-                throw new ConflictException(`Certification code ${dto.code} is already in use`);
-            }
-        }
-
-        const { domains, ...certData } = dto;
-
-        // Simplify domain management: delete all existing and recreate if domains list provided
-        if (domains) {
-            await this.prisma.domain.deleteMany({
-                where: { certificationId: id }
-            });
-        }
-
-        return this.prisma.certification.update({
-            where: { id },
-            data: {
-                ...certData,
-                domains: domains && domains.length > 0 ? {
-                    create: domains.map(name => ({ name })),
-                } : undefined,
-            },
-            include: {
-                provider: { select: { id: true, name: true, slug: true, logoUrl: true } },
-                domains: true,
-            },
-        });
+    // Simplify domain management: delete all existing and recreate if domains list provided
+    if (domains) {
+      await this.prisma.domain.deleteMany({
+        where: { certificationId: id },
+      });
     }
 
-    async softDelete(id: string) {
-        await this.findOne(id); // Ensure exists
+    return this.prisma.certification.update({
+      where: { id },
+      data: {
+        ...certData,
+        domains:
+          domains && domains.length > 0
+            ? {
+                create: domains.map((name) => ({ name })),
+              }
+            : undefined,
+      },
+      include: {
+        provider: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        domains: true,
+      },
+    });
+  }
 
-        return this.prisma.certification.update({
-            where: { id },
-            data: { isActive: false },
-        });
-    }
+  async softDelete(id: string) {
+    await this.findOne(id); // Ensure exists
+
+    return this.prisma.certification.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
 }

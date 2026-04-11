@@ -29,7 +29,7 @@ describe('AttemptsService', () => {
     examQuestion: {
       findMany: jest.fn(),
     },
-    $transaction: jest.fn(cb => cb),
+    $transaction: jest.fn((cb) => cb),
   };
 
   const mockGamificationService = {
@@ -63,8 +63,8 @@ describe('AttemptsService', () => {
       const attemptId = 'att-1';
       const dto = {
         answers: [
-          { questionId: 'q1', selectedChoices: ['c1'], isMarked: false }
-        ]
+          { questionId: 'q1', selectedChoices: ['c1'], isMarked: false },
+        ],
       };
       const examQuestions = [
         {
@@ -73,15 +73,19 @@ describe('AttemptsService', () => {
             questionType: QuestionType.SINGLE,
             choices: [
               { id: 'c1', isCorrect: true },
-              { id: 'c2', isCorrect: false }
+              { id: 'c2', isCorrect: false },
             ],
-            domain: { name: 'Domain A' }
-          }
-        }
+            domain: { name: 'Domain A' },
+          },
+        },
       ];
 
       // Access private method for testing
-      const result = (service as any).evaluateAnswers(attemptId, dto, examQuestions);
+      const result = (service as any).evaluateAnswers(
+        attemptId,
+        dto,
+        examQuestions,
+      );
 
       expect(result.totalCorrect).toBe(1);
       expect(result.domainScores['Domain A'].correct).toBe(1);
@@ -92,8 +96,8 @@ describe('AttemptsService', () => {
       const attemptId = 'att-1';
       const dto = {
         answers: [
-          { questionId: 'q2', selectedChoices: ['c1', 'c2'], isMarked: false }
-        ]
+          { questionId: 'q2', selectedChoices: ['c1', 'c2'], isMarked: false },
+        ],
       };
       const examQuestions = [
         {
@@ -103,14 +107,18 @@ describe('AttemptsService', () => {
             choices: [
               { id: 'c1', isCorrect: true },
               { id: 'c2', isCorrect: true },
-              { id: 'c3', isCorrect: false }
+              { id: 'c3', isCorrect: false },
             ],
-            domain: { name: 'Domain B' }
-          }
-        }
+            domain: { name: 'Domain B' },
+          },
+        },
       ];
 
-      const result = (service as any).evaluateAnswers(attemptId, dto, examQuestions);
+      const result = (service as any).evaluateAnswers(
+        attemptId,
+        dto,
+        examQuestions,
+      );
 
       expect(result.totalCorrect).toBe(1);
       expect(result.answerRecords[0].isCorrect).toBe(true);
@@ -120,8 +128,8 @@ describe('AttemptsService', () => {
       const attemptId = 'att-1';
       const dto = {
         answers: [
-          { questionId: 'q2', selectedChoices: ['c1'], isMarked: false }
-        ]
+          { questionId: 'q2', selectedChoices: ['c1'], isMarked: false },
+        ],
       };
       const examQuestions = [
         {
@@ -130,14 +138,18 @@ describe('AttemptsService', () => {
             questionType: QuestionType.MULTIPLE,
             choices: [
               { id: 'c1', isCorrect: true },
-              { id: 'c2', isCorrect: true }
+              { id: 'c2', isCorrect: true },
             ],
-            domain: { name: 'Domain B' }
-          }
-        }
+            domain: { name: 'Domain B' },
+          },
+        },
       ];
 
-      const result = (service as any).evaluateAnswers(attemptId, dto, examQuestions);
+      const result = (service as any).evaluateAnswers(
+        attemptId,
+        dto,
+        examQuestions,
+      );
 
       expect(result.totalCorrect).toBe(0);
       expect(result.answerRecords[0].isCorrect).toBe(false);

@@ -1,5 +1,21 @@
-import { Controller, Get, Post, Body, Put, Param, Delete, UseGuards, Req, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Put,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { FlashcardsService } from './flashcards.service';
 import { CreateDeckDto } from './dto/create-deck.dto';
 import { UpdateDeckDto } from './dto/update-deck.dto';
@@ -40,7 +56,11 @@ export class FlashcardsController {
 
   @Put('decks/:id')
   @ApiOperation({ summary: 'Update a deck' })
-  updateDeck(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: UpdateDeckDto) {
+  updateDeck(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateDeckDto,
+  ) {
     const userId = req.user.id;
     return this.flashcardsService.updateDeck(userId, id, dto);
   }
@@ -56,7 +76,10 @@ export class FlashcardsController {
 
   @Post('flashcards')
   @ApiOperation({ summary: 'Create a flashcard' })
-  createFlashcard(@Req() req: AuthenticatedRequest, @Body() dto: CreateFlashcardDto) {
+  createFlashcard(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateFlashcardDto,
+  ) {
     const userId = req.user.id;
     return this.flashcardsService.createFlashcard(userId, dto);
   }
@@ -70,7 +93,11 @@ export class FlashcardsController {
 
   @Put('flashcards/:id')
   @ApiOperation({ summary: 'Update a flashcard' })
-  updateFlashcard(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() dto: UpdateFlashcardDto) {
+  updateFlashcard(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateFlashcardDto,
+  ) {
     const userId = req.user.id;
     return this.flashcardsService.updateFlashcard(userId, id, dto);
   }
@@ -120,4 +147,3 @@ export class FlashcardsController {
     return this.flashcardsService.getFlashcardStats(userId);
   }
 }
-

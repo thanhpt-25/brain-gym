@@ -1,6 +1,14 @@
 import {
-  Controller, Get, Post, Patch, Param, Body, Query,
-  UseGuards, Res, Header,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Res,
+  Header,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AssessmentsService } from './assessments.service';
@@ -38,10 +46,7 @@ export class AssessmentsController {
   }
 
   @Get(':aid')
-  getDetail(
-    @Param('orgId') orgId: string,
-    @Param('aid') aid: string,
-  ) {
+  getDetail(@Param('orgId') orgId: string, @Param('aid') aid: string) {
     return this.service.getDetail(orgId, aid);
   }
 
@@ -74,10 +79,7 @@ export class AssessmentsController {
   }
 
   @Get(':aid/results')
-  getResults(
-    @Param('orgId') orgId: string,
-    @Param('aid') aid: string,
-  ) {
+  getResults(@Param('orgId') orgId: string, @Param('aid') aid: string) {
     return this.service.getResults(orgId, aid);
   }
 
@@ -90,7 +92,10 @@ export class AssessmentsController {
     @Res() res: Response,
   ) {
     const csv = await this.service.exportCsv(orgId, aid);
-    res.setHeader('Content-Disposition', 'attachment; filename="assessment-results.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="assessment-results.csv"',
+    );
     res.send(csv);
   }
 }

@@ -1,6 +1,14 @@
 import {
-  Controller, Get, Post, Patch, Delete, Param, Body, Query,
-  UseGuards, Req,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ExamCatalogService } from './exam-catalog.service';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
@@ -23,10 +31,7 @@ export class ExamCatalogController {
 
   /** Member view: active + in-window items */
   @Get()
-  listCatalog(
-    @Param('orgId') orgId: string,
-    @Query() query: ListCatalogDto,
-  ) {
+  listCatalog(@Param('orgId') orgId: string, @Query() query: ListCatalogDto) {
     return this.catalogService.listCatalog(orgId, false, query);
   }
 
@@ -51,10 +56,7 @@ export class ExamCatalogController {
   }
 
   @Get(':cid')
-  getCatalogItem(
-    @Param('orgId') orgId: string,
-    @Param('cid') cid: string,
-  ) {
+  getCatalogItem(@Param('orgId') orgId: string, @Param('cid') cid: string) {
     return this.catalogService.getCatalogItem(orgId, cid);
   }
 
@@ -77,7 +79,12 @@ export class ExamCatalogController {
     @CurrentUser() user: any,
     @Req() req: any,
   ) {
-    return this.catalogService.deleteCatalogItem(orgId, cid, user.id, req.orgMembership?.role);
+    return this.catalogService.deleteCatalogItem(
+      orgId,
+      cid,
+      user.id,
+      req.orgMembership?.role,
+    );
   }
 
   @Post(':cid/assign')
@@ -134,18 +141,12 @@ export class ExamTracksController {
 
   @Delete('tracks/:tid')
   @OrgRoles('OWNER', 'ADMIN')
-  deleteTrack(
-    @Param('orgId') orgId: string,
-    @Param('tid') tid: string,
-  ) {
+  deleteTrack(@Param('orgId') orgId: string, @Param('tid') tid: string) {
     return this.catalogService.deleteTrack(orgId, tid);
   }
 
   @Get('my-assignments')
-  getMyAssignments(
-    @Param('orgId') orgId: string,
-    @CurrentUser() user: any,
-  ) {
+  getMyAssignments(@Param('orgId') orgId: string, @CurrentUser() user: any) {
     return this.catalogService.getMyAssignments(orgId, user.id);
   }
 }

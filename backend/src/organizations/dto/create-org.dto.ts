@@ -1,4 +1,10 @@
-import { IsString, IsOptional, MaxLength, IsNotEmpty, IsUrl } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  MaxLength,
+  IsNotEmpty,
+  IsUrl,
+} from 'class-validator';
 
 export class CreateOrgDto {
   @IsString()

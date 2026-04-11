@@ -5,9 +5,9 @@ import { GamificationModule } from '../gamification/gamification.module';
 import { ExamsModule } from '../exams/exams.module';
 
 @Module({
-    imports: [GamificationModule, ExamsModule],
-    controllers: [AttemptsController],
-    providers: [AttemptsService],
-    exports: [AttemptsService],
+  imports: [GamificationModule, ExamsModule],
+  controllers: [AttemptsController],
+  providers: [AttemptsService],
+  exports: [AttemptsService],
 })
-export class AttemptsModule { }
+export class AttemptsModule {}

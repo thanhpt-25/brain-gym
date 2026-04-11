@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Put, Delete, Body, UseGuards, Req, Param } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Put,
+  Delete,
+  Body,
+  UseGuards,
+  Req,
+  Param,
+} from '@nestjs/common';
 import { CaptureService } from './capture.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateCaptureDto } from './dto/create-capture.dto';

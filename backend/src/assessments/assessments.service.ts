@@ -116,7 +116,11 @@ export class AssessmentsService {
     return assessment;
   }
 
-  async update(slugOrId: string, assessmentId: string, dto: UpdateAssessmentDto) {
+  async update(
+    slugOrId: string,
+    assessmentId: string,
+    dto: UpdateAssessmentDto,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, orgId },
@@ -145,15 +149,31 @@ export class AssessmentsService {
         where: { id: assessmentId },
         data: {
           ...(dto.title !== undefined && { title: dto.title }),
-          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
           ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
-          ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
-          ...(dto.randomizeQuestions !== undefined && { randomizeQuestions: dto.randomizeQuestions }),
-          ...(dto.randomizeChoices !== undefined && { randomizeChoices: dto.randomizeChoices }),
-          ...(dto.detectTabSwitch !== undefined && { detectTabSwitch: dto.detectTabSwitch }),
-          ...(dto.blockCopyPaste !== undefined && { blockCopyPaste: dto.blockCopyPaste }),
-          ...(dto.linkExpiryHours !== undefined && { linkExpiryHours: dto.linkExpiryHours }),
-          ...(dto.questions !== undefined && { questionCount: dto.questions.length }),
+          ...(dto.passingScore !== undefined && {
+            passingScore: dto.passingScore,
+          }),
+          ...(dto.randomizeQuestions !== undefined && {
+            randomizeQuestions: dto.randomizeQuestions,
+          }),
+          ...(dto.randomizeChoices !== undefined && {
+            randomizeChoices: dto.randomizeChoices,
+          }),
+          ...(dto.detectTabSwitch !== undefined && {
+            detectTabSwitch: dto.detectTabSwitch,
+          }),
+          ...(dto.blockCopyPaste !== undefined && {
+            blockCopyPaste: dto.blockCopyPaste,
+          }),
+          ...(dto.linkExpiryHours !== undefined && {
+            linkExpiryHours: dto.linkExpiryHours,
+          }),
+          ...(dto.questions !== undefined && {
+            questionCount: dto.questions.length,
+          }),
         },
         include: {
           _count: { select: { questions: true, candidateInvites: true } },
@@ -162,7 +182,11 @@ export class AssessmentsService {
     });
   }
 
-  async updateStatus(slugOrId: string, assessmentId: string, status: AssessmentStatus) {
+  async updateStatus(
+    slugOrId: string,
+    assessmentId: string,
+    status: AssessmentStatus,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, orgId },
@@ -170,8 +194,13 @@ export class AssessmentsService {
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
-    if (status === AssessmentStatus.ACTIVE && assessment._count.questions === 0) {
-      throw new BadRequestException('Cannot activate assessment with no questions');
+    if (
+      status === AssessmentStatus.ACTIVE &&
+      assessment._count.questions === 0
+    ) {
+      throw new BadRequestException(
+        'Cannot activate assessment with no questions',
+      );
     }
 
     return this.prisma.assessment.update({
@@ -180,14 +209,20 @@ export class AssessmentsService {
     });
   }
 
-  async inviteCandidates(slugOrId: string, assessmentId: string, dto: InviteCandidateDto) {
+  async inviteCandidates(
+    slugOrId: string,
+    assessmentId: string,
+    dto: InviteCandidateDto,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, orgId },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
     if (assessment.status !== AssessmentStatus.ACTIVE) {
-      throw new BadRequestException('Assessment must be ACTIVE to invite candidates');
+      throw new BadRequestException(
+        'Assessment must be ACTIVE to invite candidates',
+      );
     }
 
     const invites = await this.prisma.$transaction(
@@ -237,9 +272,13 @@ export class AssessmentsService {
     const total = invites.length;
     const started = invites.filter((i) => i.status !== 'INVITED').length;
     const submitted = invites.filter((i) => i.status === 'SUBMITTED').length;
-    const passed = assessment.passingScore != null
-      ? invites.filter((i) => i.score != null && Number(i.score) >= assessment.passingScore!).length
-      : null;
+    const passed =
+      assessment.passingScore != null
+        ? invites.filter(
+            (i) =>
+              i.score != null && Number(i.score) >= assessment.passingScore!,
+          ).length
+        : null;
 
     return {
       assessment,
@@ -250,7 +289,8 @@ export class AssessmentsService {
 
   async exportCsv(slugOrId: string, assessmentId: string): Promise<string> {
     const results = await this.getResults(slugOrId, assessmentId);
-    const header = 'Name,Email,Status,Score (%),Total Correct,Total Questions,Time Spent (s),Tab Switches,Started At,Submitted At';
+    const header =
+      'Name,Email,Status,Score (%),Total Correct,Total Questions,Time Spent (s),Tab Switches,Started At,Submitted At';
     const rows = results.candidates.map((c) =>
       [
         c.candidateName ?? '',

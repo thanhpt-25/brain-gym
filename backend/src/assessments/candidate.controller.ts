@@ -1,6 +1,4 @@
-import {
-  Controller, Get, Post, Param, Body, Ip,
-} from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Ip } from '@nestjs/common';
 import { CandidateService } from './candidate.service';
 import { CandidateSubmitDto } from './dto/candidate-submit.dto';
 import { SkipThrottle } from '@nestjs/throttler';
@@ -19,10 +17,7 @@ export class CandidateController {
 
   @Post(':token/start')
   @Public()
-  startAttempt(
-    @Param('token') token: string,
-    @Ip() ip: string,
-  ) {
+  startAttempt(@Param('token') token: string, @Ip() ip: string) {
     return this.service.startAttempt(token, ip);
   }
 

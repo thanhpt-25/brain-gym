@@ -50,9 +50,13 @@ describe('Certifications CRUD (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.certification.deleteMany({ where: { code: { startsWith: 'E2E-' } } });
+    await prisma.certification.deleteMany({
+      where: { code: { startsWith: 'E2E-' } },
+    });
     await prisma.provider.deleteMany({ where: { slug: 'e2e-test-provider' } });
-    await prisma.user.deleteMany({ where: { email: 'e2e-cert-admin@test.com' } });
+    await prisma.user.deleteMany({
+      where: { email: 'e2e-cert-admin@test.com' },
+    });
     await prisma.$disconnect();
     await app.close();
   });
@@ -79,7 +83,9 @@ describe('Certifications CRUD (e2e)', () => {
     const listRes = await request(app.getHttpServer())
       .get('/certifications')
       .expect(200);
-    expect(listRes.body.some((c: { id: string }) => c.id === certId)).toBeTruthy();
+    expect(
+      listRes.body.some((c: { id: string }) => c.id === certId),
+    ).toBeTruthy();
 
     // 3. Update (PUT)
     const updateRes = await request(app.getHttpServer())
@@ -105,14 +111,18 @@ describe('Certifications CRUD (e2e)', () => {
     const publicList = await request(app.getHttpServer())
       .get('/certifications')
       .expect(200);
-    expect(publicList.body.some((c: { id: string }) => c.id === certId)).toBeFalsy();
+    expect(
+      publicList.body.some((c: { id: string }) => c.id === certId),
+    ).toBeFalsy();
 
     // Verify in admin list
     const adminList = await request(app.getHttpServer())
       .get('/certifications?includeInactive=true')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
-    expect(adminList.body.some((c: { id: string }) => c.id === certId)).toBeTruthy();
+    expect(
+      adminList.body.some((c: { id: string }) => c.id === certId),
+    ).toBeTruthy();
   });
 
   it('should enforce code uniqueness', async () => {

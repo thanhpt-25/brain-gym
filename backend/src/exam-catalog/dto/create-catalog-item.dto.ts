@@ -1,6 +1,17 @@
 import {
-  IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, IsBoolean,
-  IsUUID, IsDateString, MaxLength, Min, Max, IsArray, ValidateNested,
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  IsBoolean,
+  IsUUID,
+  IsDateString,
+  MaxLength,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ExamCatalogItemType, TimerMode } from '@prisma/client';

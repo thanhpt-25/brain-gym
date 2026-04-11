@@ -65,7 +65,9 @@ describe('Flashcards (e2e)', () => {
       .expect(200);
 
     expect(listDecksResponse.body).toBeInstanceOf(Array);
-    expect(listDecksResponse.body.some((d: { id: string }) => d.id === deckId)).toBeTruthy();
+    expect(
+      listDecksResponse.body.some((d: { id: string }) => d.id === deckId),
+    ).toBeTruthy();
   });
 
   it('should create and review flashcards', async () => {

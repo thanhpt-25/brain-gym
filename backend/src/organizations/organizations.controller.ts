@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrgDto } from './dto/create-org.dto';
@@ -20,7 +30,10 @@ export class OrganizationsController {
 
   @Post()
   @ApiOperation({ summary: 'Create organization (caller becomes OWNER)' })
-  create(@CurrentUser('id') userId: string, @Body() createOrgDto: CreateOrgDto) {
+  create(
+    @CurrentUser('id') userId: string,
+    @Body() createOrgDto: CreateOrgDto,
+  ) {
     return this.organizationsService.create(userId, createOrgDto);
   }
 
@@ -32,7 +45,10 @@ export class OrganizationsController {
 
   @Post('accept-invite/:token')
   @ApiOperation({ summary: 'Accept email invitation' })
-  acceptInvite(@CurrentUser('id') userId: string, @Param('token') token: string) {
+  acceptInvite(
+    @CurrentUser('id') userId: string,
+    @Param('token') token: string,
+  ) {
     return this.organizationsService.acceptInvite(userId, token);
   }
 
@@ -70,8 +86,16 @@ export class OrganizationsController {
   @Get(':orgId/members')
   @UseGuards(OrgRoleGuard)
   @ApiOperation({ summary: 'List members (paginated)' })
-  findMembers(@Param('orgId') orgId: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.organizationsService.findMembers(orgId, page ? +page : 1, limit ? +limit : 20);
+  findMembers(
+    @Param('orgId') orgId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.organizationsService.findMembers(
+      orgId,
+      page ? +page : 1,
+      limit ? +limit : 20,
+    );
   }
 
   @Post(':orgId/members/invite')
@@ -114,7 +138,10 @@ export class OrganizationsController {
   @UseGuards(OrgRoleGuard)
   @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN)
   @ApiOperation({ summary: 'Remove member' })
-  removeMember(@Param('orgId') orgId: string, @Param('userId') targetUserId: string) {
+  removeMember(
+    @Param('orgId') orgId: string,
+    @Param('userId') targetUserId: string,
+  ) {
     return this.organizationsService.removeMember(orgId, targetUserId);
   }
 
@@ -122,7 +149,10 @@ export class OrganizationsController {
   @UseGuards(OrgRoleGuard)
   @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN)
   @ApiOperation({ summary: 'Generate join link' })
-  createJoinLink(@Param('orgId') orgId: string, @Body() dto: CreateJoinLinkDto) {
+  createJoinLink(
+    @Param('orgId') orgId: string,
+    @Body() dto: CreateJoinLinkDto,
+  ) {
     return this.organizationsService.createJoinLink(orgId, dto);
   }
 

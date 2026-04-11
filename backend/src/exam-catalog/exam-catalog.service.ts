@@ -23,7 +23,11 @@ export class ExamCatalogService {
 
   // ─── Catalog Items ────────────────────────────────────────────────────────
 
-  async listCatalog(slugOrId: string, adminView: boolean, query: ListCatalogDto) {
+  async listCatalog(
+    slugOrId: string,
+    adminView: boolean,
+    query: ListCatalogDto,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -33,16 +37,10 @@ export class ExamCatalogService {
     if (!adminView) {
       const now = new Date();
       where.isActive = true;
-      where.OR = [
-        { availableFrom: null },
-        { availableFrom: { lte: now } },
-      ];
+      where.OR = [{ availableFrom: null }, { availableFrom: { lte: now } }];
       where.AND = [
         {
-          OR: [
-            { availableUntil: null },
-            { availableUntil: { gte: now } },
-          ],
+          OR: [{ availableUntil: null }, { availableUntil: { gte: now } }],
         },
       ];
     }
@@ -101,7 +99,11 @@ export class ExamCatalogService {
     return item;
   }
 
-  async createCatalogItem(slugOrId: string, userId: string, dto: CreateCatalogItemDto) {
+  async createCatalogItem(
+    slugOrId: string,
+    userId: string,
+    dto: CreateCatalogItemDto,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
 
     return this.prisma.$transaction(async (tx) => {
@@ -117,8 +119,12 @@ export class ExamCatalogService {
           passingScore: dto.passingScore,
           timerMode: dto.timerMode ?? TimerMode.STRICT,
           maxAttempts: dto.maxAttempts,
-          availableFrom: dto.availableFrom ? new Date(dto.availableFrom) : undefined,
-          availableUntil: dto.availableUntil ? new Date(dto.availableUntil) : undefined,
+          availableFrom: dto.availableFrom
+            ? new Date(dto.availableFrom)
+            : undefined,
+          availableUntil: dto.availableUntil
+            ? new Date(dto.availableUntil)
+            : undefined,
           isMandatory: dto.isMandatory ?? false,
           isActive: dto.isActive ?? true,
           sortOrder: dto.sortOrder ?? 0,
@@ -159,7 +165,9 @@ export class ExamCatalogService {
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.questions !== undefined) {
-        await tx.examCatalogQuestion.deleteMany({ where: { catalogItemId: cid } });
+        await tx.examCatalogQuestion.deleteMany({
+          where: { catalogItemId: cid },
+        });
         if (dto.questions.length > 0) {
           await tx.examCatalogQuestion.createMany({
             data: dto.questions.map((q, i) => ({
@@ -176,21 +184,43 @@ export class ExamCatalogService {
         where: { id: cid },
         data: {
           ...(dto.title !== undefined && { title: dto.title }),
-          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
           ...(dto.type !== undefined && { type: dto.type }),
-          ...(dto.certificationId !== undefined && { certificationId: dto.certificationId }),
-          ...(dto.questionCount !== undefined && { questionCount: dto.questionCount }),
+          ...(dto.certificationId !== undefined && {
+            certificationId: dto.certificationId,
+          }),
+          ...(dto.questionCount !== undefined && {
+            questionCount: dto.questionCount,
+          }),
           ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
-          ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
+          ...(dto.passingScore !== undefined && {
+            passingScore: dto.passingScore,
+          }),
           ...(dto.timerMode !== undefined && { timerMode: dto.timerMode }),
-          ...(dto.maxAttempts !== undefined && { maxAttempts: dto.maxAttempts }),
-          ...(dto.availableFrom !== undefined && { availableFrom: dto.availableFrom ? new Date(dto.availableFrom) : null }),
-          ...(dto.availableUntil !== undefined && { availableUntil: dto.availableUntil ? new Date(dto.availableUntil) : null }),
-          ...(dto.isMandatory !== undefined && { isMandatory: dto.isMandatory }),
+          ...(dto.maxAttempts !== undefined && {
+            maxAttempts: dto.maxAttempts,
+          }),
+          ...(dto.availableFrom !== undefined && {
+            availableFrom: dto.availableFrom
+              ? new Date(dto.availableFrom)
+              : null,
+          }),
+          ...(dto.availableUntil !== undefined && {
+            availableUntil: dto.availableUntil
+              ? new Date(dto.availableUntil)
+              : null,
+          }),
+          ...(dto.isMandatory !== undefined && {
+            isMandatory: dto.isMandatory,
+          }),
           ...(dto.isActive !== undefined && { isActive: dto.isActive }),
           ...(dto.sortOrder !== undefined && { sortOrder: dto.sortOrder }),
           ...(dto.trackId !== undefined && { trackId: dto.trackId }),
-          ...(dto.prerequisiteId !== undefined && { prerequisiteId: dto.prerequisiteId }),
+          ...(dto.prerequisiteId !== undefined && {
+            prerequisiteId: dto.prerequisiteId,
+          }),
         },
         include: {
           certification: { select: { id: true, name: true, code: true } },
@@ -201,7 +231,12 @@ export class ExamCatalogService {
     });
   }
 
-  async deleteCatalogItem(slugOrId: string, cid: string, userId: string, role: string) {
+  async deleteCatalogItem(
+    slugOrId: string,
+    cid: string,
+    userId: string,
+    role: string,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const item = await this.prisma.examCatalogItem.findFirst({
       where: { id: cid, orgId },
@@ -279,7 +314,8 @@ export class ExamCatalogService {
       },
     });
 
-    if (!item) throw new NotFoundException('Catalog item not found or inactive');
+    if (!item)
+      throw new NotFoundException('Catalog item not found or inactive');
 
     // Validate availability window
     const now = new Date();
@@ -292,7 +328,9 @@ export class ExamCatalogService {
 
     // Check certification required for Exam creation
     if (!item.certificationId) {
-      throw new BadRequestException('Catalog item must have a certificationId to start an exam');
+      throw new BadRequestException(
+        'Catalog item must have a certificationId to start an exam',
+      );
     }
 
     // Check max attempts
@@ -320,11 +358,15 @@ export class ExamCatalogService {
         where: {
           userId,
           exam: { title: { startsWith: `[catalog:${item.prerequisiteId}]` } },
-          score: prereq?.passingScore ? { gte: prereq.passingScore } : { not: null },
+          score: prereq?.passingScore
+            ? { gte: prereq.passingScore }
+            : { not: null },
         },
       });
       if (!hasPassed) {
-        throw new BadRequestException('You must complete the prerequisite exam first');
+        throw new BadRequestException(
+          'You must complete the prerequisite exam first',
+        );
       }
     }
 
@@ -361,7 +403,9 @@ export class ExamCatalogService {
     }
 
     if (questions.length === 0) {
-      throw new BadRequestException('No questions available for this catalog exam');
+      throw new BadRequestException(
+        'No questions available for this catalog exam',
+      );
     }
 
     // Create a transient Exam + ExamAttempt
@@ -407,11 +451,13 @@ export class ExamCatalogService {
         domain: q.domain,
         isScenario: q.isScenario,
         tags: q.tags?.map((t: any) => t.tag?.name ?? t) ?? [],
-        choices: [...(q.choices ?? [])].sort(() => Math.random() - 0.5).map((c: any) => ({
-          id: c.id,
-          label: c.label,
-          content: c.content,
-        })),
+        choices: [...(q.choices ?? [])]
+          .sort(() => Math.random() - 0.5)
+          .map((c: any) => ({
+            id: c.id,
+            label: c.label,
+            content: c.content,
+          })),
         sortOrder: index,
       }));
 
@@ -471,13 +517,16 @@ export class ExamCatalogService {
           select: { score: true, status: true },
         });
 
-        const submitted = attemptsRaw.filter((att) => att.status === 'SUBMITTED');
+        const submitted = attemptsRaw.filter(
+          (att) => att.status === 'SUBMITTED',
+        );
         const bestScore = submitted.length
           ? Math.max(...submitted.map((att) => Number(att.score ?? 0)))
           : null;
-        const passed = a.catalogItem.passingScore != null
-          ? (bestScore ?? 0) >= a.catalogItem.passingScore
-          : null;
+        const passed =
+          a.catalogItem.passingScore != null
+            ? (bestScore ?? 0) >= a.catalogItem.passingScore
+            : null;
 
         return {
           ...a,

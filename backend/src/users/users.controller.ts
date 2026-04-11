@@ -1,5 +1,19 @@
-import { Controller, Get, Put, Body, Param, Query, Req, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Put,
+  Body,
+  Param,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -51,7 +65,11 @@ export class UsersController {
     @Query('search') search?: string,
     @Query() pagination?: PaginationDto,
   ) {
-    return this.usersService.findAll(search, pagination?.page, pagination?.limit);
+    return this.usersService.findAll(
+      search,
+      pagination?.page,
+      pagination?.limit,
+    );
   }
 
   @Put(':id/role')
@@ -59,7 +77,11 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change user role (admin only)' })
-  async updateRole(@Req() req: any, @Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
+  async updateRole(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
     const result = await this.usersService.updateRole(id, dto.role);
     await this.auditService.log({
       userId: req.user.sub || req.user.id,
@@ -76,8 +98,16 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Suspend a user (admin only)' })
-  async suspendUser(@Req() req: any, @Param('id') id: string, @Body() dto: SuspendUserDto) {
-    const result = await this.usersService.suspendUser(id, dto.reason, dto.suspendedUntil);
+  async suspendUser(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: SuspendUserDto,
+  ) {
+    const result = await this.usersService.suspendUser(
+      id,
+      dto.reason,
+      dto.suspendedUntil,
+    );
     await this.auditService.log({
       userId: req.user.sub || req.user.id,
       action: 'USER_SUSPENDED',
@@ -93,7 +123,11 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Ban a user (admin only)' })
-  async banUser(@Req() req: any, @Param('id') id: string, @Body() dto: BanUserDto) {
+  async banUser(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: BanUserDto,
+  ) {
     const result = await this.usersService.banUser(id, dto.reason);
     await this.auditService.log({
       userId: req.user.sub || req.user.id,
@@ -126,7 +160,11 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Adjust user points (admin only)' })
-  async adjustPoints(@Req() req: any, @Param('id') id: string, @Body() body: { amount: number; reason?: string }) {
+  async adjustPoints(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { amount: number; reason?: string },
+  ) {
     const result = await this.usersService.adjustPoints(id, body.amount);
     await this.auditService.log({
       userId: req.user.sub || req.user.id,

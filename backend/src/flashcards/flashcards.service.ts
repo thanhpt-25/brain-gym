@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDeckDto } from './dto/create-deck.dto';
 import { UpdateDeckDto } from './dto/update-deck.dto';
@@ -70,7 +74,9 @@ export class FlashcardsService {
   // ==================== FLASHCARDS ====================
 
   async createFlashcard(userId: string, dto: CreateFlashcardDto) {
-    const deck = await this.prisma.deck.findUnique({ where: { id: dto.deckId } });
+    const deck = await this.prisma.deck.findUnique({
+      where: { id: dto.deckId },
+    });
     if (!deck) throw new NotFoundException('Deck not found');
     if (deck.userId !== userId) throw new ForbiddenException('Access denied');
 
@@ -86,7 +92,8 @@ export class FlashcardsService {
     });
 
     if (!card) throw new NotFoundException('Flashcard not found');
-    if (card.deck.userId !== userId) throw new ForbiddenException('Access denied');
+    if (card.deck.userId !== userId)
+      throw new ForbiddenException('Access denied');
 
     return card;
   }
@@ -135,7 +142,8 @@ export class FlashcardsService {
         interval = Math.round(prevInterval * prevEF);
       }
       repetitions = prevReps + 1;
-      easeFactor = prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      easeFactor =
+        prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
     } else {
       repetitions = 0;
       interval = 1;
@@ -169,7 +177,7 @@ export class FlashcardsService {
 
     const nextReviewDate = new Date();
     nextReviewDate.setDate(nextReviewDate.getDate() + interval);
-    
+
     // Determine mastery level
     let mastery: 'NEW' | 'LEARNING' | 'REVIEW' | 'MASTERED' = 'NEW';
     if (repetitions === 0) mastery = 'NEW';
@@ -200,7 +208,7 @@ export class FlashcardsService {
 
   async getDueReviews(userId: string, deckId?: string) {
     const today = new Date();
-    
+
     // 1. Get scheduled due cards
     const scheduledWhere: any = {
       userId,
@@ -211,23 +219,25 @@ export class FlashcardsService {
       scheduledWhere.flashcard = { deckId };
     }
 
-    const scheduledReviews = await this.prisma.flashcardReviewSchedule.findMany({
-      where: scheduledWhere,
-      include: {
-        flashcard: {
-          include: { deck: true },
+    const scheduledReviews = await this.prisma.flashcardReviewSchedule.findMany(
+      {
+        where: scheduledWhere,
+        include: {
+          flashcard: {
+            include: { deck: true },
+          },
         },
+        orderBy: { nextReviewDate: 'asc' },
+        take: 20, // max 20 due cards per session to avoid overwhelming
       },
-      orderBy: { nextReviewDate: 'asc' },
-      take: 20, // max 20 due cards per session to avoid overwhelming
-    });
+    );
 
     // 2. Get NEW cards (cards that have NO schedule at all)
     const newCardsWhere: any = {
       deck: { userId },
       schedule: null,
     };
-    
+
     if (deckId) {
       newCardsWhere.deckId = deckId;
     }
@@ -239,7 +249,7 @@ export class FlashcardsService {
     });
 
     // 3. Format new cards to match the expected return type
-    const newReviews = newCards.map(flashcard => ({
+    const newReviews = newCards.map((flashcard) => ({
       id: `new-${flashcard.id}`,
       userId,
       flashcardId: flashcard.id,
@@ -274,11 +284,13 @@ export class FlashcardsService {
     return {
       totalFlashcards,
       dueToday,
-      masteryBreakdown: masteryBreakdown.reduce((acc, curr) => {
-        acc[curr.mastery] = curr._count;
-        return acc;
-      }, {} as Record<string, number>),
+      masteryBreakdown: masteryBreakdown.reduce(
+        (acc, curr) => {
+          acc[curr.mastery] = curr._count;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
     };
   }
 }
-

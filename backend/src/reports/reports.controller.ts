@@ -1,5 +1,20 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
@@ -36,7 +51,11 @@ export class ReportsController {
     @Query('status') status?: string,
     @Query() pagination?: PaginationDto,
   ) {
-    return this.reportsService.findAll(status, pagination?.page, pagination?.limit);
+    return this.reportsService.findAll(
+      status,
+      pagination?.page,
+      pagination?.limit,
+    );
   }
 
   @Put('reports/:id')

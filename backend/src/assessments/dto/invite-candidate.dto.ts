@@ -1,5 +1,9 @@
 import {
-  IsArray, IsEmail, IsOptional, IsString, ValidateNested,
+  IsArray,
+  IsEmail,
+  IsOptional,
+  IsString,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 

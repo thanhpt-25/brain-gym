@@ -1,4 +1,10 @@
-import { IsEmail, IsEnum, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+  ArrayMinSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { OrgRole } from '@prisma/client';
 

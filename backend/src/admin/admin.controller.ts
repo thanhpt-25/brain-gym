@@ -1,6 +1,24 @@
-import { Controller, Get, Post, Put, Delete, Patch, UseGuards, Query, Param, Body, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Patch,
+  UseGuards,
+  Query,
+  Param,
+  Body,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { AuditService } from '../audit/audit.service';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -29,7 +47,11 @@ export class AdminController {
   @ApiOperation({ summary: 'List all exams (admin view)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'visibility', required: false, enum: ['PUBLIC', 'PRIVATE', 'LINK'] })
+  @ApiQuery({
+    name: 'visibility',
+    required: false,
+    enum: ['PUBLIC', 'PRIVATE', 'LINK'],
+  })
   getExams(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -46,7 +68,11 @@ export class AdminController {
   @ApiOperation({ summary: 'List all AI generation jobs' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'],
+  })
   getGenerationJobs(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -103,20 +129,44 @@ export class AdminController {
 
   @Post('domains')
   @ApiOperation({ summary: 'Create a domain for a certification' })
-  createDomain(@Req() req: any, @Body() body: { name: string; certificationId: string; description?: string; weight?: number }) {
+  createDomain(
+    @Req() req: any,
+    @Body()
+    body: {
+      name: string;
+      certificationId: string;
+      description?: string;
+      weight?: number;
+    },
+  ) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.createDomain(body).then(async (domain) => {
-      await this.auditService.log({ userId: adminId, action: 'CREATE_DOMAIN', targetType: 'Domain', targetId: domain.id, metadata: { name: domain.name } });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'CREATE_DOMAIN',
+        targetType: 'Domain',
+        targetId: domain.id,
+        metadata: { name: domain.name },
+      });
       return domain;
     });
   }
 
   @Put('domains/:id')
   @ApiOperation({ summary: 'Update a domain' })
-  updateDomain(@Req() req: any, @Param('id') id: string, @Body() body: { name?: string; description?: string; weight?: number }) {
+  updateDomain(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { name?: string; description?: string; weight?: number },
+  ) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.updateDomain(id, body).then(async (domain) => {
-      await this.auditService.log({ userId: adminId, action: 'UPDATE_DOMAIN', targetType: 'Domain', targetId: id });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'UPDATE_DOMAIN',
+        targetType: 'Domain',
+        targetId: id,
+      });
       return domain;
     });
   }
@@ -126,27 +176,49 @@ export class AdminController {
   deleteDomain(@Req() req: any, @Param('id') id: string) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.deleteDomain(id).then(async () => {
-      await this.auditService.log({ userId: adminId, action: 'DELETE_DOMAIN', targetType: 'Domain', targetId: id });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'DELETE_DOMAIN',
+        targetType: 'Domain',
+        targetId: id,
+      });
       return { message: 'Domain deleted' };
     });
   }
 
   @Put('domains/reorder')
   @ApiOperation({ summary: 'Reorder domains within a certification' })
-  reorderDomains(@Body() body: { certificationId: string; orderedIds: string[] }) {
-    return this.adminService.reorderDomains(body.certificationId, body.orderedIds);
+  reorderDomains(
+    @Body() body: { certificationId: string; orderedIds: string[] },
+  ) {
+    return this.adminService.reorderDomains(
+      body.certificationId,
+      body.orderedIds,
+    );
   }
 
   // ─── Exam Visibility ─────────────────────────────────────────────────────────
 
   @Patch('exams/:id/visibility')
   @ApiOperation({ summary: 'Update exam visibility' })
-  updateExamVisibility(@Req() req: any, @Param('id') id: string, @Body() body: { visibility: string }) {
+  updateExamVisibility(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { visibility: string },
+  ) {
     const adminId = req.user.sub || req.user.id;
-    return this.adminService.updateExamVisibility(id, body.visibility).then(async (exam) => {
-      await this.auditService.log({ userId: adminId, action: 'UPDATE_EXAM_VISIBILITY', targetType: 'Exam', targetId: id, metadata: { visibility: body.visibility } });
-      return exam;
-    });
+    return this.adminService
+      .updateExamVisibility(id, body.visibility)
+      .then(async (exam) => {
+        await this.auditService.log({
+          userId: adminId,
+          action: 'UPDATE_EXAM_VISIBILITY',
+          targetType: 'Exam',
+          targetId: id,
+          metadata: { visibility: body.visibility },
+        });
+        return exam;
+      });
   }
 
   // ─── Source Materials ─────────────────────────────────────────────────────────
@@ -155,7 +227,10 @@ export class AdminController {
   @ApiOperation({ summary: 'List all source materials (admin view)' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  getSourceMaterials(@Query('page') page?: string, @Query('limit') limit?: string) {
+  getSourceMaterials(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     return this.adminService.getSourceMaterials({
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
@@ -167,7 +242,12 @@ export class AdminController {
   deleteSourceMaterial(@Req() req: any, @Param('id') id: string) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.deleteSourceMaterial(id).then(async () => {
-      await this.auditService.log({ userId: adminId, action: 'DELETE_SOURCE_MATERIAL', targetType: 'SourceMaterial', targetId: id });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'DELETE_SOURCE_MATERIAL',
+        targetType: 'SourceMaterial',
+        targetId: id,
+      });
       return { message: 'Source material deleted' };
     });
   }
@@ -176,20 +256,50 @@ export class AdminController {
 
   @Post('badges')
   @ApiOperation({ summary: 'Create a badge' })
-  createBadge(@Req() req: any, @Body() body: { name: string; description?: string; iconUrl?: string; criteria?: any }) {
+  createBadge(
+    @Req() req: any,
+    @Body()
+    body: {
+      name: string;
+      description?: string;
+      iconUrl?: string;
+      criteria?: any;
+    },
+  ) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.createBadge(body).then(async (badge) => {
-      await this.auditService.log({ userId: adminId, action: 'CREATE_BADGE', targetType: 'Badge', targetId: badge.id, metadata: { name: badge.name } });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'CREATE_BADGE',
+        targetType: 'Badge',
+        targetId: badge.id,
+        metadata: { name: badge.name },
+      });
       return badge;
     });
   }
 
   @Put('badges/:id')
   @ApiOperation({ summary: 'Update a badge' })
-  updateBadge(@Req() req: any, @Param('id') id: string, @Body() body: { name?: string; description?: string; iconUrl?: string; criteria?: any }) {
+  updateBadge(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      description?: string;
+      iconUrl?: string;
+      criteria?: any;
+    },
+  ) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.updateBadge(id, body).then(async (badge) => {
-      await this.auditService.log({ userId: adminId, action: 'UPDATE_BADGE', targetType: 'Badge', targetId: id });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'UPDATE_BADGE',
+        targetType: 'Badge',
+        targetId: id,
+      });
       return badge;
     });
   }
@@ -199,27 +309,52 @@ export class AdminController {
   deleteBadge(@Req() req: any, @Param('id') id: string) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.deleteBadge(id).then(async () => {
-      await this.auditService.log({ userId: adminId, action: 'DELETE_BADGE', targetType: 'Badge', targetId: id });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'DELETE_BADGE',
+        targetType: 'Badge',
+        targetId: id,
+      });
       return { message: 'Badge deleted' };
     });
   }
 
   @Post('badges/:id/award')
   @ApiOperation({ summary: 'Manually award a badge to a user' })
-  awardBadge(@Req() req: any, @Param('id') id: string, @Body() body: { userId: string }) {
+  awardBadge(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { userId: string },
+  ) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.awardBadge(id, body.userId).then(async (award) => {
-      await this.auditService.log({ userId: adminId, action: 'AWARD_BADGE', targetType: 'Badge', targetId: id, metadata: { awardedTo: body.userId } });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'AWARD_BADGE',
+        targetType: 'Badge',
+        targetId: id,
+        metadata: { awardedTo: body.userId },
+      });
       return award;
     });
   }
 
   @Delete('badges/:id/awards/:userId')
   @ApiOperation({ summary: 'Revoke a badge from a user' })
-  revokeBadge(@Req() req: any, @Param('id') id: string, @Param('userId') userId: string) {
+  revokeBadge(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+  ) {
     const adminId = req.user.sub || req.user.id;
     return this.adminService.revokeBadge(id, userId).then(async () => {
-      await this.auditService.log({ userId: adminId, action: 'REVOKE_BADGE', targetType: 'Badge', targetId: id, metadata: { revokedFrom: userId } });
+      await this.auditService.log({
+        userId: adminId,
+        action: 'REVOKE_BADGE',
+        targetType: 'Badge',
+        targetId: id,
+        metadata: { revokedFrom: userId },
+      });
       return { message: 'Badge revoked' };
     });
   }
@@ -234,28 +369,66 @@ export class AdminController {
 
   @Post('questions/bulk-status')
   @ApiOperation({ summary: 'Bulk approve or reject questions' })
-  async bulkQuestionStatus(@Req() req: any, @Body() body: { ids: string[]; status: string }) {
+  async bulkQuestionStatus(
+    @Req() req: any,
+    @Body() body: { ids: string[]; status: string },
+  ) {
     const adminId = req.user.sub || req.user.id;
-    const result = await this.adminService.bulkUpdateQuestionStatus(body.ids, body.status);
-    await this.auditService.log({ userId: adminId, action: 'BULK_QUESTION_STATUS', targetType: 'Question', targetId: 'bulk', metadata: { ids: body.ids, status: body.status, count: body.ids.length } });
+    const result = await this.adminService.bulkUpdateQuestionStatus(
+      body.ids,
+      body.status,
+    );
+    await this.auditService.log({
+      userId: adminId,
+      action: 'BULK_QUESTION_STATUS',
+      targetType: 'Question',
+      targetId: 'bulk',
+      metadata: { ids: body.ids, status: body.status, count: body.ids.length },
+    });
     return result;
   }
 
   @Post('users/bulk-role')
   @ApiOperation({ summary: 'Bulk update user roles' })
-  async bulkUserRole(@Req() req: any, @Body() body: { userIds: string[]; role: string }) {
+  async bulkUserRole(
+    @Req() req: any,
+    @Body() body: { userIds: string[]; role: string },
+  ) {
     const adminId = req.user.sub || req.user.id;
-    const result = await this.adminService.bulkUpdateUserRole(body.userIds, body.role);
-    await this.auditService.log({ userId: adminId, action: 'BULK_USER_ROLE', targetType: 'User', targetId: 'bulk', metadata: { userIds: body.userIds, role: body.role, count: body.userIds.length } });
+    const result = await this.adminService.bulkUpdateUserRole(
+      body.userIds,
+      body.role,
+    );
+    await this.auditService.log({
+      userId: adminId,
+      action: 'BULK_USER_ROLE',
+      targetType: 'User',
+      targetId: 'bulk',
+      metadata: {
+        userIds: body.userIds,
+        role: body.role,
+        count: body.userIds.length,
+      },
+    });
     return result;
   }
 
   @Patch('users/:userId/plan')
   @ApiOperation({ summary: 'Upgrade or change user plan' })
-  async updateUserPlan(@Req() req: any, @Param('userId') userId: string, @Body() body: { plan: string }) {
+  async updateUserPlan(
+    @Req() req: any,
+    @Param('userId') userId: string,
+    @Body() body: { plan: string },
+  ) {
     const adminId = req.user.sub || req.user.id;
     const result = await this.adminService.updateUserPlan(userId, body.plan);
-    await this.auditService.log({ userId: adminId, action: 'UPDATE_USER_PLAN', targetType: 'User', targetId: userId, metadata: { plan: body.plan } });
+    await this.auditService.log({
+      userId: adminId,
+      action: 'UPDATE_USER_PLAN',
+      targetType: 'User',
+      targetId: userId,
+      metadata: { plan: body.plan },
+    });
     return result;
   }
 
@@ -275,7 +448,10 @@ export class AdminController {
   async exportQuestions(@Res() res: Response) {
     const csv = await this.adminService.exportQuestions();
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="questions.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="questions.csv"',
+    );
     res.send(csv);
   }
 
@@ -284,7 +460,10 @@ export class AdminController {
   async exportAnalytics(@Res() res: Response) {
     const csv = await this.adminService.exportAnalytics();
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="analytics.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="analytics.csv"',
+    );
     res.send(csv);
   }
 }

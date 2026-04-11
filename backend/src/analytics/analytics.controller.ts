@@ -1,5 +1,21 @@
-import { Controller, Get, Param, Query, UseGuards, Req, Body, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiBody, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+  Body,
+  Patch,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
@@ -24,7 +40,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get aggregate stats for current user' })
   @ApiQuery({ name: 'certificationId', required: false })
   @ApiResponse({ status: 200, type: AnalyticsSummaryResponse })
-  getSummary(@Req() req: AuthenticatedRequest, @Query('certificationId') certificationId?: string) {
+  getSummary(
+    @Req() req: AuthenticatedRequest,
+    @Query('certificationId') certificationId?: string,
+  ) {
     const userId = req.user.id;
     return this.analyticsService.getSummary(userId, certificationId);
   }
@@ -44,13 +63,21 @@ export class AnalyticsController {
     @Query('limit') limit?: string,
   ) {
     const userId = req.user.id;
-    return this.analyticsService.getHistory(userId, certificationId, page ? +page : 1, limit ? +limit : 20);
+    return this.analyticsService.getHistory(
+      userId,
+      certificationId,
+      page ? +page : 1,
+      limit ? +limit : 20,
+    );
   }
 
   @Get('me/hesitation')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get questions where user hesitates (avg time > 2× per-question budget)' })
+  @ApiOperation({
+    summary:
+      'Get questions where user hesitates (avg time > 2× per-question budget)',
+  })
   getHesitationPatterns(@Req() req: AuthenticatedRequest) {
     const userId = req.user.id;
     return this.analyticsService.getHesitationPatterns(userId);
@@ -62,7 +89,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get per-domain performance across all attempts' })
   @ApiQuery({ name: 'certificationId', required: false })
   @ApiResponse({ status: 200, type: [DomainStatsResponse] })
-  getDomains(@Req() req: AuthenticatedRequest, @Query('certificationId') certificationId?: string) {
+  getDomains(
+    @Req() req: AuthenticatedRequest,
+    @Query('certificationId') certificationId?: string,
+  ) {
     const userId = req.user.id;
     return this.analyticsService.getDomains(userId, certificationId);
   }
@@ -80,12 +110,18 @@ export class AnalyticsController {
     @Query('topN') topN?: string,
   ) {
     const userId = req.user.id;
-    return this.analyticsService.getWeakTopics(userId, certificationId, topN ? +topN : 5);
+    return this.analyticsService.getWeakTopics(
+      userId,
+      certificationId,
+      topN ? +topN : 5,
+    );
   }
 
   @Get('questions/:id/stats')
   @Public()
-  @ApiOperation({ summary: 'Get question-level stats (attempt count, correct rate)' })
+  @ApiOperation({
+    summary: 'Get question-level stats (attempt count, correct rate)',
+  })
   getQuestionStats(@Param('id') id: string) {
     return this.analyticsService.getQuestionStats(id);
   }
@@ -95,7 +131,10 @@ export class AnalyticsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get readiness score for a specific certification' })
   @ApiResponse({ status: 200, type: ReadinessResponse })
-  getReadiness(@Req() req: AuthenticatedRequest, @Param('certificationId') certificationId: string) {
+  getReadiness(
+    @Req() req: AuthenticatedRequest,
+    @Param('certificationId') certificationId: string,
+  ) {
     const userId = req.user.id;
     return this.analyticsService.getReadiness(userId, certificationId);
   }
@@ -120,7 +159,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get mistake patterns aggregation' })
   @ApiQuery({ name: 'certificationId', required: false })
   @ApiResponse({ status: 200, type: MistakePatternsResponse })
-  getMistakePatterns(@Req() req: AuthenticatedRequest, @Query('certificationId') certificationId?: string) {
+  getMistakePatterns(
+    @Req() req: AuthenticatedRequest,
+    @Query('certificationId') certificationId?: string,
+  ) {
     const userId = req.user.id;
     return this.analyticsService.getMistakePatterns(userId, certificationId);
   }

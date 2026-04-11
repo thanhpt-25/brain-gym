@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { ExamCatalogController, ExamTracksController } from './exam-catalog.controller';
+import {
+  ExamCatalogController,
+  ExamTracksController,
+} from './exam-catalog.controller';
 import { ExamCatalogService } from './exam-catalog.service';
 import { OrganizationsModule } from '../organizations/organizations.module';
 

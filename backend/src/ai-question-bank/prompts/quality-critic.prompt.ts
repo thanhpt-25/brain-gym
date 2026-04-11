@@ -1,7 +1,7 @@
 import { RawGeneratedQuestion } from '../providers/llm-provider.interface';
 
 export function buildCriticSystemPrompt(): string {
-    return `You are a certification exam quality reviewer. Evaluate each question and return a numeric confidence score from 0.0 to 1.0.
+  return `You are a certification exam quality reviewer. Evaluate each question and return a numeric confidence score from 0.0 to 1.0.
 
 Scoring criteria:
 - 0.85–1.0 (HIGH): Exam-ready. Realistic scenario, plausible distractors, unambiguously correct answer, clear explanation.
@@ -11,8 +11,10 @@ Scoring criteria:
 You MUST respond with valid JSON only — no markdown, no extra text.`;
 }
 
-export function buildCriticUserPrompt(questions: RawGeneratedQuestion[]): string {
-    return `Review these ${questions.length} exam questions and score each one.
+export function buildCriticUserPrompt(
+  questions: RawGeneratedQuestion[],
+): string {
+  return `Review these ${questions.length} exam questions and score each one.
 
 Questions:
 ${JSON.stringify(questions, null, 2)}

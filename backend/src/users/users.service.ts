@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -71,7 +75,10 @@ export class UsersService {
       }),
     ]);
 
-    return { data: users, meta: { total, page, limit, lastPage: Math.ceil(total / limit) } };
+    return {
+      data: users,
+      meta: { total, page, limit, lastPage: Math.ceil(total / limit) },
+    };
   }
 
   async updateRole(userId: string, role: UserRole) {
@@ -119,7 +126,7 @@ export class UsersService {
 
     return {
       ...user,
-      badges: user.badgeAwards.map(a => ({
+      badges: user.badgeAwards.map((a) => ({
         id: a.badge.id,
         name: a.badge.name,
         description: a.badge.description,

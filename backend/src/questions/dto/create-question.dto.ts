@@ -1,101 +1,122 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, ValidateNested, IsArray, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  ValidateNested,
+  IsArray,
+  MaxLength,
+} from 'class-validator';
 import { QuestionType, Difficulty } from '@prisma/client';
 
 export class CreateChoiceDto {
-    @ApiProperty({ example: 'a' })
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(1)
-    label: string;
+  @ApiProperty({ example: 'a' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1)
+  label: string;
 
-    @ApiProperty({ example: 'Amazon S3' })
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(2000)
-    content: string;
+  @ApiProperty({ example: 'Amazon S3' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  content: string;
 
-    @ApiPropertyOptional({ example: false })
-    @IsBoolean()
-    @IsOptional()
-    isCorrect?: boolean;
+  @ApiPropertyOptional({ example: false })
+  @IsBoolean()
+  @IsOptional()
+  isCorrect?: boolean;
 }
 
 export class CreateQuestionDto {
-    @ApiProperty({ example: 'Which AWS service provides a managed relational database?' })
-    @IsString()
-    @IsNotEmpty()
-    @MaxLength(500)
-    title: string;
+  @ApiProperty({
+    example: 'Which AWS service provides a managed relational database?',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  title: string;
 
-    @ApiPropertyOptional({ example: 'The company has regulatory requirements...' })
-    @IsString()
-    @IsOptional()
-    @MaxLength(2000)
-    description?: string;
+  @ApiPropertyOptional({
+    example: 'The company has regulatory requirements...',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(2000)
+  description?: string;
 
-    @ApiPropertyOptional({ enum: QuestionType, example: QuestionType.SINGLE })
-    @IsEnum(QuestionType)
-    @IsOptional()
-    questionType?: QuestionType;
+  @ApiPropertyOptional({ enum: QuestionType, example: QuestionType.SINGLE })
+  @IsEnum(QuestionType)
+  @IsOptional()
+  questionType?: QuestionType;
 
-    @ApiPropertyOptional({ enum: Difficulty, example: Difficulty.MEDIUM })
-    @IsEnum(Difficulty)
-    @IsOptional()
-    difficulty?: Difficulty;
+  @ApiPropertyOptional({ enum: Difficulty, example: Difficulty.MEDIUM })
+  @IsEnum(Difficulty)
+  @IsOptional()
+  difficulty?: Difficulty;
 
-    @ApiPropertyOptional({ example: 'Amazon RDS is a managed service that makes it easy to set up...' })
-    @IsString()
-    @IsOptional()
-    @MaxLength(5000)
-    explanation?: string;
+  @ApiPropertyOptional({
+    example: 'Amazon RDS is a managed service that makes it easy to set up...',
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(5000)
+  explanation?: string;
 
-    @ApiProperty({ example: 'aws-saa' })
-    @IsString()
-    @IsNotEmpty()
-    certificationId: string;
+  @ApiProperty({ example: 'aws-saa' })
+  @IsString()
+  @IsNotEmpty()
+  certificationId: string;
 
-    @ApiPropertyOptional({ example: 'domain-id-here' })
-    @IsString()
-    @IsOptional()
-    domainId?: string;
+  @ApiPropertyOptional({ example: 'domain-id-here' })
+  @IsString()
+  @IsOptional()
+  domainId?: string;
 
-    @ApiPropertyOptional({ example: 'https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html' })
-    @IsString()
-    @IsOptional()
-    referenceUrl?: string;
+  @ApiPropertyOptional({
+    example:
+      'https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Welcome.html',
+  })
+  @IsString()
+  @IsOptional()
+  referenceUrl?: string;
 
-    @ApiPropertyOptional()
-    @IsString()
-    @IsOptional()
-    @MaxLength(10000)
-    codeSnippet?: string;
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  @MaxLength(10000)
+  codeSnippet?: string;
 
-    @ApiPropertyOptional()
-    @IsString()
-    @IsOptional()
-    imageUrl?: string;
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  imageUrl?: string;
 
-    @ApiPropertyOptional({ example: false })
-    @IsBoolean()
-    @IsOptional()
-    isScenario?: boolean;
+  @ApiPropertyOptional({ example: false })
+  @IsBoolean()
+  @IsOptional()
+  isScenario?: boolean;
 
-    @ApiPropertyOptional({ example: false, description: 'Mark as a trap/tricky question for the Trap Question Library' })
-    @IsBoolean()
-    @IsOptional()
-    isTrapQuestion?: boolean;
+  @ApiPropertyOptional({
+    example: false,
+    description: 'Mark as a trap/tricky question for the Trap Question Library',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isTrapQuestion?: boolean;
 
-    @ApiProperty({ type: [CreateChoiceDto] })
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => CreateChoiceDto)
-    choices: CreateChoiceDto[];
+  @ApiProperty({ type: [CreateChoiceDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateChoiceDto)
+  choices: CreateChoiceDto[];
 
-    @ApiPropertyOptional({ type: [String], example: ['aws', 'storage'] })
-    @IsArray()
-    @IsString({ each: true })
-    @IsOptional()
-    tags?: string[];
+  @ApiPropertyOptional({ type: [String], example: ['aws', 'storage'] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[];
 }

@@ -1,5 +1,10 @@
 import { Controller, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { OrgAnalyticsService } from './org-analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';

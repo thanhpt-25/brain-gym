@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttemptStatus, CandidateAttemptStatus } from '@prisma/client';
 
@@ -68,9 +72,10 @@ export class OrgAnalyticsService {
     ]);
 
     const scores = attempts.map((a) => Number(a.score ?? 0));
-    const avgScore = scores.length > 0
-      ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length)
-      : 0;
+    const avgScore =
+      scores.length > 0
+        ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length)
+        : 0;
     const totalPassed = scores.filter((s) => s >= 70).length;
 
     return {
@@ -78,7 +83,8 @@ export class OrgAnalyticsService {
       activeUsersLast7d: activeUsers.length,
       totalExamsTaken: attempts.length,
       avgScore,
-      passRate: scores.length > 0 ? Math.round((totalPassed / scores.length) * 100) : 0,
+      passRate:
+        scores.length > 0 ? Math.round((totalPassed / scores.length) * 100) : 0,
       totalAssessments: assessmentStats.length,
       totalCandidatesInvited: assessmentStats.reduce(
         (sum, a) => sum + a._count.candidateInvites,
@@ -122,11 +128,18 @@ export class OrgAnalyticsService {
       if (!cert) continue;
 
       if (!certMap[cert.id]) {
-        certMap[cert.id] = { certName: cert.name, certCode: cert.code, members: {} };
+        certMap[cert.id] = {
+          certName: cert.name,
+          certCode: cert.code,
+          members: {},
+        };
       }
 
       if (!certMap[cert.id].members[a.userId]) {
-        certMap[cert.id].members[a.userId] = { scores: [], latestDate: new Date(0) };
+        certMap[cert.id].members[a.userId] = {
+          scores: [],
+          latestDate: new Date(0),
+        };
       }
 
       const memberData = certMap[cert.id].members[a.userId];
@@ -139,9 +152,10 @@ export class OrgAnalyticsService {
     return Object.entries(certMap).map(([certId, data]) => {
       const memberEntries = Object.values(data.members);
       const allScores = memberEntries.flatMap((m) => m.scores);
-      const avgScore = allScores.length > 0
-        ? Math.round(allScores.reduce((s, v) => s + v, 0) / allScores.length)
-        : 0;
+      const avgScore =
+        allScores.length > 0
+          ? Math.round(allScores.reduce((s, v) => s + v, 0) / allScores.length)
+          : 0;
       const passedMembers = memberEntries.filter(
         (m) => Math.max(...m.scores) >= 70,
       ).length;
@@ -175,7 +189,10 @@ export class OrgAnalyticsService {
 
     const agg: Record<string, { correct: number; total: number }> = {};
     for (const a of attempts) {
-      const ds = a.domainScores as Record<string, { correct: number; total: number }> | null;
+      const ds = a.domainScores as Record<
+        string,
+        { correct: number; total: number }
+      > | null;
       if (!ds) continue;
       for (const [domain, { correct, total }] of Object.entries(ds)) {
         if (!agg[domain]) agg[domain] = { correct: 0, total: 0 };
@@ -225,7 +242,11 @@ export class OrgAnalyticsService {
       const yearWeek = getISOWeekLabel(d);
 
       if (!weekMap[yearWeek]) {
-        weekMap[yearWeek] = { examsTaken: 0, scoreSum: 0, activeUsers: new Set() };
+        weekMap[yearWeek] = {
+          examsTaken: 0,
+          scoreSum: 0,
+          activeUsers: new Set(),
+        };
       }
 
       weekMap[yearWeek].examsTaken++;
@@ -239,9 +260,7 @@ export class OrgAnalyticsService {
         week,
         examsTaken: data.examsTaken,
         avgScore:
-          data.examsTaken > 0
-            ? Math.round(data.scoreSum / data.examsTaken)
-            : 0,
+          data.examsTaken > 0 ? Math.round(data.scoreSum / data.examsTaken) : 0,
         activeUsers: data.activeUsers.size,
       }));
   }
@@ -315,7 +334,9 @@ export class OrgAnalyticsService {
     const membership = await this.prisma.orgMember.findFirst({
       where: { orgId, userId, isActive: true },
       include: {
-        user: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
+        user: {
+          select: { id: true, displayName: true, email: true, avatarUrl: true },
+        },
         group: { select: { id: true, name: true } },
       },
     });
@@ -350,7 +371,10 @@ export class OrgAnalyticsService {
     // Domain aggregation
     const domainAgg: Record<string, { correct: number; total: number }> = {};
     for (const a of attempts) {
-      const ds = a.domainScores as Record<string, { correct: number; total: number }> | null;
+      const ds = a.domainScores as Record<
+        string,
+        { correct: number; total: number }
+      > | null;
       if (!ds) continue;
       for (const [domain, { correct, total }] of Object.entries(ds)) {
         if (!domainAgg[domain]) domainAgg[domain] = { correct: 0, total: 0 };

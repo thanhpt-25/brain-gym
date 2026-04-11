@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { CreateOrgDto } from './dto/create-org.dto';
@@ -18,19 +22,23 @@ export class OrganizationsService {
   ) {}
 
   private slugify(text: string): string {
-    return text
-      .toString()
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]+/g, '')
-      .replace(/--+/g, '-')
-      .replace(/^-+/, '')
-      .replace(/-+$/, '') + '-' + Math.random().toString(36).substring(2, 6);
+    return (
+      text
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w-]+/g, '')
+        .replace(/--+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '') +
+      '-' +
+      Math.random().toString(36).substring(2, 6)
+    );
   }
 
   async resolveOrgId(slugOrId: string): Promise<string> {
     const org = await this.prisma.organization.findFirst({
-        where: { OR: [{ id: slugOrId }, { slug: slugOrId }] }
+      where: { OR: [{ id: slugOrId }, { slug: slugOrId }] },
     });
     if (!org) throw new NotFoundException('Organization not found');
     return org.id;
@@ -71,12 +79,12 @@ export class OrganizationsService {
       where: { userId, isActive: true },
       include: {
         organization: {
-            include: {
-                _count: { select: { members: { where: { isActive: true } } } }
-            }
-        }
+          include: {
+            _count: { select: { members: { where: { isActive: true } } } },
+          },
+        },
       },
-      orderBy: { joinedAt: 'desc' }
+      orderBy: { joinedAt: 'desc' },
     });
     return memberships.map((m) => ({
       ...m.organization,
@@ -120,7 +128,14 @@ export class OrganizationsService {
       this.prisma.orgMember.findMany({
         where: { orgId },
         include: {
-          user: { select: { id: true, email: true, displayName: true, avatarUrl: true } },
+          user: {
+            select: {
+              id: true,
+              email: true,
+              displayName: true,
+              avatarUrl: true,
+            },
+          },
           group: { select: { id: true, name: true } },
         },
         orderBy: { joinedAt: 'desc' },
@@ -128,10 +143,17 @@ export class OrganizationsService {
         take: limit,
       }),
     ]);
-    return { data, meta: { total, page, limit, lastPage: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: { total, page, limit, lastPage: Math.ceil(total / limit) },
+    };
   }
 
-  async inviteMember(slugOrId: string, invitedByUserId: string, dto: InviteMemberDto) {
+  async inviteMember(
+    slugOrId: string,
+    invitedByUserId: string,
+    dto: InviteMemberDto,
+  ) {
     const orgId = await this.resolveOrgId(slugOrId);
     const org = await this.prisma.organization.findUnique({
       where: { id: orgId },
@@ -142,12 +164,16 @@ export class OrganizationsService {
       },
     });
     if (!org) throw new NotFoundException('Organization not found');
-    
+
     if (org._count.members >= org.maxSeats) {
-      throw new BadRequestException('Organization has reached its maximum seats');
+      throw new BadRequestException(
+        'Organization has reached its maximum seats',
+      );
     }
 
-    const invitedBy = await this.prisma.user.findUnique({ where: { id: invitedByUserId } });
+    const invitedBy = await this.prisma.user.findUnique({
+      where: { id: invitedByUserId },
+    });
     const token = uuidv4();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
@@ -173,19 +199,27 @@ export class OrganizationsService {
     return invite;
   }
 
-  async bulkInvite(slugOrId: string, invitedByUserId: string, dto: BulkInviteMemberDto) {
-      const invites = [];
-      for (const inv of dto.invites) {
-          try {
-              invites.push(await this.inviteMember(slugOrId, invitedByUserId, inv));
-          } catch(e) {
-              // Ignore or collect errors
-          }
+  async bulkInvite(
+    slugOrId: string,
+    invitedByUserId: string,
+    dto: BulkInviteMemberDto,
+  ) {
+    const invites = [];
+    for (const inv of dto.invites) {
+      try {
+        invites.push(await this.inviteMember(slugOrId, invitedByUserId, inv));
+      } catch (e) {
+        // Ignore or collect errors
       }
-      return invites;
+    }
+    return invites;
   }
 
-  async updateMemberRole(slugOrId: string, userId: string, dto: UpdateMemberRoleDto) {
+  async updateMemberRole(
+    slugOrId: string,
+    userId: string,
+    dto: UpdateMemberRoleDto,
+  ) {
     const orgId = await this.resolveOrgId(slugOrId);
     return this.prisma.orgMember.update({
       where: { orgId_userId: { orgId, userId } },
@@ -231,7 +265,7 @@ export class OrganizationsService {
       include: {
         _count: { select: { members: true } },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -250,17 +284,23 @@ export class OrganizationsService {
     });
 
     if (!invite) throw new NotFoundException('Invalid invitation link');
-    if (invite.status !== OrgInviteStatus.PENDING) throw new BadRequestException('Invitation is no longer pending');
+    if (invite.status !== OrgInviteStatus.PENDING)
+      throw new BadRequestException('Invitation is no longer pending');
     if (invite.expiresAt < new Date()) {
-      await this.prisma.orgInvite.update({ where: { id: invite.id }, data: { status: OrgInviteStatus.EXPIRED } });
+      await this.prisma.orgInvite.update({
+        where: { id: invite.id },
+        data: { status: OrgInviteStatus.EXPIRED },
+      });
       throw new BadRequestException('Invitation has expired');
     }
 
     const orgCount = await this.prisma.orgMember.count({
-        where: { orgId: invite.orgId, isActive: true }
+      where: { orgId: invite.orgId, isActive: true },
     });
     if (orgCount >= invite.organization.maxSeats) {
-        throw new BadRequestException('Organization has reached its maximum seats');
+      throw new BadRequestException(
+        'Organization has reached its maximum seats',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -292,15 +332,20 @@ export class OrganizationsService {
       include: { organization: true },
     });
 
-    if (!link || !link.isActive) throw new NotFoundException('Invalid or inactive join link');
-    if (link.expiresAt && link.expiresAt < new Date()) throw new BadRequestException('Join link has expired');
-    if (link.maxUses && link.currentUses >= link.maxUses) throw new BadRequestException('Join link has reached usage limit');
+    if (!link || !link.isActive)
+      throw new NotFoundException('Invalid or inactive join link');
+    if (link.expiresAt && link.expiresAt < new Date())
+      throw new BadRequestException('Join link has expired');
+    if (link.maxUses && link.currentUses >= link.maxUses)
+      throw new BadRequestException('Join link has reached usage limit');
 
     const orgCount = await this.prisma.orgMember.count({
-        where: { orgId: link.orgId, isActive: true }
+      where: { orgId: link.orgId, isActive: true },
     });
     if (orgCount >= link.organization.maxSeats) {
-        throw new BadRequestException('Organization has reached its maximum seats');
+      throw new BadRequestException(
+        'Organization has reached its maximum seats',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {

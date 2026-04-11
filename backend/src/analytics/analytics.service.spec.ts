@@ -65,14 +65,16 @@ describe('AnalyticsService', () => {
 
   describe('getReadiness', () => {
     it('should calculate readiness based on weighted scores', async () => {
-      mockPrismaService.certification.findUnique.mockResolvedValue({ id: 'cert-1' });
+      mockPrismaService.certification.findUnique.mockResolvedValue({
+        id: 'cert-1',
+      });
       const now = new Date();
       const attempts = [
-        { 
-          score: 90, 
-          submittedAt: now, 
-          domainScores: { 'Domain A': { correct: 9, total: 10 } } 
-        }
+        {
+          score: 90,
+          submittedAt: now,
+          domainScores: { 'Domain A': { correct: 9, total: 10 } },
+        },
       ];
       mockPrismaService.examAttempt.findMany.mockResolvedValue(attempts);
 

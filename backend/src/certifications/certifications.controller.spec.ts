@@ -19,9 +19,7 @@ describe('CertificationsController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CertificationsController],
-      providers: [
-        { provide: CertificationsService, useValue: mockService },
-      ],
+      providers: [{ provide: CertificationsService, useValue: mockService }],
     }).compile();
 
     controller = module.get<CertificationsController>(CertificationsController);
@@ -50,7 +48,11 @@ describe('CertificationsController', () => {
 
   describe('create', () => {
     it('should call service.create', async () => {
-      const dto: CreateCertificationDto = { name: 'Test', providerId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', code: 'T1' };
+      const dto: CreateCertificationDto = {
+        name: 'Test',
+        providerId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        code: 'T1',
+      };
       await controller.create(dto);
       expect(service.create).toHaveBeenCalledWith(dto);
     });

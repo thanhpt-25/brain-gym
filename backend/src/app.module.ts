@@ -31,10 +31,12 @@ import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000,
-      limit: 300,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 300,
+      },
+    ]),
     PrismaModule,
     AuditModule,
     UsersModule,
@@ -68,4 +70,4 @@ import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

@@ -1,4 +1,9 @@
-import { Injectable, ForbiddenException, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttemptStatus, MistakeType, Prisma } from '@prisma/client';
 import { UpdateMistakeTypeDto } from './dto/update-mistake-type.dto';
@@ -15,8 +20,14 @@ import {
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSummary(userId: string, certificationId?: string): Promise<AnalyticsSummaryResponse> {
-    const where: Prisma.ExamAttemptWhereInput = { userId, status: AttemptStatus.SUBMITTED };
+  async getSummary(
+    userId: string,
+    certificationId?: string,
+  ): Promise<AnalyticsSummaryResponse> {
+    const where: Prisma.ExamAttemptWhereInput = {
+      userId,
+      status: AttemptStatus.SUBMITTED,
+    };
     if (certificationId) {
       where.exam = { certificationId };
     }
@@ -44,8 +55,8 @@ export class AnalyticsService {
       };
     }
 
-    const scores = attempts.map(a => Number(a.score ?? 0));
-    const totalPassed = scores.filter(s => s >= 70).length;
+    const scores = attempts.map((a) => Number(a.score ?? 0));
+    const totalPassed = scores.filter((s) => s >= 70).length;
 
     return {
       totalExams: attempts.length,
@@ -58,9 +69,17 @@ export class AnalyticsService {
     };
   }
 
-  async getHistory(userId: string, certificationId?: string, page = 1, limit = 20): Promise<AnalyticsHistoryResponse> {
+  async getHistory(
+    userId: string,
+    certificationId?: string,
+    page = 1,
+    limit = 20,
+  ): Promise<AnalyticsHistoryResponse> {
     const skip = (page - 1) * limit;
-    const where: Prisma.ExamAttemptWhereInput = { userId, status: AttemptStatus.SUBMITTED };
+    const where: Prisma.ExamAttemptWhereInput = {
+      userId,
+      status: AttemptStatus.SUBMITTED,
+    };
     if (certificationId) {
       where.exam = { certificationId };
     }
@@ -72,7 +91,9 @@ export class AnalyticsService {
         include: {
           exam: {
             include: {
-              certification: { select: { id: true, name: true, code: true, provider: true } },
+              certification: {
+                select: { id: true, name: true, code: true, provider: true },
+              },
             },
           },
         },
@@ -83,7 +104,7 @@ export class AnalyticsService {
     ]);
 
     return {
-      data: attempts.map(a => ({
+      data: attempts.map((a) => ({
         id: a.id,
         examTitle: a.exam.title,
         certification: a.exam.certification,
@@ -92,7 +113,11 @@ export class AnalyticsService {
         totalQuestions: a.totalQuestions ?? 0,
         passed: Number(a.score ?? 0) >= 70,
         timeSpent: a.timeSpent ?? 0,
-        domainScores: (a.domainScores as Record<string, { correct: number; total: number }>) ?? undefined,
+        domainScores:
+          (a.domainScores as Record<
+            string,
+            { correct: number; total: number }
+          >) ?? undefined,
         startedAt: a.startedAt,
         submittedAt: a.submittedAt ?? undefined,
       })),
@@ -100,8 +125,14 @@ export class AnalyticsService {
     };
   }
 
-  async getDomains(userId: string, certificationId?: string): Promise<DomainStatsResponse[]> {
-    const where: Prisma.ExamAttemptWhereInput = { userId, status: AttemptStatus.SUBMITTED };
+  async getDomains(
+    userId: string,
+    certificationId?: string,
+  ): Promise<DomainStatsResponse[]> {
+    const where: Prisma.ExamAttemptWhereInput = {
+      userId,
+      status: AttemptStatus.SUBMITTED,
+    };
     if (certificationId) {
       where.exam = { certificationId };
     }
@@ -113,7 +144,10 @@ export class AnalyticsService {
 
     const agg: Record<string, { correct: number; total: number }> = {};
     for (const a of attempts) {
-      const ds = a.domainScores as Record<string, { correct: number; total: number }> | null;
+      const ds = a.domainScores as Record<
+        string,
+        { correct: number; total: number }
+      > | null;
       if (!ds) continue;
       for (const [domain, { correct, total }] of Object.entries(ds)) {
         if (!agg[domain]) agg[domain] = { correct: 0, total: 0 };
@@ -132,7 +166,11 @@ export class AnalyticsService {
       .sort((a, b) => a.percentage - b.percentage);
   }
 
-  async getWeakTopics(userId: string, certificationId?: string, topN = 5): Promise<DomainStatsResponse[]> {
+  async getWeakTopics(
+    userId: string,
+    certificationId?: string,
+    topN = 5,
+  ): Promise<DomainStatsResponse[]> {
     const domains = await this.getDomains(userId, certificationId);
     return domains.slice(0, topN);
   }
@@ -149,17 +187,23 @@ export class AnalyticsService {
     });
 
     const totalAttempts = answers.length;
-    const totalCorrect = answers.filter(a => a.isCorrect).length;
+    const totalCorrect = answers.filter((a) => a.isCorrect).length;
 
     return {
       questionId,
       totalAttempts,
       totalCorrect,
-      correctRate: totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0,
+      correctRate:
+        totalAttempts > 0
+          ? Math.round((totalCorrect / totalAttempts) * 100)
+          : 0,
     };
   }
 
-  async getReadiness(userId: string, certificationId: string): Promise<ReadinessResponse> {
+  async getReadiness(
+    userId: string,
+    certificationId: string,
+  ): Promise<ReadinessResponse> {
     const certification = await this.prisma.certification.findUnique({
       where: { id: certificationId },
     });
@@ -196,16 +240,20 @@ export class AnalyticsService {
 
     const domainAgg: Record<string, { correct: number; total: number }> = {};
 
-    attempts.forEach(attempt => {
+    attempts.forEach((attempt) => {
       const daysSince = Math.max(
         0,
-        (now.getTime() - new Date(attempt.submittedAt!).getTime()) / (1000 * 60 * 60 * 24),
+        (now.getTime() - new Date(attempt.submittedAt!).getTime()) /
+          (1000 * 60 * 60 * 24),
       );
       const weight = Math.exp(-0.05 * daysSince);
       totalWeight += weight;
       weightedScoreSum += Number(attempt.score ?? 0) * weight;
 
-      const ds = attempt.domainScores as Record<string, { correct: number; total: number }> | null;
+      const ds = attempt.domainScores as Record<
+        string,
+        { correct: number; total: number }
+      > | null;
       if (ds) {
         for (const [domain, { correct, total }] of Object.entries(ds)) {
           if (!domainAgg[domain]) domainAgg[domain] = { correct: 0, total: 0 };
@@ -216,21 +264,24 @@ export class AnalyticsService {
     });
 
     const weightedAvgScore = weightedScoreSum / totalWeight;
-    const domainConfidences = Object.entries(domainAgg).map(([domain, { correct, total }]) => ({
-      domain,
-      confidence: total > 0 ? Math.round((correct / total) * 100) : 0,
-    }));
+    const domainConfidences = Object.entries(domainAgg).map(
+      ([domain, { correct, total }]) => ({
+        domain,
+        confidence: total > 0 ? Math.round((correct / total) * 100) : 0,
+      }),
+    );
 
-    const minDomainConfidence = domainConfidences.length > 0 
-      ? Math.min(...domainConfidences.map(d => d.confidence))
-      : 0;
-    
+    const minDomainConfidence =
+      domainConfidences.length > 0
+        ? Math.min(...domainConfidences.map((d) => d.confidence))
+        : 0;
+
     const examCountFactor = Math.min(attempts.length / 5, 1) * 100;
 
     const readinessScore = Math.round(
-      0.6 * weightedAvgScore + 
-      0.2 * minDomainConfidence + 
-      0.2 * examCountFactor
+      0.6 * weightedAvgScore +
+        0.2 * minDomainConfidence +
+        0.2 * examCountFactor,
     );
 
     return {
@@ -241,7 +292,11 @@ export class AnalyticsService {
     };
   }
 
-  async updateMistakeType(userId: string, answerId: string, dto: UpdateMistakeTypeDto) {
+  async updateMistakeType(
+    userId: string,
+    answerId: string,
+    dto: UpdateMistakeTypeDto,
+  ) {
     const answer = await this.prisma.answer.findUnique({
       where: { id: answerId },
       include: { attempt: true },
@@ -252,11 +307,15 @@ export class AnalyticsService {
     }
 
     if (answer.attempt.userId !== userId) {
-      throw new ForbiddenException('You do not have permission to update this answer');
+      throw new ForbiddenException(
+        'You do not have permission to update this answer',
+      );
     }
 
     if (answer.isCorrect) {
-      throw new BadRequestException('Cannot tag a correct answer with a mistake type');
+      throw new BadRequestException(
+        'Cannot tag a correct answer with a mistake type',
+      );
     }
 
     return this.prisma.answer.update({
@@ -265,7 +324,10 @@ export class AnalyticsService {
     });
   }
 
-  async getMistakePatterns(userId: string, certificationId?: string): Promise<MistakePatternsResponse> {
+  async getMistakePatterns(
+    userId: string,
+    certificationId?: string,
+  ): Promise<MistakePatternsResponse> {
     const where: Prisma.AnswerWhereInput = {
       attempt: { userId },
       mistakeType: { not: null },
@@ -290,7 +352,7 @@ export class AnalyticsService {
       TIME_PRESSURE: 0,
     };
 
-    mistakes.forEach(m => {
+    mistakes.forEach((m) => {
       if (m.mistakeType) {
         breakdown[m.mistakeType]++;
       }
@@ -321,16 +383,21 @@ export class AnalyticsService {
     });
 
     // Aggregate per-question average time spent across all attempts
-    const questionStats: Map<string, { title: string; totalTime: number; count: number; budgetSeconds: number }> = new Map();
+    const questionStats: Map<
+      string,
+      { title: string; totalTime: number; count: number; budgetSeconds: number }
+    > = new Map();
 
     for (const attempt of attempts) {
       // Per-question time budget: total minutes / number of questions, converted to seconds
-      const budgetSeconds = attempt.exam.questionCount > 0
-        ? (attempt.exam.timeLimit * 60) / attempt.exam.questionCount
-        : 120; // fallback 2 min
+      const budgetSeconds =
+        attempt.exam.questionCount > 0
+          ? (attempt.exam.timeLimit * 60) / attempt.exam.questionCount
+          : 120; // fallback 2 min
 
       for (const answer of attempt.answers) {
-        if (answer.timeSpent === null || answer.timeSpent === undefined) continue;
+        if (answer.timeSpent === null || answer.timeSpent === undefined)
+          continue;
         const existing = questionStats.get(answer.questionId);
         if (existing) {
           existing.totalTime += answer.timeSpent;
@@ -355,9 +422,11 @@ export class AnalyticsService {
         title: stats.title,
         avgTimeSpent: Math.round(stats.totalTime / stats.count),
         budgetSeconds: Math.round(stats.budgetSeconds),
-        hesitationRatio: parseFloat(((stats.totalTime / stats.count) / stats.budgetSeconds).toFixed(2)),
+        hesitationRatio: parseFloat(
+          (stats.totalTime / stats.count / stats.budgetSeconds).toFixed(2),
+        ),
       }))
-      .filter(q => q.hesitationRatio >= 2)
+      .filter((q) => q.hesitationRatio >= 2)
       .sort((a, b) => b.hesitationRatio - a.hesitationRatio);
 
     return { data: hesitating, total: hesitating.length };

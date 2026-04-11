@@ -1,5 +1,19 @@
-import { Controller, Post, Body, UseGuards, Req, Get, Param, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Get,
+  Param,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { TrainingService } from './training.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { StartWeaknessTrainingDto } from './dto/start-weakness-training.dto';
@@ -14,7 +28,10 @@ export class TrainingController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Start a weakness-targeted training session' })
-  startWeaknessTraining(@Req() req: any, @Body() dto: StartWeaknessTrainingDto) {
+  startWeaknessTraining(
+    @Req() req: any,
+    @Body() dto: StartWeaknessTrainingDto,
+  ) {
     const userId = req.user.id || req.user.sub;
     return this.trainingService.startWeaknessTraining(userId, dto);
   }
@@ -40,6 +57,10 @@ export class TrainingController {
     @Query('limit') limit?: string,
   ) {
     const userId = req.user.id || req.user.sub;
-    return this.trainingService.getDueReviews(userId, certificationId, limit ? +limit : undefined);
+    return this.trainingService.getDueReviews(
+      userId,
+      certificationId,
+      limit ? +limit : undefined,
+    );
   }
 }

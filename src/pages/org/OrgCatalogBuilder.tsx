@@ -461,7 +461,7 @@ const OrgCatalogBuilder = () => {
                         }`}
                         onClick={() => {
                           if (!alreadyAdded) {
-                            pickerTab === 'public' ? addPublicQuestion(q) : addOrgQuestion(q);
+                            if (pickerTab === 'public') { addPublicQuestion(q); } else { addOrgQuestion(q); }
                           }
                         }}
                       >

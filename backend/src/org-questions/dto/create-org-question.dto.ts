@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, ValidateNested, IsArray, MaxLength } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  ValidateNested,
+  IsArray,
+  MaxLength,
+} from 'class-validator';
 import { QuestionType, Difficulty } from '@prisma/client';
 
 export class CreateOrgChoiceDto {

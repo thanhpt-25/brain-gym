@@ -66,14 +66,24 @@ export class GamificationService {
   }
 
   async checkAndAwardBadges(userId: string) {
-    const [user, questionsCreated, examsCompleted, examsPassed90] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: userId }, select: { points: true } }),
-      this.prisma.question.count({ where: { createdBy: userId } }),
-      this.prisma.examAttempt.count({ where: { userId, status: AttemptStatus.SUBMITTED } }),
-      this.prisma.examAttempt.count({
-        where: { userId, status: AttemptStatus.SUBMITTED, score: { gte: 90 } },
-      }),
-    ]);
+    const [user, questionsCreated, examsCompleted, examsPassed90] =
+      await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { points: true },
+        }),
+        this.prisma.question.count({ where: { createdBy: userId } }),
+        this.prisma.examAttempt.count({
+          where: { userId, status: AttemptStatus.SUBMITTED },
+        }),
+        this.prisma.examAttempt.count({
+          where: {
+            userId,
+            status: AttemptStatus.SUBMITTED,
+            score: { gte: 90 },
+          },
+        }),
+      ]);
 
     if (!user) return;
 
@@ -88,7 +98,9 @@ export class GamificationService {
       if (!def.check(stats)) continue;
 
       // Ensure badge exists in DB
-      let badge = await this.prisma.badge.findFirst({ where: { name: def.name } });
+      let badge = await this.prisma.badge.findFirst({
+        where: { name: def.name },
+      });
       if (!badge) {
         badge = await this.prisma.badge.create({
           data: { name: def.name, description: def.description },
@@ -108,7 +120,15 @@ export class GamificationService {
     // If certificationId is provided, rank by best score in that cert's exams
     if (certificationId) {
       const entries = await this.prisma.$queryRaw<
-        { userId: string; displayName: string; avatarUrl: string | null; bestScore: number; avgScore: number; totalExams: number; points: number }[]
+        {
+          userId: string;
+          displayName: string;
+          avatarUrl: string | null;
+          bestScore: number;
+          avgScore: number;
+          totalExams: number;
+          points: number;
+        }[]
       >`
         SELECT
           u.id as "userId",
@@ -177,7 +197,7 @@ export class GamificationService {
       include: { badge: true },
       orderBy: { awardedAt: 'desc' },
     });
-    return awards.map(a => ({
+    return awards.map((a) => ({
       id: a.badge.id,
       name: a.badge.name,
       description: a.badge.description,

@@ -41,7 +41,9 @@ export class CandidateService {
     }
 
     if (invite.status !== 'INVITED') {
-      throw new BadRequestException(`Cannot start: current status is ${invite.status}`);
+      throw new BadRequestException(
+        `Cannot start: current status is ${invite.status}`,
+      );
     }
 
     await this.prisma.candidateInvite.update({
@@ -63,7 +65,9 @@ export class CandidateService {
       throw new BadRequestException('Assessment already submitted');
     }
     if (invite.status !== 'STARTED') {
-      throw new BadRequestException(`Cannot submit: current status is ${invite.status}`);
+      throw new BadRequestException(
+        `Cannot submit: current status is ${invite.status}`,
+      );
     }
 
     // Check time limit
@@ -122,8 +126,12 @@ export class CandidateService {
       if (isCorrect) totalCorrect++;
 
       // Domain scoring (use category from org questions or domain from public questions)
-      const domainName = (question as any).domain?.name ?? (question as any).category ?? 'General';
-      if (!domainScores[domainName]) domainScores[domainName] = { correct: 0, total: 0 };
+      const domainName =
+        (question as any).domain?.name ??
+        (question as any).category ??
+        'General';
+      if (!domainScores[domainName])
+        domainScores[domainName] = { correct: 0, total: 0 };
       domainScores[domainName].total++;
       if (isCorrect) domainScores[domainName].correct++;
 
@@ -136,7 +144,8 @@ export class CandidateService {
     }
 
     const totalQuestions = assessmentQuestions.length;
-    const score = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+    const score =
+      totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
     const timeSpent = invite.startedAt
       ? Math.round((Date.now() - invite.startedAt.getTime()) / 1000)
       : null;
@@ -162,7 +171,10 @@ export class CandidateService {
       score: Number(score.toFixed(2)),
       totalCorrect,
       totalQuestions,
-      passed: assessment.passingScore != null ? score >= assessment.passingScore : null,
+      passed:
+        assessment.passingScore != null
+          ? score >= assessment.passingScore
+          : null,
       timeSpent,
     };
   }
@@ -218,21 +230,23 @@ export class CandidateService {
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
-    let questions = assessment.questions.map((aq) => {
-      const q = aq.orgQuestion ?? aq.publicQuestion;
-      if (!q) return null;
-      return {
-        id: q.id,
-        title: q.title,
-        description: (q as any).description ?? null,
-        questionType: (q as any).questionType ?? 'SINGLE_CHOICE',
-        choices: q.choices.map((c) => ({
-          id: c.id,
-          label: c.label,
-          content: c.content,
-        })),
-      };
-    }).filter(Boolean);
+    let questions = assessment.questions
+      .map((aq) => {
+        const q = aq.orgQuestion ?? aq.publicQuestion;
+        if (!q) return null;
+        return {
+          id: q.id,
+          title: q.title,
+          description: (q as any).description ?? null,
+          questionType: (q as any).questionType ?? 'SINGLE_CHOICE',
+          choices: q.choices.map((c) => ({
+            id: c.id,
+            label: c.label,
+            content: c.content,
+          })),
+        };
+      })
+      .filter(Boolean);
 
     if (assessment.randomizeQuestions) {
       questions = questions.sort(() => Math.random() - 0.5);

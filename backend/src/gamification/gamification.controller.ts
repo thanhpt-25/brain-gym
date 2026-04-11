@@ -1,5 +1,10 @@
 import { Controller, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { GamificationService } from './gamification.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
@@ -11,14 +16,19 @@ export class GamificationController {
 
   @Get('leaderboard')
   @Public()
-  @ApiOperation({ summary: 'Get leaderboard — by points (global) or best score (per cert)' })
+  @ApiOperation({
+    summary: 'Get leaderboard — by points (global) or best score (per cert)',
+  })
   @ApiQuery({ name: 'certificationId', required: false })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   getLeaderboard(
     @Query('certificationId') certificationId?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.gamificationService.getLeaderboard(certificationId, limit ? +limit : 20);
+    return this.gamificationService.getLeaderboard(
+      certificationId,
+      limit ? +limit : 20,
+    );
   }
 
   @Get('badges')

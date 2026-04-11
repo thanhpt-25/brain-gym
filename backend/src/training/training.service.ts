@@ -31,7 +31,8 @@ export class TrainingService {
         interval = Math.round(prevInterval * prevEF);
       }
       repetitions = prevReps + 1;
-      easeFactor = prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+      easeFactor =
+        prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
     } else {
       repetitions = 0;
       interval = 1;
@@ -93,9 +94,13 @@ export class TrainingService {
     });
   }
 
-  async getDueReviews(userId: string, certificationId?: string, limit?: number) {
+  async getDueReviews(
+    userId: string,
+    certificationId?: string,
+    limit?: number,
+  ) {
     const today = new Date();
-    
+
     const where: any = {
       userId,
       nextReviewDate: { lte: today },
@@ -111,7 +116,9 @@ export class TrainingService {
         question: {
           include: {
             domain: true,
-            choices: { select: { id: true, label: true, content: true, isCorrect: true } }, // Exclude isCorrect
+            choices: {
+              select: { id: true, label: true, content: true, isCorrect: true },
+            }, // Exclude isCorrect
           },
         },
       },
@@ -127,10 +134,7 @@ export class TrainingService {
 
     const certification = await this.prisma.certification.findFirst({
       where: {
-        OR: [
-          { id: certificationId },
-          { code: certificationId },
-        ],
+        OR: [{ id: certificationId }, { code: certificationId }],
       },
       include: { domains: true, provider: true },
     });
@@ -139,16 +143,21 @@ export class TrainingService {
       throw new NotFoundException('Certification not found');
     }
 
-    const domainPerformance = await this.analyticsService.getDomains(userId, certificationId);
-    
+    const domainPerformance = await this.analyticsService.getDomains(
+      userId,
+      certificationId,
+    );
+
     // Assign weights: weight = (100 - domainScore + 10)
-    const domainWeights = certification.domains.map(domain => {
-      const performance = domainPerformance.find(p => p.domain === domain.name);
+    const domainWeights = certification.domains.map((domain) => {
+      const performance = domainPerformance.find(
+        (p) => p.domain === domain.name,
+      );
       const score = performance ? performance.percentage : 50; // Use 50 if no prior performance
       return {
         id: domain.id,
         name: domain.name,
-        weight: (100 - score + 10),
+        weight: 100 - score + 10,
       };
     });
 
@@ -159,7 +168,7 @@ export class TrainingService {
     for (let i = 0; i < questionCount; i++) {
       let random = Math.random() * totalWeight;
       let selectedDomainId = domainWeights[0].id;
-      
+
       for (const dw of domainWeights) {
         if (random < dw.weight) {
           selectedDomainId = dw.id;
@@ -173,7 +182,7 @@ export class TrainingService {
         where: {
           domainId: selectedDomainId,
           status: QuestionStatus.APPROVED,
-          id: { notIn: selectedQuestions.map(q => q.id) },
+          id: { notIn: selectedQuestions.map((q) => q.id) },
         },
         orderBy: { id: 'asc' }, // Will be randomized later
         skip: Math.floor(Math.random() * 5), // Simple random skip
@@ -186,12 +195,14 @@ export class TrainingService {
 
     // If still need questions, fill with any approved questions from certification
     if (selectedQuestions.length < questionCount) {
-      console.log(`Filling remaining ${questionCount - selectedQuestions.length} questions from entire certification ${certificationId}`);
+      console.log(
+        `Filling remaining ${questionCount - selectedQuestions.length} questions from entire certification ${certificationId}`,
+      );
       const remaining = await this.prisma.question.findMany({
         where: {
           certificationId,
           status: QuestionStatus.APPROVED,
-          id: { notIn: selectedQuestions.map(q => q.id) },
+          id: { notIn: selectedQuestions.map((q) => q.id) },
         },
         take: questionCount - selectedQuestions.length,
       });
@@ -201,14 +212,17 @@ export class TrainingService {
     console.log(`Final questions selected: ${selectedQuestions.length}`);
 
     if (selectedQuestions.length === 0) {
-      throw new NotFoundException('No approved questions found for this certification. Please ensure questions are approved in the admin panel.');
+      throw new NotFoundException(
+        'No approved questions found for this certification. Please ensure questions are approved in the admin panel.',
+      );
     }
 
     // Create a PRIVATE, adaptive exam
     const exam = await this.prisma.exam.create({
       data: {
         title: `Weakness Training - ${certification.code} - ${new Date().toLocaleDateString()}`,
-        description: 'Auto-generated weakness training based on your performance.',
+        description:
+          'Auto-generated weakness training based on your performance.',
         certificationId,
         createdBy: userId,
         questionCount: selectedQuestions.length,
@@ -238,7 +252,7 @@ export class TrainingService {
 
     // Fetch questions with choices but WITHOUT isCorrect
     const fullQuestions = await this.prisma.question.findMany({
-      where: { id: { in: selectedQuestions.map(q => q.id) } },
+      where: { id: { in: selectedQuestions.map((q) => q.id) } },
       include: {
         choices: { orderBy: { sortOrder: 'asc' } },
         domain: true,
@@ -255,10 +269,10 @@ export class TrainingService {
         questionType: q.questionType,
         difficulty: q.difficulty,
         domain: q.domain,
-        tags: q.tags.map(t => t.tag.name),
+        tags: q.tags.map((t) => t.tag.name),
         choices: [...q.choices]
           .sort(() => Math.random() - 0.5)
-          .map(c => ({
+          .map((c) => ({
             id: c.id,
             label: c.label,
             content: c.content,

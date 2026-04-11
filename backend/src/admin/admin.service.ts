@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -78,7 +82,11 @@ export class AdminService {
     };
   }
 
-  async getExams(params: { page?: number; limit?: number; visibility?: string }) {
+  async getExams(params: {
+    page?: number;
+    limit?: number;
+    visibility?: string;
+  }) {
     const { page = 1, limit = 20, visibility } = params;
     const where: any = {};
     if (visibility) where.visibility = visibility;
@@ -104,7 +112,11 @@ export class AdminService {
     };
   }
 
-  async getGenerationJobs(params: { page?: number; limit?: number; status?: string }) {
+  async getGenerationJobs(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }) {
     const { page = 1, limit = 20, status } = params;
     const where: any = {};
     if (status) where.status = status;
@@ -131,7 +143,11 @@ export class AdminService {
     };
   }
 
-  async getDomains(params: { certificationId?: string; page?: number; limit?: number }) {
+  async getDomains(params: {
+    certificationId?: string;
+    page?: number;
+    limit?: number;
+  }) {
     const { certificationId, page = 1, limit = 50 } = params;
     const where: any = {};
     if (certificationId) where.certificationId = certificationId;
@@ -158,7 +174,12 @@ export class AdminService {
 
   // ─── Domain CRUD ─────────────────────────────────────────────────────────────
 
-  async createDomain(data: { name: string; certificationId: string; description?: string; weight?: number }) {
+  async createDomain(data: {
+    name: string;
+    certificationId: string;
+    description?: string;
+    weight?: number;
+  }) {
     return this.prisma.domain.create({
       data: {
         name: data.name,
@@ -166,22 +187,39 @@ export class AdminService {
         description: data.description,
         weight: data.weight,
       },
-      include: { certification: { select: { id: true, name: true, code: true } }, _count: { select: { questions: true } } },
+      include: {
+        certification: { select: { id: true, name: true, code: true } },
+        _count: { select: { questions: true } },
+      },
     });
   }
 
-  async updateDomain(id: string, data: { name?: string; description?: string; weight?: number }) {
+  async updateDomain(
+    id: string,
+    data: { name?: string; description?: string; weight?: number },
+  ) {
     return this.prisma.domain.update({
       where: { id },
-      data: { name: data.name, description: data.description, weight: data.weight },
-      include: { certification: { select: { id: true, name: true, code: true } }, _count: { select: { questions: true } } },
+      data: {
+        name: data.name,
+        description: data.description,
+        weight: data.weight,
+      },
+      include: {
+        certification: { select: { id: true, name: true, code: true } },
+        _count: { select: { questions: true } },
+      },
     });
   }
 
   async deleteDomain(id: string) {
-    const questionCount = await this.prisma.question.count({ where: { domainId: id, deletedAt: null } });
+    const questionCount = await this.prisma.question.count({
+      where: { domainId: id, deletedAt: null },
+    });
     if (questionCount > 0) {
-      throw new BadRequestException(`Cannot delete domain with ${questionCount} assigned questions`);
+      throw new BadRequestException(
+        `Cannot delete domain with ${questionCount} assigned questions`,
+      );
     }
     return this.prisma.domain.delete({ where: { id } });
   }
@@ -189,7 +227,10 @@ export class AdminService {
   async reorderDomains(certificationId: string, orderedIds: string[]) {
     await Promise.all(
       orderedIds.map((id, index) =>
-        this.prisma.domain.update({ where: { id }, data: { weight: index + 1 } }),
+        this.prisma.domain.update({
+          where: { id },
+          data: { weight: index + 1 },
+        }),
       ),
     );
     return this.getDomains({ certificationId });
@@ -201,7 +242,10 @@ export class AdminService {
     return this.prisma.exam.update({
       where: { id },
       data: { visibility: visibility as any },
-      include: { author: { select: { id: true, displayName: true } }, certification: { select: { id: true, name: true, code: true } } },
+      include: {
+        author: { select: { id: true, displayName: true } },
+        certification: { select: { id: true, name: true, code: true } },
+      },
     });
   }
 
@@ -238,11 +282,24 @@ export class AdminService {
     });
   }
 
-  async createBadge(data: { name: string; description?: string; iconUrl?: string; criteria?: any }) {
+  async createBadge(data: {
+    name: string;
+    description?: string;
+    iconUrl?: string;
+    criteria?: any;
+  }) {
     return this.prisma.badge.create({ data });
   }
 
-  async updateBadge(id: string, data: { name?: string; description?: string; iconUrl?: string; criteria?: any }) {
+  async updateBadge(
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      iconUrl?: string;
+      criteria?: any;
+    },
+  ) {
     return this.prisma.badge.update({ where: { id }, data });
   }
 
@@ -252,18 +309,25 @@ export class AdminService {
   }
 
   async awardBadge(badgeId: string, userId: string) {
-    const badge = await this.prisma.badge.findUnique({ where: { id: badgeId } });
+    const badge = await this.prisma.badge.findUnique({
+      where: { id: badgeId },
+    });
     if (!badge) throw new NotFoundException('Badge not found');
     return this.prisma.badgeAward.upsert({
       where: { userId_badgeId: { userId, badgeId } },
       create: { userId, badgeId },
       update: {},
-      include: { badge: true, user: { select: { id: true, displayName: true } } },
+      include: {
+        badge: true,
+        user: { select: { id: true, displayName: true } },
+      },
     });
   }
 
   async revokeBadge(badgeId: string, userId: string) {
-    return this.prisma.badgeAward.delete({ where: { userId_badgeId: { userId, badgeId } } });
+    return this.prisma.badgeAward.delete({
+      where: { userId_badgeId: { userId, badgeId } },
+    });
   }
 
   // ─── Bulk Operations ─────────────────────────────────────────────────────────
@@ -288,7 +352,7 @@ export class AdminService {
     return this.prisma.user.update({
       where: { id: userId },
       data: { plan: plan as any },
-      select: { id: true, email: true, plan: true }
+      select: { id: true, email: true, plan: true },
     });
   }
 
@@ -305,18 +369,49 @@ export class AdminService {
 
   private toCsv(headers: string[], rows: any[][]): string {
     const headerRow = headers.join(',');
-    const dataRows = rows.map(row => row.map(v => this.escapeCsv(v)).join(','));
+    const dataRows = rows.map((row) =>
+      row.map((v) => this.escapeCsv(v)).join(','),
+    );
     return [headerRow, ...dataRows].join('\n');
   }
 
   async exportUsers(): Promise<string> {
     const users = await this.prisma.user.findMany({
-      select: { id: true, email: true, displayName: true, role: true, status: true, points: true, createdAt: true, _count: { select: { questions: true, examAttempts: true } } },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        role: true,
+        status: true,
+        points: true,
+        createdAt: true,
+        _count: { select: { questions: true, examAttempts: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return this.toCsv(
-      ['id', 'email', 'displayName', 'role', 'status', 'points', 'questions', 'examAttempts', 'createdAt'],
-      users.map(u => [u.id, u.email, u.displayName, u.role, u.status, u.points, u._count.questions, u._count.examAttempts, u.createdAt.toISOString()]),
+      [
+        'id',
+        'email',
+        'displayName',
+        'role',
+        'status',
+        'points',
+        'questions',
+        'examAttempts',
+        'createdAt',
+      ],
+      users.map((u) => [
+        u.id,
+        u.email,
+        u.displayName,
+        u.role,
+        u.status,
+        u.points,
+        u._count.questions,
+        u._count.examAttempts,
+        u.createdAt.toISOString(),
+      ]),
     );
   }
 
@@ -331,8 +426,30 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
     return this.toCsv(
-      ['id', 'title', 'status', 'difficulty', 'questionType', 'certification', 'domain', 'author', 'createdAt'],
-      questions.map(q => [q.id, q.title, q.status, q.difficulty, q.questionType, q.certification ? `${q.certification.code} - ${q.certification.name}` : '', q.domain?.name || '', (q as any).author?.displayName || '', q.createdAt.toISOString()]),
+      [
+        'id',
+        'title',
+        'status',
+        'difficulty',
+        'questionType',
+        'certification',
+        'domain',
+        'author',
+        'createdAt',
+      ],
+      questions.map((q) => [
+        q.id,
+        q.title,
+        q.status,
+        q.difficulty,
+        q.questionType,
+        q.certification
+          ? `${q.certification.code} - ${q.certification.name}`
+          : '',
+        q.domain?.name || '',
+        (q as any).author?.displayName || '',
+        q.createdAt.toISOString(),
+      ]),
     );
   }
 
@@ -341,13 +458,40 @@ export class AdminService {
       where: { status: 'SUBMITTED' as any },
       include: {
         user: { select: { displayName: true, email: true } },
-        exam: { select: { title: true, certification: { select: { name: true, code: true } } } },
+        exam: {
+          select: {
+            title: true,
+            certification: { select: { name: true, code: true } },
+          },
+        },
       },
       orderBy: { submittedAt: 'desc' },
     });
     return this.toCsv(
-      ['attemptId', 'user', 'email', 'exam', 'certification', 'score', 'passed', 'timeSpent', 'submittedAt'],
-      attempts.map(a => [a.id, a.user.displayName, a.user.email, a.exam.title, a.exam.certification ? `${a.exam.certification.code} - ${a.exam.certification.name}` : '', a.score, Number(a.score ?? 0) >= 70 ? 'YES' : 'NO', a.timeSpent, a.submittedAt?.toISOString() || '']),
+      [
+        'attemptId',
+        'user',
+        'email',
+        'exam',
+        'certification',
+        'score',
+        'passed',
+        'timeSpent',
+        'submittedAt',
+      ],
+      attempts.map((a) => [
+        a.id,
+        a.user.displayName,
+        a.user.email,
+        a.exam.title,
+        a.exam.certification
+          ? `${a.exam.certification.code} - ${a.exam.certification.name}`
+          : '',
+        a.score,
+        Number(a.score ?? 0) >= 70 ? 'YES' : 'NO',
+        a.timeSpent,
+        a.submittedAt?.toISOString() || '',
+      ]),
     );
   }
 }

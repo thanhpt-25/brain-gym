@@ -21,8 +21,6 @@ describe('App (e2e)', () => {
   });
 
   it('GET /certifications should be publicly accessible', () => {
-    return request(app.getHttpServer())
-      .get('/certifications')
-      .expect(200);
+    return request(app.getHttpServer()).get('/certifications').expect(200);
   });
 });

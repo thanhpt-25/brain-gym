@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+  Req,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { OrgQuestionsService } from './org-questions.service';
@@ -21,13 +32,19 @@ export class OrgQuestionsController {
 
   @Get()
   @ApiOperation({ summary: 'List org questions (paginated, filtered)' })
-  findAll(@Param('orgId') orgId: string, @Query() filters: ListOrgQuestionsDto) {
+  findAll(
+    @Param('orgId') orgId: string,
+    @Query() filters: ListOrgQuestionsDto,
+  ) {
     return this.orgQuestionsService.findAll(orgId, filters);
   }
 
   @Get(':questionId')
   @ApiOperation({ summary: 'Get single org question' })
-  findOne(@Param('orgId') orgId: string, @Param('questionId') questionId: string) {
+  findOne(
+    @Param('orgId') orgId: string,
+    @Param('questionId') questionId: string,
+  ) {
     return this.orgQuestionsService.findOne(orgId, questionId);
   }
 
@@ -51,7 +68,13 @@ export class OrgQuestionsController {
     @Body() dto: UpdateOrgQuestionDto,
   ) {
     const role = req.orgMembership?.role || OrgRole.MEMBER;
-    return this.orgQuestionsService.update(orgId, questionId, userId, role, dto);
+    return this.orgQuestionsService.update(
+      orgId,
+      questionId,
+      userId,
+      role,
+      dto,
+    );
   }
 
   @Delete(':questionId')
@@ -67,7 +90,9 @@ export class OrgQuestionsController {
   }
 
   @Post(':questionId/submit')
-  @ApiOperation({ summary: 'Submit question for review (DRAFT → UNDER_REVIEW)' })
+  @ApiOperation({
+    summary: 'Submit question for review (DRAFT → UNDER_REVIEW)',
+  })
   submitForReview(
     @Param('orgId') orgId: string,
     @Param('questionId') questionId: string,
@@ -79,7 +104,10 @@ export class OrgQuestionsController {
   @Post(':questionId/approve')
   @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN)
   @ApiOperation({ summary: 'Approve question (UNDER_REVIEW → APPROVED)' })
-  approve(@Param('orgId') orgId: string, @Param('questionId') questionId: string) {
+  approve(
+    @Param('orgId') orgId: string,
+    @Param('questionId') questionId: string,
+  ) {
     return this.orgQuestionsService.approve(orgId, questionId);
   }
 
@@ -101,6 +129,10 @@ export class OrgQuestionsController {
     @Param('sourceQuestionId') sourceQuestionId: string,
     @CurrentUser('id') userId: string,
   ) {
-    return this.orgQuestionsService.cloneFromPublic(orgId, userId, sourceQuestionId);
+    return this.orgQuestionsService.cloneFromPublic(
+      orgId,
+      userId,
+      sourceQuestionId,
+    );
   }
 }

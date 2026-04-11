@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
@@ -41,14 +45,18 @@ export class ProvidersService {
       where: { name: dto.name },
     });
     if (existingName) {
-      throw new ConflictException(`Provider name "${dto.name}" is already in use`);
+      throw new ConflictException(
+        `Provider name "${dto.name}" is already in use`,
+      );
     }
 
     const existingSlug = await this.prisma.provider.findUnique({
       where: { slug: dto.slug },
     });
     if (existingSlug) {
-      throw new ConflictException(`Provider slug "${dto.slug}" is already in use`);
+      throw new ConflictException(
+        `Provider slug "${dto.slug}" is already in use`,
+      );
     }
 
     return this.prisma.provider.create({
@@ -67,7 +75,9 @@ export class ProvidersService {
         where: { name: dto.name },
       });
       if (existing) {
-        throw new ConflictException(`Provider name "${dto.name}" is already in use`);
+        throw new ConflictException(
+          `Provider name "${dto.name}" is already in use`,
+        );
       }
     }
 
@@ -76,7 +86,9 @@ export class ProvidersService {
         where: { slug: dto.slug },
       });
       if (existing) {
-        throw new ConflictException(`Provider slug "${dto.slug}" is already in use`);
+        throw new ConflictException(
+          `Provider slug "${dto.slug}" is already in use`,
+        );
       }
     }
 

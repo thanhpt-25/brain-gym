@@ -34,7 +34,11 @@ export class CaptureService {
     });
   }
 
-  async updateStatus(userId: string, id: string, status: 'processed' | 'discarded') {
+  async updateStatus(
+    userId: string,
+    id: string,
+    status: 'processed' | 'discarded',
+  ) {
     const capture = await this.prisma.capturedWord.findUnique({
       where: { id },
     });

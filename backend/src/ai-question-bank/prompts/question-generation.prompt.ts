@@ -2,7 +2,7 @@ import { Difficulty, QuestionType } from '@prisma/client';
 import { GenerationParams } from '../providers/llm-provider.interface';
 
 export function buildGenerationSystemPrompt(): string {
-    return `You are an expert certification exam question writer. Your job is to create high-quality, exam-realistic multiple-choice questions based on provided source material.
+  return `You are an expert certification exam question writer. Your job is to create high-quality, exam-realistic multiple-choice questions based on provided source material.
 
 Rules:
 - Questions must be factually accurate and grounded in the source material provided.
@@ -15,21 +15,23 @@ Rules:
 }
 
 export function buildGenerationUserPrompt(params: GenerationParams): string {
-    const difficultyGuide: Record<Difficulty, string> = {
-        [Difficulty.EASY]: 'straightforward recall and basic understanding',
-        [Difficulty.MEDIUM]: 'application of concepts and scenario-based reasoning',
-        [Difficulty.HARD]: 'complex multi-step reasoning, architecture trade-offs, or subtle distinctions',
-    };
+  const difficultyGuide: Record<Difficulty, string> = {
+    [Difficulty.EASY]: 'straightforward recall and basic understanding',
+    [Difficulty.MEDIUM]: 'application of concepts and scenario-based reasoning',
+    [Difficulty.HARD]:
+      'complex multi-step reasoning, architecture trade-offs, or subtle distinctions',
+  };
 
-    const typeGuide = params.questionType === QuestionType.MULTIPLE
-        ? 'MULTIPLE choice (2-3 correct answers out of 5-6 options)'
-        : 'SINGLE choice (exactly 1 correct answer out of 4 options)';
+  const typeGuide =
+    params.questionType === QuestionType.MULTIPLE
+      ? 'MULTIPLE choice (2-3 correct answers out of 5-6 options)'
+      : 'SINGLE choice (exactly 1 correct answer out of 4 options)';
 
-    const sourceMaterial = params.sourceChunks?.length
-        ? `\n<source_material>\n${params.sourceChunks.join('\n\n---\n\n')}\n</source_material>`
-        : '';
+  const sourceMaterial = params.sourceChunks?.length
+    ? `\n<source_material>\n${params.sourceChunks.join('\n\n---\n\n')}\n</source_material>`
+    : '';
 
-    return `Generate ${params.questionCount} ${typeGuide} questions for the **${params.certificationName} (${params.certificationCode})** certification exam.
+  return `Generate ${params.questionCount} ${typeGuide} questions for the **${params.certificationName} (${params.certificationCode})** certification exam.
 ${params.domainName ? `Domain/Topic: ${params.domainName}` : ''}
 Difficulty: ${params.difficulty} — focus on ${difficultyGuide[params.difficulty]}.
 ${sourceMaterial}

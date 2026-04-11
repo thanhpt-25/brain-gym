@@ -4,6 +4,6 @@ import { CertificationsService } from './certifications.service';
 
 @Module({
   controllers: [CertificationsController],
-  providers: [CertificationsService]
+  providers: [CertificationsService],
 })
 export class CertificationsModule {}

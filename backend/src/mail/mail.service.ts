@@ -83,7 +83,9 @@ export class MailService {
     dueDate?: Date,
   ): Promise<void> {
     const appUrl = this.config.get('APP_URL', 'http://localhost');
-    const dueLine = dueDate ? `<p>Due: <strong>${dueDate.toUTCString()}</strong></p>` : '';
+    const dueLine = dueDate
+      ? `<p>Due: <strong>${dueDate.toUTCString()}</strong></p>`
+      : '';
     try {
       await this.transporter.sendMail({
         from: this.from,
@@ -97,7 +99,10 @@ export class MailService {
         `,
       });
     } catch (error) {
-      this.logger.error(`Failed to send exam assigned email to ${email}`, error);
+      this.logger.error(
+        `Failed to send exam assigned email to ${email}`,
+        error,
+      );
     }
   }
 }
