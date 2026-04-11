@@ -21,6 +21,34 @@
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
   [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
+## CertGym Backend
+
+NestJS API server for the CertGym certification exam preparation platform.
+
+### Auth Endpoints
+
+`POST /api/v1/auth/login` and `POST /api/v1/auth/refresh` return:
+
+```json
+{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "user": {
+    "id": "...",
+    "email": "...",
+    "displayName": "...",
+    "role": "...",
+    "orgMemberships": [
+      { "orgId": "...", "slug": "acme", "name": "Acme Corp", "role": "MEMBER" }
+    ]
+  }
+}
+```
+
+`orgMemberships` contains all active org memberships for the authenticated user, enabling the frontend to determine org context without additional API calls.
+
+---
+
 ## Description
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, TrendingUp, Trophy, Target, FileText } from 'lucide-react';
+import { Brain, TrendingUp, Trophy, Target, FileText, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,7 +26,7 @@ import { ExamHistoryList } from '@/components/dashboard/ExamHistoryList';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const [certFilter, setCertFilter] = useState<string>('');
 
   const { data: certifications } = useQuery({
@@ -152,6 +152,57 @@ const Dashboard = () => {
             ))}
           </div>
         )}
+
+        {/* Organization card — visible only to org members */}
+        {user?.orgMemberships?.length > 0 && (() => {
+          const firstOrg = user.orgMemberships[0];
+          const orgHref = `/org/${firstOrg.slug}`;
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="glass-card">
+                <CardContent className="p-5 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="p-2.5 rounded-lg bg-primary/10">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-base font-bold font-mono">{firstOrg.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Role: <span className="capitalize">{firstOrg.role.toLowerCase()}</span>
+                        {user.orgMemberships.length > 1 && (
+                          <span className="ml-2 text-primary">+{user.orgMemberships.length - 1} more</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      className="glow-cyan font-mono text-xs h-8"
+                      onClick={() => navigate(orgHref)}
+                    >
+                      Go to Org
+                    </Button>
+                    {user.orgMemberships.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="font-mono text-xs h-8"
+                        onClick={() => navigate('/org')}
+                      >
+                        View all
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })()}
 
         {/* Readiness + Mistake Patterns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

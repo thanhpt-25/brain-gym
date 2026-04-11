@@ -8,6 +8,7 @@ import { UserStatus } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import * as bcrypt from 'bcryptjs';
@@ -19,6 +20,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private prisma: PrismaService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -90,11 +92,20 @@ export class AuthService {
 
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>(
-        'JWT_REFRESH_EXPIRES_IN',
-        '7d',
-      ) as any,
+      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d') as any,
     });
+
+    const memberships = await this.prisma.orgMember.findMany({
+      where: { userId: user.id, isActive: true },
+      include: { organization: { select: { slug: true, name: true } } },
+    });
+
+    const orgMemberships = memberships.map((m) => ({
+      orgId: m.orgId,
+      slug: m.organization.slug,
+      name: m.organization.name,
+      role: m.role,
+    }));
 
     return {
       accessToken,
@@ -104,6 +115,7 @@ export class AuthService {
         email: user.email,
         displayName: user.displayName,
         role: user.role,
+        orgMemberships,
       },
     };
   }

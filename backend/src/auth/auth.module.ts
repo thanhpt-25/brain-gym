@@ -5,12 +5,14 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
+import { PrismaModule } from '../prisma/prisma.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
     UsersModule,
+    PrismaModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({}),
   ],

@@ -1,7 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Target, Dumbbell, Layers, BarChart3, Trophy } from 'lucide-react';
+import { BookOpen, Target, Dumbbell, Layers, BarChart3, Trophy, Building2 } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth.store';
 
-const tabs = [
+const staticTabs = [
   { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
   { label: 'Training', href: '/training', icon: Dumbbell },
   { label: 'Exams', href: '/exams', icon: Target },
@@ -13,6 +14,14 @@ const tabs = [
 const BottomTabBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const user = useAuthStore((s) => s.user);
+
+  const orgMemberships = user?.orgMemberships ?? [];
+  const orgHref = orgMemberships.length === 1 ? `/org/${orgMemberships[0].slug}` : '/org';
+
+  const tabs = orgMemberships.length > 0
+    ? [...staticTabs, { label: 'Org', href: orgHref, icon: Building2 }]
+    : staticTabs;
 
   const isActive = (href: string) =>
     location.pathname === href || location.pathname.startsWith(href + '/');
