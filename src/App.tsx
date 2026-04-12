@@ -116,6 +116,7 @@ const AnimatedRoutes = () => {
           <Route path="catalog" element={<OrgExamCatalog />} />
           <Route path="catalog/manage" element={<OrgCatalogManage />} />
           <Route path="catalog/create" element={<OrgCatalogBuilder />} />
+          <Route path="catalog/:cid" element={<OrgCatalogPreview />} />
           <Route path="catalog/:cid/edit" element={<OrgCatalogBuilder />} />
           <Route path="catalog/:cid/preview" element={<OrgCatalogPreview />} />
           <Route path="tracks" element={<OrgLearningTracks />} />

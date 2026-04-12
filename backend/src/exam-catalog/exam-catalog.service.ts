@@ -300,13 +300,18 @@ export class ExamCatalogService {
         certification: { include: { domains: true, provider: true } },
         questions: {
           orderBy: { sortOrder: 'asc' },
-          where: { publicQuestionId: { not: null } },
           include: {
             publicQuestion: {
               include: {
                 choices: { orderBy: { sortOrder: 'asc' } },
                 domain: true,
                 tags: { include: { tag: true } },
+              },
+            },
+            orgQuestion: {
+              include: {
+                choices: { orderBy: { sortOrder: 'asc' } },
+                certification: true,
               },
             },
           },
@@ -327,9 +332,20 @@ export class ExamCatalogService {
     }
 
     // Check certification required for Exam creation
-    if (!item.certificationId) {
+    // If item doesn't have one, try to pick one from the questions
+    let effectiveCertId = item.certificationId;
+    if (!effectiveCertId) {
+      const firstQWithCert = item.questions.find(
+        (q) => q.orgQuestion?.certificationId || q.publicQuestion?.certificationId,
+      );
+      effectiveCertId =
+        firstQWithCert?.orgQuestion?.certificationId ||
+        firstQWithCert?.publicQuestion?.certificationId;
+    }
+
+    if (!effectiveCertId) {
       throw new BadRequestException(
-        'Catalog item must have a certificationId to start an exam',
+        'Catalog item must have a certification association to start an exam',
       );
     }
 
@@ -375,13 +391,13 @@ export class ExamCatalogService {
 
     if (item.type === ExamCatalogItemType.FIXED) {
       questions = item.questions
-        .filter((q) => q.publicQuestion)
-        .map((q) => q.publicQuestion!);
+        .map((q) => q.orgQuestion || q.publicQuestion)
+        .filter((q): q is any => !!q);
     } else {
       // DYNAMIC: randomly select approved public questions for certification
       const pool = await this.prisma.question.findMany({
         where: {
-          certificationId: item.certificationId,
+          certificationId: effectiveCertId,
           status: 'APPROVED',
           deletedAt: null,
         },
@@ -413,7 +429,7 @@ export class ExamCatalogService {
       const exam = await tx.exam.create({
         data: {
           createdBy: userId,
-          certificationId: item.certificationId!,
+          certificationId: effectiveCertId!,
           title: `[catalog:${cid}] ${item.title}`,
           questionCount: questions.length,
           timeLimit: item.timeLimit,
