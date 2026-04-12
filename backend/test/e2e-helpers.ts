@@ -4,7 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { UserRole, OrgRole } from '@prisma/client';
 
-process.env.LLM_KEY_ENCRYPTION_SECRET = process.env.LLM_KEY_ENCRYPTION_SECRET || 'testsecret_must_be_32_chars_long_exactly';
+process.env.LLM_KEY_ENCRYPTION_SECRET =
+  process.env.LLM_KEY_ENCRYPTION_SECRET ||
+  'testsecret_must_be_32_chars_long_exactly';
 
 // ─── User helpers ─────────────────────────────────────────────────────────────
 
@@ -22,7 +24,10 @@ export async function createTestUser(
   });
 }
 
-export function generateToken(app: INestApplication, user: { id: string; email: string; role: string }) {
+export function generateToken(
+  app: INestApplication,
+  user: { id: string; email: string; role: string },
+) {
   const jwtService = app.get<JwtService>(JwtService);
   const configService = app.get<ConfigService>(ConfigService);
   const jwtSecret = configService.get<string>('JWT_SECRET');
@@ -40,7 +45,9 @@ export async function createTestOrg(
   ownerId: string,
   opts: { name: string; slug?: string; maxSeats?: number },
 ) {
-  const slug = opts.slug ?? opts.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
+  const slug =
+    opts.slug ??
+    opts.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
 
   const org = await prisma.organization.create({
     data: {
@@ -109,9 +116,24 @@ export async function createTestPublicQuestion(
       status: 'APPROVED',
       choices: {
         create: [
-          { label: 'a', content: 'Wrong answer', isCorrect: false, sortOrder: 0 },
-          { label: 'b', content: 'Correct answer', isCorrect: true, sortOrder: 1 },
-          { label: 'c', content: 'Another wrong', isCorrect: false, sortOrder: 2 },
+          {
+            label: 'a',
+            content: 'Wrong answer',
+            isCorrect: false,
+            sortOrder: 0,
+          },
+          {
+            label: 'b',
+            content: 'Correct answer',
+            isCorrect: true,
+            sortOrder: 1,
+          },
+          {
+            label: 'c',
+            content: 'Another wrong',
+            isCorrect: false,
+            sortOrder: 2,
+          },
         ],
       },
     },
@@ -121,7 +143,10 @@ export async function createTestPublicQuestion(
 
 // ─── Cleanup ──────────────────────────────────────────────────────────────────
 
-export async function cleanupByEmail(prisma: PrismaService, emailPrefix: string) {
+export async function cleanupByEmail(
+  prisma: PrismaService,
+  emailPrefix: string,
+) {
   const users = await prisma.user.findMany({
     where: { email: { startsWith: emailPrefix } },
     select: { id: true },
@@ -139,7 +164,9 @@ export async function cleanupByEmail(prisma: PrismaService, emailPrefix: string)
 
   if (ownedOrgIds.length > 0) {
     // Cascade deletes from org: members, invites, groups, questions, catalog, assessments, etc.
-    await prisma.organization.deleteMany({ where: { id: { in: ownedOrgIds } } });
+    await prisma.organization.deleteMany({
+      where: { id: { in: ownedOrgIds } },
+    });
   }
 
   // Delete custom standalone exams that might not cascade via Org
@@ -153,7 +180,9 @@ export async function cleanupByEmail(prisma: PrismaService, emailPrefix: string)
   });
   const publicQIds = publicQuestions.map((q) => q.id);
   if (publicQIds.length > 0) {
-    await prisma.choice.deleteMany({ where: { questionId: { in: publicQIds } } });
+    await prisma.choice.deleteMany({
+      where: { questionId: { in: publicQIds } },
+    });
     await prisma.question.deleteMany({ where: { id: { in: publicQIds } } });
   }
 
@@ -161,7 +190,10 @@ export async function cleanupByEmail(prisma: PrismaService, emailPrefix: string)
   await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 }
 
-export async function cleanupCertByCode(prisma: PrismaService, codePrefix: string) {
+export async function cleanupCertByCode(
+  prisma: PrismaService,
+  codePrefix: string,
+) {
   // Delete questions first (they reference certifications)
   const certs = await prisma.certification.findMany({
     where: { code: { startsWith: codePrefix } },
@@ -170,7 +202,9 @@ export async function cleanupCertByCode(prisma: PrismaService, codePrefix: strin
   const certIds = certs.map((c) => c.id);
 
   if (certIds.length > 0) {
-    await prisma.question.deleteMany({ where: { certificationId: { in: certIds } } });
+    await prisma.question.deleteMany({
+      where: { certificationId: { in: certIds } },
+    });
     await prisma.certification.deleteMany({ where: { id: { in: certIds } } });
   }
 }

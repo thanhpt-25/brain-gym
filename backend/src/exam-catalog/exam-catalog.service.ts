@@ -336,11 +336,13 @@ export class ExamCatalogService {
     let effectiveCertId = item.certificationId;
     if (!effectiveCertId) {
       const firstQWithCert = item.questions.find(
-        (q) => q.orgQuestion?.certificationId || q.publicQuestion?.certificationId,
+        (q) =>
+          q.orgQuestion?.certificationId || q.publicQuestion?.certificationId,
       );
       effectiveCertId =
         firstQWithCert?.orgQuestion?.certificationId ||
-        firstQWithCert?.publicQuestion?.certificationId || null;
+        firstQWithCert?.publicQuestion?.certificationId ||
+        null;
     }
 
     if (!effectiveCertId) {
@@ -429,7 +431,7 @@ export class ExamCatalogService {
       const exam = await tx.exam.create({
         data: {
           createdBy: userId,
-          certificationId: effectiveCertId!,
+          certificationId: effectiveCertId,
           title: `[catalog:${cid}] ${item.title}`,
           questionCount: questions.length,
           timeLimit: item.timeLimit,

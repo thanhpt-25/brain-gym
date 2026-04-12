@@ -72,8 +72,7 @@ describe('Certifications CRUD (e2e)', () => {
     }
 
     // Create test provider (reuse if it exists from previous run)
-    let provider: typeof prisma.provider.$extends.$result.provider | null =
-      null;
+    let provider: any = null;
     try {
       provider = await prisma.provider.create({
         data: { name: 'E2E Test Provider', slug: 'e2e-test-provider' },

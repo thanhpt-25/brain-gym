@@ -13,6 +13,11 @@ export class TokenResponseDto {
     email: string;
     displayName: string;
     role: string;
-    orgMemberships: { orgId: string; slug: string; name: string; role: string }[];
+    orgMemberships: {
+      orgId: string;
+      slug: string;
+      name: string;
+      role: string;
+    }[];
   };
 }

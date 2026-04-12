@@ -27,7 +27,9 @@ describe('Candidate Assessments (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
@@ -41,7 +43,9 @@ describe('Candidate Assessments (e2e)', () => {
     ownerToken = generateToken(app, owner);
 
     // Setup org
-    const setup = await createTestOrg(prisma, owner.id, { name: 'E2E Assess Org' });
+    const setup = await createTestOrg(prisma, owner.id, {
+      name: 'E2E Assess Org',
+    });
     orgId = setup.org.id;
 
     // Create an org question with choices to test the exact evaluation flow
@@ -61,7 +65,7 @@ describe('Candidate Assessments (e2e)', () => {
       include: { choices: true },
     });
     orgQuestionId = oq.id;
-    correctChoiceId = oq.choices.find(c => c.isCorrect)!.id;
+    correctChoiceId = oq.choices.find((c) => c.isCorrect)!.id;
   });
 
   afterAll(async () => {
@@ -139,7 +143,7 @@ describe('Candidate Assessments (e2e)', () => {
       .expect(201);
 
     expect(res.body.invited).toBe(1);
-    
+
     // Fetch the token directly from DB just for testing the public flow
     const invite = await prisma.candidateInvite.findFirst({
       where: { assessmentId },
@@ -179,7 +183,9 @@ describe('Candidate Assessments (e2e)', () => {
       .expect(201);
 
     // Verify DB
-    const invite = await prisma.candidateInvite.findUnique({ where: { token: candidateToken } });
+    const invite = await prisma.candidateInvite.findUnique({
+      where: { token: candidateToken },
+    });
     expect(invite?.tabSwitchCount).toBe(1);
   });
 
@@ -187,7 +193,9 @@ describe('Candidate Assessments (e2e)', () => {
     const res = await request(app.getHttpServer())
       .post(`/assessments/take/${candidateToken}/submit`)
       .send({
-        answers: [{ questionId: orgQuestionId, selectedChoices: [correctChoiceId] }],
+        answers: [
+          { questionId: orgQuestionId, selectedChoices: [correctChoiceId] },
+        ],
       })
       .expect(201);
 
@@ -201,20 +209,26 @@ describe('Candidate Assessments (e2e)', () => {
       .post(`/assessments/take/${candidateToken}/submit`)
       .send({ answers: [] })
       .expect(400); // 400 or 410 depending on implementation layer
-    
+
     expect(res.body.message).toContain('already submitted');
   });
 
   // ─── ADMIN VALIDATION ────────────────────────────────────────────────────────
-  
+
   it('should see results as admin (GET /:aid/results)', async () => {
     const res = await request(app.getHttpServer())
       .get(`/organizations/${orgId}/assessments/${assessmentId}/results`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .expect(200);
 
-    expect(res.body.candidates.some((c: any) => c.candidateEmail === 'candidate@test.com')).toBeTruthy();
-    const candidate = res.body.candidates.find((c: any) => c.candidateEmail === 'candidate@test.com');
+    expect(
+      res.body.candidates.some(
+        (c: any) => c.candidateEmail === 'candidate@test.com',
+      ),
+    ).toBeTruthy();
+    const candidate = res.body.candidates.find(
+      (c: any) => c.candidateEmail === 'candidate@test.com',
+    );
     expect(candidate.status).toBe('SUBMITTED');
     expect(candidate.score).toBe('100');
   });

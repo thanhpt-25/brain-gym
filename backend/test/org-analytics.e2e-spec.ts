@@ -30,7 +30,9 @@ describe('Org Analytics (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
@@ -52,7 +54,9 @@ describe('Org Analytics (e2e)', () => {
     memberToken = generateToken(app, member);
 
     // Setup org
-    const setup = await createTestOrg(prisma, owner.id, { name: 'E2E Analytics Org' });
+    const setup = await createTestOrg(prisma, owner.id, {
+      name: 'E2E Analytics Org',
+    });
     orgId = setup.org.id;
 
     await prisma.orgMember.create({
@@ -92,7 +96,9 @@ describe('Org Analytics (e2e)', () => {
 
   afterAll(async () => {
     if (certId) {
-      await prisma.certification.delete({ where: { id: certId } }).catch(() => {}); // might have cascaded
+      await prisma.certification
+        .delete({ where: { id: certId } })
+        .catch(() => {}); // might have cascaded
     }
     await cleanupByEmail(prisma, EMAIL_PREFIX);
     await prisma.$disconnect();

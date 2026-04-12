@@ -92,7 +92,10 @@ export class AuthService {
 
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d') as any,
+      expiresIn: this.configService.get<string>(
+        'JWT_REFRESH_EXPIRES_IN',
+        '7d',
+      ) as any,
     });
 
     const memberships = await this.prisma.orgMember.findMany({

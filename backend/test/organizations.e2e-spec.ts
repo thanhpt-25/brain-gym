@@ -33,7 +33,9 @@ describe('Organizations (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
@@ -263,7 +265,9 @@ describe('Organizations (e2e)', () => {
       .expect(200);
 
     expect(listRes.body).toBeInstanceOf(Array);
-    expect(listRes.body.some((g: any) => g.name === 'Engineering')).toBeTruthy();
+    expect(
+      listRes.body.some((g: any) => g.name === 'Engineering'),
+    ).toBeTruthy();
   });
 
   // ─── Delete ─────────────────────────────────────────────────────────────────
