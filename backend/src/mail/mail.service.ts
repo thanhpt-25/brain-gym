@@ -8,14 +8,18 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private readonly config: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: this.config.get('MAIL_HOST', 'sandbox.smtp.mailtrap.io'),
-      port: this.config.get<number>('MAIL_PORT', 2525),
-      auth: {
-        user: this.config.get('MAIL_USER', ''),
-        pass: this.config.get('MAIL_PASS', ''),
-      },
-    });
+    if (process.env.NODE_ENV === 'test') {
+      this.transporter = { sendMail: async () => {} } as any;
+    } else {
+      this.transporter = nodemailer.createTransport({
+        host: this.config.get('MAIL_HOST', 'sandbox.smtp.mailtrap.io'),
+        port: this.config.get<number>('MAIL_PORT', 2525),
+        auth: {
+          user: this.config.get('MAIL_USER', ''),
+          pass: this.config.get('MAIL_PASS', ''),
+        },
+      });
+    }
   }
 
   private get from(): string {
