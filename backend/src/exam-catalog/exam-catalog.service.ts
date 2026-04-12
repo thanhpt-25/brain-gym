@@ -340,7 +340,7 @@ export class ExamCatalogService {
       );
       effectiveCertId =
         firstQWithCert?.orgQuestion?.certificationId ||
-        firstQWithCert?.publicQuestion?.certificationId;
+        firstQWithCert?.publicQuestion?.certificationId || null;
     }
 
     if (!effectiveCertId) {
