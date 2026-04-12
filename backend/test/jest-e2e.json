@@ -3,14 +3,14 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "maxWorkers": 1,
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
+  "setupFiles": ["./setup.ts"],
   "moduleNameMapper": {
     "^uuid$": "uuid",
     "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
   },
-  "transformIgnorePatterns": [
-    "node_modules/(?!(@prisma/client|uuid))"
-  ]
+  "transformIgnorePatterns": ["node_modules/(?!(@prisma/client|uuid))"]
 }

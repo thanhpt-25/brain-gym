@@ -96,6 +96,8 @@ describe('Certifications CRUD (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (!prisma || !app) return;
+
     // Delete all certifications referencing this provider
     if (testProviderId) {
       const certs = await prisma.certification.findMany({
