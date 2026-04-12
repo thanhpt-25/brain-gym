@@ -30,7 +30,9 @@ describe('Org Questions (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     prisma = app.get<PrismaService>(PrismaService);
@@ -51,7 +53,9 @@ describe('Org Questions (e2e)', () => {
     memberToken = generateToken(app, member);
 
     // Setup org
-    const setup = await createTestOrg(prisma, owner.id, { name: 'E2E Question Org' });
+    const setup = await createTestOrg(prisma, owner.id, {
+      name: 'E2E Question Org',
+    });
     orgId = setup.org.id;
 
     await prisma.orgMember.create({
@@ -76,12 +80,14 @@ describe('Org Questions (e2e)', () => {
   afterAll(async () => {
     // Delete public question
     if (publicQuestionId) {
-      await prisma.choice.deleteMany({ where: { questionId: publicQuestionId } });
-      await prisma.question.delete({ where: { id: publicQuestionId } });
+      await prisma.choice.deleteMany({
+        where: { questionId: publicQuestionId },
+      });
+      await prisma.question.deleteMany({ where: { id: publicQuestionId } });
     }
     // Delete cert
     if (certId) {
-      await prisma.certification.delete({ where: { id: certId } });
+      await prisma.certification.deleteMany({ where: { id: certId } });
     }
     await cleanupByEmail(prisma, EMAIL_PREFIX);
     await prisma.$disconnect();
@@ -119,7 +125,9 @@ describe('Org Questions (e2e)', () => {
       .expect(200);
 
     expect(res.body.data).toBeInstanceOf(Array);
-    expect(res.body.data.some((q: any) => q.id === createdQuestionId)).toBeTruthy();
+    expect(
+      res.body.data.some((q: any) => q.id === createdQuestionId),
+    ).toBeTruthy();
   });
 
   it('should get question details (GET /:qid)', async () => {
@@ -177,7 +185,7 @@ describe('Org Questions (e2e)', () => {
         choices: [{ label: 'a', content: 'Right', isCorrect: true }],
       })
       .expect(201);
-    
+
     const qid = createRes.body.id;
 
     // submit

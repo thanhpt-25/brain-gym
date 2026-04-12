@@ -37,11 +37,58 @@ describe('Certifications CRUD (e2e)', () => {
       },
     });
 
-    // Create test provider
-    const provider = await prisma.provider.create({
-      data: { name: 'E2E Test Provider', slug: 'e2e-test-provider' },
+    // Clean up any existing test provider and its certifications from failed tests
+    const existingCerts = await prisma.certification.findMany({
+      where: {
+        OR: [
+          { code: { startsWith: 'E2E-TEST' } },
+          { code: { startsWith: 'E2E-UNIQUE' } },
+          { code: { startsWith: 'E2E-UPDATED' } },
+        ],
+      },
+      select: { id: true },
     });
-    testProviderId = provider.id;
+    const existingCertIds = existingCerts.map((c) => c.id);
+    if (existingCertIds.length) {
+      const exams = await prisma.exam.findMany({
+        where: { certificationId: { in: existingCertIds } },
+        select: { id: true },
+      });
+      const examIds = exams.map((e) => e.id);
+      if (examIds.length) {
+        await prisma.examAttempt.deleteMany({
+          where: { examId: { in: examIds } },
+        });
+        await prisma.exam.deleteMany({
+          where: { id: { in: examIds } },
+        });
+      }
+      await prisma.question.deleteMany({
+        where: { certificationId: { in: existingCertIds } },
+      });
+      await prisma.certification.deleteMany({
+        where: { id: { in: existingCertIds } },
+      });
+    }
+
+    // Create test provider (reuse if it exists from previous run)
+    let provider: typeof prisma.provider.$extends.$result.provider | null =
+      null;
+    try {
+      provider = await prisma.provider.create({
+        data: { name: 'E2E Test Provider', slug: 'e2e-test-provider' },
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002' && error.meta?.target?.includes('name')) {
+        // Provider already exists, find it
+        provider = await prisma.provider.findUnique({
+          where: { slug: 'e2e-test-provider' },
+        });
+      } else {
+        throw error;
+      }
+    }
+    testProviderId = provider!.id;
 
     adminToken = jwtService.sign(
       { sub: admin.id, email: admin.email, role: admin.role },
@@ -50,10 +97,67 @@ describe('Certifications CRUD (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.certification.deleteMany({
-      where: { code: { startsWith: 'E2E-' } },
+    // Delete all certifications referencing this provider
+    if (testProviderId) {
+      const certs = await prisma.certification.findMany({
+        where: { providerId: testProviderId },
+        select: { id: true },
+      });
+      const certIds = certs.map((c) => c.id);
+
+      if (certIds.length) {
+        const exams = await prisma.exam.findMany({
+          where: { certificationId: { in: certIds } },
+          select: { id: true },
+        });
+        const examIds = exams.map((e) => e.id);
+        if (examIds.length) {
+          await prisma.examAttempt.deleteMany({
+            where: { examId: { in: examIds } },
+          });
+          await prisma.exam.deleteMany({
+            where: { id: { in: examIds } },
+          });
+        }
+
+        await prisma.examQuestion.deleteMany({
+          where: { question: { certificationId: { in: certIds } } },
+        });
+        await prisma.choice.deleteMany({
+          where: { question: { certificationId: { in: certIds } } },
+        });
+        await prisma.question.deleteMany({
+          where: { certificationId: { in: certIds } },
+        });
+
+        await prisma.certification.deleteMany({
+          where: { id: { in: certIds } },
+        });
+      }
+
+      await prisma.provider.delete({ where: { id: testProviderId } });
+    }
+
+    // Also clean up any orphaned test certifications created by this test file
+    const orphanedCerts = await prisma.certification.findMany({
+      where: {
+        OR: [
+          { code: { startsWith: 'E2E-TEST' } },
+          { code: { startsWith: 'E2E-UNIQUE' } },
+          { code: { startsWith: 'E2E-UPDATED' } },
+        ],
+      },
+      select: { id: true },
     });
-    await prisma.provider.deleteMany({ where: { slug: 'e2e-test-provider' } });
+    const orphanedCertIds = orphanedCerts.map((c) => c.id);
+    if (orphanedCertIds.length) {
+      await prisma.question.deleteMany({
+        where: { certificationId: { in: orphanedCertIds } },
+      });
+      await prisma.certification.deleteMany({
+        where: { id: { in: orphanedCertIds } },
+      });
+    }
     await prisma.user.deleteMany({
       where: { email: 'e2e-cert-admin@test.com' },
     });

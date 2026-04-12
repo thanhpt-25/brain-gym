@@ -108,7 +108,7 @@ describe('Exam Catalog (e2e)', () => {
       await prisma.choice.deleteMany({
         where: { questionId: publicQuestionId },
       });
-      await prisma.question.delete({ where: { id: publicQuestionId } });
+      await prisma.question.deleteMany({ where: { id: publicQuestionId } });
     }
     if (certId) {
       const exams = await prisma.exam.findMany({
@@ -124,7 +124,7 @@ describe('Exam Catalog (e2e)', () => {
           where: { id: { in: examIds } },
         });
       }
-      await prisma.certification.delete({ where: { id: certId } });
+      await prisma.certification.deleteMany({ where: { id: certId } });
     }
     await cleanupByEmail(prisma, EMAIL_PREFIX);
     await prisma.$disconnect();
