@@ -4,10 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { UserRole, OrgRole } from '@prisma/client';
 
-process.env.LLM_KEY_ENCRYPTION_SECRET =
-  process.env.LLM_KEY_ENCRYPTION_SECRET ||
-  'testsecret_must_be_32_chars_long_exactly';
-
 // ─── User helpers ─────────────────────────────────────────────────────────────
 
 export async function createTestUser(

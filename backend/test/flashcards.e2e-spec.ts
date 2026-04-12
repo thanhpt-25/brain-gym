@@ -44,9 +44,13 @@ describe('Flashcards (e2e)', () => {
 
   afterAll(async () => {
     // Cascade: User → Deck → Flashcard → FlashcardReviewSchedule
-    await prisma.user.deleteMany({ where: { id: testUserId } });
-    await prisma.$disconnect();
-    await app.close();
+    if (prisma && testUserId) {
+      await prisma.user.deleteMany({ where: { id: testUserId } });
+      await prisma.$disconnect();
+    }
+    if (app) {
+      await app.close();
+    }
   });
 
   it('should create and list decks', async () => {
