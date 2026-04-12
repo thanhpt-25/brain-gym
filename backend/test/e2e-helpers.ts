@@ -85,11 +85,25 @@ export async function createTestCertification(
   prisma: PrismaService,
   opts: { name: string; code: string },
 ) {
-  const provider = await prisma.provider.upsert({
+  // Find or create provider, handling potential duplicates from previous test runs
+  let provider = await prisma.provider.findUnique({
     where: { slug: 'e2e-test-provider' },
-    update: {},
-    create: { name: 'E2E Test Provider', slug: 'e2e-test-provider' },
   });
+  if (!provider) {
+    try {
+      provider = await prisma.provider.create({
+        data: { name: 'E2E Test Provider', slug: 'e2e-test-provider' },
+      });
+    } catch (error: any) {
+      // Name might already exist with different slug, find it by name
+      if (error.code === 'P2002') {
+        provider = await prisma.provider.findFirst({
+          where: { name: 'E2E Test Provider' },
+        });
+      }
+      if (!provider) throw error;
+    }
+  }
 
   const cert = await prisma.certification.upsert({
     where: { code: opts.code },
