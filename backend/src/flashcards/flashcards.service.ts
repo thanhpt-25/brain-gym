@@ -201,14 +201,14 @@ export class FlashcardsService {
       where: { userId_flashcardId: { userId, flashcardId } },
     });
 
-    const prevInterval = schedule?.interval ?? 0;
+    const prevIntervalDays = schedule?.intervalDays ?? 0;
     const prevReps = schedule?.repetitions ?? 0;
     const prevEF = Number(schedule?.easeFactor ?? 2.5);
-    const prevLapses = 0; // schema does not yet have lapses column; defaulting to 0
+    const prevLapses = schedule?.lapses ?? 0;
 
     const sm2 = calculateSM2({
       quality: dto.quality,
-      prevInterval,
+      prevIntervalDays,
       prevRepetitions: prevReps,
       prevEaseFactor: prevEF,
       prevLapses,
@@ -220,7 +220,7 @@ export class FlashcardsService {
     const updated = await this.prisma.flashcardReviewSchedule.upsert({
       where: { userId_flashcardId: { userId, flashcardId } },
       update: {
-        interval: sm2.intervalDays,
+        intervalDays: sm2.intervalDays,
         repetitions: sm2.repetitions,
         easeFactor: sm2.easeFactor,
         nextReviewDate,
@@ -229,7 +229,7 @@ export class FlashcardsService {
       create: {
         userId,
         flashcardId,
-        interval: sm2.intervalDays,
+        intervalDays: sm2.intervalDays,
         repetitions: sm2.repetitions,
         easeFactor: sm2.easeFactor,
         nextReviewDate,
@@ -322,7 +322,7 @@ export class FlashcardsService {
       id: `new-${flashcard.id}`,
       userId,
       flashcardId: flashcard.id,
-      interval: 0,
+      intervalDays: 0,
       repetitions: 0,
       easeFactor: 2.5,
       nextReviewDate: today,
