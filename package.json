@@ -11,9 +11,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "type-check:strict": "tsc -p tsconfig.strict.json --noEmit",
     "lhci": "lhci autorun",
-    "lhci:collect": "lhci collect",
-    "type-check:strict": "tsc -p tsconfig.strict.json --noEmit"
+    "lhci:collect": "lhci collect"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -98,6 +100,7 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
     "vitest": "^3.2.4",
+    "@playwright/test": "^1.49.0",
     "@lhci/cli": "^0.14.0"
   }
 }

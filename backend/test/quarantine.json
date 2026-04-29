@@ -1,0 +1,5 @@
+{
+  "quarantined": [],
+  "lastUpdated": "2026-04-29",
+  "note": "Tests listed here are quarantined. Each entry requires a Linear issue. Max 5 entries enforced by quarantine-check.ts."
+}
