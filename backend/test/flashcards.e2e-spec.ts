@@ -43,8 +43,10 @@ describe('Flashcards (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Cascade: User → Deck → Flashcard → FlashcardReviewSchedule
+    // Delete audit logs first (no cascade from User), then let DB cascade
+    // handle: User → Deck → Flashcard → FlashcardReviewSchedule
     if (prisma && testUserId) {
+      await prisma.auditLog.deleteMany({ where: { userId: testUserId } });
       await prisma.user.deleteMany({ where: { id: testUserId } });
       await prisma.$disconnect();
     }
