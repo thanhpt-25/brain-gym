@@ -96,7 +96,7 @@ describe('Flashcards (e2e)', () => {
       .expect(201);
 
     expect(reviewRes.body.repetitions).toBe(1);
-    expect(reviewRes.body.interval).toBe(1);
+    expect(reviewRes.body.intervalDays).toBe(1);
 
     const dueRes = await request(app.getHttpServer())
       .get('/flashcards/srs/due')
