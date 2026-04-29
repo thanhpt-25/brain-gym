@@ -19,12 +19,23 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true },
+      ],
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-empty-object-type": "warn",
       "@typescript-eslint/no-require-imports": "warn",
       "no-empty": "warn",
+    },
+  },
+  // US-102: Strict no-any gate for the services layer and auth store.
+  // No new `any` allowed in these files — enforced as error (not warn).
+  {
+    files: ["src/services/**/*.ts", "src/stores/auth.store.ts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
     },
   },
 );
