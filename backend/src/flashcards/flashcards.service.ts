@@ -4,14 +4,64 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateDeckDto } from './dto/create-deck.dto';
 import { UpdateDeckDto } from './dto/update-deck.dto';
 import { CreateFlashcardDto } from './dto/create-flashcard.dto';
 import { UpdateFlashcardDto } from './dto/update-flashcard.dto';
+import { SubmitReviewDto } from './dto/submit-review.dto';
+import { calculateSM2 } from './sm2';
+
+// TODO: Replace with Redis SETNX once ioredis / @nestjs/cache-manager is wired in.
+// Key: `flashcard:review:idempotency:<userId>:<flashcardId>:<idempotencyKey>`
+// TTL: 300 seconds (5 minutes)
+const idempotencyStore = new Map<
+  string,
+  { expiresAt: number; scheduleId: string }
+>();
+
+function idempotencyKey(
+  userId: string,
+  flashcardId: string,
+  key: string,
+): string {
+  return `flashcard:review:idempotency:${userId}:${flashcardId}:${key}`;
+}
+
+function checkAndSetIdempotency(
+  userId: string,
+  flashcardId: string,
+  key: string,
+  scheduleId: string,
+): boolean {
+  const storeKey = idempotencyKey(userId, flashcardId, key);
+  const now = Date.now();
+  const existing = idempotencyStore.get(storeKey);
+  if (existing && existing.expiresAt > now) {
+    return false; // already processed
+  }
+  idempotencyStore.set(storeKey, { expiresAt: now + 300_000, scheduleId });
+  return true; // newly processed
+}
+
+function getIdempotencyEntry(
+  userId: string,
+  flashcardId: string,
+  key: string,
+): { scheduleId: string } | undefined {
+  const storeKey = idempotencyKey(userId, flashcardId, key);
+  const now = Date.now();
+  const existing = idempotencyStore.get(storeKey);
+  if (existing && existing.expiresAt > now) return existing;
+  return undefined;
+}
 
 @Injectable()
 export class FlashcardsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   // ==================== DECKS ====================
 
@@ -123,42 +173,29 @@ export class FlashcardsService {
 
   // ==================== SRS ====================
 
-  private calculateSM2(
-    quality: number,
-    prevInterval: number,
-    prevReps: number,
-    prevEF: number,
+  async submitReview(
+    userId: string,
+    flashcardId: string,
+    dto: SubmitReviewDto,
   ) {
-    let interval: number;
-    let repetitions: number;
-    let easeFactor: number;
+    await this.getFlashcard(userId, flashcardId); // validates ownership / 403
 
-    if (quality >= 3) {
-      if (prevReps === 0) {
-        interval = 1;
-      } else if (prevReps === 1) {
-        interval = 6;
-      } else {
-        interval = Math.round(prevInterval * prevEF);
+    // Idempotency check
+    if (dto.idempotencyKey) {
+      const existing = getIdempotencyEntry(
+        userId,
+        flashcardId,
+        dto.idempotencyKey,
+      );
+      if (existing) {
+        // Return cached schedule from DB
+        const cached = await this.prisma.flashcardReviewSchedule.findUnique({
+          where: { id: existing.scheduleId },
+        });
+        if (cached) return cached;
+        // If somehow deleted, fall through to re-process
       }
-      repetitions = prevReps + 1;
-      easeFactor =
-        prevEF + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-    } else {
-      repetitions = 0;
-      interval = 1;
-      easeFactor = prevEF;
     }
-
-    if (easeFactor < 1.3) {
-      easeFactor = 1.3;
-    }
-
-    return { interval, repetitions, easeFactor };
-  }
-
-  async submitReview(userId: string, flashcardId: string, quality: number) {
-    await this.getFlashcard(userId, flashcardId); // validates ownership
 
     const schedule = await this.prisma.flashcardReviewSchedule.findUnique({
       where: { userId_flashcardId: { userId, flashcardId } },
@@ -167,50 +204,81 @@ export class FlashcardsService {
     const prevInterval = schedule?.interval ?? 0;
     const prevReps = schedule?.repetitions ?? 0;
     const prevEF = Number(schedule?.easeFactor ?? 2.5);
+    const prevLapses = 0; // schema does not yet have lapses column; defaulting to 0
 
-    const { interval, repetitions, easeFactor } = this.calculateSM2(
-      quality,
+    const sm2 = calculateSM2({
+      quality: dto.quality,
       prevInterval,
-      prevReps,
-      prevEF,
-    );
+      prevRepetitions: prevReps,
+      prevEaseFactor: prevEF,
+      prevLapses,
+    });
 
     const nextReviewDate = new Date();
-    nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+    nextReviewDate.setDate(nextReviewDate.getDate() + sm2.intervalDays);
 
-    // Determine mastery level
-    let mastery: 'NEW' | 'LEARNING' | 'REVIEW' | 'MASTERED' = 'NEW';
-    if (repetitions === 0) mastery = 'NEW';
-    else if (repetitions < 3) mastery = 'LEARNING';
-    else if (repetitions < 6) mastery = 'REVIEW';
-    else mastery = 'MASTERED';
-
-    return this.prisma.flashcardReviewSchedule.upsert({
+    const updated = await this.prisma.flashcardReviewSchedule.upsert({
       where: { userId_flashcardId: { userId, flashcardId } },
       update: {
-        interval,
-        repetitions,
-        easeFactor,
+        interval: sm2.intervalDays,
+        repetitions: sm2.repetitions,
+        easeFactor: sm2.easeFactor,
         nextReviewDate,
-        mastery,
+        mastery: sm2.mastery,
       },
       create: {
         userId,
         flashcardId,
-        interval,
-        repetitions,
-        easeFactor,
+        interval: sm2.intervalDays,
+        repetitions: sm2.repetitions,
+        easeFactor: sm2.easeFactor,
         nextReviewDate,
-        mastery,
+        mastery: sm2.mastery,
       },
     });
+
+    // Store idempotency entry after successful write
+    if (dto.idempotencyKey) {
+      checkAndSetIdempotency(
+        userId,
+        flashcardId,
+        dto.idempotencyKey,
+        updated.id,
+      );
+    }
+
+    // Audit log — fire-and-forget; failures should not surface to the caller
+    this.audit
+      .log({
+        userId,
+        action: 'FLASHCARD_REVIEW_SUBMITTED',
+        targetType: 'FlashcardReviewSchedule',
+        targetId: updated.id,
+        metadata: {
+          flashcardId,
+          quality: dto.quality,
+          intervalDays: sm2.intervalDays,
+          repetitions: sm2.repetitions,
+          mastery: sm2.mastery,
+        },
+      })
+      .catch(() => {
+        // intentionally swallowed — audit failure must not break review flow
+      });
+
+    return updated;
   }
 
-  async getDueReviews(userId: string, deckId?: string) {
+  async getDueReviews(
+    userId: string,
+    deckId?: string,
+    limit = 20,
+    cursor?: string,
+  ) {
     const today = new Date();
 
-    // 1. Get scheduled due cards
-    const scheduledWhere: any = {
+    // 1. Get scheduled due cards (cursor-based pagination)
+    const scheduledWhere: Record<string, unknown> = {
       userId,
       nextReviewDate: { lte: today },
     };
@@ -227,13 +295,14 @@ export class FlashcardsService {
             include: { deck: true },
           },
         },
+        take: limit,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
         orderBy: { nextReviewDate: 'asc' },
-        take: 20, // max 20 due cards per session to avoid overwhelming
       },
     );
 
     // 2. Get NEW cards (cards that have NO schedule at all)
-    const newCardsWhere: any = {
+    const newCardsWhere: Record<string, unknown> = {
       deck: { userId },
       schedule: null,
     };
@@ -245,7 +314,7 @@ export class FlashcardsService {
     const newCards = await this.prisma.flashcard.findMany({
       where: newCardsWhere,
       include: { deck: true },
-      take: Math.max(0, 20 - scheduledReviews.length), // fill the rest of the session with new cards
+      take: Math.max(0, limit - scheduledReviews.length),
     });
 
     // 3. Format new cards to match the expected return type

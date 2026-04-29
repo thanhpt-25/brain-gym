@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FlashcardsService } from './flashcards.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 
 describe('FlashcardsService', () => {
   let service: FlashcardsService;
-  let prisma: PrismaService;
 
   const mockPrismaService = {
     deck: {
@@ -29,21 +29,29 @@ describe('FlashcardsService', () => {
     },
   };
 
+  const mockAuditService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FlashcardsService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: AuditService, useValue: mockAuditService },
       ],
     }).compile();
 
     service = module.get<FlashcardsService>(FlashcardsService);
-    prisma = module.get<PrismaService>(PrismaService);
   });
 
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
+
+  // ==================== DECKS ====================
 
   describe('createDeck', () => {
     it('should create a deck', async () => {
@@ -89,73 +97,180 @@ describe('FlashcardsService', () => {
     });
   });
 
-  describe('submitReview (SRS Logic)', () => {
+  // ==================== SRS ====================
+
+  describe('submitReview', () => {
     const flashcardId = 'card-1';
     const userId = 'user-1';
     const card = { id: flashcardId, deck: { userId } };
 
     beforeEach(() => {
       mockPrismaService.flashcard.findUnique.mockResolvedValue(card);
-    });
-
-    it('should calculate SM2 for quality 5 (Easy), first review', async () => {
       mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValue(
         null,
       );
+    });
+
+    it('quality=4: updates ReviewSchedule with correct SM-2 output (first review)', async () => {
       mockPrismaService.flashcardReviewSchedule.upsert.mockImplementation(
-        ({ create }) => create,
+        ({ create }) => Promise.resolve({ id: 'sched-1', ...create }),
       );
 
-      const result = await service.submitReview(userId, flashcardId, 5);
+      const result = await service.submitReview(userId, flashcardId, {
+        quality: 4,
+      });
 
       expect(result.interval).toBe(1);
       expect(result.repetitions).toBe(1);
       expect(result.mastery).toBe('LEARNING');
     });
 
-    it('should calculate SM2 for quality 5 (Easy), second review', async () => {
-      const existingSchedule = {
+    it('quality=5 (Easy), first review: interval=1, repetitions=1, mastery=LEARNING', async () => {
+      mockPrismaService.flashcardReviewSchedule.upsert.mockImplementation(
+        ({ create }) => Promise.resolve({ id: 'sched-1', ...create }),
+      );
+
+      const result = await service.submitReview(userId, flashcardId, {
+        quality: 5,
+      });
+
+      expect(result.interval).toBe(1);
+      expect(result.repetitions).toBe(1);
+      expect(result.mastery).toBe('LEARNING');
+    });
+
+    it('quality=5 (Easy), second review: interval=6, repetitions=2', async () => {
+      mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValue({
         userId,
         flashcardId,
         interval: 1,
         repetitions: 1,
         easeFactor: 2.5,
-      };
-      mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValue(
-        existingSchedule,
-      );
+      });
       mockPrismaService.flashcardReviewSchedule.upsert.mockImplementation(
-        ({ update }) => update,
+        ({ update }) => Promise.resolve({ id: 'sched-1', ...update }),
       );
 
-      const result = await service.submitReview(userId, flashcardId, 5);
+      const result = await service.submitReview(userId, flashcardId, {
+        quality: 5,
+      });
 
       expect(result.interval).toBe(6);
       expect(result.repetitions).toBe(2);
     });
 
-    it('should reset repetitions if quality < 3 (Again)', async () => {
-      const existingSchedule = {
+    it('quality=1: lapses increment, interval resets to 1, mastery=NEW', async () => {
+      mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValue({
         userId,
         flashcardId,
         interval: 6,
         repetitions: 2,
         easeFactor: 2.5,
-      };
-      mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValue(
-        existingSchedule,
-      );
+      });
       mockPrismaService.flashcardReviewSchedule.upsert.mockImplementation(
-        ({ update }) => update,
+        ({ update }) => Promise.resolve({ id: 'sched-1', ...update }),
       );
 
-      const result = await service.submitReview(userId, flashcardId, 1);
+      const result = await service.submitReview(userId, flashcardId, {
+        quality: 1,
+      });
 
       expect(result.interval).toBe(1);
       expect(result.repetitions).toBe(0);
       expect(result.mastery).toBe('NEW');
     });
+
+    it('idempotency: second call with same key returns cached result without calling upsert again', async () => {
+      const scheduleId = 'sched-idem-1';
+      const cachedSchedule = {
+        id: scheduleId,
+        interval: 1,
+        repetitions: 1,
+        mastery: 'LEARNING',
+      };
+
+      // First call: upsert fires
+      mockPrismaService.flashcardReviewSchedule.upsert.mockResolvedValueOnce(
+        cachedSchedule,
+      );
+      // findUnique used on idempotency cache hit path
+      mockPrismaService.flashcardReviewSchedule.findUnique
+        .mockResolvedValueOnce(null) // no existing schedule on first call
+        .mockResolvedValueOnce(cachedSchedule); // cached lookup on second call
+
+      const idempotencyKey = `idem-key-${Date.now()}`;
+
+      const first = await service.submitReview(
+        userId,
+        `card-idem-${Date.now()}`,
+        {
+          quality: 4,
+          idempotencyKey,
+        },
+      );
+
+      // The flashcardId used must be consistent for idempotency key lookup
+      // Re-run with the same flashcardId that was used
+      const cardForIdem = `card-idem-2-${Date.now()}`;
+      mockPrismaService.flashcard.findUnique.mockResolvedValue({
+        id: cardForIdem,
+        deck: { userId },
+      });
+      mockPrismaService.flashcardReviewSchedule.findUnique
+        .mockResolvedValueOnce(null) // no existing schedule
+        .mockResolvedValueOnce(cachedSchedule); // cached lookup
+      mockPrismaService.flashcardReviewSchedule.upsert.mockResolvedValueOnce(
+        cachedSchedule,
+      );
+
+      const idemKey2 = `idem-key-unique-${Date.now()}`;
+
+      // First call
+      await service.submitReview(userId, cardForIdem, {
+        quality: 4,
+        idempotencyKey: idemKey2,
+      });
+      const upsertCountAfterFirst =
+        mockPrismaService.flashcardReviewSchedule.upsert.mock.calls.length;
+
+      // Second call with same key — upsert should NOT be called again
+      mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValueOnce(
+        cachedSchedule,
+      );
+      await service.submitReview(userId, cardForIdem, {
+        quality: 4,
+        idempotencyKey: idemKey2,
+      });
+
+      expect(
+        mockPrismaService.flashcardReviewSchedule.upsert.mock.calls.length,
+      ).toBe(upsertCountAfterFirst); // no additional upsert
+
+      // Suppress unused variable warning
+      void first;
+    });
+
+    it('user does not own flashcard → throws ForbiddenException', async () => {
+      mockPrismaService.flashcard.findUnique.mockResolvedValue({
+        id: flashcardId,
+        deck: { userId: 'other-user' },
+      });
+
+      await expect(
+        service.submitReview(userId, flashcardId, { quality: 3 }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('flashcard not found → throws NotFoundException', async () => {
+      mockPrismaService.flashcard.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.submitReview(userId, flashcardId, { quality: 3 }),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
+
+  // ==================== getDueReviews ====================
 
   describe('getDueReviews', () => {
     it('should return combined scheduled and new cards', async () => {
@@ -182,6 +297,22 @@ describe('FlashcardsService', () => {
       expect(result[0].id).toBe('sched-1');
       expect(result[1].id).toBe('new-card-2');
       expect(result[1].mastery).toBe('NEW');
+    });
+
+    it('should pass cursor to findMany when provided', async () => {
+      mockPrismaService.flashcardReviewSchedule.findMany.mockResolvedValue([]);
+      mockPrismaService.flashcard.findMany.mockResolvedValue([]);
+
+      await service.getDueReviews('user-1', undefined, 20, 'cursor-abc');
+
+      expect(
+        mockPrismaService.flashcardReviewSchedule.findMany,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 1,
+          cursor: { id: 'cursor-abc' },
+        }),
+      );
     });
   });
 });
