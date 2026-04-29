@@ -120,7 +120,7 @@ describe('FlashcardsService', () => {
         quality: 4,
       });
 
-      expect(result.interval).toBe(1);
+      expect(result.intervalDays).toBe(1);
       expect(result.repetitions).toBe(1);
       expect(result.mastery).toBe('LEARNING');
     });
@@ -134,7 +134,7 @@ describe('FlashcardsService', () => {
         quality: 5,
       });
 
-      expect(result.interval).toBe(1);
+      expect(result.intervalDays).toBe(1);
       expect(result.repetitions).toBe(1);
       expect(result.mastery).toBe('LEARNING');
     });
@@ -143,7 +143,7 @@ describe('FlashcardsService', () => {
       mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValue({
         userId,
         flashcardId,
-        interval: 1,
+        intervalDays: 1,
         repetitions: 1,
         easeFactor: 2.5,
       });
@@ -155,7 +155,7 @@ describe('FlashcardsService', () => {
         quality: 5,
       });
 
-      expect(result.interval).toBe(6);
+      expect(result.intervalDays).toBe(6);
       expect(result.repetitions).toBe(2);
     });
 
@@ -163,7 +163,7 @@ describe('FlashcardsService', () => {
       mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValue({
         userId,
         flashcardId,
-        interval: 6,
+        intervalDays: 6,
         repetitions: 2,
         easeFactor: 2.5,
       });
@@ -175,7 +175,7 @@ describe('FlashcardsService', () => {
         quality: 1,
       });
 
-      expect(result.interval).toBe(1);
+      expect(result.intervalDays).toBe(1);
       expect(result.repetitions).toBe(0);
       expect(result.mastery).toBe('NEW');
     });
@@ -184,7 +184,7 @@ describe('FlashcardsService', () => {
       const scheduleId = 'sched-idem-1';
       const cachedSchedule = {
         id: scheduleId,
-        interval: 1,
+        intervalDays: 1,
         repetitions: 1,
         mastery: 'LEARNING',
       };
@@ -193,10 +193,10 @@ describe('FlashcardsService', () => {
       mockPrismaService.flashcardReviewSchedule.upsert.mockResolvedValueOnce(
         cachedSchedule,
       );
-      // findUnique used on idempotency cache hit path
-      mockPrismaService.flashcardReviewSchedule.findUnique
-        .mockResolvedValueOnce(null) // no existing schedule on first call
-        .mockResolvedValueOnce(cachedSchedule); // cached lookup on second call
+      // findUnique: null means no pre-existing schedule (first review)
+      mockPrismaService.flashcardReviewSchedule.findUnique.mockResolvedValueOnce(
+        null,
+      );
 
       const idempotencyKey = `idem-key-${Date.now()}`;
 
