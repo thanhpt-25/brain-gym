@@ -4,10 +4,11 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "maxWorkers": 1,
+  "globalSetup": "<rootDir>/test/global-setup.ts",
+  "setupFiles": ["<rootDir>/test/setup.ts"],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
-  "setupFiles": ["./setup.ts"],
   "moduleNameMapper": {
     "^uuid$": "uuid",
     "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
