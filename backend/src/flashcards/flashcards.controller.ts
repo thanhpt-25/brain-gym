@@ -9,6 +9,8 @@ import {
   UseGuards,
   Req,
   Query,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +23,7 @@ import { CreateDeckDto } from './dto/create-deck.dto';
 import { UpdateDeckDto } from './dto/update-deck.dto';
 import { CreateFlashcardDto } from './dto/create-flashcard.dto';
 import { UpdateFlashcardDto } from './dto/update-flashcard.dto';
+import { SubmitReviewDto } from './dto/submit-review.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/interfaces/request.interface';
 
@@ -120,13 +123,14 @@ export class FlashcardsController {
 
   @Post('flashcards/:id/review')
   @ApiOperation({ summary: 'Submit SRS review for a custom flashcard' })
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   submitReview(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body('quality') quality: number,
+    @Body() dto: SubmitReviewDto,
   ) {
     const userId = req.user.id;
-    return this.flashcardsService.submitReview(userId, id, quality);
+    return this.flashcardsService.submitReview(userId, id, dto);
   }
 
   @Get('flashcards/srs/due')
