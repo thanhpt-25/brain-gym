@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lhci": "lhci autorun",
-    "lhci:collect": "lhci collect"
+    "lhci:collect": "lhci collect",
+    "type-check:strict": "tsc -p tsconfig.strict.json --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
