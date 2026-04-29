@@ -4,8 +4,8 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "maxWorkers": 1,
-  "globalSetup": "<rootDir>/test/global-setup.ts",
-  "setupFiles": ["<rootDir>/test/setup.ts"],
+  "globalSetup": "<rootDir>/global-setup.ts",
+  "setupFiles": ["<rootDir>/setup.ts"],
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
