@@ -496,20 +496,25 @@ model BadgeAward {
 }
 
 model ReviewSchedule {
-  id             String   @id @default(uuid())
-  userId         String   @map("user_id")
-  questionId     String   @map("question_id")
-  nextReviewDate DateTime @map("next_review_date")
-  interval       Int      @default(0)
-  easeFactor     Decimal  @default(2.50) @map("ease_factor") @db.Decimal(4, 2)
-  repetitions    Int      @default(0)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id             String           @id @default(uuid())
+  userId         String           @map("user_id")
+  questionId     String           @map("question_id")
+  nextReviewDate DateTime         @map("next_review_date")
+  intervalDays   Int              @default(0) @map("interval_days")
+  easeFactor     Decimal          @default(2.50) @map("ease_factor") @db.Decimal(4, 2)
+  repetitions    Int              @default(0)
+  mastery        FlashcardMastery @default(NEW)
+  lastQuality    Int?             @map("last_quality")
+  lapses         Int              @default(0)
+  lastReviewedAt DateTime?        @map("last_reviewed_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionId])
+  @@index([userId, nextReviewDate])
   @@map("review_schedules")
 }
 
