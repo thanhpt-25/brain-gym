@@ -161,8 +161,6 @@ jobs:
       - run: npm ci
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
-      - name: Build frontend for smoke tests
-        run: npm run build
       - name: Run Playwright smoke tests
         run: npm run test:e2e
         env:
