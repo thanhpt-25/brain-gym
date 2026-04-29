@@ -61,7 +61,7 @@ export class TrainingService {
       where: { userId_questionId: { userId, questionId } },
     });
 
-    const prevInterval = schedule?.interval ?? 0;
+    const prevInterval = schedule?.intervalDays ?? 0;
     const prevReps = schedule?.repetitions ?? 0;
     const prevEF = Number(schedule?.easeFactor ?? 2.5);
 
@@ -78,7 +78,7 @@ export class TrainingService {
     return this.prisma.reviewSchedule.upsert({
       where: { userId_questionId: { userId, questionId } },
       update: {
-        interval,
+        intervalDays: interval,
         repetitions,
         easeFactor,
         nextReviewDate,
@@ -86,7 +86,7 @@ export class TrainingService {
       create: {
         userId,
         questionId,
-        interval,
+        intervalDays: interval,
         repetitions,
         easeFactor,
         nextReviewDate,
