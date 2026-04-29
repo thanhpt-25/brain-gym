@@ -3,9 +3,12 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
+import { cleanDb } from './helpers';
 
 describe('App (e2e)', () => {
   let app: INestApplication<App>;
+  let prisma: PrismaService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -14,6 +17,12 @@ describe('App (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+
+    prisma = app.get<PrismaService>(PrismaService);
+  });
+
+  beforeEach(async () => {
+    await cleanDb(prisma as any);
   });
 
   afterAll(async () => {
