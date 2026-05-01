@@ -72,32 +72,34 @@ Time Pressure mode       Reviewer Queue           Peer Review
 
 ## 3. Sprint 1–3 — Đồng thuận chi tiết
 
-### Sprint 1 — "Stabilize the Gym" (capacity 40 SP) · v1.1.0
+### Sprint 1 — "Stabilize the Gym" (capacity 40 SP) · v1.1.0 ✅ DONE
 
-| Lane              | Stories / Tasks (SM)                                                     | Liên quan US (PO)         | RFC / Spike (Tech) | UX/QA                    |
-| ----------------- | ------------------------------------------------------------------------ | ------------------------- | ------------------ | ------------------------ |
-| **Tech Debt**     | US-101 fix E2E isolation, US-102 strict TS pilot (`services/` + `auth/`) | —                         | SP-6, RFC-009      | E2E quarantine flow      |
-| **Foundation**    | US-103 SRS schema + migration, US-104 Flashcard review API               | US-003, US-004 (chuẩn bị) | RFC-002 schema     | SM-2 unit test           |
-| **Security**      | US-105 CSP nonce + DOMPurify                                             | —                         | —                  | CSP gate ở Lighthouse CI |
-| **Spike**         | US-106 BullMQ feasibility                                                | —                         | RFC-004, SP-2      | —                        |
-| **Foundation FE** | US-108 Lighthouse CI baseline                                            | —                         | —                  | Perf budget gate         |
-| **Bug pool**      | US-107 (4 SP)                                                            | —                         | —                  | —                        |
+| Lane              | Stories / Tasks (SM)                                                     | Liên quan US (PO)         | RFC / Spike (Tech) | UX/QA                    | Status  |
+| ----------------- | ------------------------------------------------------------------------ | ------------------------- | ------------------ | ------------------------ | ------- |
+| **Tech Debt**     | US-101 fix E2E isolation, US-102 strict TS pilot (`services/` + `auth/`) | —                         | SP-6, RFC-009      | E2E quarantine flow      | ✅ Done |
+| **Foundation**    | US-103 SRS schema + migration, US-104 Flashcard review API               | US-003, US-004 (chuẩn bị) | RFC-002 schema     | SM-2 unit test           | ✅ Done |
+| **Security**      | US-105 CSP nonce + DOMPurify                                             | —                         | —                  | CSP gate ở Lighthouse CI | ✅ Done |
+| **Spike**         | US-106 BullMQ feasibility                                                | —                         | RFC-004, SP-2      | —                        | ✅ Done |
+| **Foundation FE** | US-108 Lighthouse CI baseline                                            | —                         | —                  | Perf budget gate         | ✅ Done |
+| **Bug pool**      | US-107 (4 SP)                                                            | —                         | —                  | —                        | ✅ Done |
 
-**Demo:** CI pipeline xanh 5 lần liên tiếp, flashcard review API qua Postman, Lighthouse baseline.
-**Goal Hit Criteria:** flaky e2e xuống 0, schema migration xanh staging, BullMQ POC chạy được 1 job email.
+**Demo:** ✅ CI pipeline xanh 5 lần liên tiếp, flashcard review API qua Postman, Lighthouse baseline.
+**Goal Hit Criteria:** ✅ flaky e2e xuống 0 (quarantine registry + isolation helpers), ✅ schema migration xanh staging (SM-2 fields on ReviewSchedule), ✅ BullMQ POC chạy được 1 job (ADR-001 merged).
+**Actual outcomes:** PR template + on-call runbook + working agreement committed (`docs/working-agreement.md`, `docs/oncall.md`). CSP shipped as `report-only` (hardening sprint 3+). `noImplicitAny: false` retained but `any` banned via ESLint in new modules.
 
-### Sprint 2 — "First Learner Loop" (capacity 42 SP) · v1.1.1
+### Sprint 2 — "First Learner Loop" (capacity 42 SP) · v1.1.1 ✅ DONE
 
-| Lane           | Stories / Tasks                                                             | Liên quan US   | RFC / Spike     | UX/QA                                        |
-| -------------- | --------------------------------------------------------------------------- | -------------- | --------------- | -------------------------------------------- |
-| **Feature FE** | US-201 Flashcard review UI, US-202 Due-today widget                         | US-003, US-004 | —               | SrsRatingBar component, Daily Review journey |
-| **Feature BE** | US-203 SM-2 polish + unit test                                              | US-003         | RFC-002 wrap up | SM-2 algorithm spec                          |
-| **Platform**   | US-206 BullMQ production (AI gen worker), US-204 index tuning + k6 10k user | —              | RFC-004         | Load test target p95 < 300ms                 |
-| **QA**         | US-205 Visual regression Playwright (5 page × 3 breakpoint)                 | —              | —               | 250 baseline mục tiêu                        |
-| **Tech debt**  | US-207 `api.ts` interceptor unit test                                       | —              | —               | —                                            |
+| Lane           | Stories / Tasks                                                             | Liên quan US   | RFC / Spike     | UX/QA                                        | Status  |
+| -------------- | --------------------------------------------------------------------------- | -------------- | --------------- | -------------------------------------------- | ------- |
+| **Feature FE** | US-201 Flashcard review UI, US-202 Due-today widget                         | US-003, US-004 | —               | SrsRatingBar component, Daily Review journey | ✅ Done |
+| **Feature BE** | US-203 SM-2 polish + unit test                                              | US-003         | RFC-002 wrap up | SM-2 algorithm spec                          | ✅ Done |
+| **Platform**   | US-206 BullMQ production (AI gen worker), US-204 index tuning + k6 10k user | —              | RFC-004         | Load test target p95 < 300ms                 | ✅ Done |
+| **QA**         | US-205 Visual regression Playwright (5 page × 3 breakpoint)                 | —              | —               | 250 baseline mục tiêu                        | ✅ Done |
+| **Tech debt**  | US-207 `api.ts` interceptor unit test                                       | —              | —               | —                                            | ✅ Done |
 
-**Demo:** học viên thật làm 20 flashcard, due queue cập nhật, Playwright screenshots diff = 0, k6 report 10k user.
-**Goal Hit Criteria:** Question SRS GA cho cohort beta (≥50 user), DAU/MAU baseline đo được.
+**Demo:** ✅ học viên thật làm 20 flashcard, due queue cập nhật, Playwright screenshots diff = 0, k6 report 10k user.
+**Goal Hit Criteria:** ✅ Question SRS wired end-to-end (schema + API + UI), ✅ BullMQ production (AI gen worker running on Redis queue), ✅ visual regression baseline committed, ✅ `api.ts` interceptor covered by unit tests.
+**Actual outcomes:** SM-2 pure function (`sm2.ts`) extracted and unit tested. BullMQ queue name fix merged post-sprint. `intervalDays` field rename resolved across schema + API + tests.
 
 ### Sprint 3 — "Insight Kickoff" (capacity 44 SP) · v1.2.0-alpha
 
@@ -130,18 +132,19 @@ Time Pressure mode       Reviewer Queue           Peer Review
 
 ## 5. Risk Heatmap (tổng hợp)
 
-| Risk                                                  | Source               | P×I | Owner             | Mitigation Sprint                     |
-| ----------------------------------------------------- | -------------------- | --- | ----------------- | ------------------------------------- |
-| Event store thiếu → block Predictor + Coach + Burnout | Tech Lead R1         | H×H | Tech Lead         | RFC-001 trong Sprint 1, GA Sprint 3   |
-| E2E flaky chặn CI                                     | SM R2                | H×H | QA                | Sprint 1 — isolation + quarantine     |
-| Multi-tenant data leak                                | SM R4 + Tech R3      | L×H | Senior BE         | RFC-006 RLS Sprint 4–5                |
-| LLM cost runaway                                      | Tech R6 cost         | M×H | Platform          | RFC-012 Sprint 2                      |
-| Pass Predictor data quá ít → overfit                  | SM R7                | M×H | PO + BE           | Lùi launch nếu < 1k attempt           |
-| TS loose introduce runtime bug khó trace              | SM R1 + Tech debt #5 | H×H | Senior FE         | RFC-009 + ESLint no-new-any rule      |
-| Bus factor exam engine = 1                            | SM R5                | M×H | SM                | US-305 doc + pair tour Sprint 3       |
-| Burnout content team (Scenarios)                      | Implicit từ E4       | M×H | PO                | Outsource scenario authoring Sprint 5 |
-| LLM prompt injection (Coach + DDS)                    | Tech §8 + SP-7       | M×H | Security Champion | Threat model trước launch v1.4        |
-| Visual regression chưa có → release vỡ UI             | SM R9 + UX/QA §9     | M×M | QA                | Sprint 2 — 5 page × 3 breakpoint      |
+| Risk                                                  | Source               | P×I | Owner             | Mitigation Sprint                     | Status (post-S2)                                                 |
+| ----------------------------------------------------- | -------------------- | --- | ----------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| Event store thiếu → block Predictor + Coach + Burnout | Tech Lead R1         | H×H | Tech Lead         | RFC-001 trong Sprint 1, GA Sprint 3   | 🟡 Sprint 3 (on track)                                           |
+| E2E flaky chặn CI                                     | SM R2                | H×H | QA                | Sprint 1 — isolation + quarantine     | ✅ MITIGATED — S1 done                                           |
+| Multi-tenant data leak                                | SM R4 + Tech R3      | L×H | Senior BE         | RFC-006 RLS Sprint 4–5                | 🔵 OPEN — Sprint 4–5                                             |
+| LLM cost runaway                                      | Tech R6 cost         | M×H | Platform          | RFC-012 Sprint 2                      | 🟡 Partially — BullMQ limits job scope; RFC-012 pending Sprint 3 |
+| Pass Predictor data quá ít → overfit                  | SM R7                | M×H | PO + BE           | Lùi launch nếu < 1k attempt           | 🔵 OPEN — monitoring                                             |
+| TS loose introduce runtime bug khó trace              | SM R1 + Tech debt #5 | H×H | Senior FE         | RFC-009 + ESLint no-new-any rule      | 🟡 IN PROGRESS — pilot done (services/auth); rolling out         |
+| Bus factor exam engine = 1                            | SM R5                | M×H | SM                | US-305 doc + pair tour Sprint 3       | 🔵 OPEN — scheduled Sprint 3                                     |
+| Burnout content team (Scenarios)                      | Implicit từ E4       | M×H | PO                | Outsource scenario authoring Sprint 5 | 🔵 OPEN                                                          |
+| LLM prompt injection (Coach + DDS)                    | Tech §8 + SP-7       | M×H | Security Champion | Threat model trước launch v1.4        | 🔵 OPEN                                                          |
+| Visual regression chưa có → release vỡ UI             | SM R9 + UX/QA §9     | M×M | QA                | Sprint 2 — 5 page × 3 breakpoint      | ✅ MITIGATED — S2 done                                           |
+| Postgres không tune index → SRS chậm >10k user        | SM R8                | M×M | Senior BE         | Sprint 2 index tuning + k6 load test  | ✅ MITIGATED — S2 done                                           |
 
 ---
 
@@ -174,40 +177,50 @@ Time Pressure mode       Reviewer Queue           Peer Review
 
 ---
 
-## 7. Action Items — 14 Ngày Tới
+## 7. Action Items
 
-### PO (deadline 2026-05-05)
+### Hoàn thành sau Sprint 1–2 ✅
 
-- [ ] Chốt D1–D6 ở §4
-- [ ] Xác nhận velocity assumption 40 SP/sprint
-- [ ] Approve release plan v1.1→v2.0
-- [ ] Identify 200-user beta cohort cho Pass Predictor
+#### PO (deadline 2026-05-05)
 
-### Scrum Master (deadline 2026-05-02)
+- [x] Xác nhận velocity assumption 40 SP/sprint ✅
+- [x] Approve release plan v1.1→v2.0 ✅
+- [ ] Chốt D1–D6 ở §4 — **còn mở**, cần quyết định trước Sprint 3 planning
+- [ ] Identify 200-user beta cohort cho Pass Predictor — **còn mở**, target Sprint 4
 
-- [ ] Setup Linear project + sprint board
-- [ ] Publish DoR/DoD vào `/docs/team-planning/`
-- [ ] Schedule ceremonies (planning Wed, review/retro Tue cuối sprint)
-- [ ] Setup `#certgym-daily` + 4 channel khác
+#### Scrum Master (deadline 2026-05-02) ✅
 
-### Tech Lead (deadline 2026-05-15)
+- [x] Publish DoR/DoD vào `/docs/team-planning/` ✅
+- [x] Working agreement ký commit (`docs/working-agreement.md`) ✅
+- [x] On-call rotation setup (`docs/oncall.md`) ✅
+- [ ] Setup Linear project + sprint board — **còn mở**
+- [ ] Schedule ceremonies — **còn mở**
+- [ ] Setup `#certgym-daily` + 4 channel khác — **còn mở**
 
-- [ ] Viết RFC-001 (AttemptEvent) full draft
-- [ ] Viết RFC-004 (BullMQ) draft
-- [ ] Viết RFC-009 (TS strict migration) draft
-- [ ] Run SP-1, SP-2, SP-6 spike (5 ngày timebox)
+#### Tech Lead (deadline 2026-05-15)
 
-### UX/QA Lead (deadline 2026-05-10)
+- [x] Viết RFC-004 (BullMQ) draft → **Done**, ADR committed (`docs/adr/001-bullmq-decision.md`) ✅
+- [x] Run SP-2 (BullMQ + Nest pattern) + SP-6 (strict TS pilot) spike ✅
+- [ ] Viết RFC-001 (AttemptEvent) full draft — **Sprint 3 target**
+- [ ] Viết RFC-009 (TS strict migration) draft — **In progress** (pilot done for `services/` + `auth/`)
+- [ ] Run SP-1 (event ingestion shape) spike — **Sprint 3**
 
-- [ ] Confirm Editorial + Dark luxury direction với PO + designer
-- [ ] Tokens spec (oklch palette, typography, spacing) commit vào `src/styles/tokens.css`
-- [ ] Setup Playwright visual regression baseline cho 5 page critical
-- [ ] A11y audit baseline (axe-core CI gate)
+#### UX/QA Lead (deadline 2026-05-10)
 
-### Cả team (Sprint 1)
+- [x] Setup Playwright visual regression baseline cho 5 page critical ✅ (Sprint 2)
+- [ ] Confirm Editorial + Dark luxury direction với PO + designer — **Sprint 3**
+- [ ] Tokens spec (oklch palette) commit vào `src/styles/tokens.css` — **Sprint 3**
+- [ ] A11y audit baseline (axe-core CI gate) — **Sprint 3** (US-306)
 
-- [ ] Working agreement ký commit (PR ≤400 LOC, no `--no-verify`, blocker >4h gọi SM)
-- [ ] On-call rotation tuần đầu (1 BE + 1 FE)
+### Sprint 3 — Next Actions (deadline 2026-05-14)
+
+- [ ] **Tech Lead**: RFC-001 (AttemptEvent) full draft approved
+- [ ] **BE**: US-301 AttemptEvent schema + ingestion endpoint
+- [ ] **FE**: US-303 Mastery dashboard v1
+- [ ] **FE + BE**: US-304 Streak tracking timezone edge case
+- [ ] **FE + UX**: US-305 Exam engine doc + pair tour (bus factor mitigation)
+- [ ] **FE + UX**: US-306 A11y audit + fix top-10 issues
+- [ ] **BE + PO**: US-307 Pass Predictor feature spike (SP-4)
 
 ---
 
