@@ -25,9 +25,11 @@ function makeAuthState(
 ) {
   return {
     accessToken:
-      "accessToken" in overrides ? overrides.accessToken : "access-token-123",
+      overrides.accessToken !== undefined
+        ? overrides.accessToken
+        : "access-token-123",
     refreshToken:
-      "refreshToken" in overrides
+      overrides.refreshToken !== undefined
         ? overrides.refreshToken
         : "refresh-token-abc",
     setAuth: mockSetAuth,
