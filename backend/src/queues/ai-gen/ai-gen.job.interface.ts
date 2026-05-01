@@ -1,6 +1,6 @@
 import { Difficulty, LlmProvider, QuestionType } from '@prisma/client';
 
-export const AI_GEN_QUEUE = 'queue:ai-gen';
+export const AI_GEN_QUEUE = 'ai-gen';
 
 export interface AiGenJobData {
   jobId: string;
