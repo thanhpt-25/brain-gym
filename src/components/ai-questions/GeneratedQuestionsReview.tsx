@@ -1,75 +1,114 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
-  CheckCircle2, XCircle, ChevronDown, ChevronUp,
-  Loader2, Save, BookOpen,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { saveGeneratedQuestions } from '@/services/ai-questions';
-import { GeneratedQuestionPreview, GenerationResult, QualityTier } from '@/types/api-types';
-import { toast } from 'sonner';
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Save,
+  BookOpen,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { saveGeneratedQuestions } from "@/services/ai-questions";
+import {
+  GeneratedQuestionPreview,
+  JobStatusResult,
+  QualityTier,
+} from "@/types/api-types";
+import { toast } from "sonner";
 
 const TIER_COLORS: Record<QualityTier, string> = {
-  HIGH: 'bg-green-100 text-green-700 border-green-200',
-  MEDIUM: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  LOW: 'bg-red-100 text-red-700 border-red-200',
+  HIGH: "bg-green-100 text-green-700 border-green-200",
+  MEDIUM: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  LOW: "bg-red-100 text-red-700 border-red-200",
 };
 
 const TIER_LABEL: Record<QualityTier, string> = {
-  HIGH: 'Auto-publish',
-  MEDIUM: 'Needs review',
-  LOW: 'Low quality',
+  HIGH: "Auto-publish",
+  MEDIUM: "Needs review",
+  LOW: "Low quality",
 };
 
 interface Props {
-  result: GenerationResult;
+  result: JobStatusResult;
   certificationId: string;
   domainId?: string;
   onReset: () => void;
 }
 
-export default function GeneratedQuestionsReview({ result, certificationId, domainId, onReset }: Props) {
+export default function GeneratedQuestionsReview({
+  result,
+  certificationId,
+  domainId,
+  onReset,
+}: Props) {
   const navigate = useNavigate();
+  const questions = result.questions ?? [];
   const [included, setIncluded] = useState<Set<number>>(
-    new Set(result.questions.map((_, i) => i).filter(i => result.questions[i].qualityTier !== null))
+    new Set(
+      questions
+        .map((_, i) => i)
+        .filter((i) => questions[i].qualityTier !== null),
+    ),
   );
   const [expanded, setExpanded] = useState<Set<number>>(new Set([0]));
-  const [edits, setEdits] = useState<Record<number, Partial<GeneratedQuestionPreview>>>({});
+  const [edits, setEdits] = useState<
+    Record<number, Partial<GeneratedQuestionPreview>>
+  >({});
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      const questions = Array.from(included).map(i => ({ ...result.questions[i], ...edits[i] }));
-      return saveGeneratedQuestions({ jobId: result.jobId, certificationId, domainId, questions });
+      const toSave = Array.from(included).map((i) => ({
+        ...questions[i],
+        ...edits[i],
+      }));
+      return saveGeneratedQuestions({
+        jobId: result.jobId,
+        certificationId,
+        domainId,
+        questions: toSave,
+      });
     },
     onSuccess: (data) => {
-      toast.success(`Saved ${data.saved} questions${data.discarded ? `, ${data.discarded} discarded (low quality)` : ''}`);
-      navigate('/questions?status=APPROVED&mine=true');
+      toast.success(
+        `Saved ${data.saved} questions${data.discarded ? `, ${data.discarded} discarded (low quality)` : ""}`,
+      );
+      navigate("/questions?status=APPROVED&mine=true");
     },
-    onError: () => toast.error('Failed to save questions'),
+    onError: () => toast.error("Failed to save questions"),
   });
 
   const toggleInclude = (i: number) => {
-    setIncluded(prev => {
+    setIncluded((prev) => {
       const next = new Set(prev);
-      if (next.has(i)) { next.delete(i); } else { next.add(i); }
+      if (next.has(i)) {
+        next.delete(i);
+      } else {
+        next.add(i);
+      }
       return next;
     });
   };
 
   const toggleExpand = (i: number) => {
-    setExpanded(prev => {
+    setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(i)) { next.delete(i); } else { next.add(i); }
+      if (next.has(i)) {
+        next.delete(i);
+      } else {
+        next.add(i);
+      }
       return next;
     });
   };
 
   const updateEdit = (i: number, field: string, value: string) => {
-    setEdits(prev => ({ ...prev, [i]: { ...prev[i], [field]: value } }));
+    setEdits((prev) => ({ ...prev, [i]: { ...prev[i], [field]: value } }));
   };
 
   return (
@@ -77,28 +116,37 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
       {/* Summary bar */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-muted-foreground">{result.questions.length} generated</span>
-          <span className="font-medium">{included.size} selected</span>
-          <span className="text-xs text-muted-foreground">
-            {result.tokenUsage.prompt + result.tokenUsage.completion} tokens used
+          <span className="text-muted-foreground">
+            {questions.length} generated
           </span>
+          <span className="font-medium">{included.size} selected</span>
+          {result.tokenUsage && (
+            <span className="text-xs text-muted-foreground">
+              {result.tokenUsage.prompt + result.tokenUsage.completion} tokens
+              used
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={onReset}>Generate More</Button>
+          <Button size="sm" variant="outline" onClick={onReset}>
+            Generate More
+          </Button>
           <Button
             size="sm"
             disabled={included.size === 0 || saveMutation.isPending}
             onClick={() => saveMutation.mutate()}
           >
-            {saveMutation.isPending
-              ? <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              : <Save className="h-4 w-4 mr-1" />}
+            {saveMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+            ) : (
+              <Save className="h-4 w-4 mr-1" />
+            )}
             Save {included.size} Questions
           </Button>
         </div>
       </div>
 
-      {result.questions.map((q, i) => {
+      {questions.map((q, i) => {
         const tier = q.qualityTier;
         const isIncluded = included.has(i);
         const isExpanded = expanded.has(i);
@@ -108,8 +156,12 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
         return (
           <Card
             key={i}
-            className={`transition-opacity ${!isIncluded ? 'opacity-50' : ''} ${
-              tier === 'HIGH' ? 'border-green-200' : tier === 'MEDIUM' ? 'border-yellow-200' : 'border-red-200'
+            className={`transition-opacity ${!isIncluded ? "opacity-50" : ""} ${
+              tier === "HIGH"
+                ? "border-green-200"
+                : tier === "MEDIUM"
+                  ? "border-yellow-200"
+                  : "border-red-200"
             }`}
           >
             <CardHeader className="py-3 px-4">
@@ -118,22 +170,41 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
                   className="mt-0.5 flex-shrink-0"
                   onClick={() => toggleInclude(i)}
                 >
-                  {isIncluded
-                    ? <CheckCircle2 className="h-4 w-4 text-primary" />
-                    : <XCircle className="h-4 w-4 text-muted-foreground" />}
+                  {isIncluded ? (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium leading-snug">{displayQ.title}</p>
+                  <p className="text-sm font-medium leading-snug">
+                    {displayQ.title}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {tier && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${TIER_COLORS[tier]}`}>
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${TIER_COLORS[tier]}`}
+                    >
                       {TIER_LABEL[tier]} ({Math.round(q.qualityScore * 100)}%)
                     </span>
                   )}
-                  {!tier && <Badge variant="destructive" className="text-xs">Low — excluded</Badge>}
-                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => toggleExpand(i)}>
-                    {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  {!tier && (
+                    <Badge variant="destructive" className="text-xs">
+                      Low — excluded
+                    </Badge>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                    onClick={() => toggleExpand(i)}
+                  >
+                    {isExpanded ? (
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    ) : (
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -144,8 +215,13 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
                 {/* Choices */}
                 <div className="space-y-1">
                   {displayQ.choices.map((c, ci) => (
-                    <div key={ci} className={`flex items-start gap-2 text-sm rounded px-2 py-1 ${c.isCorrect ? 'bg-green-50 text-green-800' : ''}`}>
-                      <span className="font-mono font-medium flex-shrink-0">{c.label}.</span>
+                    <div
+                      key={ci}
+                      className={`flex items-start gap-2 text-sm rounded px-2 py-1 ${c.isCorrect ? "bg-green-50 text-green-800" : ""}`}
+                    >
+                      <span className="font-mono font-medium flex-shrink-0">
+                        {c.label}.
+                      </span>
                       <span>{c.content}</span>
                     </div>
                   ))}
@@ -153,11 +229,15 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
 
                 {/* Explanation (editable) */}
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Explanation</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Explanation
+                  </label>
                   <Textarea
                     className="text-xs min-h-[60px]"
-                    value={displayQ.explanation || ''}
-                    onChange={e => updateEdit(i, 'explanation', e.target.value)}
+                    value={displayQ.explanation || ""}
+                    onChange={(e) =>
+                      updateEdit(i, "explanation", e.target.value)
+                    }
                   />
                 </div>
 
@@ -166,17 +246,23 @@ export default function GeneratedQuestionsReview({ result, certificationId, doma
                   <div className="space-y-1">
                     <div className="flex items-center gap-1">
                       <BookOpen className="h-3 w-3 text-muted-foreground" />
-                      <label className="text-xs font-medium text-muted-foreground">Source Passage</label>
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Source Passage
+                      </label>
                     </div>
-                    <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2 italic">{q.sourcePassage}</p>
+                    <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2 italic">
+                      {q.sourcePassage}
+                    </p>
                   </div>
                 )}
 
                 {/* Tags */}
                 {displayQ.tags && displayQ.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {displayQ.tags.map(tag => (
-                      <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                    {displayQ.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
                     ))}
                   </div>
                 )}

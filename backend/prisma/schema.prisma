@@ -569,6 +569,8 @@ model FlashcardReviewSchedule {
   flashcard Flashcard @relation(fields: [flashcardId], references: [id], onDelete: Cascade)
 
   @@unique([userId, flashcardId])
+  @@index([userId, nextReviewDate])
+  @@index([userId, mastery])
   @@map("flashcard_review_schedules")
 }
 
@@ -657,6 +659,7 @@ model QuestionGenerationJob {
   promptTokens     Int?                @map("prompt_tokens")
   completionTokens Int?                @map("completion_tokens")
   qualityScores    Json?               @map("quality_scores")
+  previewData      Json?               @map("preview_data")
   errorMessage     String?             @map("error_message")
   createdAt        DateTime            @default(now()) @map("created_at")
   completedAt      DateTime?           @map("completed_at")

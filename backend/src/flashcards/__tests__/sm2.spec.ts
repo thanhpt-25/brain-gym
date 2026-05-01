@@ -136,4 +136,80 @@ describe('calculateSM2', () => {
       RangeError,
     );
   });
+
+  // 10. reps=1 → reps=2 gives interval=6
+  it('reps=1 q=4: second correct answer gives interval=6', () => {
+    const result = calculateSM2({
+      prevIntervalDays: 1,
+      prevRepetitions: 1,
+      prevEaseFactor: 2.5,
+      prevLapses: 0,
+      quality: 4,
+    });
+
+    expect(result.repetitions).toBe(2);
+    expect(result.intervalDays).toBe(6);
+  });
+
+  // 11. Multiple consecutive lapses accumulate correctly
+  it('consecutive lapses accumulate: two wrong answers gives lapses=2', () => {
+    const firstLapse = calculateSM2({
+      prevIntervalDays: 15,
+      prevRepetitions: 4,
+      prevEaseFactor: 2.5,
+      prevLapses: 0,
+      quality: 1,
+    });
+
+    expect(firstLapse.lapses).toBe(1);
+    expect(firstLapse.repetitions).toBe(0);
+
+    const secondLapse = calculateSM2({
+      prevIntervalDays: firstLapse.intervalDays,
+      prevRepetitions: firstLapse.repetitions,
+      prevEaseFactor: Number(firstLapse.easeFactor),
+      prevLapses: firstLapse.lapses,
+      quality: 0,
+    });
+
+    expect(secondLapse.lapses).toBe(2);
+    expect(secondLapse.mastery).toBe(FlashcardMastery.NEW);
+  });
+
+  // 12. MASTERED boundary: lapses=3 prevents MASTERED even with high reps+EF
+  it('lapses=3 prevents MASTERED even at reps=8 ef=2.6', () => {
+    const result = calculateSM2({
+      prevIntervalDays: 60,
+      prevRepetitions: 8,
+      prevEaseFactor: 2.6,
+      prevLapses: 3,
+      quality: 5,
+    });
+
+    // reps=9, ef>2.5, but lapses=3 (not < 3) → REVIEW not MASTERED
+    expect(result.mastery).toBe(FlashcardMastery.REVIEW);
+    expect(result.lapses).toBe(3);
+  });
+
+  // 13. Interval grows multiplicatively: reps≥2 produces round(prevInterval * newEF)
+  it('interval grows multiplicatively on repeated correct answers', () => {
+    const step1 = calculateSM2({ ...freshCard, quality: 5 }); // reps=1, interval=1
+    const step2 = calculateSM2({
+      prevIntervalDays: step1.intervalDays,
+      prevRepetitions: step1.repetitions,
+      prevEaseFactor: Number(step1.easeFactor),
+      prevLapses: 0,
+      quality: 5,
+    }); // reps=2, interval=6
+    const step3 = calculateSM2({
+      prevIntervalDays: step2.intervalDays,
+      prevRepetitions: step2.repetitions,
+      prevEaseFactor: Number(step2.easeFactor),
+      prevLapses: 0,
+      quality: 5,
+    }); // reps=3, interval=round(6*2.6)=16
+
+    expect(step2.intervalDays).toBe(6);
+    expect(step3.intervalDays).toBe(Math.round(6 * Number(step2.easeFactor)));
+  });
 });
