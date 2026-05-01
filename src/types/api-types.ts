@@ -1,12 +1,12 @@
 export enum QuestionType {
-  SINGLE = 'SINGLE',
-  MULTIPLE = 'MULTIPLE',
+  SINGLE = "SINGLE",
+  MULTIPLE = "MULTIPLE",
 }
 
 export enum Difficulty {
-  EASY = 'EASY',
-  MEDIUM = 'MEDIUM',
-  HARD = 'HARD',
+  EASY = "EASY",
+  MEDIUM = "MEDIUM",
+  HARD = "HARD",
 }
 
 export interface PaginatedResponse<T> {
@@ -88,7 +88,7 @@ export interface FlashcardReviewSchedule {
   interval: number;
   easeFactor: number;
   repetitions: number;
-  mastery: 'NEW' | 'LEARNING' | 'REVIEW' | 'MASTERED';
+  mastery: "NEW" | "LEARNING" | "REVIEW" | "MASTERED";
 }
 
 export interface Deck {
@@ -108,7 +108,7 @@ export interface CapturedWord {
   context?: string;
   examAttemptId?: string;
   questionId?: string;
-  status: 'pending' | 'processed' | 'discarded';
+  status: "pending" | "processed" | "discarded";
   createdAt: string;
   question?: { text: string };
 }
@@ -126,7 +126,12 @@ export interface AnalyticsSummary {
 export interface HistoryItem {
   id: string;
   examTitle: string;
-  certification: { id: string; name: string; code: string; provider?: { id: string; name: string; slug: string } };
+  certification: {
+    id: string;
+    name: string;
+    code: string;
+    provider?: { id: string; name: string; slug: string };
+  };
   score: number;
   totalCorrect: number;
   totalQuestions: number;
@@ -200,7 +205,12 @@ export interface AttemptResult {
   attemptId: string;
   examId: string;
   examTitle: string;
-  certification: { id: string; name: string; code: string; provider?: { id: string; name: string; slug: string } };
+  certification: {
+    id: string;
+    name: string;
+    code: string;
+    provider?: { id: string; name: string; slug: string };
+  };
   status: string;
   score: number;
   totalCorrect: number;
@@ -234,7 +244,7 @@ export interface ReviewSchedule {
   question: Question;
 }
 
-export type TimerMode = 'STRICT' | 'ACCELERATED' | 'RELAXED';
+export type TimerMode = "STRICT" | "ACCELERATED" | "RELAXED";
 
 export interface ExamSummary {
   id: string;
@@ -274,10 +284,14 @@ export interface CreateExamPayload {
 
 // ─── AI Question Bank ────────────────────────────────────────────────────────
 
-export type LlmProvider = 'OPENAI' | 'ANTHROPIC' | 'GEMINI';
-export type QualityTier = 'HIGH' | 'MEDIUM' | 'LOW';
-export type GenerationJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type MaterialContentType = 'PDF' | 'URL' | 'TEXT';
+export type LlmProvider = "OPENAI" | "ANTHROPIC" | "GEMINI";
+export type QualityTier = "HIGH" | "MEDIUM" | "LOW";
+export type GenerationJobStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED";
+export type MaterialContentType = "PDF" | "URL" | "TEXT";
 
 export interface LlmConfig {
   id: string;
@@ -317,8 +331,15 @@ export interface GeneratedQuestionPreview {
 
 export interface GenerationResult {
   jobId: string;
-  questions: GeneratedQuestionPreview[];
-  tokenUsage: { prompt: number; completion: number };
+  status: GenerationJobStatus;
+}
+
+export interface JobStatusResult {
+  jobId: string;
+  status: GenerationJobStatus;
+  questions?: GeneratedQuestionPreview[];
+  tokenUsage?: { prompt: number; completion: number };
+  errorMessage?: string;
 }
 
 export interface TokenEstimate {

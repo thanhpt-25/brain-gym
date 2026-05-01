@@ -156,6 +156,15 @@ export class AiQuestionBankController {
     return this.service.saveGeneratedQuestions(req.user.id, dto);
   }
 
+  @Get('jobs/:jobId')
+  @ApiOperation({ summary: 'Poll generation job status and results' })
+  getJobStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param('jobId') jobId: string,
+  ) {
+    return this.service.getJobStatus(req.user.id, jobId);
+  }
+
   @Get('history')
   @ApiOperation({ summary: 'Paginated generation job history' })
   getHistory(

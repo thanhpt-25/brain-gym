@@ -1,77 +1,90 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Brain, TrendingUp, Trophy, Target, FileText, Building2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuthStore } from '@/stores/auth.store';
-import { getCertifications } from '@/services/certifications';
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
-  getAnalyticsSummary, getAnalyticsHistory, getAnalyticsDomains, getWeakTopics,
-  getReadiness, getMistakePatterns,
-} from '@/services/analytics';
-import { getFlashcardStats } from '@/services/flashcards';
-import Navbar from '@/components/Navbar';
-import Breadcrumb from '@/components/Breadcrumb';
-import { StatsSkeleton } from '@/components/PageSkeleton';
+  Brain,
+  TrendingUp,
+  Trophy,
+  Target,
+  FileText,
+  Building2,
+  Layers,
+  ChevronRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuthStore } from "@/stores/auth.store";
+import { getCertifications } from "@/services/certifications";
+import {
+  getAnalyticsSummary,
+  getAnalyticsHistory,
+  getAnalyticsDomains,
+  getWeakTopics,
+  getReadiness,
+  getMistakePatterns,
+} from "@/services/analytics";
+import { getFlashcardStats } from "@/services/flashcards";
+import Navbar from "@/components/Navbar";
+import Breadcrumb from "@/components/Breadcrumb";
+import { StatsSkeleton } from "@/components/PageSkeleton";
 
-import ReadinessScore from '@/components/dashboard/ReadinessScore';
-import MistakePatternChart from '@/components/dashboard/MistakePatternChart';
-import { ScoreTrendChart } from '@/components/dashboard/ScoreTrendChart';
-import { WeakTopicsChart } from '@/components/dashboard/WeakTopicsChart';
-import { FlashcardStatsPanel } from '@/components/dashboard/FlashcardStatsPanel';
-import { ExamHistoryList } from '@/components/dashboard/ExamHistoryList';
+import ReadinessScore from "@/components/dashboard/ReadinessScore";
+import MistakePatternChart from "@/components/dashboard/MistakePatternChart";
+import { ScoreTrendChart } from "@/components/dashboard/ScoreTrendChart";
+import { WeakTopicsChart } from "@/components/dashboard/WeakTopicsChart";
+import { FlashcardStatsPanel } from "@/components/dashboard/FlashcardStatsPanel";
+import { ExamHistoryList } from "@/components/dashboard/ExamHistoryList";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
-  const [certFilter, setCertFilter] = useState<string>('');
+  const [certFilter, setCertFilter] = useState<string>("");
 
   const { data: certifications } = useQuery({
-    queryKey: ['certifications'],
+    queryKey: ["certifications"],
     queryFn: getCertifications,
   });
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
-    queryKey: ['analytics-summary', certFilter],
+    queryKey: ["analytics-summary", certFilter],
     queryFn: () => getAnalyticsSummary(certFilter || undefined),
     enabled: isAuthenticated,
   });
 
   const { data: historyData, isLoading: historyLoading } = useQuery({
-    queryKey: ['dashboard-analytics-history', certFilter],
+    queryKey: ["dashboard-analytics-history", certFilter],
     queryFn: () => getAnalyticsHistory(certFilter || undefined, 1, 50),
     enabled: isAuthenticated,
   });
 
   const { data: domains } = useQuery({
-    queryKey: ['analytics-domains', certFilter],
+    queryKey: ["analytics-domains", certFilter],
     queryFn: () => getAnalyticsDomains(certFilter || undefined),
     enabled: isAuthenticated,
   });
 
   const { data: weakTopics } = useQuery({
-    queryKey: ['analytics-weak', certFilter],
+    queryKey: ["analytics-weak", certFilter],
     queryFn: () => getWeakTopics(certFilter || undefined, 8),
     enabled: isAuthenticated,
   });
 
   const { data: readinessData } = useQuery({
-    queryKey: ['readiness', certFilter],
+    queryKey: ["readiness", certFilter],
     queryFn: () => getReadiness(certFilter),
     enabled: isAuthenticated && !!certFilter,
   });
 
   const { data: mistakePatterns } = useQuery({
-    queryKey: ['mistake-patterns', certFilter],
+    queryKey: ["mistake-patterns", certFilter],
     queryFn: () => getMistakePatterns(certFilter || undefined),
     enabled: isAuthenticated,
   });
 
   const { data: flashStats } = useQuery({
-    queryKey: ['flashcard-stats'],
+    queryKey: ["flashcard-stats"],
     queryFn: getFlashcardStats,
     enabled: isAuthenticated,
   });
@@ -83,8 +96,15 @@ const Dashboard = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <Brain className="h-12 w-12 text-primary mx-auto mb-4" />
-          <h2 className="text-xl font-mono font-bold mb-2">Đăng nhập để xem Dashboard</h2>
-          <Button className="glow-cyan font-mono" onClick={() => navigate('/auth')}>Đăng nhập</Button>
+          <h2 className="text-xl font-mono font-bold mb-2">
+            Đăng nhập để xem Dashboard
+          </h2>
+          <Button
+            className="glow-cyan font-mono"
+            onClick={() => navigate("/auth")}
+          >
+            Đăng nhập
+          </Button>
         </div>
       </div>
     );
@@ -95,23 +115,23 @@ const Dashboard = () => {
       <Navbar title="Dashboard" />
 
       <div className="container pt-24 space-y-8">
-        <Breadcrumb items={[{ label: 'Dashboard' }]} className="mb-2" />
+        <Breadcrumb items={[{ label: "Dashboard" }]} className="mb-2" />
 
         {/* Cert filter */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             size="sm"
-            variant={!certFilter ? 'default' : 'outline'}
+            variant={!certFilter ? "default" : "outline"}
             className="font-mono text-xs"
-            onClick={() => setCertFilter('')}
+            onClick={() => setCertFilter("")}
           >
             All
           </Button>
-          {certifications?.map(c => (
+          {certifications?.map((c) => (
             <Button
               key={c.id}
               size="sm"
-              variant={certFilter === c.id ? 'default' : 'outline'}
+              variant={certFilter === c.id ? "default" : "outline"}
               className="font-mono text-xs"
               onClick={() => setCertFilter(c.id)}
             >
@@ -126,10 +146,30 @@ const Dashboard = () => {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: FileText, label: 'Exams Taken', value: summary?.totalExams ?? 0, color: 'text-primary' },
-              { icon: Trophy, label: 'Passed', value: summary?.totalPassed ?? 0, color: 'text-accent' },
-              { icon: Target, label: 'Avg Score', value: `${summary?.avgScore ?? 0}%`, color: 'text-primary' },
-              { icon: TrendingUp, label: 'Best Score', value: `${summary?.bestScore ?? 0}%`, color: 'text-accent' },
+              {
+                icon: FileText,
+                label: "Exams Taken",
+                value: summary?.totalExams ?? 0,
+                color: "text-primary",
+              },
+              {
+                icon: Trophy,
+                label: "Passed",
+                value: summary?.totalPassed ?? 0,
+                color: "text-accent",
+              },
+              {
+                icon: Target,
+                label: "Avg Score",
+                value: `${summary?.avgScore ?? 0}%`,
+                color: "text-primary",
+              },
+              {
+                icon: TrendingUp,
+                label: "Best Score",
+                value: `${summary?.bestScore ?? 0}%`,
+                color: "text-accent",
+              },
             ].map((s, i) => (
               <motion.div
                 key={s.label}
@@ -143,8 +183,12 @@ const Dashboard = () => {
                       <s.icon className={`h-5 w-5 ${s.color}`} />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold font-mono">{s.value}</div>
-                      <div className="text-xs text-muted-foreground">{s.label}</div>
+                      <div className="text-2xl font-bold font-mono">
+                        {s.value}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {s.label}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -153,56 +197,107 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Organization card — visible only to org members */}
-        {user?.orgMemberships?.length > 0 && (() => {
-          const firstOrg = user.orgMemberships[0];
-          const orgHref = `/org/${firstOrg.slug}`;
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
+        {/* Due-today widget */}
+        {(flashStats?.dueToday ?? 0) > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <Card
+              className="glass-card border-primary/30 cursor-pointer hover:border-primary/60 transition-colors"
+              onClick={() => navigate("/decks")}
             >
-              <Card className="glass-card">
-                <CardContent className="p-5 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="p-2.5 rounded-lg bg-primary/10">
-                      <Building2 className="h-5 w-5 text-primary" />
+              <CardContent className="p-5 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-lg bg-primary/10">
+                    <Layers className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold font-mono text-gradient-cyan">
+                      {flashStats.dueToday}
                     </div>
-                    <div>
-                      <div className="text-base font-bold font-mono">{firstOrg.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Role: <span className="capitalize">{firstOrg.role.toLowerCase()}</span>
-                        {user.orgMemberships.length > 1 && (
-                          <span className="ml-2 text-primary">+{user.orgMemberships.length - 1} more</span>
-                        )}
+                    <div className="text-xs text-muted-foreground">
+                      flashcards due for review today
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    className="glow-cyan font-mono text-xs h-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate("/decks");
+                    }}
+                  >
+                    Review Now
+                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Organization card — visible only to org members */}
+        {user?.orgMemberships?.length > 0 &&
+          (() => {
+            const firstOrg = user.orgMemberships[0];
+            const orgHref = `/org/${firstOrg.slug}`;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <Card className="glass-card">
+                  <CardContent className="p-5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-2.5 rounded-lg bg-primary/10">
+                        <Building2 className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-base font-bold font-mono">
+                          {firstOrg.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Role:{" "}
+                          <span className="capitalize">
+                            {firstOrg.role.toLowerCase()}
+                          </span>
+                          {user.orgMemberships.length > 1 && (
+                            <span className="ml-2 text-primary">
+                              +{user.orgMemberships.length - 1} more
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      className="glow-cyan font-mono text-xs h-8"
-                      onClick={() => navigate(orgHref)}
-                    >
-                      Go to Org
-                    </Button>
-                    {user.orgMemberships.length > 1 && (
+                    <div className="flex items-center gap-2 shrink-0">
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="font-mono text-xs h-8"
-                        onClick={() => navigate('/org')}
+                        className="glow-cyan font-mono text-xs h-8"
+                        onClick={() => navigate(orgHref)}
                       >
-                        View all
+                        Go to Org
                       </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })()}
+                      {user.orgMemberships.length > 1 && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="font-mono text-xs h-8"
+                          onClick={() => navigate("/org")}
+                        >
+                          View all
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })()}
 
         {/* Readiness + Mistake Patterns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -213,18 +308,23 @@ const Dashboard = () => {
             readiness={readinessData}
             isCertSelected={!!certFilter}
           />
-          <MistakePatternChart
-            history={history}
-            patterns={mistakePatterns}
-          />
+          <MistakePatternChart history={history} patterns={mistakePatterns} />
         </div>
 
         <Tabs defaultValue="trend" className="space-y-6">
           <TabsList className="bg-secondary">
-            <TabsTrigger value="trend" className="font-mono text-xs">Score Trend</TabsTrigger>
-            <TabsTrigger value="weak" className="font-mono text-xs">Weak Topics</TabsTrigger>
-            <TabsTrigger value="flashcards" className="font-mono text-xs">Flashcards</TabsTrigger>
-            <TabsTrigger value="history" className="font-mono text-xs">History</TabsTrigger>
+            <TabsTrigger value="trend" className="font-mono text-xs">
+              Score Trend
+            </TabsTrigger>
+            <TabsTrigger value="weak" className="font-mono text-xs">
+              Weak Topics
+            </TabsTrigger>
+            <TabsTrigger value="flashcards" className="font-mono text-xs">
+              Flashcards
+            </TabsTrigger>
+            <TabsTrigger value="history" className="font-mono text-xs">
+              History
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="trend">

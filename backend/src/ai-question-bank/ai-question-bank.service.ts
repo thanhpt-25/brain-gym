@@ -5,10 +5,16 @@ import {
   BadRequestException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { QuestionsService } from '../questions/questions.service';
 import { EncryptionService } from './crypto/encryption.service';
 import { IngestionService } from './ingestion/ingestion.service';
+import {
+  AI_GEN_QUEUE,
+  AiGenJobData,
+} from '../queues/ai-gen/ai-gen.job.interface';
 import { createLlmProvider } from './providers/llm-provider.factory';
 import {
   buildGenerationSystemPrompt,
@@ -45,6 +51,7 @@ export class AiQuestionBankService {
     private readonly questions: QuestionsService,
     private readonly encryption: EncryptionService,
     private readonly ingestion: IngestionService,
+    @InjectQueue(AI_GEN_QUEUE) private readonly aiGenQueue: Queue<AiGenJobData>,
   ) {}
 
   // ─── LLM Config ─────────────────────────────────────────────────────────────
@@ -160,26 +167,12 @@ export class AiQuestionBankService {
 
   async generateQuestions(userId: string, dto: GenerateQuestionsDto) {
     const config = await this.requireLlmConfig(userId, dto.provider);
-    const apiKey = this.encryption.decrypt(config.encryptedKey);
-    const llm = createLlmProvider(
-      dto.provider,
-      apiKey,
-      config.modelId || undefined,
-    );
 
     const cert = await this.prisma.certification.findFirst({
       where: { id: dto.certificationId },
     });
     if (!cert) throw new NotFoundException('Certification not found');
 
-    const domain = dto.domainId
-      ? await this.prisma.domain.findUnique({ where: { id: dto.domainId } })
-      : null;
-    const sourceChunks = dto.materialId
-      ? await this.ingestion.getChunksForMaterial(dto.materialId)
-      : [];
-
-    // Create job record
     const job = await this.prisma.questionGenerationJob.create({
       data: {
         userId,
@@ -190,90 +183,52 @@ export class AiQuestionBankService {
         modelId: config.modelId || null,
         difficulty: dto.difficulty || Difficulty.MEDIUM,
         questionCount: dto.questionCount,
-        status: GenerationJobStatus.PROCESSING,
+        status: GenerationJobStatus.PENDING,
       },
     });
 
-    try {
-      const params = {
-        certificationName: cert.name,
-        certificationCode: cert.code,
-        domainName: domain?.name,
+    await this.aiGenQueue.add(
+      'generate',
+      {
+        jobId: job.id,
+        userId,
+        certificationId: cert.id,
+        domainId: dto.domainId,
+        materialId: dto.materialId,
+        provider: dto.provider,
+        encryptedApiKey: config.encryptedKey,
+        modelId: config.modelId || undefined,
         difficulty: dto.difficulty || Difficulty.MEDIUM,
         questionCount: dto.questionCount,
         questionType: dto.questionType,
-        sourceChunks: sourceChunks.slice(0, 5), // max 5 chunks per generation
-      };
+      },
+      { jobId: job.id },
+    );
 
-      // Pass 1: Generate
-      const systemPrompt = buildGenerationSystemPrompt();
-      const userPrompt = buildGenerationUserPrompt(params);
-      const genResult = await llm.generateRaw(systemPrompt, userPrompt);
+    return { jobId: job.id, status: GenerationJobStatus.PENDING };
+  }
 
-      const rawQuestions = this.parseGeneratorResponse(
-        genResult.content,
-        dto.questionCount,
-      );
+  async getJobStatus(userId: string, jobId: string) {
+    const job = await this.prisma.questionGenerationJob.findUnique({
+      where: { id: jobId },
+    });
 
-      // Pass 2: Critic
-      let scores: number[] = rawQuestions.map(() => 0.7); // fallback
-      try {
-        const criticResult = await llm.generateRaw(
-          buildCriticSystemPrompt(),
-          buildCriticUserPrompt(rawQuestions),
-        );
-        scores = this.parseCriticResponse(
-          criticResult.content,
-          rawQuestions.length,
-        );
-      } catch {
-        // Critic pass failure is non-fatal — use confidence_hint fallback
-        scores = rawQuestions.map((q) =>
-          q.confidence_hint === 'high'
-            ? 0.87
-            : q.confidence_hint === 'medium'
-              ? 0.7
-              : 0.5,
-        );
-      }
+    if (!job) throw new NotFoundException('Job not found');
+    if (job.userId !== userId) throw new ForbiddenException('Access denied');
 
-      // Map to preview objects
-      const previews = rawQuestions.map((q, i) =>
-        this.mapToPreview(q, scores[i], dto),
-      );
-
-      // Update job with token usage and scores
-      await this.prisma.questionGenerationJob.update({
-        where: { id: job.id },
-        data: {
-          status: GenerationJobStatus.COMPLETED,
-          promptTokens: genResult.promptTokens,
-          completionTokens: genResult.completionTokens,
-          qualityScores: scores,
-          completedAt: new Date(),
-        },
-      });
-
-      return {
-        jobId: job.id,
-        questions: previews,
-        tokenUsage: {
-          prompt: genResult.promptTokens,
-          completion: genResult.completionTokens,
-        },
-      };
-    } catch (err) {
-      await this.prisma.questionGenerationJob.update({
-        where: { id: job.id },
-        data: {
-          status: GenerationJobStatus.FAILED,
-          errorMessage: (err as Error).message,
-        },
-      });
-      throw new UnprocessableEntityException(
-        `Generation failed: ${(err as Error).message}`,
-      );
-    }
+    return {
+      jobId: job.id,
+      status: job.status,
+      questions:
+        job.status === GenerationJobStatus.COMPLETED
+          ? (job.previewData as unknown[])
+          : undefined,
+      tokenUsage:
+        job.promptTokens != null
+          ? { prompt: job.promptTokens, completion: job.completionTokens }
+          : undefined,
+      errorMessage: job.errorMessage ?? undefined,
+    };
   }
 
   // ─── Save Questions ──────────────────────────────────────────────────────────
