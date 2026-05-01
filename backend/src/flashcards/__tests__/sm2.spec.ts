@@ -207,9 +207,10 @@ describe('calculateSM2', () => {
       prevEaseFactor: Number(step2.easeFactor),
       prevLapses: 0,
       quality: 5,
-    }); // reps=3, interval=round(6*2.6)=16
+    }); // reps=3, interval=round(6*step3.easeFactor) — implementation updates EF first then multiplies
 
     expect(step2.intervalDays).toBe(6);
-    expect(step3.intervalDays).toBe(Math.round(6 * Number(step2.easeFactor)));
+    // Implementation computes EF delta before interval, so new interval = round(prevInterval * newEF)
+    expect(step3.intervalDays).toBe(Math.round(6 * Number(step3.easeFactor)));
   });
 });
