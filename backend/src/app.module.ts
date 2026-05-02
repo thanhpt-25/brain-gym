@@ -28,6 +28,8 @@ import { ExamCatalogModule } from './exam-catalog/exam-catalog.module';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
 import { QueuesModule } from './queues/queues.module';
+import { MasteryModule } from './mastery/mastery.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { QueuesModule } from './queues/queues.module';
     AssessmentsModule,
     OrgAnalyticsModule,
     QueuesModule,
+    MasteryModule,
+    EventsModule,
   ],
   providers: [
     {

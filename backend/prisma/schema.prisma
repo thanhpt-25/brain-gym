@@ -201,6 +201,7 @@ model User {
   sourceMaterials            SourceMaterial[]
   auditLogs                  AuditLog[]
   orgMemberships             OrgMember[]
+  attemptEvents              AttemptEvent[]
 
   @@index([status])
   @@map("users")
@@ -401,7 +402,8 @@ model ExamAttempt {
   user    User     @relation(fields: [userId], references: [id])
   exam    Exam     @relation(fields: [examId], references: [id])
   answers Answer[]
-  capturedWords CapturedWord[]
+  capturedWords  CapturedWord[]
+  attemptEvents  AttemptEvent[]
 
   @@map("exam_attempts")
 }
@@ -981,4 +983,22 @@ model CandidateAnswer {
   invite CandidateInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
 
   @@map("candidate_answers")
+}
+
+model AttemptEvent {
+  id         String   @id @default(uuid())
+  attemptId  String   @map("attempt_id")
+  userId     String   @map("user_id")
+  questionId String?  @map("question_id")
+  eventType  String   @map("event_type")
+  payload    Json
+  clientTs   DateTime @map("client_ts")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  attempt ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@index([attemptId])
+  @@index([userId, createdAt])
+  @@map("attempt_events")
 }

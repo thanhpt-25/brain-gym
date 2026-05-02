@@ -1,12 +1,34 @@
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Brain, Flame, Plus, Shield, Menu, X, BookOpen, BarChart3, Trophy, Target, Dumbbell, Layers, Library, AlertTriangle, Bot, Building2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
-import { useAuthStore } from '@/stores/auth.store';
-import { useOrgStore } from '@/stores/org.store';
-import { getMyPoints } from '@/services/gamification';
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  Brain,
+  Flame,
+  Plus,
+  Shield,
+  Menu,
+  X,
+  BookOpen,
+  BarChart3,
+  Trophy,
+  Target,
+  Dumbbell,
+  Layers,
+  Library,
+  AlertTriangle,
+  Bot,
+  Building2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import { useAuthStore } from "@/stores/auth.store";
+import { useOrgStore } from "@/stores/org.store";
+import { getMyPoints } from "@/services/gamification";
 
 interface NavbarProps {
   title?: string;
@@ -15,14 +37,14 @@ interface NavbarProps {
 }
 
 const staticNavLinks = [
-  { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-  { label: 'Training', href: '/training', icon: Dumbbell },
-  { label: 'Exams', href: '/exams', icon: Target },
-  { label: 'Questions', href: '/questions', icon: BookOpen },
-  { label: 'Trap Questions', href: '/trap-questions', icon: AlertTriangle },
-  { label: 'Flashcards', href: '/decks', icon: Layers },
-  { label: 'AI Generate', href: '/ai-generate', icon: Bot },
-  { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
+  { label: "Dashboard", href: "/dashboard", icon: BarChart3 },
+  { label: "Training", href: "/training", icon: Dumbbell },
+  { label: "Exams", href: "/exams", icon: Target },
+  { label: "Questions", href: "/questions", icon: BookOpen },
+  { label: "Trap Questions", href: "/trap-questions", icon: AlertTriangle },
+  { label: "Flashcards", href: "/decks", icon: Layers },
+  { label: "AI Generate", href: "/ai-generate", icon: Bot },
+  { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
 ];
 
 const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
@@ -33,27 +55,29 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
   const [open, setOpen] = useState(false);
 
   const orgMemberships = user?.orgMemberships ?? [];
-  const orgHref = orgMemberships.length === 1
-    ? `/org/${orgMemberships[0].slug}`
-    : currentOrg
-      ? `/org/${currentOrg.slug}`
-      : '/org';
+  const orgHref =
+    orgMemberships.length === 1
+      ? `/org/${orgMemberships[0].slug}`
+      : currentOrg
+        ? `/org/${currentOrg.slug}`
+        : "/org";
   const navLinks = [
     ...staticNavLinks.slice(0, 7), // before Leaderboard
     ...(orgMemberships.length > 0
-      ? [{ label: 'Organization', href: orgHref, icon: Building2 }]
+      ? [{ label: "Organization", href: orgHref, icon: Building2 }]
       : []),
     ...staticNavLinks.slice(7), // Leaderboard
   ];
 
   const { data: pointsData } = useQuery({
-    queryKey: ['my-points'],
+    queryKey: ["my-points"],
     queryFn: getMyPoints,
     enabled: isAuthenticated,
   });
 
-  const canAddQuestion = user?.role === 'CONTRIBUTOR' || user?.role === 'ADMIN';
-  const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + '/');
+  const canAddQuestion = user?.role === "CONTRIBUTOR" || user?.role === "ADMIN";
+  const isActive = (href: string) =>
+    location.pathname === href || location.pathname.startsWith(href + "/");
 
   const handleNav = (href: string) => {
     setOpen(false);
@@ -65,7 +89,10 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
       <div className="container flex h-16 items-center justify-between px-4 md:px-6">
         {/* Left: Logo */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+          <div
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() => navigate("/")}
+          >
             <LogoIcon className="h-6 w-6 text-primary" />
             <div className="flex items-center font-mono text-lg font-bold">
               <span className="text-gradient-cyan">CertGym</span>
@@ -80,15 +107,15 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
 
         {/* Center: Desktop nav links */}
         <div className="hidden md:flex items-center gap-1">
-          {navLinks.map(link => (
+          {navLinks.map((link) => (
             <Button
               key={link.href}
               variant="ghost"
               size="sm"
               className={`font-mono text-xs ${
                 isActive(link.href)
-                  ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? "text-primary bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
               onClick={() => navigate(link.href)}
             >
@@ -110,18 +137,18 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                 <Button
                   size="sm"
                   className="glow-cyan hidden md:flex h-8"
-                  onClick={() => navigate('/questions/new')}
+                  onClick={() => navigate("/questions/new")}
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   Add
                 </Button>
               )}
-              {user?.role === 'ADMIN' && (
+              {user?.role === "ADMIN" && (
                 <Button
                   size="sm"
                   variant="ghost"
                   className="hidden md:flex h-8 text-muted-foreground hover:text-foreground"
-                  onClick={() => navigate('/admin')}
+                  onClick={() => navigate("/admin")}
                 >
                   <Shield className="w-3.5 h-3.5 mr-1" /> Admin
                 </Button>
@@ -136,7 +163,11 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
               </Button>
             </>
           ) : (
-            <Button size="sm" className="glow-cyan hidden md:flex" onClick={() => navigate('/auth')}>
+            <Button
+              size="sm"
+              className="glow-cyan hidden md:flex"
+              onClick={() => navigate("/auth")}
+            >
               Get Started
             </Button>
           )}
@@ -144,30 +175,40 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
           {/* Mobile hamburger */}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden">
-                <Menu className="h-5 w-5" />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open navigation menu"
+                className="md:hidden"
+              >
+                <Menu className="h-5 w-5" aria-hidden="true" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-72 bg-background border-border p-0">
+            <SheetContent
+              side="right"
+              className="w-72 bg-background border-border p-0"
+            >
               <div className="flex flex-col h-full">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-border">
                   <div className="flex items-center gap-2">
                     <Brain className="h-5 w-5 text-primary" />
-                    <span className="font-mono font-bold text-gradient-cyan">CertGym</span>
+                    <span className="font-mono font-bold text-gradient-cyan">
+                      CertGym
+                    </span>
                   </div>
                 </div>
 
                 {/* Nav links */}
                 <div className="flex-1 py-4 space-y-1 px-3">
-                  {navLinks.map(link => (
+                  {navLinks.map((link) => (
                     <button
                       key={link.href}
                       onClick={() => handleNav(link.href)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono transition-colors ${
                         isActive(link.href)
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
                       }`}
                     >
                       <link.icon className="h-4 w-4" />
@@ -177,7 +218,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
 
                   {canAddQuestion && (
                     <button
-                      onClick={() => handleNav('/questions/new')}
+                      onClick={() => handleNav("/questions/new")}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono text-primary hover:bg-primary/10 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
@@ -185,9 +226,9 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                     </button>
                   )}
 
-                  {user?.role === 'ADMIN' && (
+                  {user?.role === "ADMIN" && (
                     <button
-                      onClick={() => handleNav('/admin')}
+                      onClick={() => handleNav("/admin")}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     >
                       <Shield className="h-4 w-4" />
@@ -202,14 +243,18 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                     <div className="space-y-3">
                       {pointsData && (
                         <div className="flex items-center gap-2 text-sm font-mono text-orange-400 px-1">
-                          <Flame className="h-4 w-4" /> {pointsData.points} points
+                          <Flame className="h-4 w-4" /> {pointsData.points}{" "}
+                          points
                         </div>
                       )}
                       <Button
                         size="sm"
                         variant="outline"
                         className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
-                        onClick={() => { setOpen(false); logout(); }}
+                        onClick={() => {
+                          setOpen(false);
+                          logout();
+                        }}
                       >
                         Logout
                       </Button>
@@ -218,7 +263,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                     <Button
                       size="sm"
                       className="w-full glow-cyan"
-                      onClick={() => handleNav('/auth')}
+                      onClick={() => handleNav("/auth")}
                     >
                       Get Started
                     </Button>

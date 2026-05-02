@@ -59,6 +59,7 @@ const OrgAnalytics = lazy(() => import("./pages/org/OrgAnalytics"));
 const OrgAuditLog = lazy(() => import("./pages/org/OrgAuditLog"));
 const CandidateExam = lazy(() => import("./pages/CandidateExam"));
 const CandidateResult = lazy(() => import("./pages/CandidateResult"));
+const MasteryPage = lazy(() => import("./pages/Dashboard/MasteryPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -161,6 +162,16 @@ const AnimatedRoutes = () => {
             <PageTransition>
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/dashboard/mastery/:certId"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <MasteryPage />
               </ProtectedRoute>
             </PageTransition>
           }
@@ -371,6 +382,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <SkipToContent />
           <ScrollToTop />
           <AnimatedRoutes />
           <BottomTabBar />

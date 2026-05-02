@@ -1,0 +1,85 @@
+/* CertGym design tokens — Sprint 03 US-T1
+   Editorial light + Dark luxury (oklch)
+   Both themes are deliberate: light = editorial cream, dark = warm-black luxury
+   All colour pairings target APCA Lc >= 75 for body, >= 90 for small UI labels */
+
+:root {
+  /* ── Surfaces — editorial light ─────────────────────── */
+  --color-bg: oklch(98.5% 0.005 90);        /* warm cream page bg */
+  --color-surface: oklch(100% 0 0);          /* pure-white card face */
+  --color-surface-2: oklch(96% 0.008 85);    /* paper card, inset areas */
+  --color-surface-raised: oklch(100% 0 0);   /* tooltips, dropdowns */
+
+  /* ── Ink ─────────────────────────────────────────────── */
+  --color-ink: oklch(18% 0.01 60);           /* near-black warm heading */
+  --color-ink-soft: oklch(38% 0.015 60);     /* secondary body text */
+  --color-ink-muted: oklch(58% 0.01 60);     /* placeholder, caption */
+
+  /* ── Brand — effort terracotta + neuron mint ─────────── */
+  --color-accent: oklch(64% 0.19 28);        /* terracotta (effort) */
+  --color-accent-strong: oklch(54% 0.22 28); /* hover / pressed */
+  --color-signal: oklch(72% 0.17 165);       /* neuron mint (mastered) */
+  --color-warn: oklch(78% 0.16 75);          /* amber (review due) */
+  --color-danger: oklch(58% 0.22 25);        /* error / danger */
+
+  /* ── Data viz (domain proficiency) ──────────────────── */
+  --viz-1: oklch(64% 0.19 28);   /* terracotta */
+  --viz-2: oklch(70% 0.14 195);  /* steel blue */
+  --viz-3: oklch(74% 0.16 145);  /* leaf green */
+  --viz-4: oklch(68% 0.18 305);  /* violet */
+  --viz-5: oklch(76% 0.15 75);   /* amber */
+
+  /* ── Typography scale ────────────────────────────────── */
+  --text-hero: clamp(2.5rem, 1.2rem + 5vw, 5.5rem);
+  --text-display: clamp(1.75rem, 1rem + 2.5vw, 3rem);
+  --text-title: clamp(1.25rem, 0.9rem + 1vw, 1.75rem);
+  --text-base: clamp(1rem, 0.94rem + 0.3vw, 1.0625rem);
+  --text-sm: 0.875rem;
+  --text-xs: 0.75rem;
+
+  /* ── Spacing rhythm ──────────────────────────────────── */
+  --space-section: clamp(3rem, 2rem + 4vw, 8rem);
+  --space-gap: clamp(1rem, 0.75rem + 1vw, 1.5rem);
+
+  /* ── Motion ──────────────────────────────────────────── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 350ms;
+  --duration-slow: 500ms;
+
+  /* ── Radius ──────────────────────────────────────────── */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 2rem;
+}
+
+/* Dark luxury — warm-black, not blue-grey */
+.dark {
+  --color-bg: oklch(14% 0.01 60);
+  --color-surface: oklch(18% 0.012 60);
+  --color-surface-2: oklch(22% 0.014 60);
+  --color-surface-raised: oklch(24% 0.014 60);
+
+  --color-ink: oklch(96% 0.005 90);
+  --color-ink-soft: oklch(80% 0.008 80);
+  --color-ink-muted: oklch(60% 0.008 75);
+
+  --color-accent: oklch(72% 0.18 30);        /* lifted on dark bg */
+  --color-accent-strong: oklch(80% 0.20 30);
+  --color-signal: oklch(76% 0.16 165);
+  --color-warn: oklch(82% 0.14 75);
+  --color-danger: oklch(68% 0.20 25);
+}
+
+/* Reduced-motion baseline: all transitions collapse to opacity-only fades */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--duration-fast) !important;
+    transition-property: opacity !important;
+  }
+}
