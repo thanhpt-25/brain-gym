@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ATTEMPT_EVENTS_QUEUE,
@@ -40,7 +41,7 @@ export class AttemptEventsProcessor extends WorkerHost {
       userId,
       questionId: e.questionId ?? null,
       eventType: e.eventType,
-      payload: e.payload,
+      payload: e.payload as Prisma.InputJsonValue,
       clientTs: new Date(e.clientTs),
     }));
 

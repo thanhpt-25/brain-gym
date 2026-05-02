@@ -35,10 +35,14 @@ export const eventPayloadSchemas: Record<string, z.ZodTypeAny> = {
   [AttemptEventType.SUBMITTED]: submittedSchema,
 };
 
+type ParseResult =
+  | { success: true; data: unknown }
+  | { success: false; error: z.ZodError };
+
 export function parseEventPayload(
   eventType: string,
   payload: unknown,
-): z.SafeParseReturnType<unknown, unknown> {
+): ParseResult {
   const schema = eventPayloadSchemas[eventType];
   if (!schema) {
     return {
@@ -50,7 +54,7 @@ export function parseEventPayload(
           message: `Unknown eventType: ${eventType}`,
         },
       ]),
-    } as z.SafeParseReturnType<unknown, unknown>;
+    };
   }
-  return schema.safeParse(payload);
+  return schema.safeParse(payload) as ParseResult;
 }
