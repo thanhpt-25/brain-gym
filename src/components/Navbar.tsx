@@ -63,7 +63,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
         : "/org";
   const navLinks = [
     ...staticNavLinks.slice(0, 7), // before Leaderboard
-    ...(orgMemberships.length > 0
+    ...(orgMemberships.length > 0 || user?.plan === "PREMIUM" || user?.plan === "ENTERPRISE" || user?.role === "ADMIN"
       ? [{ label: "Organization", href: orgHref, icon: Building2 }]
       : []),
     ...staticNavLinks.slice(7), // Leaderboard

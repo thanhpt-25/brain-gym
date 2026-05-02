@@ -118,6 +118,7 @@ export class AuthService {
         email: user.email,
         displayName: user.displayName,
         role: user.role,
+        plan: user.plan,
         orgMemberships,
       },
     };

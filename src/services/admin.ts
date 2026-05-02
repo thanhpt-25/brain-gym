@@ -8,6 +8,7 @@ export interface AdminUser {
   displayName: string;
   avatarUrl: string | null;
   role: string;
+  plan: string;
   status: string;
   points: number;
   suspendedUntil: string | null;
@@ -64,6 +65,11 @@ export interface DashboardData {
     processing: number;
     completed: number;
     failed: number;
+  };
+  organizations: {
+    total: number;
+    newLast7d: number;
+    newLast30d: number;
   };
 }
 
@@ -149,6 +155,11 @@ export const adjustUserPoints = async (
   reason?: string,
 ) => {
   const response = await api.put(`/users/${userId}/points`, { amount, reason });
+  return response.data;
+};
+
+export const updateUserPlan = async (userId: string, plan: string) => {
+  const response = await api.patch(`/admin/users/${userId}/plan`, { plan });
   return response.data;
 };
 
@@ -487,6 +498,95 @@ export const bulkUpdateQuestionStatus = async (
 
 export const bulkUpdateUserRole = async (userIds: string[], role: string) => {
   const response = await api.post("/admin/users/bulk-role", { userIds, role });
+  return response.data;
+};
+
+// ==================== Admin Organizations ====================
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  industry: string | null;
+  logoUrl: string | null;
+  accentColor: string | null;
+  maxSeats: number;
+  isActive: boolean;
+  createdAt: string;
+  owner: { id: string; displayName: string; email: string; plan: string } | null;
+  memberCount: number;
+}
+
+export interface AdminOrgMember {
+  id: string;
+  orgId: string;
+  userId: string;
+  role: string;
+  isActive: boolean;
+  joinedAt: string;
+  user: { id: string; displayName: string; email: string; plan: string; role: string };
+}
+
+export const getAdminOrganizations = async (
+  page = 1,
+  limit = 20,
+  search?: string,
+): Promise<PaginatedResponse<AdminOrganization>> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  if (search) params.append('search', search);
+  const response = await api.get(`/admin/organizations?${params}`);
+  return response.data;
+};
+
+export const getAdminOrganization = async (
+  orgId: string,
+): Promise<AdminOrganization> => {
+  const response = await api.get(`/admin/organizations/${orgId}`);
+  return response.data;
+};
+
+export const updateAdminOrganization = async (
+  orgId: string,
+  data: Partial<Pick<AdminOrganization, 'name' | 'description' | 'industry' | 'logoUrl' | 'accentColor' | 'maxSeats' | 'isActive'>>,
+) => {
+  const response = await api.patch(`/admin/organizations/${orgId}`, data);
+  return response.data;
+};
+
+export const deleteAdminOrganization = async (orgId: string) => {
+  const response = await api.delete(`/admin/organizations/${orgId}`);
+  return response.data;
+};
+
+export const getAdminOrgMembers = async (
+  orgId: string,
+  page = 1,
+  limit = 20,
+): Promise<PaginatedResponse<AdminOrgMember>> => {
+  const params = new URLSearchParams();
+  params.append('page', page.toString());
+  params.append('limit', limit.toString());
+  const response = await api.get(`/admin/organizations/${orgId}/members?${params}`);
+  return response.data;
+};
+
+export const updateAdminOrgMemberRole = async (
+  orgId: string,
+  userId: string,
+  role: string,
+) => {
+  const response = await api.patch(`/admin/organizations/${orgId}/members/${userId}`, { role });
+  return response.data;
+};
+
+export const removeAdminOrgMember = async (
+  orgId: string,
+  userId: string,
+) => {
+  const response = await api.delete(`/admin/organizations/${orgId}/members/${userId}`);
   return response.data;
 };
 

@@ -13,6 +13,7 @@ interface User {
     email: string;
     displayName: string;
     role: string;
+    plan: string;
     orgMemberships: OrgMembership[];
 }
 

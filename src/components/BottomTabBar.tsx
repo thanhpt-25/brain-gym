@@ -19,7 +19,7 @@ const BottomTabBar = () => {
   const orgMemberships = user?.orgMemberships ?? [];
   const orgHref = orgMemberships.length === 1 ? `/org/${orgMemberships[0].slug}` : '/org';
 
-  const tabs = orgMemberships.length > 0
+  const tabs = orgMemberships.length > 0 || user?.plan === 'PREMIUM' || user?.plan === 'ENTERPRISE' || user?.role === 'ADMIN'
     ? [...staticTabs, { label: 'Org', href: orgHref, icon: Building2 }]
     : staticTabs;
 

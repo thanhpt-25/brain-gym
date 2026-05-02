@@ -13,6 +13,7 @@ export class TokenResponseDto {
     email: string;
     displayName: string;
     role: string;
+    plan: string;
     orgMemberships: {
       orgId: string;
       slug: string;

@@ -25,6 +25,9 @@ export class AdminService {
       totalProviders,
       totalCertifications,
       aiGenerationStats,
+      totalOrgs,
+      newOrgs7d,
+      newOrgs30d,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
@@ -43,6 +46,9 @@ export class AdminService {
         by: ['status'],
         _count: true,
       }),
+      this.prisma.organization.count(),
+      this.prisma.organization.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
+      this.prisma.organization.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
     ]);
 
     const statusMap: Record<string, number> = {};
@@ -78,6 +84,11 @@ export class AdminService {
         processing: aiStatsMap['PROCESSING'] || 0,
         completed: aiStatsMap['COMPLETED'] || 0,
         failed: aiStatsMap['FAILED'] || 0,
+      },
+      organizations: {
+        total: totalOrgs,
+        newLast7d: newOrgs7d,
+        newLast30d: newOrgs30d,
       },
     };
   }
@@ -354,6 +365,188 @@ export class AdminService {
       data: { plan: plan as any },
       select: { id: true, email: true, plan: true },
     });
+  }
+
+  // ─── Organization Management ──────────────────────────────────────────────────
+
+  async getOrganizations(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }) {
+    const { page = 1, limit = 20, search } = params;
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { slug: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.organization.findMany({
+        where,
+        include: {
+          members: {
+            where: { role: 'OWNER' as any },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  displayName: true,
+                  email: true,
+                  plan: true,
+                },
+              },
+            },
+            take: 1,
+          },
+          _count: { select: { members: { where: { isActive: true } } } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.organization.count({ where }),
+    ]);
+
+    return {
+      data: data.map((org) => ({
+        ...org,
+        owner: org.members[0]?.user || null,
+        memberCount: org._count.members,
+        members: undefined,
+        _count: undefined,
+      })),
+      meta: { total, page, lastPage: Math.ceil(total / limit) },
+    };
+  }
+
+  async getOrganization(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+      include: {
+        members: {
+          where: { role: 'OWNER' as any },
+          include: {
+            user: {
+              select: {
+                id: true,
+                displayName: true,
+                email: true,
+                plan: true,
+              },
+            },
+          },
+          take: 1,
+        },
+        _count: { select: { members: { where: { isActive: true } } } },
+      },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+    return {
+      ...org,
+      owner: org.members[0]?.user || null,
+      memberCount: org._count.members,
+      members: undefined,
+      _count: undefined,
+    };
+  }
+
+  async updateOrganization(
+    orgId: string,
+    data: {
+      name?: string;
+      description?: string;
+      industry?: string;
+      logoUrl?: string;
+      accentColor?: string;
+      maxSeats?: number;
+      isActive?: boolean;
+    },
+  ) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+    return this.prisma.organization.update({
+      where: { id: orgId },
+      data,
+    });
+  }
+
+  async deleteOrganization(orgId: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+    await this.prisma.organization.delete({ where: { id: orgId } });
+    return { deleted: true, orgId };
+  }
+
+  async getOrgMembers(
+    orgId: string,
+    params: { page?: number; limit?: number },
+  ) {
+    const { page = 1, limit = 20 } = params;
+    const org = await this.prisma.organization.findUnique({
+      where: { id: orgId },
+    });
+    if (!org) throw new NotFoundException('Organization not found');
+
+    const where = { orgId, isActive: true };
+    const [data, total] = await Promise.all([
+      this.prisma.orgMember.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+              plan: true,
+              role: true,
+            },
+          },
+        },
+        orderBy: { joinedAt: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.orgMember.count({ where }),
+    ]);
+
+    return {
+      data,
+      meta: { total, page, lastPage: Math.ceil(total / limit) },
+    };
+  }
+
+  async updateOrgMemberRole(
+    orgId: string,
+    userId: string,
+    role: string,
+  ) {
+    const member = await this.prisma.orgMember.findUnique({
+      where: { orgId_userId: { orgId, userId } },
+    });
+    if (!member) throw new NotFoundException('Member not found');
+    return this.prisma.orgMember.update({
+      where: { id: member.id },
+      data: { role: role as any },
+    });
+  }
+
+  async removeOrgMember(orgId: string, userId: string) {
+    const member = await this.prisma.orgMember.findUnique({
+      where: { orgId_userId: { orgId, userId } },
+    });
+    if (!member) throw new NotFoundException('Member not found');
+    await this.prisma.orgMember.update({
+      where: { id: member.id },
+      data: { isActive: false },
+    });
+    return { removed: true, userId };
   }
 
   // ─── CSV Export ───────────────────────────────────────────────────────────────
