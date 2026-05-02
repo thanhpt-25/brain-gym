@@ -1,44 +1,80 @@
-import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
-import { getCertifications } from '@/services/certifications';
-import { getMyPoints } from '@/services/gamification';
-import { useNavigate, Link } from 'react-router-dom';
-import { Brain, Zap, BarChart3, Users, Target, BookOpen, Flame } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import CertificationCard from '@/components/CertificationCard';
-import { CardSkeleton } from '@/components/PageSkeleton';
-import { useAuthStore } from '@/stores/auth.store';
-import { fallbackCertifications } from '@/data/fallbackCertifications';
-import Navbar from '@/components/Navbar';
+import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { getCertifications } from "@/services/certifications";
+import { getMyPoints } from "@/services/gamification";
+import { useNavigate, Link } from "react-router-dom";
+import {
+  Brain,
+  Zap,
+  BarChart3,
+  Users,
+  Target,
+  BookOpen,
+  Flame,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import CertificationCard from "@/components/CertificationCard";
+import { CardSkeleton } from "@/components/PageSkeleton";
+import { useAuthStore } from "@/stores/auth.store";
+import { fallbackCertifications } from "@/data/fallbackCertifications";
+import Navbar from "@/components/Navbar";
 
 const features = [
-  { icon: Target, title: 'Exam Simulation', desc: 'Timer, navigation, mark for review — giống exam thật.' },
-  { icon: BarChart3, title: 'Smart Analytics', desc: 'Domain breakdown, weak topic detection, pass probability.' },
-  { icon: Users, title: 'Community Driven', desc: 'Tạo và chia sẻ đề thi. Voting, review, verification.' },
-  { icon: Zap, title: 'AI Assist', desc: 'Generate questions, improve explanations, detect duplicates.' },
-  { icon: BookOpen, title: 'Study Mode', desc: 'Flashcards, instant feedback, adaptive learning.' },
-  { icon: Brain, title: 'Adaptive Exam', desc: 'Câu đúng → khó hơn. Câu sai → dễ hơn.' },
+  {
+    icon: Target,
+    title: "Exam Simulation",
+    desc: "Timer, navigation, mark for review — giống exam thật.",
+  },
+  {
+    icon: BarChart3,
+    title: "Smart Analytics",
+    desc: "Domain breakdown, weak topic detection, pass probability.",
+  },
+  {
+    icon: Users,
+    title: "Community Driven",
+    desc: "Tạo và chia sẻ đề thi. Voting, review, verification.",
+  },
+  {
+    icon: Zap,
+    title: "AI Assist",
+    desc: "Generate questions, improve explanations, detect duplicates.",
+  },
+  {
+    icon: BookOpen,
+    title: "Study Mode",
+    desc: "Flashcards, instant feedback, adaptive learning.",
+  },
+  {
+    icon: Brain,
+    title: "Adaptive Exam",
+    desc: "Câu đúng → khó hơn. Câu sai → dễ hơn.",
+  },
 ];
 
 const stats = [
-  { value: '10K+', label: 'Questions' },
-  { value: '5', label: 'Certifications' },
-  { value: '50K+', label: 'Exams Taken' },
-  { value: '89%', label: 'Pass Rate' },
+  { value: "10K+", label: "Questions" },
+  { value: "5", label: "Certifications" },
+  { value: "50K+", label: "Exams Taken" },
+  { value: "89%", label: "Pass Rate" },
 ];
 
 const Index = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
-  const { data: certifications, isLoading, error } = useQuery({ queryKey: ['certifications'], queryFn: getCertifications });
+  const {
+    data: certifications,
+    isLoading,
+    error,
+  } = useQuery({ queryKey: ["certifications"], queryFn: getCertifications });
   const { data: pointsData } = useQuery({
-    queryKey: ['my-points'],
+    queryKey: ["my-points"],
     queryFn: getMyPoints,
     enabled: isAuthenticated,
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
       <Navbar />
 
       {/* Hero */}
@@ -63,16 +99,27 @@ const Index = () => {
               <span className="text-gradient-cyan">cùng cộng đồng</span>
             </h1>
             <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
-              Tạo, chia sẻ và luyện mock exam cho các chứng chỉ quốc tế.
-              Phân tích điểm yếu. Cải thiện mỗi ngày.
+              Tạo, chia sẻ và luyện mock exam cho các chứng chỉ quốc tế. Phân
+              tích điểm yếu. Cải thiện mỗi ngày.
             </p>
             <div className="flex items-center justify-center gap-4">
-              <Button size="lg" className="glow-cyan font-mono" onClick={() => {
-                document.getElementById('certification-library')?.scrollIntoView({ behavior: 'smooth' });
-              }}>
+              <Button
+                size="lg"
+                className="glow-cyan font-mono"
+                onClick={() => {
+                  document
+                    .getElementById("certification-library")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
                 Start Training
               </Button>
-              <Button size="lg" variant="outline" className="font-mono" onClick={() => navigate('/questions')}>
+              <Button
+                size="lg"
+                variant="outline"
+                className="font-mono"
+                onClick={() => navigate("/questions")}
+              >
                 Browse Questions
               </Button>
             </div>
@@ -87,8 +134,12 @@ const Index = () => {
           >
             {stats.map((stat) => (
               <div key={stat.label} className="text-center">
-                <div className="text-2xl md:text-3xl font-bold font-mono text-gradient-cyan">{stat.value}</div>
-                <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
+                <div className="text-2xl md:text-3xl font-bold font-mono text-gradient-cyan">
+                  {stat.value}
+                </div>
+                <div className="text-sm text-muted-foreground mt-1">
+                  {stat.label}
+                </div>
               </div>
             ))}
           </motion.div>
@@ -96,7 +147,10 @@ const Index = () => {
       </section>
 
       {/* Certifications */}
-      <section id="certification-library" className="py-20 border-t border-border">
+      <section
+        id="certification-library"
+        className="py-20 border-t border-border"
+      >
         <div className="container">
           <motion.div
             initial={{ opacity: 0 }}
@@ -104,26 +158,36 @@ const Index = () => {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <h2 className="text-3xl font-bold font-mono mb-3">Certification Library</h2>
-            <p className="text-muted-foreground">Chọn chứng chỉ và bắt đầu luyện tập</p>
+            <h2 className="text-3xl font-bold font-mono mb-3">
+              Certification Library
+            </h2>
+            <p className="text-muted-foreground">
+              Chọn chứng chỉ và bắt đầu luyện tập
+            </p>
           </motion.div>
           <div className="max-w-5xl mx-auto">
             {isLoading ? (
               <CardSkeleton count={6} />
             ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(certifications && certifications.length > 0 ? certifications : fallbackCertifications).map((cert, i) => (
-              <motion.div
-                key={cert.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <CertificationCard cert={cert} onClick={() => navigate(`/exam/${cert.id}`)} />
-              </motion.div>
-            ))}
-            </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {(certifications && certifications.length > 0
+                  ? certifications
+                  : fallbackCertifications
+                ).map((cert, i) => (
+                  <motion.div
+                    key={cert.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                  >
+                    <CertificationCard
+                      cert={cert}
+                      onClick={() => navigate(`/exam/${cert.id}`)}
+                    />
+                  </motion.div>
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -141,7 +205,9 @@ const Index = () => {
             <h2 className="text-3xl font-bold font-mono mb-3">
               Không chỉ là <span className="text-gradient-cyan">làm đề</span>
             </h2>
-            <p className="text-muted-foreground">Một hệ sinh thái luyện thi hoàn chỉnh</p>
+            <p className="text-muted-foreground">
+              Một hệ sinh thái luyện thi hoàn chỉnh
+            </p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {features.map((f, i) => (
@@ -167,12 +233,14 @@ const Index = () => {
         <div className="container text-center text-sm text-muted-foreground">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Brain className="h-4 w-4 text-primary" />
-            <span className="font-mono font-semibold text-gradient-cyan">CertGym</span>
+            <span className="font-mono font-semibold text-gradient-cyan">
+              CertGym
+            </span>
           </div>
           <p>Community-powered certification training platform</p>
         </div>
       </footer>
-    </div>
+    </main>
   );
 };
 
