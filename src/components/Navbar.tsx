@@ -55,10 +55,11 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
   const [open, setOpen] = useState(false);
 
   const orgMemberships = user?.orgMemberships ?? [];
+  const belongsToCurrentOrg = orgMemberships.some(m => m.slug === currentOrg?.slug);
   const orgHref =
     orgMemberships.length === 1
       ? `/org/${orgMemberships[0].slug}`
-      : currentOrg
+      : currentOrg && (belongsToCurrentOrg || user?.role === 'ADMIN')
         ? `/org/${currentOrg.slug}`
         : "/org";
   const navLinks = [

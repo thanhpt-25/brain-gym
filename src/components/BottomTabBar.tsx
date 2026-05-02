@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { BookOpen, Target, Dumbbell, Layers, BarChart3, Trophy, Building2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
+import { useOrgStore } from '@/stores/org.store';
 
 const staticTabs = [
   { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
@@ -16,8 +17,14 @@ const BottomTabBar = () => {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
 
+  const currentOrg = useOrgStore((s) => s.currentOrg);
   const orgMemberships = user?.orgMemberships ?? [];
-  const orgHref = orgMemberships.length === 1 ? `/org/${orgMemberships[0].slug}` : '/org';
+  const belongsToCurrentOrg = orgMemberships.some(m => m.slug === currentOrg?.slug);
+  const orgHref = orgMemberships.length === 1 
+    ? `/org/${orgMemberships[0].slug}` 
+    : currentOrg && (belongsToCurrentOrg || user?.role === 'ADMIN')
+      ? `/org/${currentOrg.slug}`
+      : '/org';
 
   const tabs = orgMemberships.length > 0 || user?.plan === 'PREMIUM' || user?.plan === 'ENTERPRISE' || user?.role === 'ADMIN'
     ? [...staticTabs, { label: 'Org', href: orgHref, icon: Building2 }]

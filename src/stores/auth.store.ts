@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useOrgStore } from './org.store';
 
 interface OrgMembership {
     orgId: string;
@@ -44,13 +45,15 @@ export const useAuthStore = create<AuthState>()(
                     isAuthenticated: true,
                 }),
 
-            logout: () =>
+            logout: () => {
+                useOrgStore.getState().clearOrg();
                 set({
                     user: null,
                     accessToken: null,
                     refreshToken: null,
                     isAuthenticated: false,
-                }),
+                });
+            },
         }),
         {
             name: 'auth-storage', // name of the item in the storage (must be unique)
