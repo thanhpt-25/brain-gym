@@ -55,15 +55,16 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
   const [open, setOpen] = useState(false);
 
   const orgMemberships = user?.orgMemberships ?? [];
+  const belongsToCurrentOrg = orgMemberships.some(m => m.slug === currentOrg?.slug);
   const orgHref =
     orgMemberships.length === 1
       ? `/org/${orgMemberships[0].slug}`
-      : currentOrg
+      : currentOrg && (belongsToCurrentOrg || user?.role === 'ADMIN')
         ? `/org/${currentOrg.slug}`
         : "/org";
   const navLinks = [
     ...staticNavLinks.slice(0, 7), // before Leaderboard
-    ...(orgMemberships.length > 0
+    ...(orgMemberships.length > 0 || user?.plan === "PREMIUM" || user?.plan === "ENTERPRISE" || user?.role === "ADMIN"
       ? [{ label: "Organization", href: orgHref, icon: Building2 }]
       : []),
     ...staticNavLinks.slice(7), // Leaderboard

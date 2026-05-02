@@ -13,13 +13,197 @@
 > **Email**: Using **Mailtrap** (https://mailtrap.io/) for testing. Will switch to Gmail for production later.
 
 > [!NOTE]
-> **Billing**: No billing/payment integration. Enterprise plan is **admin-managed** — admin manually upgrades users from free to enterprise plan via the admin panel.
+> **Billing**: No billing/payment integration. Plans are **admin-managed only** — admin manually sets a user's plan (`FREE`, `PREMIUM`, `ENTERPRISE`) via `PATCH /admin/users/:userId/plan`. There is no self-service upgrade. See [Plan-Based Access Control](#plan-based-access-control) section for full details.
 
 > [!NOTE]
 > **Candidate Exam**: Separate page (`/assess/:token`), no login required. Link is time-limited and expires after admin-configured duration.
 
 > [!NOTE]
 > **Testing**: All tests run inside **Docker** containers, not on host environment.
+
+---
+
+## Plan-Based Access Control
+
+This section specifies how the `UserPlan` (`FREE`, `PREMIUM`, `ENTERPRISE`) gates access to organization features.
+
+> [!IMPORTANT]
+> **Plan management is admin-only.** There is no self-service upgrade flow. The system admin changes a user's plan via the admin panel (`PATCH /admin/users/:userId/plan`). This endpoint already exists and is audit-logged. No billing or payment integration is planned at this stage.
+
+---
+
+### Plan Management Rules
+
+| Rule | Detail |
+|:-----|:-------|
+| Who can change a user's plan | Only `UserRole = ADMIN` via `PATCH /admin/users/:userId/plan` |
+| Default plan on registration | `FREE` |
+| Available plans | `FREE`, `PREMIUM`, `ENTERPRISE` |
+| Self-service upgrade | ❌ Not supported (future scope) |
+| Plan visible to user | Yes — included in login/refresh response |
+| Plan stored in | `users.plan` column (enum `UserPlan`) |
+
+---
+
+### Plan Permissions Matrix
+
+| Capability | FREE | PREMIUM | ENTERPRISE | ADMIN (any plan) |
+|:-----------|:----:|:-------:|:----------:|:----------------:|
+| **Create organization** | ❌ | ✅ (max 1) | ✅ (max 3) | ✅ (unlimited) |
+| **Join org via email invite** | ✅ | ✅ | ✅ | ✅ |
+| **Join org via join link** | ❌ | ✅ | ✅ | ✅ |
+| **View org menu in navbar** | Only if member | ✅ Always | ✅ Always | ✅ Always |
+| **Max seats per org (as Owner)** | — | 10 | 50 | 100 |
+| **Access org analytics** | ❌ | ✅ | ✅ | ✅ |
+| **Create assessments** | ❌ | ❌ | ✅ | ✅ |
+| **Candidate assessments (external)** | ❌ | ❌ | ✅ | ✅ |
+
+> [!NOTE]
+> The "max organizations" limit refers to how many orgs a user can **own** (OrgRole = OWNER). They can still be a **member** of additional orgs created by others.
+
+> [!NOTE]
+> Free users can **only** join an organization if they receive an email invitation from an org OWNER/ADMIN. They cannot use join links or create their own organizations.
+
+---
+
+### Organization Creation — Plan Enforcement
+
+When a user calls `POST /organizations`, the system SHALL check:
+
+1. **User's `role`** — If `UserRole = ADMIN`, bypass all plan restrictions (always allow).
+2. **User's `plan`** — Enforce limits per the matrix above.
+3. **Owned org count** — Count orgs where user has `OrgRole = OWNER`.
+
+| Plan | Behavior |
+|:-----|:---------|
+| `FREE` | Return `403`: _"Upgrade to Premium or Enterprise to create an organization."_ |
+| `PREMIUM` | Allow if owned orgs < 1. Otherwise `403`: _"Premium plan allows 1 organization. Upgrade to Enterprise for more."_ |
+| `ENTERPRISE` | Allow if owned orgs < 3. Otherwise `403`: _"You have reached the maximum number of organizations for your plan."_ |
+| `ADMIN` | Always allow. No limit. |
+
+The `maxSeats` for a new org is set based on the creator's plan:
+
+| Creator Plan | Default `maxSeats` |
+|:-------------|:-------------------|
+| `PREMIUM` | 10 |
+| `ENTERPRISE` | 50 |
+| `ADMIN` | 100 |
+
+---
+
+### Organization Joining — Plan Enforcement
+
+**Join via Email Invite** (`POST /organizations/accept-invite/:token`):
+- All plans including `FREE` are allowed. No change to current behavior.
+
+**Join via Link** (`GET /organizations/join/:code`):
+- `FREE` users → `403`: _"Free plan users can only join organizations via email invitation."_
+- `PREMIUM`, `ENTERPRISE`, `ADMIN` → Allowed (current behavior).
+
+Seat limits are still enforced regardless of the joiner's plan.
+
+---
+
+### Plan Info in Auth Response
+
+The login/refresh response SHALL include `plan` so the frontend can render plan-aware UI:
+
+```json
+{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "user": {
+    "id": "...",
+    "email": "...",
+    "displayName": "...",
+    "role": "LEARNER",
+    "plan": "FREE",
+    "orgMemberships": [...]
+  }
+}
+```
+
+Changes required:
+- [auth.service.ts](file:///Users/thanhpt/Projects/brain-gym/backend/src/auth/auth.service.ts) — add `plan: user.plan` to response
+- [auth.store.ts](file:///Users/thanhpt/Projects/brain-gym/src/stores/auth.store.ts) — add `plan: string` to `User` interface
+
+---
+
+### Admin Organization Management
+
+New admin endpoints for platform-wide org management (added to existing `AdminController`):
+
+| Method | Route | Description |
+|:-------|:------|:------------|
+| `GET` | `/admin/organizations` | List all orgs (paginated, with owner info & member count) |
+| `GET` | `/admin/organizations/:orgId` | Get org detail with members summary |
+| `PATCH` | `/admin/organizations/:orgId` | Update any org (name, maxSeats, isActive, etc.) |
+| `DELETE` | `/admin/organizations/:orgId` | Delete any org (cascade) |
+| `GET` | `/admin/organizations/:orgId/members` | List members of any org |
+| `PATCH` | `/admin/organizations/:orgId/members/:userId` | Change member role in any org |
+| `DELETE` | `/admin/organizations/:orgId/members/:userId` | Remove member from any org |
+
+All endpoints protected by `JwtAuthGuard` + `RolesGuard(ADMIN)`. All actions audit-logged.
+
+The admin dashboard (`GET /admin/dashboard`) SHALL also include:
+- Total organizations count
+- Organizations created in last 7d / 30d
+
+---
+
+### Navigation Visibility Rules
+
+**Navbar & BottomTabBar** — "Organization" menu item visibility:
+
+| User State | Visible? |
+|:-----------|:---------|
+| Not authenticated | ❌ |
+| FREE, no memberships | ❌ |
+| FREE, has membership(s) | ✅ → `/org` |
+| PREMIUM, no memberships | ✅ → `/org` (shows "Create" CTA) |
+| ENTERPRISE, no memberships | ✅ → `/org` (shows "Create" CTA) |
+| ADMIN | ✅ Always |
+
+**OrgSelector Page** (`/org`) — conditional content:
+
+| Condition | "Create" Button | Message |
+|:----------|:---------------:|:--------|
+| FREE, no orgs | ❌ | _"Ask your team admin to send you an invite."_ |
+| FREE, has orgs | ❌ | _(show org list only)_ |
+| PREMIUM, can create | ✅ | _(show org list + create button)_ |
+| PREMIUM, limit reached | ❌ | _"Upgrade to Enterprise for more orgs."_ |
+| ENTERPRISE, can create | ✅ | _(show org list + create button)_ |
+| ENTERPRISE, limit reached | ❌ | _"Maximum organizations reached."_ |
+| ADMIN | ✅ | _(always show)_ |
+
+---
+
+### Plan Downgrade Behavior
+
+If an admin downgrades a user's plan (e.g., PREMIUM → FREE) while they own an organization:
+- Existing organizations are **kept as-is** (grandfathered).
+- The user can continue to manage their existing org(s).
+- The user **cannot** create new organizations until their plan is upgraded again.
+- No automatic deactivation or ownership transfer occurs.
+
+---
+
+### Backwards Compatibility
+
+- Existing organizations created before this feature continue to function normally.
+- Existing users default to `plan = FREE`. If they already own orgs, those orgs are grandfathered.
+- The `UserPlan` enum and `User.plan` column already exist — no schema migration needed.
+
+---
+
+### Error Messages
+
+| Scenario | HTTP | Message |
+|:---------|:----:|:--------|
+| FREE user creates org | 403 | _"Upgrade to Premium or Enterprise plan to create an organization."_ |
+| PREMIUM user exceeds limit | 403 | _"Your Premium plan allows 1 organization. Upgrade to Enterprise for more."_ |
+| ENTERPRISE user exceeds limit | 403 | _"You have reached the maximum number of organizations for your plan (3)."_ |
+| FREE user tries join link | 403 | _"Free plan users can only join organizations via email invitation."_ |
 
 ---
 
@@ -178,7 +362,7 @@ backend/src/common/decorators/org-roles.decorator.ts
 
 | Method | Route | Guard | Description |
 |:-------|:------|:------|:------------|
-| `POST` | `/organizations` | JWT | Create organization (caller becomes OWNER) |
+| `POST` | `/organizations` | JWT + **PlanGuard** | Create organization — **requires PREMIUM/ENTERPRISE plan or ADMIN role** (see [Plan-Based Access Control](#plan-based-access-control)) |
 | `GET` | `/organizations/my` | JWT | List orgs the user belongs to |
 | `GET` | `/organizations/:orgId` | JWT + OrgRole(ANY) | Get org details |
 | `PATCH` | `/organizations/:orgId` | JWT + OrgRole(OWNER, ADMIN) | Update org settings |
@@ -189,18 +373,18 @@ backend/src/common/decorators/org-roles.decorator.ts
 | `PATCH` | `/organizations/:orgId/members/:userId` | JWT + OrgRole(OWNER, ADMIN) | Change member role |
 | `DELETE` | `/organizations/:orgId/members/:userId` | JWT + OrgRole(OWNER, ADMIN) | Remove member |
 | `POST` | `/organizations/:orgId/join-links` | JWT + OrgRole(OWNER, ADMIN) | Generate join link |
-| `GET` | `/organizations/join/:code` | Public | Join org via link |
+| `GET` | `/organizations/join/:code` | JWT + **PlanGuard** | Join org via link — **FREE users blocked** (see [Plan-Based Access Control](#plan-based-access-control)) |
 | `POST` | `/organizations/:orgId/groups` | JWT + OrgRole(OWNER, ADMIN, MANAGER) | Create group |
 | `GET` | `/organizations/:orgId/groups` | JWT + OrgRole(ANY) | List groups |
 | `PATCH` | `/organizations/:orgId/groups/:groupId` | JWT + OrgRole(OWNER, ADMIN, MANAGER) | Update group |
-| `POST` | `/organizations/accept-invite/:token` | JWT | Accept email invitation |
+| `POST` | `/organizations/accept-invite/:token` | JWT | Accept email invitation (all plans allowed) |
 
 **Service logic highlights:**
 
-- `create()`: Creates org + creates `OrgMember` with role=OWNER in a `$transaction`
+- `create()`: **Checks user plan + owned org count** → Creates org + creates `OrgMember` with role=OWNER in a `$transaction`. Sets `maxSeats` based on plan.
 - `invite()`: Generates UUID token, creates `OrgInvite`, calls `MailService.sendOrgInvite()`
-- `acceptInvite()`: Validates token, checks expiry, creates `OrgMember`, updates invite status
-- `joinViaLink()`: Validates code, checks usage limits and expiry, creates `OrgMember`
+- `acceptInvite()`: Validates token, checks expiry, creates `OrgMember`, updates invite status — **no plan restriction**
+- `joinViaLink()`: **Checks user plan (FREE blocked)** → validates code, checks usage limits and expiry, creates `OrgMember`
 - Seat enforcement: Before adding members, check `count(org_members) < org.maxSeats`
 
 ---
@@ -558,31 +742,130 @@ Analytics are computed by querying `ExamAttempt` records for users who are `OrgM
 
 ---
 
-### Phase 6: Integration & Polish
+### Phase 6: Plan Enforcement, Admin Org Management & Polish
 
-Final cross-cutting enhancements.
+Plan-based access control, admin org management, and cross-cutting frontend enhancements.
 
 ---
 
+#### [NEW] Plan guard / service logic
+
+Add plan enforcement to `OrganizationsService`:
+
+```typescript
+// In organizations.service.ts — create() method
+async create(userId: string, dto: CreateOrgDto) {
+  const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new NotFoundException('User not found');
+
+  // Admin bypasses all plan restrictions
+  if (user.role !== UserRole.ADMIN) {
+    if (user.plan === UserPlan.FREE) {
+      throw new ForbiddenException('Upgrade to Premium or Enterprise to create an organization.');
+    }
+    const ownedCount = await this.prisma.orgMember.count({
+      where: { userId, role: OrgRole.OWNER, isActive: true },
+    });
+    const maxOrgs = user.plan === UserPlan.PREMIUM ? 1 : 3;
+    if (ownedCount >= maxOrgs) {
+      throw new ForbiddenException(
+        user.plan === UserPlan.PREMIUM
+          ? 'Premium plan allows 1 organization. Upgrade to Enterprise for more.'
+          : 'You have reached the maximum number of organizations for your plan.',
+      );
+    }
+  }
+  // ... existing creation logic ...
+}
+```
+
+Similar check in `joinViaLink()` to block FREE users.
+
+---
+
+#### [NEW] Admin organization management endpoints
+
+Add to existing `AdminController` / `AdminService`:
+
+| Method | Route | Description |
+|:-------|:------|:------------|
+| `GET` | `/admin/organizations` | List all orgs (paginated) |
+| `GET` | `/admin/organizations/:orgId` | Get org detail |
+| `PATCH` | `/admin/organizations/:orgId` | Update any org |
+| `DELETE` | `/admin/organizations/:orgId` | Delete any org |
+| `GET` | `/admin/organizations/:orgId/members` | List members |
+| `PATCH` | `/admin/organizations/:orgId/members/:userId` | Change member role |
+| `DELETE` | `/admin/organizations/:orgId/members/:userId` | Remove member |
+
+All protected by `@Roles(UserRole.ADMIN)` and audit-logged.
+
+---
+
+#### [MODIFY] [auth.service.ts](file:///Users/thanhpt/Projects/brain-gym/backend/src/auth/auth.service.ts)
+
+Include `plan` and org membership info in login/refresh response:
+
+```diff
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role,
++     plan: user.plan,
+      orgMemberships,
+    },
+  };
+```
+
+#### [MODIFY] [auth.store.ts](file:///Users/thanhpt/Projects/brain-gym/src/stores/auth.store.ts)
+
+Add `plan: string` to `User` interface:
+
+```diff
+  interface User {
+    id: string;
+    email: string;
+    displayName: string;
+    role: string;
++   plan: string;
+    orgMemberships: OrgMembership[];
+  }
+```
+
 #### [MODIFY] [Navbar.tsx](file:///Users/thanhpt/Projects/brain-gym/src/components/Navbar.tsx)
 
-Add "My Organization" link in user dropdown menu (visible when user has org memberships).
+Update organization menu visibility to be plan-aware:
+
+```diff
+- const showOrg = orgMemberships.length > 0 || user?.role === 'ADMIN';
++ const showOrg = orgMemberships.length > 0
++   || user?.plan === 'PREMIUM'
++   || user?.plan === 'ENTERPRISE'
++   || user?.role === 'ADMIN';
+```
 
 #### [MODIFY] [BottomTabBar.tsx](file:///Users/thanhpt/Projects/brain-gym/src/components/BottomTabBar.tsx)
 
-Conditionally show an "Org" tab when the user is part of an organization.
+Same plan-aware visibility logic as Navbar.
+
+#### [MODIFY] [OrgSelector.tsx](file:///Users/thanhpt/Projects/brain-gym/src/pages/org/OrgSelector.tsx)
+
+Update to show plan-appropriate messaging:
+- FREE with no orgs → "Ask your team admin to invite you" (no Create button)
+- FREE with orgs → Show org list only (no Create button)
+- PREMIUM/ENTERPRISE → Show Create button based on owned org limits
+- ADMIN → Always show Create button
 
 #### [MODIFY] [Dashboard.tsx](file:///Users/thanhpt/Projects/brain-gym/src/pages/Dashboard.tsx)
 
 Add "Organization" card/section showing pending assignments, mandatory exams, and quick links to org dashboard.
 
-#### [MODIFY] [auth.store.ts](file:///Users/thanhpt/Projects/brain-gym/src/stores/auth.store.ts)
+#### [MODIFY] Admin page (`/admin`)
 
-Enhance user object to include `orgMemberships` summary (org name, slug, role) — fetched on login/refresh.
-
-#### [MODIFY] [auth.service.ts](file:///Users/thanhpt/Projects/brain-gym/backend/src/auth/auth.service.ts)
-
-Include org membership info in JWT payload or in login response so frontend knows user's org context.
+Add "Organizations" tab showing all orgs with management actions (view, edit, deactivate, delete).
 
 ---
 
@@ -685,13 +968,20 @@ src/
 > **Q1: Email provider** — Should I integrate a real email provider (SendGrid/Resend/SES) now, or keep the console-log stub? The candidate assessment feature heavily relies on email delivery.
 
 > [!IMPORTANT]
-> **Q2: Billing/Payments** — Should I scaffold Stripe integration for seat-based billing, or treat Enterprise accounts as manually provisioned for now?
+> ~~**Q2: Billing/Payments** — Should I scaffold Stripe integration for seat-based billing, or treat Enterprise accounts as manually provisioned for now?~~
+> **Resolved**: Plans are admin-managed only. No billing integration. Admin uses `PATCH /admin/users/:userId/plan` to set plans.
 
 > [!NOTE]
 > **Q3: Candidate exam UI** — The candidate exam page (`/assess/:token`) needs to work without authentication. Currently the `ExamPage.tsx` uses `ProtectedRoute`. Should the candidate exam be a completely separate page (recommended) or should we modify ExamPage to support guest mode?
 
 > [!NOTE]
 > **Q4: Implementation approach** — Should I implement all 6 phases at once, or would you prefer to start with Phase 1 and iterate?
+
+> [!IMPORTANT]
+> **Q5: PREMIUM Max Seats** — Should PREMIUM orgs be hard-capped at 10 seats, or should admin be able to override `maxSeats` per org via the admin panel?
+
+> [!NOTE]
+> **Q6: Plan Downgrade** — Current spec grandfathers existing orgs when a user is downgraded (e.g., PREMIUM → FREE). The user keeps their org but cannot create new ones. Confirm this is acceptable.
 
 ---
 
@@ -731,12 +1021,25 @@ Each phase includes:
 3. **Phase 3**: Create catalog exam → assign to group → member takes exam → verify results
 4. **Phase 4**: Create assessment → invite candidate email → open link → take exam → verify results dashboard
 5. **Phase 5**: After generating test data, verify analytics charts show correct aggregations
-6. **Phase 6**: Verify org link in navbar, assignment cards on dashboard
+6. **Phase 6**: Plan enforcement + admin org management + frontend polish:
+   - FREE user attempts org creation → 403
+   - PREMIUM user creates 1 org → success; attempts 2nd → 403
+   - ENTERPRISE user creates up to 3 orgs
+   - ADMIN user creates unlimited orgs
+   - FREE user attempts join via link → 403
+   - FREE user accepts email invite → success
+   - Admin sets user plan via `PATCH /admin/users/:userId/plan`
+   - Admin lists/edits/deletes any organization
+   - Navbar shows "Organization" for PREMIUM/ENTERPRISE users with no memberships
+   - Navbar hides "Organization" for FREE users with no memberships
+   - OrgSelector shows correct messaging per plan
 
 ### Browser Testing
 
 Use browser subagent to verify:
-- Org creation flow end-to-end
+- Org creation flow end-to-end (with plan checks)
 - Member invite → accept → visible in member list
 - Candidate exam flow (no auth, token-based)
 - Org dashboard analytics rendering
+- FREE user sees appropriate "invite only" messaging
+- Admin org management panel

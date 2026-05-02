@@ -18,6 +18,7 @@ import { TagsTab } from './TagsTab';
 import { BadgesTab } from './BadgesTab';
 import { AiGenerationTab } from './AiGenerationTab';
 import { ExamsTab } from './ExamsTab';
+import OrganizationsTab from './OrganizationsTab';
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -61,6 +62,7 @@ const AdminPage = () => {
             <TabsTrigger value="tags" className="font-mono text-xs"><Tag className="h-3 w-3 mr-1" /> Tags</TabsTrigger>
             <TabsTrigger value="badges" className="font-mono text-xs"><BookOpen className="h-3 w-3 mr-1" /> Badges</TabsTrigger>
             <TabsTrigger value="exams" className="font-mono text-xs"><ClipboardList className="h-3 w-3 mr-1" /> Exams</TabsTrigger>
+            <TabsTrigger value="organizations" className="font-mono text-xs"><Building2 className="h-3 w-3 mr-1" /> Organizations</TabsTrigger>
             <TabsTrigger value="ai" className="font-mono text-xs"><Sparkles className="h-3 w-3 mr-1" /> AI Generation</TabsTrigger>
             <TabsTrigger value="moderation" className="font-mono text-xs"><FileText className="h-3 w-3 mr-1" /> Moderation</TabsTrigger>
             <TabsTrigger value="reports" className="font-mono text-xs"><AlertTriangle className="h-3 w-3 mr-1" /> Reports</TabsTrigger>
@@ -75,6 +77,7 @@ const AdminPage = () => {
           <TabsContent value="tags"><TagsTab /></TabsContent>
           <TabsContent value="badges"><BadgesTab /></TabsContent>
           <TabsContent value="exams"><ExamsTab /></TabsContent>
+          <TabsContent value="organizations"><OrganizationsTab /></TabsContent>
           <TabsContent value="ai"><AiGenerationTab /></TabsContent>
           <TabsContent value="moderation"><ModerationTab /></TabsContent>
           <TabsContent value="reports"><ReportsTab /></TabsContent>

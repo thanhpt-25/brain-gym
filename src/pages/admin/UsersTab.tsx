@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getUsers, updateUserRole, suspendUser, banUser, reactivateUser, adjustUserPoints, bulkUpdateUserRole, exportUsers } from '@/services/admin';
+import { getUsers, updateUserRole, updateUserPlan, suspendUser, banUser, reactivateUser, adjustUserPoints, bulkUpdateUserRole, exportUsers } from '@/services/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,13 @@ import { Users, Search, Loader2, Ban, ShieldOff, ShieldCheck, Coins, Download } 
 import { toast } from 'sonner';
 
 const ROLES = ['LEARNER', 'CONTRIBUTOR', 'REVIEWER', 'ADMIN'];
+const PLANS = ['FREE', 'PREMIUM', 'ENTERPRISE'];
+
+const planBadge: Record<string, string> = {
+  FREE: 'bg-muted text-muted-foreground',
+  PREMIUM: 'bg-blue-500/20 text-blue-400',
+  ENTERPRISE: 'bg-purple-500/20 text-purple-400',
+};
 
 const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
   ACTIVE: { variant: 'outline', label: 'Active' },
@@ -54,6 +61,12 @@ export default function UsersTab() {
     mutationFn: ({ userId, role }: { userId: string; role: string }) => updateUserRole(userId, role),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Role updated'); },
     onError: () => toast.error('Failed to update role'),
+  });
+
+  const planMutation = useMutation({
+    mutationFn: ({ userId, plan }: { userId: string; plan: string }) => updateUserPlan(userId, plan),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-users'] }); toast.success('Plan updated'); },
+    onError: () => toast.error('Failed to update plan'),
   });
 
   const bulkRoleMutation = useMutation({
@@ -155,6 +168,7 @@ export default function UsersTab() {
                     <TableHead className="font-mono">User</TableHead>
                     <TableHead className="font-mono">Email</TableHead>
                     <TableHead className="font-mono text-center">Role</TableHead>
+                    <TableHead className="font-mono text-center">Plan</TableHead>
                     <TableHead className="font-mono text-center">Status</TableHead>
                     <TableHead className="font-mono text-center">Points</TableHead>
                     <TableHead className="font-mono text-center">Qs</TableHead>
@@ -173,6 +187,12 @@ export default function UsersTab() {
                           <Select value={u.role} onValueChange={role => roleMutation.mutate({ userId: u.id, role })}>
                             <SelectTrigger className="h-7 w-[130px] text-xs font-mono mx-auto"><SelectValue /></SelectTrigger>
                             <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r} className="text-xs font-mono">{r}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Select value={u.plan || 'FREE'} onValueChange={plan => planMutation.mutate({ userId: u.id, plan })}>
+                            <SelectTrigger className={`h-7 w-[130px] text-xs font-mono mx-auto ${planBadge[u.plan || 'FREE'] || ''}`}><SelectValue /></SelectTrigger>
+                            <SelectContent>{PLANS.map(p => <SelectItem key={p} value={p} className="text-xs font-mono">{p}</SelectItem>)}</SelectContent>
                           </Select>
                         </TableCell>
                         <TableCell className="text-center">

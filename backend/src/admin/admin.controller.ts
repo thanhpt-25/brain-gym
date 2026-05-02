@@ -432,6 +432,133 @@ export class AdminController {
     return result;
   }
 
+  // ─── Organization Management ──────────────────────────────────────────────────
+
+  @Get('organizations')
+  @ApiOperation({ summary: 'List all organizations (admin)' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  async getOrganizations(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.adminService.getOrganizations({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+    });
+  }
+
+  @Get('organizations/:orgId')
+  @ApiOperation({ summary: 'Get organization detail (admin)' })
+  async getOrganization(@Param('orgId') orgId: string) {
+    return this.adminService.getOrganization(orgId);
+  }
+
+  @Patch('organizations/:orgId')
+  @ApiOperation({ summary: 'Update organization (admin)' })
+  async updateOrganization(
+    @Req() req: any,
+    @Param('orgId') orgId: string,
+    @Body()
+    body: {
+      name?: string;
+      description?: string;
+      industry?: string;
+      logoUrl?: string;
+      accentColor?: string;
+      maxSeats?: number;
+      isActive?: boolean;
+    },
+  ) {
+    const adminId = req.user.sub || req.user.id;
+    const result = await this.adminService.updateOrganization(orgId, body);
+    await this.auditService.log({
+      userId: adminId,
+      action: 'UPDATE_ORGANIZATION',
+      targetType: 'Organization',
+      targetId: orgId,
+      metadata: body,
+    });
+    return result;
+  }
+
+  @Delete('organizations/:orgId')
+  @ApiOperation({ summary: 'Delete organization (admin)' })
+  async deleteOrganization(
+    @Req() req: any,
+    @Param('orgId') orgId: string,
+  ) {
+    const adminId = req.user.sub || req.user.id;
+    const result = await this.adminService.deleteOrganization(orgId);
+    await this.auditService.log({
+      userId: adminId,
+      action: 'DELETE_ORGANIZATION',
+      targetType: 'Organization',
+      targetId: orgId,
+    });
+    return result;
+  }
+
+  @Get('organizations/:orgId/members')
+  @ApiOperation({ summary: 'List members of an organization (admin)' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  async getOrgMembers(
+    @Param('orgId') orgId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.adminService.getOrgMembers(orgId, {
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+    });
+  }
+
+  @Patch('organizations/:orgId/members/:userId')
+  @ApiOperation({ summary: 'Update member role in organization (admin)' })
+  async updateOrgMemberRole(
+    @Req() req: any,
+    @Param('orgId') orgId: string,
+    @Param('userId') userId: string,
+    @Body() body: { role: string },
+  ) {
+    const adminId = req.user.sub || req.user.id;
+    const result = await this.adminService.updateOrgMemberRole(
+      orgId,
+      userId,
+      body.role,
+    );
+    await this.auditService.log({
+      userId: adminId,
+      action: 'UPDATE_ORG_MEMBER_ROLE',
+      targetType: 'OrgMember',
+      targetId: `${orgId}/${userId}`,
+      metadata: { role: body.role },
+    });
+    return result;
+  }
+
+  @Delete('organizations/:orgId/members/:userId')
+  @ApiOperation({ summary: 'Remove member from organization (admin)' })
+  async removeOrgMember(
+    @Req() req: any,
+    @Param('orgId') orgId: string,
+    @Param('userId') userId: string,
+  ) {
+    const adminId = req.user.sub || req.user.id;
+    const result = await this.adminService.removeOrgMember(orgId, userId);
+    await this.auditService.log({
+      userId: adminId,
+      action: 'REMOVE_ORG_MEMBER',
+      targetType: 'OrgMember',
+      targetId: `${orgId}/${userId}`,
+    });
+    return result;
+  }
+
   // ─── Data Export ─────────────────────────────────────────────────────────────
 
   @Get('export/users')

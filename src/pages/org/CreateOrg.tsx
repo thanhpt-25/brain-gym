@@ -10,6 +10,8 @@ import { Building2, ArrowRight, Upload, Globe, Users, Loader2 } from 'lucide-rea
 import { toast } from 'sonner';
 import { createOrg } from '@/services/organizations';
 import type { CreateOrgPayload } from '@/types/org-types';
+import { useAuthStore } from '@/stores/auth.store';
+import { useOrgStore } from '@/stores/org.store';
 
 const CreateOrg = () => {
   const navigate = useNavigate();
@@ -18,6 +20,18 @@ const CreateOrg = () => {
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [industry, setIndustry] = useState('');
+
+  const user = useAuthStore((s) => s.user);
+  const myOrgs = useOrgStore((s) => s.myOrgs);
+
+  const plan = user?.plan ?? 'FREE';
+  const isAdmin = user?.role === 'ADMIN';
+  const ownedOrgs = myOrgs.filter((o) => o.myRole === 'OWNER').length;
+
+  const canCreate =
+    isAdmin ||
+    (plan === 'PREMIUM' && ownedOrgs < 1) ||
+    (plan === 'ENTERPRISE' && ownedOrgs < 3);
 
   const generateSlug = (val: string) => {
     setName(val);
@@ -42,6 +56,28 @@ const CreateOrg = () => {
       industry: industry || undefined,
     });
   };
+
+  if (!canCreate) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar title="Create Organization" />
+        <div className="container pt-32 flex flex-col items-center justify-center max-w-md text-center space-y-4">
+          <div className="h-16 w-16 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center">
+            <Globe className="h-8 w-8 text-destructive" />
+          </div>
+          <h2 className="text-xl font-mono font-bold">Access Denied</h2>
+          <p className="text-sm text-muted-foreground font-mono">
+            {plan === 'FREE'
+              ? 'Free plan users cannot create organizations. Ask your team admin to invite you.'
+              : 'You have reached the maximum number of organizations for your plan.'}
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate('/org')}>
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">

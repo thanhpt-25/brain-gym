@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { OrgRole } from '@prisma/client';
+import { OrgRole, UserPlan } from '@prisma/client';
 import {
   createTestUser,
   generateToken,
@@ -47,6 +47,7 @@ describe('Organizations (e2e)', () => {
     const owner = await createTestUser(prisma, {
       email: `${EMAIL_PREFIX}owner@test.com`,
       displayName: 'E2E Org Owner',
+      plan: UserPlan.ENTERPRISE,
     });
     ownerId = owner.id;
     ownerToken = generateToken(app, owner);
@@ -68,6 +69,7 @@ describe('Organizations (e2e)', () => {
     const joiner = await createTestUser(prisma, {
       email: `${EMAIL_PREFIX}joiner@test.com`,
       displayName: 'E2E Org Joiner',
+      plan: UserPlan.PREMIUM,
     });
     joinerId = joiner.id;
     joinerToken = generateToken(app, joiner);

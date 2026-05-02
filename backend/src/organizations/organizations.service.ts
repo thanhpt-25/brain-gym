@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
@@ -11,7 +12,7 @@ import { InviteMemberDto, BulkInviteMemberDto } from './dto/invite-member.dto';
 import { CreateJoinLinkDto } from './dto/create-join-link.dto';
 import { CreateGroupDto, UpdateGroupDto } from './dto/create-group.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { OrgRole, OrgInviteStatus } from '@prisma/client';
+import { OrgRole, OrgInviteStatus, UserRole, UserPlan } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -48,6 +49,34 @@ export class OrganizationsService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
+    // Plan enforcement (Admin bypasses all restrictions)
+    if (user.role !== UserRole.ADMIN) {
+      if (user.plan === UserPlan.FREE) {
+        throw new ForbiddenException(
+          'Upgrade to Premium or Enterprise to create an organization.',
+        );
+      }
+      const ownedCount = await this.prisma.orgMember.count({
+        where: { userId, role: OrgRole.OWNER, isActive: true },
+      });
+      const maxOrgs = user.plan === UserPlan.PREMIUM ? 1 : 3;
+      if (ownedCount >= maxOrgs) {
+        throw new ForbiddenException(
+          user.plan === UserPlan.PREMIUM
+            ? 'Premium plan allows 1 organization. Upgrade to Enterprise for more.'
+            : 'You have reached the maximum number of organizations for your plan.',
+        );
+      }
+    }
+
+    // Set maxSeats based on plan
+    const maxSeats =
+      user.role === UserRole.ADMIN
+        ? 100
+        : user.plan === UserPlan.ENTERPRISE
+          ? 50
+          : 10;
+
     const slug = this.slugify(dto.name);
 
     return this.prisma.$transaction(async (tx) => {
@@ -59,6 +88,7 @@ export class OrganizationsService {
           industry: dto.industry,
           logoUrl: dto.logoUrl,
           accentColor: dto.accentColor,
+          maxSeats,
         },
       });
 
@@ -327,6 +357,15 @@ export class OrganizationsService {
   }
 
   async joinViaLink(userId: string, code: string) {
+    // Plan check: FREE users cannot use join links
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.plan === UserPlan.FREE && user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException(
+        'Free plan users can only join organizations via email invitation.',
+      );
+    }
+
     const link = await this.prisma.orgJoinLink.findUnique({
       where: { code },
       include: { organization: true },

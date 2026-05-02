@@ -2,13 +2,13 @@ import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { UserRole, OrgRole } from '@prisma/client';
+import { UserRole, OrgRole, UserPlan } from '@prisma/client';
 
 // ─── User helpers ─────────────────────────────────────────────────────────────
 
 export async function createTestUser(
   prisma: PrismaService,
-  opts: { email: string; displayName: string; role?: UserRole },
+  opts: { email: string; displayName: string; role?: UserRole; plan?: UserPlan },
 ) {
   return prisma.user.create({
     data: {
@@ -16,6 +16,7 @@ export async function createTestUser(
       passwordHash: 'e2e-test-hash',
       displayName: opts.displayName,
       role: opts.role ?? UserRole.LEARNER,
+      plan: opts.plan ?? UserPlan.FREE,
     },
   });
 }
