@@ -220,7 +220,7 @@ Time Pressure mode       Reviewer Queue           Peer Review
 - [ ] **FE + BE**: US-304 Streak tracking timezone edge case
 - [ ] **FE + UX**: US-305 Exam engine doc + pair tour (bus factor mitigation)
 - [ ] **FE + UX**: US-306 A11y audit + fix top-10 issues
-- [ ] **BE + PO**: US-307 Pass Predictor feature spike (SP-4)
+- [x] **BE + PO**: US-307 Pass Predictor feature spike (SP-4)
 
 ---
 

@@ -10,6 +10,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import BottomTabBar from "./components/BottomTabBar";
 import ScrollToTop from "./components/ScrollToTop";
 import ErrorBoundary from "./components/ErrorBoundary";
+import SkipToContent from "./components/SkipToContent";
 import { Loader2 } from "lucide-react";
 
 // Lazy load all pages
@@ -59,6 +60,7 @@ const OrgAnalytics = lazy(() => import("./pages/org/OrgAnalytics"));
 const OrgAuditLog = lazy(() => import("./pages/org/OrgAuditLog"));
 const CandidateExam = lazy(() => import("./pages/CandidateExam"));
 const CandidateResult = lazy(() => import("./pages/CandidateResult"));
+const MasteryPage = lazy(() => import("./pages/Dashboard/MasteryPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -161,6 +163,16 @@ const AnimatedRoutes = () => {
             <PageTransition>
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/dashboard/mastery/:certId"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <MasteryPage />
               </ProtectedRoute>
             </PageTransition>
           }
@@ -371,6 +383,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <SkipToContent />
           <ScrollToTop />
           <AnimatedRoutes />
           <BottomTabBar />
