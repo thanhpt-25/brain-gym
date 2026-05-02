@@ -10,6 +10,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import BottomTabBar from "./components/BottomTabBar";
 import ScrollToTop from "./components/ScrollToTop";
 import ErrorBoundary from "./components/ErrorBoundary";
+import SkipToContent from "./components/SkipToContent";
 import { Loader2 } from "lucide-react";
 
 // Lazy load all pages

@@ -92,17 +92,17 @@ describe('streak pure-function date calculations', () => {
   // ── Activity at 23:55 local that is next day in UTC ───────────────────────
 
   describe('activity at 23:55 local (next day in UTC) — streak must NOT break', () => {
-    it('23:55 PST is rendered as correct local date, not UTC date', () => {
-      // UTC-8: 2026-04-30T23:55 local = 2026-05-01T07:55Z
-      const ts = new Date('2026-05-01T07:55:00.000Z');
+    it('23:55 PDT is rendered as correct local date, not UTC date', () => {
+      // UTC-7 (PDT, May 2026): 2026-04-30T23:55 local = 2026-05-01T06:55Z
+      const ts = new Date('2026-05-01T06:55:00.000Z');
       expect(toLocalDateString(ts, 'America/Los_Angeles')).toBe('2026-04-30');
     });
 
     it('streak continues: prev=2026-04-29 local, new=2026-04-30 23:55 local', () => {
-      // prev: 2026-04-29T20:00Z = 2026-04-29T12:00 PST
-      // new:  2026-05-01T07:55Z = 2026-04-30T23:55 PST
+      // prev: 2026-04-29T20:00Z = 2026-04-29T13:00 PDT
+      // new:  2026-05-01T06:55Z = 2026-04-30T23:55 PDT
       const prevTs = new Date('2026-04-29T20:00:00.000Z');
-      const newTs = new Date('2026-05-01T07:55:00.000Z');
+      const newTs = new Date('2026-05-01T06:55:00.000Z');
 
       const prevDate = toLocalDateString(prevTs, 'America/Los_Angeles');
       const newDate = toLocalDateString(newTs, 'America/Los_Angeles');
