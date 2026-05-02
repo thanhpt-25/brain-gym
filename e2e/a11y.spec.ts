@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { readFileSync } from "fs";
+import { createRequire } from "module";
 
 /**
  * US-306 — Accessibility CI gate.
@@ -9,7 +10,36 @@ import AxeBuilder from "@axe-core/playwright";
  * Routes that require authentication will redirect to `/auth`; axe still
  * runs against the redirected document, which is the user-facing reality
  * for an unauthenticated visitor.
+ *
+ * Uses axe-core directly (transitive dep via @lhci/cli) injected via
+ * page.addScriptTag to avoid a separate @axe-core/playwright devDependency.
  */
+
+const _require = createRequire(import.meta.url);
+const axeSource = readFileSync(_require.resolve("axe-core"), "utf-8");
+
+interface AxeViolation {
+  id: string;
+  impact: string | null;
+  help: string;
+  nodes: unknown[];
+}
+
+interface AxeResults {
+  violations: AxeViolation[];
+}
+
+async function runAxe(
+  page: import("@playwright/test").Page,
+): Promise<AxeResults> {
+  await page.addScriptTag({ content: axeSource });
+  return page.evaluate(async () => {
+    return (
+      window as unknown as { axe: { run: () => Promise<AxeResults> } }
+    ).axe.run();
+  });
+}
+
 const routes = [
   "/",
   "/auth",
@@ -27,9 +57,7 @@ for (const route of routes) {
     // Allow lazy-loaded route + Suspense fallback to settle.
     await page.waitForLoadState("networkidle").catch(() => {});
 
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
-      .analyze();
+    const results = await runAxe(page);
 
     const criticalOrSerious = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious",
