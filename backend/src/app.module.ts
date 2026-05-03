@@ -30,6 +30,7 @@ import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
 import { QueuesModule } from './queues/queues.module';
 import { MasteryModule } from './mastery/mastery.module';
 import { EventsModule } from './events/events.module';
+import { ReadinessModule } from './insights/readiness/readiness.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { EventsModule } from './events/events.module';
     QueuesModule,
     MasteryModule,
     EventsModule,
+    ReadinessModule,
   ],
   providers: [
     {

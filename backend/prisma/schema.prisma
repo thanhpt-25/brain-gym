@@ -202,6 +202,7 @@ model User {
   auditLogs                  AuditLog[]
   orgMemberships             OrgMember[]
   attemptEvents              AttemptEvent[]
+  readinessScores            ReadinessScore[]
 
   @@index([status])
   @@map("users")
@@ -244,6 +245,7 @@ model Certification {
   sourceMaterials SourceMaterial[]
   catalogItems   ExamCatalogItem[]
   orgQuestions   OrgQuestion[]
+  readinessScores ReadinessScore[]
 
   @@map("certifications")
 }
@@ -1001,4 +1003,25 @@ model AttemptEvent {
   @@index([attemptId])
   @@index([userId, createdAt])
   @@map("attempt_events")
+}
+
+// RFC-003 (Sprint 4 US-401): Pass Predictor v0 output.
+// Heuristic blends srsCoverage, recentAccuracy14d, domainSpread, timePressure.
+// One row per (userId, certificationId); upserted by readiness:recompute job.
+model ReadinessScore {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  certificationId String   @map("certification_id")
+  score           Int // 0-100
+  confidence      Decimal  @db.Decimal(4, 3) // 0.000-0.950
+  attempts        Int      @default(0) // total attempts feeding this score
+  signals         Json // { srsCoverage, recentAccuracy14d, domainSpread, timePressure }
+  computedAt      DateTime @default(now()) @map("computed_at")
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certification Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, certificationId])
+  @@index([certificationId, score])
+  @@map("readiness_scores")
 }
