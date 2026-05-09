@@ -143,9 +143,21 @@ jobs:
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+        working-directory: backend
       - run: npx prisma generate
-      - run: npx prisma migrate deploy
+        working-directory: backend
+      - name: Create test database if not exists
+        run: |
+          PGPASSWORD=braingym_ci_test psql -h localhost -U braingym -c "CREATE DATABASE braingym_test;" || true
+      - name: Run migrations with explicit DATABASE_URL
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://braingym:braingym_ci_test@localhost:5432/braingym_test?schema=public
+        run: npx prisma migrate deploy
       - run: npm run test:e2e
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://braingym:braingym_ci_test@localhost:5432/braingym_test?schema=public
 
   e2e-smoke:
     name: Test / Frontend E2E Smoke

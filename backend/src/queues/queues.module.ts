@@ -4,6 +4,7 @@ import { BullBoardModule } from '@bull-board/nestjs';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { PrismaModule } from '../prisma/prisma.module';
+import { LlmUsageModule } from '../ai-question-bank/llm-usage/llm-usage.module';
 import { AiGenProcessor } from './ai-gen/ai-gen.processor';
 import { AI_GEN_QUEUE } from './ai-gen/ai-gen.job.interface';
 import { IngestionService } from '../ai-question-bank/ingestion/ingestion.service';
@@ -35,6 +36,7 @@ import { EncryptionService } from '../ai-question-bank/crypto/encryption.service
       adapter: BullMQAdapter,
     }),
     PrismaModule,
+    LlmUsageModule,
   ],
   providers: [AiGenProcessor, IngestionService, EncryptionService],
   exports: [BullModule],

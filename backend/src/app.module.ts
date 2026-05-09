@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
+import { RlsInterceptor } from './common/rls.interceptor';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CertificationsModule } from './certifications/certifications.module';
@@ -30,6 +31,7 @@ import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
 import { QueuesModule } from './queues/queues.module';
 import { MasteryModule } from './mastery/mastery.module';
 import { EventsModule } from './events/events.module';
+import { InsightsModule } from './insights/insights.module';
 
 @Module({
   imports: [
@@ -68,8 +70,18 @@ import { EventsModule } from './events/events.module';
     QueuesModule,
     MasteryModule,
     EventsModule,
+    InsightsModule,
   ],
   providers: [
+    // TODO: RLS interceptor disabled — current implementation tries to set context via request.prisma,
+    // but services use injected this.prisma, so the context never applies to queries.
+    // This causes 500 errors on analytics endpoints because RLS policies block access when
+    // the context isn't properly set. Proper fix: pass transactional client to services
+    // or implement RLS at a different layer (e.g., query-builder middleware).
+    // {
+    //   provide: APP_INTERCEPTOR,
+    //   useClass: RlsInterceptor,
+    // },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

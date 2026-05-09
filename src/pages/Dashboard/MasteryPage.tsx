@@ -1,8 +1,21 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getMastery } from "../../services/mastery";
-import { MasteryHero } from "../../components/mastery/MasteryHero";
+import { useRef, useState } from "react";
+import { getMastery, getNextTopic } from "../../services/mastery";
+import { useReadiness } from "../../services/readiness";
+import { ReadinessGauge } from "../../components/mastery/ReadinessGauge";
 import { DomainBentoCard } from "../../components/mastery/DomainBentoCard";
+import { DomainBreakdownDrawer } from "../../components/mastery/DomainBreakdownDrawer";
+import { NextTopicCard } from "../../components/mastery/NextTopicCard";
+
+/** Map a numeric score to the canonical readiness label. */
+function scoreLabelFor(score: number | undefined): string {
+  if (score === undefined || score === null) return "";
+  if (score >= 85) return "Strong";
+  if (score >= 70) return "Ready";
+  if (score >= 50) return "Borderline";
+  return "Not Ready";
+}
 
 /**
  * Mastery Dashboard page — route: /dashboard/mastery/:certId
@@ -13,6 +26,8 @@ import { DomainBentoCard } from "../../components/mastery/DomainBentoCard";
  */
 export default function MasteryPage() {
   const { certId } = useParams<{ certId: string }>();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const gaugeRef = useRef<HTMLButtonElement>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["mastery", certId],
@@ -20,6 +35,17 @@ export default function MasteryPage() {
     enabled: !!certId,
     staleTime: 60_000,
   });
+
+  const { data: readiness } = useReadiness(certId);
+
+  const { data: nextTopicSuggestion, isLoading: isLoadingNextTopic } = useQuery(
+    {
+      queryKey: ["nextTopic", certId],
+      queryFn: () => getNextTopic(certId!),
+      enabled: !!certId,
+      staleTime: 60_000,
+    },
+  );
 
   if (isLoading) {
     return (
@@ -45,7 +71,22 @@ export default function MasteryPage() {
 
   return (
     <main id="main-content" className="mastery-page">
-      <MasteryHero data={data} certName={certName} />
+      <ReadinessGauge
+        score={readiness?.score ?? null}
+        confidence={readiness?.confidence ?? 0}
+        attempts={readiness?.attempts ?? data.totalAttempts}
+        label={scoreLabelFor(readiness?.score)}
+        isPremium={true}
+        signals={readiness?.signals}
+        onOpenBreakdown={() => setDrawerOpen(true)}
+        breakdownTriggerRef={gaugeRef}
+      />
+
+      <NextTopicCard
+        suggestion={nextTopicSuggestion ?? null}
+        isLoading={isLoadingNextTopic}
+        certificationId={certId ?? ""}
+      />
 
       {data.isEmpty ? (
         <section
@@ -80,6 +121,14 @@ export default function MasteryPage() {
           </ul>
         </section>
       )}
+
+      {/* Domain breakdown drawer */}
+      <DomainBreakdownDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        domains={data.domains}
+        triggerRef={gaugeRef}
+      />
     </main>
   );
 }

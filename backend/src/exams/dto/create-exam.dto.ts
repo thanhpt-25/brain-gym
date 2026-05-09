@@ -10,7 +10,7 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
-import { ExamVisibility, TimerMode } from '@prisma/client';
+import { ExamVisibility, TimerMode, ExamType } from '@prisma/client';
 
 export class CreateExamDto {
   @ApiProperty({ example: 'AWS SAA Mock Test #1' })
@@ -55,6 +55,15 @@ export class CreateExamDto {
   @IsEnum(TimerMode)
   @IsOptional()
   timerMode?: TimerMode;
+
+  @ApiPropertyOptional({
+    enum: ExamType,
+    example: ExamType.STANDARD,
+    description: 'Exam type variant (STANDARD or TIME_PRESSURE)',
+  })
+  @IsEnum(ExamType)
+  @IsOptional()
+  examType?: ExamType;
 
   @ApiPropertyOptional({
     description:

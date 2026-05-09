@@ -12,7 +12,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -25,6 +25,18 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
+
+interface AdminRequest extends Request {
+  user: {
+    sub?: string;
+    id?: string;
+    email?: string;
+  };
+}
+
+interface BadgeCriteria {
+  [key: string]: unknown;
+}
 
 @ApiTags('admin')
 @Controller('admin')
@@ -130,7 +142,7 @@ export class AdminController {
   @Post('domains')
   @ApiOperation({ summary: 'Create a domain for a certification' })
   createDomain(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Body()
     body: {
       name: string;
@@ -139,7 +151,7 @@ export class AdminController {
       weight?: number;
     },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.createDomain(body).then(async (domain) => {
       await this.auditService.log({
         userId: adminId,
@@ -155,11 +167,11 @@ export class AdminController {
   @Put('domains/:id')
   @ApiOperation({ summary: 'Update a domain' })
   updateDomain(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('id') id: string,
     @Body() body: { name?: string; description?: string; weight?: number },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.updateDomain(id, body).then(async (domain) => {
       await this.auditService.log({
         userId: adminId,
@@ -173,8 +185,8 @@ export class AdminController {
 
   @Delete('domains/:id')
   @ApiOperation({ summary: 'Delete a domain (only if no questions assigned)' })
-  deleteDomain(@Req() req: any, @Param('id') id: string) {
-    const adminId = req.user.sub || req.user.id;
+  deleteDomain(@Req() req: AdminRequest, @Param('id') id: string) {
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.deleteDomain(id).then(async () => {
       await this.auditService.log({
         userId: adminId,
@@ -202,11 +214,11 @@ export class AdminController {
   @Patch('exams/:id/visibility')
   @ApiOperation({ summary: 'Update exam visibility' })
   updateExamVisibility(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('id') id: string,
     @Body() body: { visibility: string },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService
       .updateExamVisibility(id, body.visibility)
       .then(async (exam) => {
@@ -239,8 +251,8 @@ export class AdminController {
 
   @Delete('source-materials/:id')
   @ApiOperation({ summary: 'Delete a source material' })
-  deleteSourceMaterial(@Req() req: any, @Param('id') id: string) {
-    const adminId = req.user.sub || req.user.id;
+  deleteSourceMaterial(@Req() req: AdminRequest, @Param('id') id: string) {
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.deleteSourceMaterial(id).then(async () => {
       await this.auditService.log({
         userId: adminId,
@@ -257,16 +269,16 @@ export class AdminController {
   @Post('badges')
   @ApiOperation({ summary: 'Create a badge' })
   createBadge(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Body()
     body: {
       name: string;
       description?: string;
       iconUrl?: string;
-      criteria?: any;
+      criteria?: BadgeCriteria;
     },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.createBadge(body).then(async (badge) => {
       await this.auditService.log({
         userId: adminId,
@@ -282,17 +294,17 @@ export class AdminController {
   @Put('badges/:id')
   @ApiOperation({ summary: 'Update a badge' })
   updateBadge(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('id') id: string,
     @Body()
     body: {
       name?: string;
       description?: string;
       iconUrl?: string;
-      criteria?: any;
+      criteria?: BadgeCriteria;
     },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.updateBadge(id, body).then(async (badge) => {
       await this.auditService.log({
         userId: adminId,
@@ -306,8 +318,8 @@ export class AdminController {
 
   @Delete('badges/:id')
   @ApiOperation({ summary: 'Delete a badge' })
-  deleteBadge(@Req() req: any, @Param('id') id: string) {
-    const adminId = req.user.sub || req.user.id;
+  deleteBadge(@Req() req: AdminRequest, @Param('id') id: string) {
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.deleteBadge(id).then(async () => {
       await this.auditService.log({
         userId: adminId,
@@ -322,11 +334,11 @@ export class AdminController {
   @Post('badges/:id/award')
   @ApiOperation({ summary: 'Manually award a badge to a user' })
   awardBadge(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('id') id: string,
     @Body() body: { userId: string },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.awardBadge(id, body.userId).then(async (award) => {
       await this.auditService.log({
         userId: adminId,
@@ -342,11 +354,11 @@ export class AdminController {
   @Delete('badges/:id/awards/:userId')
   @ApiOperation({ summary: 'Revoke a badge from a user' })
   revokeBadge(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('id') id: string,
     @Param('userId') userId: string,
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     return this.adminService.revokeBadge(id, userId).then(async () => {
       await this.auditService.log({
         userId: adminId,
@@ -370,10 +382,10 @@ export class AdminController {
   @Post('questions/bulk-status')
   @ApiOperation({ summary: 'Bulk approve or reject questions' })
   async bulkQuestionStatus(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Body() body: { ids: string[]; status: string },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     const result = await this.adminService.bulkUpdateQuestionStatus(
       body.ids,
       body.status,
@@ -391,10 +403,10 @@ export class AdminController {
   @Post('users/bulk-role')
   @ApiOperation({ summary: 'Bulk update user roles' })
   async bulkUserRole(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Body() body: { userIds: string[]; role: string },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     const result = await this.adminService.bulkUpdateUserRole(
       body.userIds,
       body.role,
@@ -416,11 +428,11 @@ export class AdminController {
   @Patch('users/:userId/plan')
   @ApiOperation({ summary: 'Upgrade or change user plan' })
   async updateUserPlan(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('userId') userId: string,
     @Body() body: { plan: string },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     const result = await this.adminService.updateUserPlan(userId, body.plan);
     await this.auditService.log({
       userId: adminId,
@@ -460,7 +472,7 @@ export class AdminController {
   @Patch('organizations/:orgId')
   @ApiOperation({ summary: 'Update organization (admin)' })
   async updateOrganization(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('orgId') orgId: string,
     @Body()
     body: {
@@ -473,7 +485,7 @@ export class AdminController {
       isActive?: boolean;
     },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     const result = await this.adminService.updateOrganization(orgId, body);
     await this.auditService.log({
       userId: adminId,
@@ -488,10 +500,10 @@ export class AdminController {
   @Delete('organizations/:orgId')
   @ApiOperation({ summary: 'Delete organization (admin)' })
   async deleteOrganization(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('orgId') orgId: string,
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     const result = await this.adminService.deleteOrganization(orgId);
     await this.auditService.log({
       userId: adminId,
@@ -520,12 +532,12 @@ export class AdminController {
   @Patch('organizations/:orgId/members/:userId')
   @ApiOperation({ summary: 'Update member role in organization (admin)' })
   async updateOrgMemberRole(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('orgId') orgId: string,
     @Param('userId') userId: string,
     @Body() body: { role: string },
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     const result = await this.adminService.updateOrgMemberRole(
       orgId,
       userId,
@@ -544,11 +556,11 @@ export class AdminController {
   @Delete('organizations/:orgId/members/:userId')
   @ApiOperation({ summary: 'Remove member from organization (admin)' })
   async removeOrgMember(
-    @Req() req: any,
+    @Req() req: AdminRequest,
     @Param('orgId') orgId: string,
     @Param('userId') userId: string,
   ) {
-    const adminId = req.user.sub || req.user.id;
+    const adminId = (req.user?.sub || req.user?.id) as string;
     const result = await this.adminService.removeOrgMember(orgId, userId);
     await this.auditService.log({
       userId: adminId,

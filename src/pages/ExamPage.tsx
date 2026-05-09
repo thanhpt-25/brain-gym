@@ -1,22 +1,28 @@
-import { useState, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { getCertificationById } from '@/services/certifications';
-import { getQuestions } from '@/services/questions';
-import { startAttempt, submitAttempt, StartAttemptResponse, AttemptResult, AttemptQuestion } from '@/services/attempts';
-import { createExam } from '@/services/exams';
-import { captureWord } from '@/services/flashcards';
-import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { ExamIntro } from '@/components/exam/ExamIntro';
-import { ExamSession } from '@/components/exam/ExamSession';
-import { ExamResult } from '@/components/exam/ExamResult';
-import { WordCaptureTooltip } from '@/components/exam/WordCaptureTooltip';
-import { useTimer } from '@/hooks/useTimer';
-import { useTextSelection } from '@/hooks/useTextSelection';
-import type { TimerMode } from '@/types/api-types';
+import { useState, useCallback } from "react";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { getCertificationById } from "@/services/certifications";
+import { getQuestions } from "@/services/questions";
+import {
+  startAttempt,
+  submitAttempt,
+  StartAttemptResponse,
+  AttemptResult,
+  AttemptQuestion,
+} from "@/services/attempts";
+import { createExam } from "@/services/exams";
+import { captureWord } from "@/services/flashcards";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { ExamIntro } from "@/components/exam/ExamIntro";
+import { ExamSession } from "@/components/exam/ExamSession";
+import { ExamResult } from "@/components/exam/ExamResult";
+import { WordCaptureTooltip } from "@/components/exam/WordCaptureTooltip";
+import { useTimer } from "@/hooks/useTimer";
+import { useTextSelection } from "@/hooks/useTextSelection";
+import type { TimerMode } from "@/types/api-types";
 
-type ExamPhase = 'intro' | 'loading' | 'exam' | 'result';
+type ExamPhase = "intro" | "loading" | "exam" | "result";
 
 interface LocationState {
   attemptData?: StartAttemptResponse;
@@ -29,21 +35,28 @@ const ExamPage = () => {
   const passedAttempt = (location.state as LocationState)?.attemptData;
 
   const { data: cert, isLoading: certLoading } = useQuery({
-    queryKey: ['certification', certId],
+    queryKey: ["certification", certId],
     queryFn: () => getCertificationById(certId!),
     enabled: !!certId,
   });
 
   const { data: questionsData } = useQuery({
-    queryKey: ['questions-count', certId],
+    queryKey: ["questions-count", certId],
     queryFn: () => getQuestions(certId, 1, 1),
     enabled: !!certId,
   });
 
-  const [phase, setPhase] = useState<ExamPhase>(passedAttempt ? 'exam' : 'intro');
-  const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(passedAttempt ?? null);
-  const [totalSeconds, setTotalSeconds] = useState<number>(passedAttempt ? passedAttempt.timeLimit * 60 : 0);
-  const [selectedTimerMode, setSelectedTimerMode] = useState<TimerMode>('STRICT');
+  const [phase, setPhase] = useState<ExamPhase>(
+    passedAttempt ? "exam" : "intro",
+  );
+  const [attemptData, setAttemptData] = useState<StartAttemptResponse | null>(
+    passedAttempt ?? null,
+  );
+  const [totalSeconds, setTotalSeconds] = useState<number>(
+    passedAttempt ? passedAttempt.timeLimit * 60 : 0,
+  );
+  const [selectedTimerMode, setSelectedTimerMode] =
+    useState<TimerMode>("STRICT");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
@@ -54,10 +67,10 @@ const ExamPage = () => {
 
   const handleSubmit = useCallback(async () => {
     if (!attemptData) return;
-    setPhase('loading');
+    setPhase("loading");
     try {
       const payload = {
-        answers: questions.map(q => ({
+        answers: questions.map((q) => ({
           questionId: q.id,
           selectedChoices: answers[q.id] || [],
           isMarked: marked.has(q.id),
@@ -65,31 +78,35 @@ const ExamPage = () => {
       };
       const res = await submitAttempt(attemptData.attemptId, payload);
       setResult(res);
-      setPhase('result');
+      setPhase("result");
     } catch (err: unknown) {
-      toast.error('Failed to submit exam');
-      setPhase('exam');
+      toast.error("Failed to submit exam");
+      setPhase("exam");
     }
   }, [attemptData, answers, questions, marked]);
 
   const { timeLeft, setTimeLeft } = useTimer({
     initialSeconds: passedAttempt ? passedAttempt.timeLimit * 60 : 0,
-    isActive: phase === 'exam',
+    isActive: phase === "exam",
     onExpire: handleSubmit,
   });
 
-  const { selection, clearSelection } = useTextSelection(phase === 'exam');
+  const { selection, clearSelection } = useTextSelection(phase === "exam");
 
   const startExam = async (timerMode: TimerMode = selectedTimerMode) => {
     if (!cert) return;
-    setPhase('loading');
+    setPhase("loading");
     try {
+      const isTimePressure = timerMode === "TIME_PRESSURE";
       const exam = await createExam({
-        title: `${cert.code} Practice Exam`,
+        title: `${cert.code} ${isTimePressure ? "Time Pressure" : "Practice"} Exam`,
         certificationId: cert.id,
-        questionCount: Math.min(questionCount, 65),
-        timeLimit: 130,
+        questionCount: isTimePressure
+          ? Math.min(questionCount, 65)
+          : Math.min(questionCount, 130),
+        timeLimit: isTimePressure ? 90 : 180,
         timerMode,
+        examType: isTimePressure ? "TIME_PRESSURE" : "STANDARD",
       });
 
       const attempt = await startAttempt(exam.id);
@@ -101,23 +118,23 @@ const ExamPage = () => {
       setMarked(new Set());
       setCurrentIndex(0);
       setResult(null);
-      setPhase('exam');
+      setPhase("exam");
     } catch (err: unknown) {
-      toast.error('Failed to start exam');
-      setPhase('intro');
+      toast.error("Failed to start exam");
+      setPhase("intro");
     }
   };
 
   const selectAnswer = (questionId: string, choiceId: string) => {
-    setAnswers(prev => {
+    setAnswers((prev) => {
       const current = prev[questionId] || [];
-      const question = questions.find(q => q.id === questionId);
-      const isMultiple = question?.questionType === 'MULTIPLE';
+      const question = questions.find((q) => q.id === questionId);
+      const isMultiple = question?.questionType === "MULTIPLE";
       if (isMultiple) {
         return {
           ...prev,
           [questionId]: current.includes(choiceId)
-            ? current.filter(id => id !== choiceId)
+            ? current.filter((id) => id !== choiceId)
             : [...current, choiceId],
         };
       }
@@ -126,7 +143,7 @@ const ExamPage = () => {
   };
 
   const toggleMark = (questionId: string) => {
-    setMarked(prev => {
+    setMarked((prev) => {
       const next = new Set(prev);
       if (next.has(questionId)) next.delete(questionId);
       else next.add(questionId);
@@ -137,18 +154,22 @@ const ExamPage = () => {
   const handleCapture = async () => {
     if (!selection || !attemptData || !questions[currentIndex]) return;
     const currentQuestion = questions[currentIndex];
-    
+
     try {
       await captureWord({
         word: selection.text,
         examAttemptId: attemptData.attemptId,
         questionId: currentQuestion.id,
-        context: currentQuestion.title + (currentQuestion.description ? " " + currentQuestion.description : ""),
+        context:
+          currentQuestion.title +
+          (currentQuestion.description
+            ? " " + currentQuestion.description
+            : ""),
       });
       toast.success(`Saved "${selection.text}" for review`);
       clearSelection();
     } catch (err) {
-      toast.error('Failed to capture word');
+      toast.error("Failed to capture word");
     }
   };
 
@@ -160,34 +181,50 @@ const ExamPage = () => {
     );
   }
 
-  if (!cert) return <div className="min-h-screen bg-background flex items-center justify-center text-foreground">Certification not found</div>;
+  if (!cert)
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center text-foreground">
+        Certification not found
+      </div>
+    );
 
-  if (phase === 'loading') {
+  if (phase === "loading") {
     return (
       <div className="min-h-screen bg-background bg-grid flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground font-mono">Preparing your exam...</p>
+          <p className="text-muted-foreground font-mono">
+            Preparing your exam...
+          </p>
         </div>
       </div>
     );
   }
 
-  if (phase === 'intro') {
+  if (phase === "intro") {
     return (
       <ExamIntro
         cert={cert}
         questionCount={questionCount}
         timerMode={selectedTimerMode}
         onTimerModeChange={setSelectedTimerMode}
-        onBack={() => navigate('/')}
+        onBack={() => navigate("/")}
         onStart={() => startExam(selectedTimerMode)}
       />
     );
   }
 
-  if (phase === 'result' && result) {
-    return <ExamResult result={result} onRetry={() => { setPhase('intro'); setResult(null); }} onHome={() => navigate('/')} />;
+  if (phase === "result" && result) {
+    return (
+      <ExamResult
+        result={result}
+        onRetry={() => {
+          setPhase("intro");
+          setResult(null);
+        }}
+        onHome={() => navigate("/")}
+      />
+    );
   }
 
   return (
@@ -207,8 +244,8 @@ const ExamPage = () => {
           onSubmit={handleSubmit}
         />
       )}
-      
-      {phase === 'exam' && (
+
+      {phase === "exam" && (
         <WordCaptureTooltip selection={selection} onCapture={handleCapture} />
       )}
     </div>

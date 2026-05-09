@@ -21,9 +21,28 @@ export interface MasteryData {
   domains: DomainMastery[];
 }
 
-export async function getMastery(certificationId: string): Promise<MasteryData> {
-  const response = await api.get<MasteryData>(
-    `/mastery/${certificationId}`,
+export interface NextTopicSuggestion {
+  domain: {
+    id: string;
+    name: string;
+  };
+  reason: string;
+  accuracy: number;
+  sampleQuestionId: string | null;
+}
+
+export async function getMastery(
+  certificationId: string,
+): Promise<MasteryData> {
+  const response = await api.get<MasteryData>(`/mastery/${certificationId}`);
+  return response.data;
+}
+
+export async function getNextTopic(
+  certificationId: string,
+): Promise<NextTopicSuggestion | { message: string }> {
+  const response = await api.get<NextTopicSuggestion | { message: string }>(
+    `/insights/next-topic?certificationId=${certificationId}`,
   );
   return response.data;
 }

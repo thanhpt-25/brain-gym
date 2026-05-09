@@ -8,7 +8,12 @@ import { UserRole, OrgRole, UserPlan } from '@prisma/client';
 
 export async function createTestUser(
   prisma: PrismaService,
-  opts: { email: string; displayName: string; role?: UserRole; plan?: UserPlan },
+  opts: {
+    email: string;
+    displayName: string;
+    role?: UserRole;
+    plan?: UserPlan;
+  },
 ) {
   return prisma.user.create({
     data: {
@@ -196,6 +201,11 @@ export async function cleanupByEmail(
     });
     await prisma.question.deleteMany({ where: { id: { in: publicQIds } } });
   }
+
+  // Delete question generation jobs (references users)
+  await prisma.questionGenerationJob.deleteMany({
+    where: { userId: { in: userIds } },
+  });
 
   // Delete users (cascades to non-org relations)
   await prisma.user.deleteMany({ where: { id: { in: userIds } } });

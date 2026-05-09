@@ -5,6 +5,7 @@ import { GenerationJobStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IngestionService } from '../../ai-question-bank/ingestion/ingestion.service';
 import { EncryptionService } from '../../ai-question-bank/crypto/encryption.service';
+import { LlmUsageService } from '../../ai-question-bank/llm-usage/llm-usage.service';
 import { createLlmProvider } from '../../ai-question-bank/providers/llm-provider.factory';
 import {
   buildGenerationSystemPrompt,
@@ -24,6 +25,7 @@ export class AiGenProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly ingestion: IngestionService,
     private readonly encryption: EncryptionService,
+    private readonly llmUsage: LlmUsageService,
   ) {
     super();
   }
@@ -107,7 +109,7 @@ export class AiGenProcessor extends WorkerHost {
           this.mapToPreview(q, scores[i], questionType),
       );
 
-      await this.prisma.questionGenerationJob.update({
+      const updatedJob = await this.prisma.questionGenerationJob.update({
         where: { id: jobId },
         data: {
           status: GenerationJobStatus.COMPLETED,
@@ -118,6 +120,16 @@ export class AiGenProcessor extends WorkerHost {
           completedAt: new Date(),
         },
       });
+
+      // RFC-012: Record LLM usage event for cost attribution
+      // Non-fatal: errors in recording don't block the job completion
+      await this.llmUsage.recordQuestionGeneration(
+        job.data.userId,
+        updatedJob.orgId,
+        job.data.modelId || 'unknown',
+        genResult.promptTokens,
+        genResult.completionTokens,
+      );
 
       this.logger.log(
         `AI gen job ${jobId} completed — ${previews.length} questions`,

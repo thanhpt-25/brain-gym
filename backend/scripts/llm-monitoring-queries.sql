@@ -1,0 +1,219 @@
+-- LLM Usage Monitoring Queries for Grafana Dashboard
+-- These queries enable tracking of LLM costs, quota compliance, and usage patterns
+-- Target: LLM Cost per Premium User per Day < $1.20
+
+-- ============================================================================
+-- Query 1: Daily LLM Cost Per Organization
+-- ============================================================================
+-- Purpose: Track total LLM costs by organization per day
+-- Use Case: Org-level cost attribution and budget monitoring
+--
+-- SELECT
+--   DATE(created_at AT TIME ZONE 'UTC') as date,
+--   org_id,
+--   COALESCE(SUM(cost_usd), 0) as total_cost_usd,
+--   COUNT(*) as event_count
+-- FROM llm_usage_events
+-- WHERE created_at >= NOW() - INTERVAL '30 days'
+-- GROUP BY DATE(created_at AT TIME ZONE 'UTC'), org_id
+-- ORDER BY date DESC, total_cost_usd DESC;
+
+-- ============================================================================
+-- Query 2: Daily LLM Cost Per Premium User
+-- ============================================================================
+-- Purpose: Calculate average LLM cost per premium user per day across org
+-- Use Case: Guardrail enforcement - ensure per-user costs stay under $1.20
+-- Note: "Premium user" is defined as a user with active Organization membership
+--
+-- WITH daily_costs AS (
+--   SELECT
+--     DATE(lue.created_at AT TIME ZONE 'UTC') as date,
+--     lue.org_id,
+--     COALESCE(SUM(lue.cost_usd), 0) as total_cost_usd
+--   FROM llm_usage_events lue
+--   WHERE lue.created_at >= NOW() - INTERVAL '30 days'
+--   GROUP BY DATE(lue.created_at AT TIME ZONE 'UTC'), lue.org_id
+-- ),
+-- premium_user_count AS (
+--   SELECT
+--     DATE(om.created_at AT TIME ZONE 'UTC') as date,
+--     om.org_id,
+--     COUNT(DISTINCT om.user_id) as premium_user_count
+--   FROM org_memberships om
+--   WHERE om.role IN ('admin', 'member')
+--     AND om.created_at <= NOW()
+--   GROUP BY DATE(om.created_at AT TIME ZONE 'UTC'), om.org_id
+-- )
+-- SELECT
+--   dc.date,
+--   dc.org_id,
+--   dc.total_cost_usd,
+--   COALESCE(puc.premium_user_count, 0) as premium_user_count,
+--   CASE
+--     WHEN puc.premium_user_count > 0 THEN dc.total_cost_usd / puc.premium_user_count
+--     ELSE 0
+--   END as cost_per_premium_user,
+--   CASE
+--     WHEN puc.premium_user_count > 0 AND (dc.total_cost_usd / puc.premium_user_count) > 1.20
+--     THEN true
+--     ELSE false
+--   END as exceeds_guardrail
+-- FROM daily_costs dc
+-- LEFT JOIN premium_user_count puc
+--   ON dc.date = puc.date AND dc.org_id = puc.org_id
+-- ORDER BY dc.date DESC, cost_per_premium_user DESC;
+
+-- ============================================================================
+-- Query 3: LLM Usage Breakdown By Feature
+-- ============================================================================
+-- Purpose: Identify which features are driving LLM costs
+-- Use Case: Cost optimization - identify expensive features
+--
+-- SELECT
+--   DATE(created_at AT TIME ZONE 'UTC') as date,
+--   org_id,
+--   feature,
+--   COUNT(*) as event_count,
+--   SUM(input_tokens) as total_input_tokens,
+--   SUM(output_tokens) as total_output_tokens,
+--   COALESCE(SUM(cost_usd), 0) as total_cost_usd,
+--   ROUND(AVG(cost_usd)::numeric, 4) as avg_cost_per_event
+-- FROM llm_usage_events
+-- WHERE created_at >= NOW() - INTERVAL '30 days'
+-- GROUP BY DATE(created_at AT TIME ZONE 'UTC'), org_id, feature
+-- ORDER BY date DESC, total_cost_usd DESC;
+
+-- ============================================================================
+-- Query 4: Daily Quota Warnings
+-- ============================================================================
+-- Purpose: Count of organizations exceeding the daily quota threshold ($5/day)
+-- Use Case: Monitoring - alert on quota breaches
+-- Threshold: $5.00 per organization per day
+--
+-- SELECT
+--   DATE(created_at AT TIME ZONE 'UTC') as date,
+--   COUNT(DISTINCT CASE
+--     WHEN daily_cost > 5.00 THEN org_id
+--   END) as orgs_over_quota,
+--   COUNT(DISTINCT org_id) as total_orgs_with_usage,
+--   ROUND(
+--     (COUNT(DISTINCT CASE WHEN daily_cost > 5.00 THEN org_id END)::numeric
+--      / NULLIF(COUNT(DISTINCT org_id), 0) * 100),
+--     2
+--   ) as percent_over_quota
+-- FROM (
+--   SELECT
+--     DATE(created_at AT TIME ZONE 'UTC') as date,
+--     org_id,
+--     COALESCE(SUM(cost_usd), 0) as daily_cost
+--   FROM llm_usage_events
+--   WHERE created_at >= NOW() - INTERVAL '30 days'
+--   GROUP BY DATE(created_at AT TIME ZONE 'UTC'), org_id
+-- ) daily_org_costs
+-- GROUP BY DATE(created_at AT TIME ZONE 'UTC')
+-- ORDER BY date DESC;
+
+-- ============================================================================
+-- Query 5: Individual User LLM Cost History
+-- ============================================================================
+-- Purpose: Track individual user's LLM usage costs for billing/audit
+-- Use Case: Per-user cost attribution, audit logs
+--
+-- SELECT
+--   user_id,
+--   org_id,
+--   feature,
+--   created_at AT TIME ZONE 'UTC' as event_time,
+--   model_id,
+--   input_tokens,
+--   output_tokens,
+--   cost_usd
+-- FROM llm_usage_events
+-- WHERE user_id = $1
+--   AND created_at >= NOW() - INTERVAL '90 days'
+-- ORDER BY created_at DESC;
+
+-- ============================================================================
+-- Query 6: Model-Specific Cost Analysis
+-- ============================================================================
+-- Purpose: Understand cost efficiency across different LLM models
+-- Use Case: Model selection optimization
+--
+-- SELECT
+--   model_id,
+--   COUNT(*) as event_count,
+--   SUM(input_tokens) as total_input_tokens,
+--   SUM(output_tokens) as total_output_tokens,
+--   COALESCE(SUM(cost_usd), 0) as total_cost_usd,
+--   ROUND(AVG(cost_usd)::numeric, 4) as avg_cost_per_call,
+--   ROUND((SUM(cost_usd) / NULLIF(SUM(input_tokens + output_tokens), 0) * 1000)::numeric, 6)
+--     as cost_per_1k_tokens
+-- FROM llm_usage_events
+-- WHERE created_at >= NOW() - INTERVAL '30 days'
+-- GROUP BY model_id
+-- ORDER BY total_cost_usd DESC;
+
+-- ============================================================================
+-- Grafana Dashboard Setup Instructions
+-- ============================================================================
+--
+-- 1. Create Dashboard: "LLM Cost Monitoring"
+--
+-- 2. Add Panels:
+--    Panel 1 (Stat): "Daily Cost per Premium User"
+--      - Query: Query 2 (latest date, org_id = $ORG_ID)
+--      - Thresholds: Green <$1.00, Yellow $1.00-$1.20, Red >$1.20
+--      - Unit: USD
+--
+--    Panel 2 (Gauge): "Cost Per Premium User vs. Guardrail"
+--      - Query: Query 2 (max value from last 7 days)
+--      - Max value: $1.20
+--      - Show: Percentage of guardrail
+--
+--    Panel 3 (Time Series): "Org Daily Costs Over Time"
+--      - Query: Query 1
+--      - Group by: org_id
+--      - Target: $5.00 reference line
+--
+--    Panel 4 (Pie Chart): "Cost Breakdown by Feature"
+--      - Query: Query 3 (aggregated across all orgs, last 7 days)
+--      - Show: Percentage per feature
+--
+--    Panel 5 (Stat): "Orgs Over Quota Today"
+--      - Query: Query 4 (today's value)
+--      - Thresholds: Green 0, Red >0
+--
+--    Panel 6 (Table): "Top Features by Cost"
+--      - Query: Query 3 (sorted by total_cost_usd DESC, limit 10)
+--      - Columns: feature, event_count, total_cost_usd, avg_cost_per_event
+--
+-- 3. Add Alerts (Optional):
+--    - Alert: "Org Exceeds Daily Quota"
+--      When: daily_cost > $5.00 for any org
+--      Action: Send notification to #engineering channel
+--
+--    - Alert: "Guardrail Approaching"
+--      When: cost_per_premium_user > $1.00
+--      Action: Log warning in application metrics
+--
+-- 4. Variable Setup (for dashboard interactivity):
+--    - $ORG_ID: Multi-select dropdown of all org_ids from llm_usage_events
+--    - $DATE_RANGE: Time picker (default: last 7 days)
+--    - $FEATURE: Multi-select of all features (question_generation, coach, etc)
+--
+-- 5. Refresh Interval:
+--    - Set to 5 minutes for real-time cost tracking
+--    - Or 1 minute if more aggressive monitoring is needed
+--
+-- ============================================================================
+-- Notes
+-- ============================================================================
+--
+-- - Cost Precision: All costs stored as Decimal(10,6) in database for accuracy
+-- - Timezone: All queries use UTC for consistency across regions
+-- - Data Retention: Recommend keeping LlmUsageEvents for 90 days for cost audit
+-- - Performance: Ensure indexes exist on (org_id, created_at) and (user_id, created_at)
+-- - Guardrail: $1.20/premium_user/day is a soft limit this sprint (warn-only)
+--   Sprint 5 will implement blocking when exceeded
+--
+-- ============================================================================
