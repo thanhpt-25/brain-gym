@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Zap, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,7 +73,7 @@ export default function GenerationForm({ onResult }: Props) {
   const domains: any[] = selectedCert?.domains || [];
 
   // Poll job status until completed/failed
-  useQuery({
+  const { data: jobStatusData } = useQuery({
     queryKey: ["ai-gen-job", pendingJobId],
     queryFn: () => getJobStatus(pendingJobId!),
     enabled: !!pendingJobId,
@@ -83,13 +83,14 @@ export default function GenerationForm({ onResult }: Props) {
         ? false
         : POLL_INTERVAL_MS;
     },
-    onSuccess: (data: JobStatusResult) => {
-      if (data.status === "COMPLETED" && data.questions) {
-        setPendingJobId(null);
-        onResult(data, pendingCertId, pendingDomainId);
-      }
-    },
-  } as any);
+  });
+
+  useEffect(() => {
+    if (jobStatusData?.status === "COMPLETED" && jobStatusData.questions) {
+      setPendingJobId(null);
+      onResult(jobStatusData, pendingCertId, pendingDomainId);
+    }
+  }, [jobStatusData]);
 
   const estimateMutation = useMutation({
     mutationFn: () =>

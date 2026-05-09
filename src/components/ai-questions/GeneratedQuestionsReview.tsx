@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -48,6 +48,7 @@ export default function GeneratedQuestionsReview({
   onReset,
 }: Props) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const questions = result.questions ?? [];
   const [included, setIncluded] = useState<Set<number>>(
     new Set(
@@ -78,6 +79,7 @@ export default function GeneratedQuestionsReview({
       toast.success(
         `Saved ${data.saved} questions${data.discarded ? `, ${data.discarded} discarded (low quality)` : ""}`,
       );
+      queryClient.invalidateQueries({ queryKey: ["generation-history"] });
       navigate("/questions?status=APPROVED&mine=true");
     },
     onError: () => toast.error("Failed to save questions"),

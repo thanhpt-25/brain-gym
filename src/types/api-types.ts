@@ -353,6 +353,8 @@ export interface TokenEstimate {
 
 export interface GenerationJob {
   id: string;
+  certificationId: string;
+  domainId?: string;
   provider: LlmProvider;
   modelId?: string;
   difficulty: Difficulty;
