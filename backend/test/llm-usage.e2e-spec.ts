@@ -338,7 +338,7 @@ describe('LLM Usage & Quota (e2e)', () => {
         });
 
       // Should return a job ID (actual generation will fail in background)
-      expect(res.status).toBeOneOf([201, 400]); // 201 if queued, 400 if validation fails
+      expect([201, 400]).toContain(res.status); // 201 if queued, 400 if validation fails
       if (res.status === 201) {
         expect(res.body.jobId).toBeDefined();
         expect(res.body.status).toBe('PENDING');

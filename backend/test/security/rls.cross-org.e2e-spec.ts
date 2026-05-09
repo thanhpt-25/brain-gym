@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -138,13 +138,13 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
     it('should allow reading own organization members', async () => {
       // User1 from Org1 can read members of Org1
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/org/${org1.slug}/members`)
+        .get(`/organizations/${org1.id}/members`)
         .set('Authorization', `Bearer ${token1Org1}`);
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
-      expect(response.body.some((m: any) => m.id === member1Org1.id)).toBe(
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBeGreaterThan(0);
+      expect(response.body.data.some((m: any) => m.id === member1Org1.id)).toBe(
         true,
       );
     });
@@ -153,7 +153,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
       // User1 from Org1 tries to read members of Org2 via direct access
       // RLS should prevent this at the database level
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/org/${org2.slug}/members`)
+        .get(`/organizations/${org2.id}/members`)
         .set('Authorization', `Bearer ${token1Org1}`);
 
       // User should get 403 (Forbidden) because they're not a member of Org2
@@ -163,11 +163,10 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
     it('should deny creating member in different organization', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/org/${org2.slug}/members`)
+        .post(`/organizations/${org2.id}/members/invite`)
         .set('Authorization', `Bearer ${token1Org1}`)
         .send({
-          userId: user1Org1.id,
-          role: 'MEMBER',
+          email: 'test@example.com',
         });
 
       expect(response.status).toBe(403);
@@ -175,7 +174,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
     it('should deny updating member in different organization', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/org/${org2.slug}/members/${member1Org2.id}`)
+        .patch(`/organizations/${org2.id}/members/${member1Org2.id}`)
         .set('Authorization', `Bearer ${token1Org1}`)
         .send({ role: 'ADMIN' });
 
@@ -184,7 +183,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
     it('should deny deleting member from different organization', async () => {
       const response = await request(app.getHttpServer())
-        .delete(`/api/v1/org/${org2.slug}/members/${member1Org2.id}`)
+        .delete(`/organizations/${org2.id}/members/${member1Org2.id}`)
         .set('Authorization', `Bearer ${token1Org1}`);
 
       expect(response.status).toBe(403);
@@ -194,19 +193,19 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
   describe('org_questions RLS', () => {
     it('should allow reading own organization questions', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/org/${org1.slug}/questions`)
+        .get(`/organizations/${org1.id}/questions`)
         .set('Authorization', `Bearer ${token1Org1}`);
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.some((q: any) => q.id === question1Org1.id)).toBe(
-        true,
-      );
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(
+        response.body.data.some((q: any) => q.id === question1Org1.id),
+      ).toBe(true);
     });
 
     it('should deny reading questions from different organization', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/api/v1/org/${org2.slug}/questions`)
+        .get(`/organizations/${org2.id}/questions`)
         .set('Authorization', `Bearer ${token1Org1}`);
 
       expect(response.status).toBe(403);
@@ -214,7 +213,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
     it('should deny creating question in different organization', async () => {
       const response = await request(app.getHttpServer())
-        .post(`/api/v1/org/${org2.slug}/questions`)
+        .post(`/organizations/${org2.id}/questions`)
         .set('Authorization', `Bearer ${token1Org1}`)
         .send({
           title: 'Malicious Question',
@@ -226,7 +225,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
     it('should deny updating question in different organization', async () => {
       const response = await request(app.getHttpServer())
-        .patch(`/api/v1/org/${org2.slug}/questions/${question1Org2.id}`)
+        .patch(`/organizations/${org2.id}/questions/${question1Org2.id}`)
         .set('Authorization', `Bearer ${token1Org1}`)
         .send({ title: 'Hacked Title' });
 
@@ -235,7 +234,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
     it('should deny deleting question from different organization', async () => {
       const response = await request(app.getHttpServer())
-        .delete(`/api/v1/org/${org2.slug}/questions/${question1Org2.id}`)
+        .delete(`/organizations/${org2.id}/questions/${question1Org2.id}`)
         .set('Authorization', `Bearer ${token1Org1}`);
 
       expect(response.status).toBe(403);
@@ -271,7 +270,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
       // This test verifies that RLS works at the Prisma level
       // When app.org_id is set to org1, queries should only return org1 data
       const result = await prisma.$transaction(async (tx) => {
-        await tx.$executeRawUnsafe(`SET LOCAL app.org_id = $1`, org1.id);
+        await tx.$executeRawUnsafe(`SET LOCAL app.org_id = '${org1.id}'`);
 
         return tx.orgQuestion.findMany({
           where: { orgId: org2.id }, // Asking for org2 data
@@ -290,7 +289,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
       for (let i = 0; i < iterations; i++) {
         await request(app.getHttpServer())
-          .get(`/api/v1/org/${org1.slug}/questions`)
+          .get(`/organizations/${org1.id}/questions`)
           .set('Authorization', `Bearer ${token1Org1}`);
       }
 

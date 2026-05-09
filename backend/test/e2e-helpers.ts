@@ -202,6 +202,11 @@ export async function cleanupByEmail(
     await prisma.question.deleteMany({ where: { id: { in: publicQIds } } });
   }
 
+  // Delete question generation jobs (references users)
+  await prisma.questionGenerationJob.deleteMany({
+    where: { userId: { in: userIds } },
+  });
+
   // Delete users (cascades to non-org relations)
   await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 }
