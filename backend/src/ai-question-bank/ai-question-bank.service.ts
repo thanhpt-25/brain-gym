@@ -376,22 +376,70 @@ export class AiQuestionBankService {
     return config;
   }
 
+  private extractJson(content: string): any {
+    try {
+      return JSON.parse(content);
+    } catch {}
+    const fence = content.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
+    if (fence) {
+      try {
+        return JSON.parse(fence[1]);
+      } catch {}
+      const inner = this.extractBalancedJson(fence[1]);
+      if (inner !== undefined) return inner;
+    }
+    const balanced = this.extractBalancedJson(content);
+    if (balanced !== undefined) return balanced;
+    return undefined;
+  }
+
+  private extractBalancedJson(content: string): any | undefined {
+    for (const open of ['{', '[']) {
+      const close = open === '{' ? '}' : ']';
+      let start = content.indexOf(open);
+      while (start !== -1) {
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        for (let i = start; i < content.length; i++) {
+          const ch = content[i];
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (ch === '\\' && inString) {
+            escape = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = !inString;
+            continue;
+          }
+          if (inString) continue;
+          if (ch === open) depth++;
+          else if (ch === close) {
+            depth--;
+            if (depth === 0) {
+              const candidate = content.slice(start, i + 1);
+              try {
+                return JSON.parse(candidate);
+              } catch {
+                break;
+              }
+            }
+          }
+        }
+        start = content.indexOf(open, start + 1);
+      }
+    }
+    return undefined;
+  }
+
   private parseGeneratorResponse(
     content: string,
     expectedCount: number,
   ): RawGeneratedQuestion[] {
-    let parsed: any;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      // Try extracting JSON from markdown code fences
-      const match = content.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-      if (match) {
-        try {
-          parsed = JSON.parse(match[1]);
-        } catch {}
-      }
-    }
+    const parsed = this.extractJson(content);
     if (!parsed?.questions || !Array.isArray(parsed.questions)) {
       throw new Error(
         'LLM returned an invalid response format (missing "questions" array)',
@@ -401,16 +449,7 @@ export class AiQuestionBankService {
   }
 
   private parseCriticResponse(content: string, count: number): number[] {
-    let parsed: any;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      const match = content.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-      if (match)
-        try {
-          parsed = JSON.parse(match[1]);
-        } catch {}
-    }
+    const parsed = this.extractJson(content);
     if (!parsed?.results || !Array.isArray(parsed.results)) {
       return Array(count).fill(0.7);
     }

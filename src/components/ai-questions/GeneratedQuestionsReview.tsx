@@ -34,6 +34,78 @@ const TIER_LABEL: Record<QualityTier, string> = {
   LOW: "Low quality",
 };
 
+function normalizeQuestion(q: any): GeneratedQuestionPreview {
+  if (!q || typeof q !== "object") {
+    return {
+      title: "",
+      questionType: "SINGLE",
+      difficulty: "MEDIUM",
+      explanation: "",
+      choices: [],
+      tags: [],
+      qualityScore: 0,
+      qualityTier: null,
+    } as unknown as GeneratedQuestionPreview;
+  }
+  const correctRaw = String(q.correct_answer ?? q.correctAnswer ?? "");
+  const correctLetters = correctRaw
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  const rawOptions = Array.isArray(q.choices)
+    ? q.choices
+    : Array.isArray(q.options)
+      ? q.options
+      : [];
+  const choices = rawOptions.map((opt: any, idx: number) => {
+    if (typeof opt === "string") {
+      const label =
+        opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
+      const content = opt.replace(/^\s*[A-Z][\.\)]\s*/, "").trim();
+      return { label, content, isCorrect: correctLetters.includes(label) };
+    }
+    const o = opt ?? {};
+    const label =
+      (typeof o.label === "string" && o.label) || String.fromCharCode(65 + idx);
+    const content =
+      (typeof o.content === "string" && o.content) ||
+      (typeof o.text === "string" && o.text) ||
+      "";
+    const isCorrect =
+      typeof o.isCorrect === "boolean"
+        ? o.isCorrect
+        : correctLetters.includes(String(label).toUpperCase());
+    return { label: String(label).toUpperCase(), content, isCorrect };
+  });
+  const rawType = String(q.questionType ?? q.question_type ?? "").toUpperCase();
+  const questionType =
+    rawType === "MULTIPLE" || rawType === "MULTIPLE_CHOICE"
+      ? "MULTIPLE"
+      : rawType === "SINGLE" || rawType === "SINGLE_CHOICE"
+        ? "SINGLE"
+        : correctLetters.length > 1
+          ? "MULTIPLE"
+          : "SINGLE";
+
+  const rawDiff = String(q.difficulty ?? "").toUpperCase();
+  const difficulty =
+    rawDiff === "EASY" || rawDiff === "MEDIUM" || rawDiff === "HARD"
+      ? rawDiff
+      : "MEDIUM";
+
+  return {
+    ...q,
+    title: q.title ?? q.question ?? "",
+    explanation: q.explanation ?? "",
+    questionType,
+    difficulty,
+    choices,
+    tags: Array.isArray(q.tags) ? q.tags : [],
+    qualityScore: typeof q.qualityScore === "number" ? q.qualityScore : 0,
+    qualityTier: q.qualityTier ?? null,
+  } as GeneratedQuestionPreview;
+}
+
 interface Props {
   result: JobStatusResult;
   certificationId: string;
@@ -49,7 +121,7 @@ export default function GeneratedQuestionsReview({
 }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const questions = result.questions ?? [];
+  const questions = (result.questions ?? []).map((q) => normalizeQuestion(q));
   const [included, setIncluded] = useState<Set<number>>(
     new Set(
       questions

@@ -1,7 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { GenerationJobStatus } from '@prisma/client';
+import { Difficulty, GenerationJobStatus, QuestionType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IngestionService } from '../../ai-question-bank/ingestion/ingestion.service';
 import { EncryptionService } from '../../ai-question-bank/crypto/encryption.service';
@@ -106,7 +106,7 @@ export class AiGenProcessor extends WorkerHost {
 
       const previews = rawQuestions.map(
         (q: Record<string, unknown>, i: number) =>
-          this.mapToPreview(q, scores[i], questionType),
+          this.mapToPreview(q, scores[i], questionType, difficulty),
       );
 
       const updatedJob = await this.prisma.questionGenerationJob.update({
@@ -175,21 +175,66 @@ export class AiGenProcessor extends WorkerHost {
   private mapToPreview(
     q: Record<string, unknown>,
     score: number,
-    questionType?: string,
+    questionType: QuestionType | undefined,
+    difficulty: Difficulty,
   ) {
     const HIGH = 0.85;
     const MEDIUM = 0.6;
+    const tier = score >= HIGH ? 'HIGH' : score >= MEDIUM ? 'MEDIUM' : null;
+
+    const correctRaw = String(q.correct_answer ?? q.correctAnswer ?? '');
+    const correctLetters = correctRaw
+      .split(',')
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean);
+
+    const rawOptions = Array.isArray(q.options)
+      ? (q.options as unknown[])
+      : Array.isArray(q.choices)
+        ? (q.choices as unknown[])
+        : [];
+
+    const choices = rawOptions.map((opt, idx) => {
+      if (typeof opt === 'string') {
+        const label = (opt.match(/^\s*([A-Z])\b/)?.[1] ??
+          String.fromCharCode(65 + idx)) as string;
+        const content = opt.replace(/^\s*[A-Z][\.\)]\s*/, '').trim();
+        return {
+          label,
+          content,
+          isCorrect: correctLetters.includes(label),
+        };
+      }
+      const o = opt as Record<string, unknown>;
+      const label =
+        (typeof o.label === 'string' && o.label) ||
+        String.fromCharCode(65 + idx);
+      const content =
+        (typeof o.content === 'string' && o.content) ||
+        (typeof o.text === 'string' && o.text) ||
+        '';
+      const isCorrect =
+        typeof o.isCorrect === 'boolean'
+          ? o.isCorrect
+          : correctLetters.includes(String(label).toUpperCase());
+      return { label: String(label).toUpperCase(), content, isCorrect };
+    });
+
+    const qType: QuestionType =
+      questionType ??
+      (correctLetters.length > 1 ? QuestionType.MULTIPLE : QuestionType.SINGLE);
+
     return {
-      question: q.question,
-      choices: q.choices,
-      correctAnswer: q.correct_answer ?? q.correctAnswer,
-      explanation: q.explanation,
-      tags: q.tags ?? [],
+      title: q.question ?? q.title ?? '',
+      questionType: qType,
+      difficulty,
+      explanation: q.explanation ?? '',
+      choices,
+      tags: Array.isArray(q.tags) ? q.tags : [],
+      sourcePassage: q.source_passage ?? null,
       qualityScore: score,
-      qualityTier: score >= HIGH ? 'HIGH' : score >= MEDIUM ? 'MEDIUM' : 'LOW',
-      questionType: q.question_type ?? questionType ?? 'SINGLE_CHOICE',
+      qualityTier: tier,
       sourceChunkId: q.source_chunk_id ?? null,
-      confidence_hint: q.confidence_hint,
     };
   }
 }
