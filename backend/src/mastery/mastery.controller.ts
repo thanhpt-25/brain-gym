@@ -23,11 +23,15 @@ export class MasteryController {
     summary:
       'Get per-domain mastery data for the authenticated user and a given certification',
   })
-  @ApiParam({ name: 'certificationId', description: 'UUID of the certification' })
+  @ApiParam({
+    name: 'certificationId',
+    description: 'UUID of the certification',
+  })
   @ApiResponse({
     status: 200,
     type: MasteryResponseDto,
-    description: 'Domain mastery aggregation. isEmpty: true when < 10 attempts exist.',
+    description:
+      'Domain mastery aggregation. isEmpty: true when < 10 attempts exist.',
   })
   getMastery(
     @Req() req: AuthenticatedRequest,

@@ -236,13 +236,13 @@ describe('LLM Usage & Quota (e2e)', () => {
       expect(status.isExceeded).toBe(true);
     });
 
-    it('should return default quota limit', async () => {
+    it('should return default quota limit', () => {
       const limit = llmQuota.getDailyLimitUsd();
 
       expect(limit).toBe(5); // Default from service
     });
 
-    it('should support custom quota limit via env var', async () => {
+    it('should support custom quota limit via env var', () => {
       // This test verifies the service reads the env var
       // Note: changing env var requires service re-instantiation
       const limit = llmQuota.getDailyLimitUsd();

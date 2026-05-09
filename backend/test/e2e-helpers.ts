@@ -8,7 +8,12 @@ import { UserRole, OrgRole, UserPlan } from '@prisma/client';
 
 export async function createTestUser(
   prisma: PrismaService,
-  opts: { email: string; displayName: string; role?: UserRole; plan?: UserPlan },
+  opts: {
+    email: string;
+    displayName: string;
+    role?: UserRole;
+    plan?: UserPlan;
+  },
 ) {
   return prisma.user.create({
     data: {

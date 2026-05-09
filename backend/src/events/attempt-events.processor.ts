@@ -65,7 +65,7 @@ export class AttemptEventsProcessor extends WorkerHost {
     ];
 
     if (submittedAttemptIds.length > 0) {
-      const attempts = await this.prisma.attempt.findMany({
+      const attempts = await this.prisma.examAttempt.findMany({
         where: { id: { in: submittedAttemptIds } },
         select: { id: true, exam: { select: { certificationId: true } } },
       });

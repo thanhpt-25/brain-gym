@@ -244,7 +244,9 @@ export interface ReviewSchedule {
   question: Question;
 }
 
-export type TimerMode = "STRICT" | "ACCELERATED" | "RELAXED";
+export type TimerMode = "STRICT" | "ACCELERATED" | "RELAXED" | "TIME_PRESSURE";
+
+export type ExamMode = "STANDARD" | "TIME_PRESSURE";
 
 export interface ExamSummary {
   id: string;
@@ -279,6 +281,7 @@ export interface CreateExamPayload {
   timeLimit: number;
   visibility?: string;
   timerMode?: TimerMode;
+  examType?: ExamMode;
   questionIds?: string[];
 }
 

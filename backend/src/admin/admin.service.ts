@@ -3,7 +3,21 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+type ExamWhereInput = Prisma.ExamWhereInput;
+type QuestionGenerationJobWhereInput = Prisma.QuestionGenerationJobWhereInput;
+type DomainWhereInput = Prisma.DomainWhereInput;
+type OrganizationWhereInput = Prisma.OrganizationWhereInput;
+
+interface CsvRow {
+  [key: string]: unknown;
+}
+
+interface BadgeCriteria {
+  [key: string]: unknown;
+}
 
 @Injectable()
 export class AdminService {
@@ -47,8 +61,12 @@ export class AdminService {
         _count: true,
       }),
       this.prisma.organization.count(),
-      this.prisma.organization.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
-      this.prisma.organization.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.organization.count({
+        where: { createdAt: { gte: sevenDaysAgo } },
+      }),
+      this.prisma.organization.count({
+        where: { createdAt: { gte: thirtyDaysAgo } },
+      }),
     ]);
 
     const statusMap: Record<string, number> = {};
@@ -99,8 +117,9 @@ export class AdminService {
     visibility?: string;
   }) {
     const { page = 1, limit = 20, visibility } = params;
-    const where: any = {};
-    if (visibility) where.visibility = visibility;
+    const where: ExamWhereInput = {};
+    if (visibility)
+      where.visibility = visibility as Prisma.ExamWhereInput['visibility'];
 
     const [data, total] = await Promise.all([
       this.prisma.exam.findMany({
@@ -129,8 +148,9 @@ export class AdminService {
     status?: string;
   }) {
     const { page = 1, limit = 20, status } = params;
-    const where: any = {};
-    if (status) where.status = status;
+    const where: QuestionGenerationJobWhereInput = {};
+    if (status)
+      where.status = status as Prisma.QuestionGenerationJobWhereInput['status'];
 
     const [data, total] = await Promise.all([
       this.prisma.questionGenerationJob.findMany({
@@ -160,7 +180,7 @@ export class AdminService {
     limit?: number;
   }) {
     const { certificationId, page = 1, limit = 50 } = params;
-    const where: any = {};
+    const where: DomainWhereInput = {};
     if (certificationId) where.certificationId = certificationId;
 
     const [data, total] = await Promise.all([
@@ -252,7 +272,7 @@ export class AdminService {
   async updateExamVisibility(id: string, visibility: string) {
     return this.prisma.exam.update({
       where: { id },
-      data: { visibility: visibility as any },
+      data: { visibility: visibility as Prisma.ExamUpdateInput['visibility'] },
       include: {
         author: { select: { id: true, displayName: true } },
         certification: { select: { id: true, name: true, code: true } },
@@ -346,15 +366,18 @@ export class AdminService {
   async bulkUpdateQuestionStatus(ids: string[], status: string) {
     const result = await this.prisma.question.updateMany({
       where: { id: { in: ids }, deletedAt: null },
-      data: { status: status as any },
+      data: { status: status as Prisma.QuestionUpdateInput['status'] },
     });
     return { updated: result.count };
   }
 
   async bulkUpdateUserRole(userIds: string[], role: string) {
     const result = await this.prisma.user.updateMany({
-      where: { id: { in: userIds }, role: { not: 'ADMIN' as any } },
-      data: { role: role as any },
+      where: {
+        id: { in: userIds },
+        role: { not: 'ADMIN' as Prisma.UserWhereInput['role'] },
+      },
+      data: { role: role as Prisma.UserUpdateInput['role'] },
     });
     return { updated: result.count };
   }
@@ -362,7 +385,7 @@ export class AdminService {
   async updateUserPlan(userId: string, plan: string) {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { plan: plan as any },
+      data: { plan: plan as Prisma.UserUpdateInput['plan'] },
       select: { id: true, email: true, plan: true },
     });
   }
@@ -375,7 +398,7 @@ export class AdminService {
     search?: string;
   }) {
     const { page = 1, limit = 20, search } = params;
-    const where: any = {};
+    const where: OrganizationWhereInput = {};
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -388,7 +411,7 @@ export class AdminService {
         where,
         include: {
           members: {
-            where: { role: 'OWNER' as any },
+            where: { role: 'OWNER' as Prisma.OrgMemberWhereInput['role'] },
             include: {
               user: {
                 select: {
@@ -427,7 +450,7 @@ export class AdminService {
       where: { id: orgId },
       include: {
         members: {
-          where: { role: 'OWNER' as any },
+          where: { role: 'OWNER' as Prisma.OrgMemberWhereInput['role'] },
           include: {
             user: {
               select: {
@@ -522,18 +545,14 @@ export class AdminService {
     };
   }
 
-  async updateOrgMemberRole(
-    orgId: string,
-    userId: string,
-    role: string,
-  ) {
+  async updateOrgMemberRole(orgId: string, userId: string, role: string) {
     const member = await this.prisma.orgMember.findUnique({
       where: { orgId_userId: { orgId, userId } },
     });
     if (!member) throw new NotFoundException('Member not found');
     return this.prisma.orgMember.update({
       where: { id: member.id },
-      data: { role: role as any },
+      data: { role: role as Prisma.OrgMemberUpdateInput['role'] },
     });
   }
 
@@ -551,16 +570,22 @@ export class AdminService {
 
   // ─── CSV Export ───────────────────────────────────────────────────────────────
 
-  private escapeCsv(value: any): string {
+  private escapeCsv(value: unknown): string {
     if (value == null) return '';
-    const str = String(value);
+    // Convert value to string, handling various types (primitives, dates, etc)
+    const str =
+      value instanceof Date
+        ? value.toISOString()
+        : typeof value === 'object'
+          ? JSON.stringify(value)
+          : String(value as string | number | boolean);
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
   }
 
-  private toCsv(headers: string[], rows: any[][]): string {
+  private toCsv(headers: string[], rows: unknown[][]): string {
     const headerRow = headers.join(',');
     const dataRows = rows.map((row) =>
       row.map((v) => this.escapeCsv(v)).join(','),
@@ -640,7 +665,8 @@ export class AdminService {
           ? `${q.certification.code} - ${q.certification.name}`
           : '',
         q.domain?.name || '',
-        (q as any).author?.displayName || '',
+        (q as unknown as { author?: { displayName?: string } }).author
+          ?.displayName || '',
         q.createdAt.toISOString(),
       ]),
     );
@@ -648,7 +674,7 @@ export class AdminService {
 
   async exportAnalytics(): Promise<string> {
     const attempts = await this.prisma.examAttempt.findMany({
-      where: { status: 'SUBMITTED' as any },
+      where: { status: 'SUBMITTED' as Prisma.ExamAttemptWhereInput['status'] },
       include: {
         user: { select: { displayName: true, email: true } },
         exam: {

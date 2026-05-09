@@ -10,6 +10,8 @@ export interface ReadinessGaugeProps {
   isPremium: boolean;
   signals?: ReadinessSignals;
   onInfoClick?: () => void;
+  onOpenBreakdown?: () => void;
+  breakdownTriggerRef?: React.RefObject<HTMLButtonElement>;
 }
 
 // SVG geometry — 270° sweep from 225° to 495° (≡ 135°), clockwise
@@ -88,6 +90,8 @@ export function ReadinessGauge({
   isPremium,
   signals,
   onInfoClick,
+  onOpenBreakdown,
+  breakdownTriggerRef,
 }: ReadinessGaugeProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const infoButtonRef = useRef<HTMLButtonElement>(null);
@@ -124,6 +128,7 @@ export function ReadinessGauge({
     >
       {/* Radial arc */}
       <svg
+        ref={breakdownTriggerRef}
         width={SVG_W}
         height={SVG_H}
         viewBox={`0 0 ${SVG_W} ${SVG_H}`}
@@ -133,7 +138,20 @@ export function ReadinessGauge({
             ? `Readiness score unavailable — ${attempts} of 50 required attempts completed`
             : `Readiness score: ${score} out of 100`
         }
-        style={{ overflow: "visible" }}
+        onClick={() => !isEmpty && onOpenBreakdown?.()}
+        style={{
+          overflow: "visible",
+          cursor: !isEmpty ? "pointer" : "default",
+          transition: "opacity var(--duration-fast)",
+        }}
+        onMouseEnter={(e) => {
+          if (!isEmpty) {
+            e.currentTarget.style.opacity = "0.8";
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = "1";
+        }}
       >
         {/* Gray track */}
         <path

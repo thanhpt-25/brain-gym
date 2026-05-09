@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ReadinessScore } from '@prisma/client';
+import { ReadinessScore, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { computeReadinessScore } from './heuristic';
 
@@ -41,14 +41,14 @@ export class ReadinessService {
         score: result.score,
         confidence: result.confidence,
         attempts,
-        signals: result.signals,
+        signals: result.signals as unknown as Prisma.InputJsonValue,
         computedAt: new Date(),
       },
       update: {
         score: result.score,
         confidence: result.confidence,
         attempts,
-        signals: result.signals,
+        signals: result.signals as unknown as Prisma.InputJsonValue,
         computedAt: new Date(),
       },
     });
