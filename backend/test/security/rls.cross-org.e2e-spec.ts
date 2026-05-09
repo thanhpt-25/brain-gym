@@ -52,7 +52,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
     user1Org1 = await prisma.user.create({
       data: {
         email: 'user1-org1@test.com',
-        name: 'User 1 Org 1',
+        displayName: 'User 1 Org 1',
         passwordHash: 'hash1',
       },
     });
@@ -60,7 +60,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
     user1Org2 = await prisma.user.create({
       data: {
         email: 'user1-org2@test.com',
-        name: 'User 1 Org 2',
+        displayName: 'User 1 Org 2',
         passwordHash: 'hash2',
       },
     });
