@@ -266,7 +266,7 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
       ).toBe(true);
     });
 
-    it('should enforce RLS even with direct Prisma queries when app.org_id is set', async () => {
+    it('should enforce RLS even with direct Prisma queries when app.org_id is set', () => {
       // This test verifies that RLS works at the Prisma level
       // When app.org_id is set to org1, queries should only return org1 data
 
