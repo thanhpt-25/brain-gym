@@ -42,7 +42,9 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
   });
 
   beforeEach(async () => {
-    // Clean up tables
+    // Clean up tables (order matters due to foreign keys)
+    await prisma.questionGenerationJob.deleteMany({});
+    await prisma.llmUsageEvent.deleteMany({});
     await prisma.orgQuestion.deleteMany({});
     await prisma.orgMember.deleteMany({});
     await prisma.organization.deleteMany({});
