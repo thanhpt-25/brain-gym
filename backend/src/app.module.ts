@@ -73,10 +73,15 @@ import { InsightsModule } from './insights/insights.module';
     InsightsModule,
   ],
   providers: [
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: RlsInterceptor,
-    },
+    // TODO: RLS interceptor disabled — current implementation tries to set context via request.prisma,
+    // but services use injected this.prisma, so the context never applies to queries.
+    // This causes 500 errors on analytics endpoints because RLS policies block access when
+    // the context isn't properly set. Proper fix: pass transactional client to services
+    // or implement RLS at a different layer (e.g., query-builder middleware).
+    // {
+    //   provide: APP_INTERCEPTOR,
+    //   useClass: RlsInterceptor,
+    // },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
