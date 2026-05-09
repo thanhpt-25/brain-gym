@@ -8,11 +8,13 @@ import { AiQuestionBankService } from './ai-question-bank.service';
 import { EncryptionService } from './crypto/encryption.service';
 import { IngestionService } from './ingestion/ingestion.service';
 import { AI_GEN_QUEUE } from '../queues/ai-gen/ai-gen.job.interface';
+import { LlmUsageModule } from './llm-usage/llm-usage.module';
 
 @Module({
   imports: [
     PrismaModule,
     QuestionsModule,
+    LlmUsageModule,
     MulterModule.register({ limits: { fileSize: 20 * 1024 * 1024 } }),
     BullModule.registerQueue({ name: AI_GEN_QUEUE }),
   ],

@@ -165,7 +165,11 @@ export class AiQuestionBankService {
 
   // ─── Generation Pipeline ─────────────────────────────────────────────────────
 
-  async generateQuestions(userId: string, dto: GenerateQuestionsDto) {
+  async generateQuestions(
+    userId: string,
+    dto: GenerateQuestionsDto,
+    orgId?: string,
+  ) {
     const config = await this.requireLlmConfig(userId, dto.provider);
 
     const cert = await this.prisma.certification.findFirst({
@@ -176,6 +180,7 @@ export class AiQuestionBankService {
     const job = await this.prisma.questionGenerationJob.create({
       data: {
         userId,
+        orgId: orgId || null,
         certificationId: cert.id,
         domainId: dto.domainId || null,
         materialId: dto.materialId || null,

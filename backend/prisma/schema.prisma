@@ -94,6 +94,11 @@ enum TimerMode {
   RELAXED
 }
 
+enum ExamType {
+  STANDARD
+  TIME_PRESSURE
+}
+
 enum FlashcardMastery {
   NEW
   LEARNING
@@ -203,6 +208,7 @@ model User {
   orgMemberships             OrgMember[]
   attemptEvents              AttemptEvent[]
   readinessScores            ReadinessScore[]
+  llmUsageEvents             LlmUsageEvent[]
 
   @@index([status])
   @@map("users")
@@ -399,6 +405,7 @@ model ExamAttempt {
   totalCorrect   Int?          @map("total_correct")
   totalQuestions Int?          @map("total_questions")
   domainScores   Json?         @map("domain_scores")
+  examType       ExamType      @default(STANDARD) @map("exam_type")
   status         AttemptStatus @default(IN_PROGRESS)
 
   user    User     @relation(fields: [userId], references: [id])
@@ -652,6 +659,7 @@ model SourceChunk {
 model QuestionGenerationJob {
   id               String              @id @default(uuid())
   userId           String              @map("user_id")
+  orgId            String?             @map("org_id") // RFC-012: Track org for cost attribution
   certificationId  String              @map("certification_id")
   domainId         String?             @map("domain_id")
   materialId       String?             @map("material_id")
@@ -668,10 +676,11 @@ model QuestionGenerationJob {
   createdAt        DateTime            @default(now()) @map("created_at")
   completedAt      DateTime?           @map("completed_at")
 
-  user          User           @relation(fields: [userId], references: [id])
-  certification Certification  @relation(fields: [certificationId], references: [id])
-  domain        Domain?        @relation(fields: [domainId], references: [id])
-  material      SourceMaterial? @relation(fields: [materialId], references: [id])
+  user          User                @relation(fields: [userId], references: [id])
+  organization  Organization?       @relation(fields: [orgId], references: [id])
+  certification Certification       @relation(fields: [certificationId], references: [id])
+  domain        Domain?             @relation(fields: [domainId], references: [id])
+  material      SourceMaterial?     @relation(fields: [materialId], references: [id])
   questions     Question[]
 
   @@map("question_generation_jobs")
@@ -720,6 +729,7 @@ model Organization {
   assessments      Assessment[]
   joinLinks        OrgJoinLink[]
   learningTracks   LearningTrack[]
+  generationJobs   QuestionGenerationJob[] // RFC-012: Track org-level LLM costs
 
   @@map("organizations")
 }
@@ -1024,4 +1034,24 @@ model ReadinessScore {
   @@unique([userId, certificationId])
   @@index([certificationId, score])
   @@map("readiness_scores")
+}
+
+// RFC-012 v0 (Sprint 4 US-407): LLM cost ledger.
+// One row per AI gen call. Used for per-org quota enforcement (warn-only this sprint).
+model LlmUsageEvent {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  orgId        String?  @map("org_id")
+  feature      String   // "question_generation" | "coach" | etc.
+  modelId      String   @map("model_id")
+  inputTokens  Int      @map("input_tokens")
+  outputTokens Int      @map("output_tokens")
+  costUsd      Decimal  @db.Decimal(10, 6) @map("cost_usd")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([orgId, createdAt])
+  @@map("llm_usage_events")
 }

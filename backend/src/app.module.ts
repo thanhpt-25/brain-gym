@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
+import { RlsInterceptor } from './common/rls.interceptor';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CertificationsModule } from './certifications/certifications.module';
@@ -30,7 +31,7 @@ import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
 import { QueuesModule } from './queues/queues.module';
 import { MasteryModule } from './mastery/mastery.module';
 import { EventsModule } from './events/events.module';
-import { ReadinessModule } from './insights/readiness/readiness.module';
+import { InsightsModule } from './insights/insights.module';
 
 @Module({
   imports: [
@@ -69,9 +70,13 @@ import { ReadinessModule } from './insights/readiness/readiness.module';
     QueuesModule,
     MasteryModule,
     EventsModule,
-    ReadinessModule,
+    InsightsModule,
   ],
   providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RlsInterceptor,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
