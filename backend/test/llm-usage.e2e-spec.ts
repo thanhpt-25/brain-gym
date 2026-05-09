@@ -319,7 +319,7 @@ describe('LLM Usage & Quota (e2e)', () => {
         .post('/ai-questions/config')
         .set('Authorization', `Bearer ${userToken}`)
         .send({
-          provider: 'openai',
+          provider: 'OPENAI',
           apiKey: 'sk-test-fake-key-for-e2e',
           modelId: 'gpt-4',
         })
@@ -331,7 +331,7 @@ describe('LLM Usage & Quota (e2e)', () => {
         .set('Authorization', `Bearer ${userToken}`)
         .send({
           certificationId: cert.id,
-          provider: 'openai',
+          provider: 'OPENAI',
           questionCount: 2,
           difficulty: 'MEDIUM',
           questionType: 'SINGLE',
