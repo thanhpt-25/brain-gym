@@ -42,9 +42,11 @@ export class RlsInterceptor implements NestInterceptor {
           async (tx) => {
             // Set the org context for this transaction
             // This must be done on the raw client, not through Prisma client methods
+            // Note: PostgreSQL SET commands don't support parameterized values,
+            // so we use string interpolation here. The orgId is a UUID from the database,
+            // so it's safe to interpolate directly (no risk of SQL injection).
             await tx.$executeRawUnsafe(
-              `SET LOCAL app.org_id = $1`,
-              orgMembership.orgId,
+              `SET LOCAL app.org_id = '${orgMembership.orgId}'`,
             );
 
             // Replace the prisma client with the transactional one for downstream handlers
