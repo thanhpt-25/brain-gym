@@ -3,11 +3,19 @@ import { Job } from 'bullmq';
 import { AttemptEventsProcessor } from './attempt-events.processor';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttemptEventType } from './event-type';
+import { READINESS_QUEUE } from '../insights/readiness/readiness.constants';
 
 const mockPrisma = {
   attemptEvent: {
     createMany: jest.fn(),
   },
+  examAttempt: {
+    findMany: jest.fn(),
+  },
+};
+
+const mockQueue = {
+  add: jest.fn(),
 };
 
 function makeJob(data: Record<string, unknown>): Job {
@@ -40,10 +48,15 @@ describe('AttemptEventsProcessor', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
 
+    // Default mock return values
+    mockPrisma.examAttempt.findMany.mockResolvedValue([]);
+    mockQueue.add.mockResolvedValue({} as any);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttemptEventsProcessor,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: `BullQueue_${READINESS_QUEUE}`, useValue: mockQueue },
       ],
     }).compile();
 
