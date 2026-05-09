@@ -7,10 +7,10 @@ ALTER TABLE "public"."org_members" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY org_members_org_isolation ON "public"."org_members"
   FOR ALL
   USING (
-    org_id = CAST(current_setting('app.org_id') AS uuid)
+    org_id = current_setting('app.org_id')::uuid
   )
   WITH CHECK (
-    org_id = CAST(current_setting('app.org_id') AS uuid)
+    org_id = current_setting('app.org_id')::uuid
   );
 
 -- Enable RLS on org_questions table
@@ -20,10 +20,10 @@ ALTER TABLE "public"."org_questions" ENABLE ROW LEVEL SECURITY;
 CREATE POLICY org_questions_org_isolation ON "public"."org_questions"
   FOR ALL
   USING (
-    org_id = CAST(current_setting('app.org_id') AS uuid)
+    org_id = current_setting('app.org_id')::uuid
   )
   WITH CHECK (
-    org_id = CAST(current_setting('app.org_id') AS uuid)
+    org_id = current_setting('app.org_id')::uuid
   );
 
 -- Log successful migration
