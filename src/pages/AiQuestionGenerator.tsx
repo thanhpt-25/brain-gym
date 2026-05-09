@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, Settings, Zap, History } from "lucide-react";
+import { Bot, Settings, Zap, History, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
@@ -10,9 +10,15 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
-import { getLlmConfigs, getGenerationHistory } from "@/services/ai-questions";
-import { JobStatusResult } from "@/types/api-types";
+import { toast } from "sonner";
+import {
+  getLlmConfigs,
+  getGenerationHistory,
+  getJobStatus,
+} from "@/services/ai-questions";
+import { JobStatusResult, GenerationJob } from "@/types/api-types";
 import LlmConfigPanel from "@/components/ai-questions/LlmConfigPanel";
 import GenerationForm from "@/components/ai-questions/GenerationForm";
 import GeneratedQuestionsReview from "@/components/ai-questions/GeneratedQuestionsReview";
@@ -30,6 +36,8 @@ export default function AiQuestionGenerator() {
     certificationId: string;
     domainId?: string;
   } | null>(null);
+  const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
+  const [loadingJobId, setLoadingJobId] = useState<string | null>(null);
 
   const { data: configs = [] } = useQuery({
     queryKey: ["llm-configs"],
@@ -48,7 +56,31 @@ export default function AiQuestionGenerator() {
     domainId?: string,
   ) => {
     setGenerationResult({ result, certificationId, domainId });
+    setActiveTab("review");
   };
+
+  const handleReviewJob = async (job: GenerationJob) => {
+    setLoadingJobId(job.id);
+    try {
+      const result = await getJobStatus(job.id);
+      setGenerationResult({
+        result,
+        certificationId: job.certificationId,
+        domainId: job.domainId,
+      });
+      setActiveTab("review");
+    } catch {
+      toast.error("Failed to load review data");
+    } finally {
+      setLoadingJobId(null);
+    }
+  };
+
+  const computedDefaultTab = generationResult
+    ? "review"
+    : hasKeys
+      ? "generate"
+      : "settings";
 
   return (
     <div className="min-h-screen bg-background">
@@ -66,9 +98,8 @@ export default function AiQuestionGenerator() {
         </div>
 
         <Tabs
-          defaultValue={
-            generationResult ? "review" : hasKeys ? "generate" : "settings"
-          }
+          value={activeTab ?? computedDefaultTab}
+          onValueChange={setActiveTab}
         >
           <TabsList className="mb-6">
             <TabsTrigger value="settings">
@@ -155,7 +186,10 @@ export default function AiQuestionGenerator() {
                 result={generationResult.result}
                 certificationId={generationResult.certificationId}
                 domainId={generationResult.domainId}
-                onReset={() => setGenerationResult(null)}
+                onReset={() => {
+                  setGenerationResult(null);
+                  setActiveTab("generate");
+                }}
               />
             </TabsContent>
           )}
@@ -173,40 +207,59 @@ export default function AiQuestionGenerator() {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {historyData.data.map((job) => (
-                      <div
-                        key={job.id}
-                        className="flex items-center justify-between py-2 border-b last:border-0"
-                      >
-                        <div>
-                          <p className="text-sm font-medium">
-                            {job.certification.name}{" "}
-                            {job.domain ? `— ${job.domain.name}` : ""}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {job.provider} · {job.difficulty} ·{" "}
-                            {job.questionCount} questions ·{" "}
-                            {(job.promptTokens || 0) +
-                              (job.completionTokens || 0)}{" "}
-                            tokens ·{" "}
-                            {new Date(job.createdAt).toLocaleDateString()}
-                          </p>
+                    {historyData.data.map((job) => {
+                      const isReviewable =
+                        job.status === "COMPLETED" &&
+                        job._count.questions === 0;
+                      return (
+                        <div
+                          key={job.id}
+                          className="flex items-center justify-between py-2 border-b last:border-0"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">
+                              {job.certification.name}{" "}
+                              {job.domain ? `— ${job.domain.name}` : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {job.provider} · {job.difficulty} ·{" "}
+                              {job.questionCount} questions ·{" "}
+                              {(job.promptTokens || 0) +
+                                (job.completionTokens || 0)}{" "}
+                              tokens ·{" "}
+                              {new Date(job.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={STATUS_COLORS[job.status] as any}
+                              className="text-xs"
+                            >
+                              {job.status}
+                            </Badge>
+                            {job._count.questions > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {job._count.questions} saved
+                              </span>
+                            )}
+                            {isReviewable && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                disabled={loadingJobId === job.id}
+                                onClick={() => handleReviewJob(job)}
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                {loadingJobId === job.id
+                                  ? "Loading…"
+                                  : "Review"}
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant={STATUS_COLORS[job.status] as any}
-                            className="text-xs"
-                          >
-                            {job.status}
-                          </Badge>
-                          {job._count.questions > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {job._count.questions} saved
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
