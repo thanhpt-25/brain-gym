@@ -393,7 +393,7 @@ export class AiQuestionBankService {
     return undefined;
   }
 
-  private extractBalancedJson(content: string): any | undefined {
+  private extractBalancedJson(content: string): any {
     for (const open of ['{', '[']) {
       const close = open === '{' ? '}' : ']';
       let start = content.indexOf(open);
