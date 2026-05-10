@@ -49,7 +49,7 @@ describe('PassLikelihoodSurvey (e2e)', () => {
     userToken = generateToken(app, user);
     otherToken = generateToken(app, other);
 
-    const cert = await createTestCertification(prisma, {
+    const { cert } = await createTestCertification(prisma, {
       code: `${CERT_CODE_PREFIX}aws-saa`,
       name: 'AWS SAA (test)',
     });

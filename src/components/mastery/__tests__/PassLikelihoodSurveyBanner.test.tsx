@@ -44,9 +44,7 @@ describe("PassLikelihoodSurveyBanner", () => {
 
     renderComponent();
     await waitFor(() => {
-      expect(
-        screen.queryByText("How confident are you?"),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("How confident are you?")).toBeNull();
     });
   });
 
@@ -58,8 +56,8 @@ describe("PassLikelihoodSurveyBanner", () => {
 
     renderComponent();
     await waitFor(() => {
-      expect(screen.getByText("How confident are you?")).toBeInTheDocument();
-      expect(screen.getByText(/On a scale of 1-10/)).toBeInTheDocument();
+      expect(screen.getByText("How confident are you?")).toBeDefined();
+      expect(screen.getByText(/On a scale of 1-10/)).toBeDefined();
     });
   });
 
@@ -72,7 +70,7 @@ describe("PassLikelihoodSurveyBanner", () => {
     renderComponent();
     await waitFor(() => {
       for (let i = 1; i <= 10; i++) {
-        expect(screen.getByText(i.toString())).toBeInTheDocument();
+        expect(screen.getByText(i.toString())).toBeDefined();
       }
     });
   });
@@ -91,7 +89,7 @@ describe("PassLikelihoodSurveyBanner", () => {
     renderComponent("cert-456");
 
     await waitFor(() => {
-      expect(screen.getByText("7")).toBeInTheDocument();
+      expect(screen.getByText("7")).toBeDefined();
     });
 
     const scoreButton = screen.getByText("7");
@@ -114,7 +112,7 @@ describe("PassLikelihoodSurveyBanner", () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText("Submit")).toBeInTheDocument();
+      expect(screen.getByText("Submit")).toBeDefined();
     });
 
     const submitButton = screen.getByText("Submit") as HTMLButtonElement;
@@ -130,7 +128,7 @@ describe("PassLikelihoodSurveyBanner", () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText("5")).toBeInTheDocument();
+      expect(screen.getByText("5")).toBeDefined();
     });
 
     const scoreButton = screen.getByText("5");
@@ -160,7 +158,7 @@ describe("PassLikelihoodSurveyBanner", () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText("8")).toBeInTheDocument();
+      expect(screen.getByText("8")).toBeDefined();
     });
 
     const scoreButton = screen.getByText("8");
@@ -174,9 +172,7 @@ describe("PassLikelihoodSurveyBanner", () => {
     });
 
     await waitFor(() => {
-      expect(
-        screen.queryByText("How confident are you?"),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText("How confident are you?")).toBeNull();
     });
   });
 });
