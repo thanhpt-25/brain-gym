@@ -27,7 +27,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: package-lock.json
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npm run type-check:strict
 
   lint-frontend:
@@ -40,7 +40,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: package-lock.json
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npm run lint
 
   lint-backend:
@@ -170,7 +170,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: package-lock.json
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
       - name: Run Playwright smoke tests
@@ -189,7 +189,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: package-lock.json
-      - run: npm ci
+      - run: npm install --legacy-peer-deps
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:
