@@ -110,6 +110,17 @@ export class LlmUsageService {
           costUsd: new Decimal(costUsd.toString()),
         },
       });
+
+      // Warn-only quota enforcement (RFC-012)
+      if (input.orgId) {
+        const usedCost = await this.getOrgDailyCost(input.orgId);
+        const limit = parseFloat(process.env.LLM_DAILY_QUOTA_USD || '5');
+        if (usedCost > limit) {
+          this.logger.warn(
+            `Organization quota exceeded: orgId=${input.orgId}, used=$${usedCost.toFixed(2)}, limit=$${limit.toFixed(2)}`
+          );
+        }
+      }
     } catch (error) {
       // Non-fatal: log but don't throw
       // LLM operation already succeeded; we just failed to record it
