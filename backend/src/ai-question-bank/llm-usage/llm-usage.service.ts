@@ -117,7 +117,7 @@ export class LlmUsageService {
         const limit = parseFloat(process.env.LLM_DAILY_QUOTA_USD || '5');
         if (usedCost > limit) {
           this.logger.warn(
-            `Organization quota exceeded: orgId=${input.orgId}, used=$${usedCost.toFixed(2)}, limit=$${limit.toFixed(2)}`
+            `Organization quota exceeded: orgId=${input.orgId}, used=$${usedCost.toFixed(2)}, limit=$${limit.toFixed(2)}`,
           );
         }
       }
@@ -176,7 +176,9 @@ export class LlmUsageService {
       },
     });
 
-    return result._sum.costUsd ? parseFloat(result._sum.costUsd.toString()) : 0;
+    return result._sum?.costUsd
+      ? parseFloat(result._sum.costUsd.toString())
+      : 0;
   }
 
   /**
@@ -203,7 +205,9 @@ export class LlmUsageService {
       },
     });
 
-    return result._sum.costUsd ? parseFloat(result._sum.costUsd.toString()) : 0;
+    return result._sum?.costUsd
+      ? parseFloat(result._sum.costUsd.toString())
+      : 0;
   }
 
   /**
@@ -235,7 +239,7 @@ export class LlmUsageService {
 
     return results.map((row) => ({
       feature: row.feature,
-      costUsd: row._sum.costUsd ? parseFloat(row._sum.costUsd.toString()) : 0,
+      costUsd: row._sum?.costUsd ? parseFloat(row._sum.costUsd.toString()) : 0,
     }));
   }
 }
