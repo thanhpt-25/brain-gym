@@ -61,7 +61,7 @@ function normalizeQuestion(q: any): GeneratedQuestionPreview {
     if (typeof opt === "string") {
       const label =
         opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
-      const content = opt.replace(/^\s*[A-Z][\.\)]\s*/, "").trim();
+      const content = opt.replace(/^\s*[A-Z][.)]\s*/, "").trim();
       return { label, content, isCorrect: correctLetters.includes(label) };
     }
     const o = opt ?? {};

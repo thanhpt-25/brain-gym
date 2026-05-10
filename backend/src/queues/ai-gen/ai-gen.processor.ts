@@ -182,7 +182,13 @@ export class AiGenProcessor extends WorkerHost {
     const MEDIUM = 0.6;
     const tier = score >= HIGH ? 'HIGH' : score >= MEDIUM ? 'MEDIUM' : null;
 
-    const correctRaw = String(q.correct_answer ?? q.correctAnswer ?? '');
+    const correctRaw = String(
+      typeof q.correct_answer === 'string'
+        ? q.correct_answer
+        : typeof q.correctAnswer === 'string'
+          ? q.correctAnswer
+          : '',
+    );
     const correctLetters = correctRaw
       .split(',')
       .map((s) => s.trim().toUpperCase())
@@ -196,9 +202,9 @@ export class AiGenProcessor extends WorkerHost {
 
     const choices = rawOptions.map((opt, idx) => {
       if (typeof opt === 'string') {
-        const label = (opt.match(/^\s*([A-Z])\b/)?.[1] ??
-          String.fromCharCode(65 + idx)) as string;
-        const content = opt.replace(/^\s*[A-Z][\.\)]\s*/, '').trim();
+        const label =
+          opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
+        const content = opt.replace(/^\s*[A-Z][.)]\s*/, '').trim();
         return {
           label,
           content,

@@ -3,10 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { getMastery, getNextTopic } from "../../services/mastery";
 import { useReadiness } from "../../services/readiness";
+import { useAuthStore } from "../../stores/auth.store";
 import { ReadinessGauge } from "../../components/mastery/ReadinessGauge";
 import { DomainBentoCard } from "../../components/mastery/DomainBentoCard";
 import { DomainBreakdownDrawer } from "../../components/mastery/DomainBreakdownDrawer";
 import { NextTopicCard } from "../../components/mastery/NextTopicCard";
+import { PassLikelihoodSurveyBanner } from "../../components/mastery/PassLikelihoodSurveyBanner";
 
 /** Map a numeric score to the canonical readiness label. */
 function scoreLabelFor(score: number | undefined): string {
@@ -37,6 +39,7 @@ export default function MasteryPage() {
   });
 
   const { data: readiness } = useReadiness(certId);
+  const authUser = useAuthStore().user;
 
   const { data: nextTopicSuggestion, isLoading: isLoadingNextTopic } = useQuery(
     {
@@ -87,6 +90,10 @@ export default function MasteryPage() {
         isLoading={isLoadingNextTopic}
         certificationId={certId ?? ""}
       />
+
+      {authUser?.featureFlags?.passPredictorBeta && (
+        <PassLikelihoodSurveyBanner certificationId={certId ?? ""} />
+      )}
 
       {data.isEmpty ? (
         <section
