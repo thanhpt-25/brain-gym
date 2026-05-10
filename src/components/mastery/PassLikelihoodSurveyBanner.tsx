@@ -17,13 +17,13 @@ export function PassLikelihoodSurveyBanner({
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: status, isLoading } = useQuery<PassLikelihoodStatus>({
+  const { data: status, isLoading, isError } = useQuery<PassLikelihoodStatus>({
     queryKey: ["pass-likelihood-status", certificationId],
     queryFn: () => getPassLikelihoodStatus(certificationId),
     enabled: !!certificationId,
   });
 
-  const { mutate: submit, isPending } = useMutation({
+  const { mutate: submit, isPending, isSuccess } = useMutation({
     mutationFn: (score: number) => submitPassLikelihood(certificationId, score),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -33,7 +33,12 @@ export function PassLikelihoodSurveyBanner({
     },
   });
 
-  if (isLoading || !status || status.submitted) {
+  if (isLoading) {
+    return null;
+  }
+
+  // Prevent rendering if there's an error fetching status or already submitted
+  if (isError || !status || status.submitted || isSuccess) {
     return null;
   }
 

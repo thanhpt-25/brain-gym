@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsUUID, Max, Min } from 'class-validator';
+import { IsInt, IsString, Max, Min } from 'class-validator';
 
 export class SubmitPassLikelihoodDto {
   @ApiProperty({
     description: 'Certification the survey response is scoped to',
   })
-  @IsUUID()
+  @IsString()
   certificationId!: string;
 
   @ApiProperty({

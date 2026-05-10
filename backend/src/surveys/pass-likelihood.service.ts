@@ -19,8 +19,10 @@ export class PassLikelihoodService {
     certificationId: string,
     score: number,
   ): Promise<{ id: string; score: number; submittedAt: Date }> {
-    const cert = await this.prisma.certification.findUnique({
-      where: { id: certificationId },
+    const cert = await this.prisma.certification.findFirst({
+      where: {
+        OR: [{ id: certificationId }, { code: certificationId }],
+      },
       select: { id: true },
     });
     if (!cert) {
@@ -29,7 +31,7 @@ export class PassLikelihoodService {
 
     try {
       const row = await this.prisma.passLikelihoodSurvey.create({
-        data: { userId, certificationId, score },
+        data: { userId, certificationId: cert.id, score },
         select: { id: true, score: true, submittedAt: true },
       });
       this.logger.debug(
@@ -53,8 +55,19 @@ export class PassLikelihoodService {
     userId: string,
     certificationId: string,
   ): Promise<PassLikelihoodStatusDto> {
+    const cert = await this.prisma.certification.findFirst({
+      where: {
+        OR: [{ id: certificationId }, { code: certificationId }],
+      },
+      select: { id: true },
+    });
+
+    if (!cert) {
+      return { submitted: false, score: null };
+    }
+
     const row = await this.prisma.passLikelihoodSurvey.findUnique({
-      where: { userId_certificationId: { userId, certificationId } },
+      where: { userId_certificationId: { userId, certificationId: cert.id } },
       select: { score: true },
     });
     return row

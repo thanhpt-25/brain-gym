@@ -19,6 +19,7 @@ const publicSelect = {
   points: true,
   suspendedUntil: true,
   banReason: true,
+  featureFlags: true,
   createdAt: true,
 };
 

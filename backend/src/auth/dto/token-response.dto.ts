@@ -14,6 +14,7 @@ export class TokenResponseDto {
     displayName: string;
     role: string;
     plan: string;
+    featureFlags: any;
     orgMemberships: {
       orgId: string;
       slug: string;

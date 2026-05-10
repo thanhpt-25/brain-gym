@@ -119,6 +119,7 @@ export class AuthService {
         displayName: user.displayName,
         role: user.role,
         plan: user.plan,
+        featureFlags: user.featureFlags,
         orgMemberships,
       },
     };
