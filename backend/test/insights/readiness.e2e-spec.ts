@@ -70,7 +70,7 @@ describe('Readiness (e2e)', () => {
       });
     });
 
-    it('should return the score if attempts >= 10', async () => {
+    it('should return the score if attempts >= 50', async () => {
       // Manually set a readiness score to bypass the full computation tree
       await prisma.readinessScore.create({
         data: {
@@ -78,7 +78,7 @@ describe('Readiness (e2e)', () => {
           certificationId: testCert.id,
           score: 85,
           confidence: 0.75,
-          attempts: 12, // Above MIN_ATTEMPTS_FOR_SCORE
+          attempts: 50, // Above MIN_ATTEMPTS_FOR_SCORE
           signals: {
             srsCoverage: 0.5,
             recentAccuracy14d: 0.8,
@@ -95,8 +95,8 @@ describe('Readiness (e2e)', () => {
 
       expect(response.body).toMatchObject({
         score: 85,
-        confidence: '0.75', // Decimal usually serializes to string
-        attempts: 12,
+        confidence: '0.75',
+        attempts: 50,
       });
     });
   });

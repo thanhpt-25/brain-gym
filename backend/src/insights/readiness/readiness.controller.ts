@@ -31,10 +31,10 @@ export class ReadinessController {
     );
 
     if (!row || row.attempts < MIN_ATTEMPTS_FOR_SCORE) {
-      throw new NotFoundException({
-        message: 'not_enough_attempts',
-        error: `Readiness score unavailable — user has ${row?.attempts ?? 0} of ${MIN_ATTEMPTS_FOR_SCORE} required attempts`,
-      });
+      return {
+        score: null,
+        reason: 'not_enough_attempts',
+      };
     }
 
     return row;

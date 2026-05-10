@@ -162,7 +162,7 @@ export class ReadinessService {
       select: { payload: true },
     });
 
-    if (submittedEvents.length === 0) return 0.5;
+    if (submittedEvents.length === 0) return 0;
 
     const fractions = submittedEvents
       .map((e) => {
@@ -173,7 +173,7 @@ export class ReadinessService {
       })
       .filter((v): v is number => v !== null);
 
-    if (fractions.length === 0) return 0.5;
+    if (fractions.length === 0) return 0;
 
     const avg = fractions.reduce((sum, v) => sum + v, 0) / fractions.length;
     return Math.min(1, Math.max(0, avg));
