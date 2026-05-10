@@ -196,8 +196,8 @@ export class AiGenProcessor extends WorkerHost {
 
     const choices = rawOptions.map((opt, idx) => {
       if (typeof opt === 'string') {
-        const label = (opt.match(/^\s*([A-Z])\b/)?.[1] ??
-          String.fromCharCode(65 + idx)) as string;
+        const label =
+          opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
         const content = opt.replace(/^\s*[A-Z][\.\)]\s*/, '').trim();
         return {
           label,

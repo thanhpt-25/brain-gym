@@ -39,6 +39,7 @@ export default function MasteryPage() {
   });
 
   const { data: readiness } = useReadiness(certId);
+  const authUser = useAuthStore().user;
 
   const { data: nextTopicSuggestion, isLoading: isLoadingNextTopic } = useQuery(
     {
@@ -90,7 +91,7 @@ export default function MasteryPage() {
         certificationId={certId ?? ""}
       />
 
-      {useAuthStore().user?.featureFlags?.passPredictorBeta && (
+      {authUser?.featureFlags?.passPredictorBeta && (
         <PassLikelihoodSurveyBanner certificationId={certId ?? ""} />
       )}
 
