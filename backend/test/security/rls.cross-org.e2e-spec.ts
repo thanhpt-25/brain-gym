@@ -241,6 +241,154 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
     });
   });
 
+  describe('org_groups RLS', () => {
+    it('should allow reading own organization groups', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org1.id}/groups`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).not.toBe(403);
+    });
+
+    it('should deny reading groups from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org2.id}/groups`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny creating group in different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/organizations/${org2.id}/groups`)
+        .set('Authorization', `Bearer ${token1Org1}`)
+        .send({ name: 'Hacked Group' });
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny updating group in different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/organizations/${org2.id}/groups/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`)
+        .send({ name: 'Hacked Title' });
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny deleting group from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/organizations/${org2.id}/groups/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('org_invites RLS', () => {
+    it('should allow reading own organization invites', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org1.id}/invites`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).not.toBe(403);
+    });
+
+    it('should deny reading invites from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org2.id}/invites`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny updating invite in different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/organizations/${org2.id}/invites/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`)
+        .send({ status: 'REVOKED' });
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny deleting invite from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/organizations/${org2.id}/invites/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('assessments RLS', () => {
+    it('should allow reading own organization assessments', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org1.id}/assessments`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).not.toBe(403);
+    });
+
+    it('should deny reading assessments from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org2.id}/assessments`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny creating assessment in different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/organizations/${org2.id}/assessments`)
+        .set('Authorization', `Bearer ${token1Org1}`)
+        .send({ title: 'Hacked Assessment' });
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny updating assessment in different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/organizations/${org2.id}/assessments/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`)
+        .send({ title: 'Hacked Title' });
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny deleting assessment from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/organizations/${org2.id}/assessments/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('exam_catalog_items RLS', () => {
+    it('should allow reading own organization catalog items', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org1.id}/catalog`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).not.toBe(403);
+    });
+
+    it('should deny reading catalog items from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${org2.id}/catalog`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny creating catalog item in different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/organizations/${org2.id}/catalog`)
+        .set('Authorization', `Bearer ${token1Org1}`)
+        .send({ type: 'FIXED' });
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny updating catalog item in different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/organizations/${org2.id}/catalog/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`)
+        .send({ isActive: false });
+      expect(response.status).toBe(403);
+    });
+
+    it('should deny deleting catalog item from different organization', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/organizations/${org2.id}/catalog/dummy-id`)
+        .set('Authorization', `Bearer ${token1Org1}`);
+      expect(response.status).toBe(403);
+    });
+  });
+
   describe('RLS Policy Enforcement at Database Level', () => {
     it('RLS policies should exist on org_members', async () => {
       const policies = await prisma.$queryRaw<any[]>`

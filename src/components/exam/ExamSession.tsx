@@ -20,15 +20,26 @@ interface ExamSessionProps {
 
 function getTimerClass(timeLeft: number, totalSeconds: number, timerMode?: TimerMode): string {
   if (timerMode === 'RELAXED') return 'text-muted-foreground';
+  
+  const ratio = totalSeconds > 0 ? timeLeft / totalSeconds : 1;
+
+  if (timerMode === 'TIME_PRESSURE') {
+    if (ratio <= 0.05) return 'text-destructive motion-safe:animate-pulse font-bold';
+    if (ratio <= 0.10) return 'text-destructive font-semibold';
+    if (ratio <= 0.25) return 'text-orange-500 font-semibold';
+    return 'text-foreground';
+  }
+
   if (timerMode === 'ACCELERATED') {
-    const ratio = totalSeconds > 0 ? timeLeft / totalSeconds : 1;
-    if (ratio <= 0.25) return 'text-destructive animate-pulse';
+    if (ratio <= 0.25) return 'text-destructive motion-safe:animate-pulse';
     if (ratio <= 0.5) return 'text-orange-400';
     return 'text-foreground';
   }
   // STRICT (default)
-  return timeLeft < 300 ? 'text-destructive animate-pulse' : 'text-foreground';
+  return timeLeft < 300 ? 'text-destructive motion-safe:animate-pulse' : 'text-foreground';
 }
+
+import { useState, useEffect } from 'react';
 
 export function ExamSession({
   attemptData,
@@ -45,6 +56,23 @@ export function ExamSession({
 }: ExamSessionProps) {
   const currentQuestion = questions[currentIndex];
   const timerMode = attemptData?.timerMode;
+  
+  const [announcement, setAnnouncement] = useState('');
+
+  useEffect(() => {
+    if (timerMode !== 'TIME_PRESSURE' || totalSeconds <= 0) return;
+    const ratio = timeLeft / totalSeconds;
+    
+    // Determine the current threshold bracket
+    let bracket = '';
+    if (ratio <= 0.05) bracket = '5% time remaining. Please finalize your answers.';
+    else if (ratio <= 0.10) bracket = '10% time remaining.';
+    else if (ratio <= 0.25) bracket = '25% time remaining.';
+
+    if (bracket && bracket !== announcement) {
+      setAnnouncement(bracket);
+    }
+  }, [timeLeft, totalSeconds, timerMode, announcement]);
 
   if (!currentQuestion) return null;
 
@@ -54,6 +82,11 @@ export function ExamSession({
 
   return (
     <div className="flex-1 flex flex-col">
+      {/* Accessibility live region for screen readers */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+
       {/* Accelerated mode banner */}
       {isAccelerated && (
         <div className="bg-orange-500/10 border-b border-orange-500/30 px-4 py-1.5 flex items-center justify-center gap-2 text-xs font-mono text-orange-400">
