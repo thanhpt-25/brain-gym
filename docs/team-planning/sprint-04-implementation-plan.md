@@ -3,7 +3,7 @@
 - **Version target:** v1.2.0 (GA)
 - **Capacity:** 48 SP (velocity bump per [02-scrum-master.md §1.2](./02-scrum-master.md))
 - **Window:** 2026-05-15 → 2026-05-28 (2 weeks)
-- **Status as of 2026-05-10:** Pre-sprint prep complete. US-408 (Predictor harness + beta opt-in) fully implemented & verified in Docker. All database migrations applied. Backend & frontend stacks healthy. Ready for team sprint execution starting 2026-05-15.
+- **Status as of 2026-05-10:** Pre-sprint prep complete. **US-408 (Predictor harness + beta opt-in) fully implemented, verified, and CI-passing** (all lint, type checks, tests, Lighthouse green). All database migrations applied. Backend & frontend stacks healthy. Ready for team sprint execution starting 2026-05-15.
 - **Sprint goal:** Ship Pass Predictor v1 (Readiness Score + domain breakdown) to a 200-user premium beta, wire Adaptive Weakness suggest, land Time Pressure Mode, start Postgres RLS rollout, and put an LLM cost ceiling around AI gen + Coach prep work.
 
 **Pre-Sprint Readiness:**
@@ -84,13 +84,14 @@ Total: **53 SP raw → 48 SP after capacity match.** US-410/411 absorb spillover
 
 **Pending (start of sprint):**
 
-- **US-401** — RFC-003 GA `ReadinessScore` compute job (in progress, BE)
+- **US-401** — RFC-003 GA `ReadinessScore` compute job (ready for kickoff, BE)
 - **US-402** — Readiness Score UI on Mastery Dashboard (ready for integration with US-401)
 - **US-403** — Domain breakdown drill-down (pending US-402)
 - **US-404** — Adaptive Weakness suggest (pending US-401)
 - **US-405** — Time Pressure Mode (independent, ready)
 - **US-406** — RLS phase-1 on 2 tables (independent, ready)
 - **US-407** — LLM usage events + quota (independent, ready)
+- **US-408** — Beta cohort seeding (waiting on PO email list; code complete & CI green; unblock on Mon Day 9)
 - **US-409** — Strict TS rollout (independent, ready)
 - **US-410/411** — Bug pool + retro (buffer)
 
