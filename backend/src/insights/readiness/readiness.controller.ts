@@ -1,4 +1,11 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../../common/interfaces/request.interface';
@@ -24,7 +31,10 @@ export class ReadinessController {
     );
 
     if (!row || row.attempts < MIN_ATTEMPTS_FOR_SCORE) {
-      return { score: null, reason: 'not_enough_attempts' };
+      throw new NotFoundException({
+        message: 'not_enough_attempts',
+        error: `Readiness score unavailable — user has ${row?.attempts ?? 0} of ${MIN_ATTEMPTS_FOR_SCORE} required attempts`,
+      });
     }
 
     return row;
