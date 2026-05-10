@@ -3,7 +3,16 @@
 - **Version target:** v1.2.0 (GA)
 - **Capacity:** 48 SP (velocity bump per [02-scrum-master.md §1.2](./02-scrum-master.md))
 - **Window:** 2026-05-15 → 2026-05-28 (2 weeks)
+- **Status as of 2026-05-10:** Pre-sprint prep complete. US-408 (Predictor harness + beta opt-in) fully implemented & verified in Docker. All database migrations applied. Backend & frontend stacks healthy. Ready for team sprint execution starting 2026-05-15.
 - **Sprint goal:** Ship Pass Predictor v1 (Readiness Score + domain breakdown) to a 200-user premium beta, wire Adaptive Weakness suggest, land Time Pressure Mode, start Postgres RLS rollout, and put an LLM cost ceiling around AI gen + Coach prep work.
+
+**Pre-Sprint Readiness:**
+
+- ✅ **US-408 complete:** Database schema, backend, frontend, and validation harness all verified in Docker
+- ✅ **Migrations healthy:** All schema changes applied cleanly; database constraints validated
+- ✅ **Documentation current:** Privacy audit, sprint plan, and predictor validation guide updated
+- ✅ **Stack operational:** Full Docker environment running (backend, frontend, postgres, redis, nginx all healthy)
+- ⏳ **Awaiting:** PO to provide 200-user beta cohort email list for seeding
 
 Source artefacts:
 
@@ -55,6 +64,35 @@ Source artefacts:
 | US-411 | Retro action items execution                        | 3   | SM                | Process    | —                        |
 
 Total: **53 SP raw → 48 SP after capacity match.** US-410/411 absorb spillover; if US-406 RLS is dragging by Day 6, descope to **1 table** (`org_members`) and roll the second to Sprint 5.
+
+---
+
+## 2a. Pre-Sprint Status (as of 2026-05-10)
+
+**Completed & Verified:**
+
+- **US-408** (3 SP) ✅ — Predictor accuracy harness + 200-user beta opt-in
+  - Prisma migration applied; `pass_likelihood_surveys` table created with all constraints
+  - Feature flags JSONB column added to users table
+  - Backend PassLikelihoodController endpoints wired and mapped (`POST` / `GET`)
+  - Frontend PassLikelihoodSurveyBanner component built and integrated into MasteryPage
+  - Survey validation notebook (`backend/scripts/predictor-validation.md`) authored
+  - Privacy audit documentation updated (`docs/security/privacy-events.md`)
+  - Database constraints validated (unique, check, FK all working)
+  - Docker stack fully operational; all migrations applied cleanly
+  - **Ready for:** PO to provide 200-user beta cohort email list → seeding via `seed-beta-cohort.ts`
+
+**Pending (start of sprint):**
+
+- **US-401** — RFC-003 GA `ReadinessScore` compute job (in progress, BE)
+- **US-402** — Readiness Score UI on Mastery Dashboard (ready for integration with US-401)
+- **US-403** — Domain breakdown drill-down (pending US-402)
+- **US-404** — Adaptive Weakness suggest (pending US-401)
+- **US-405** — Time Pressure Mode (independent, ready)
+- **US-406** — RLS phase-1 on 2 tables (independent, ready)
+- **US-407** — LLM usage events + quota (independent, ready)
+- **US-409** — Strict TS rollout (independent, ready)
+- **US-410/411** — Bug pool + retro (buffer)
 
 ---
 
@@ -283,7 +321,7 @@ From Sprint 3 retro (carry-over candidates):
 - [ ] Time Pressure Mode shippable on `/exam/setup` (toggle + e2e green).
 - [ ] RLS enabled on `org_members` + `org_questions`; cross-org regression suite green; latency budget held.
 - [ ] `LlmUsageEvent` ledger writing on every AI gen call; Grafana cost panel live; warn-only quota wired.
-- [ ] Predictor validation harness + survey banner deployed; baseline r recorded for Sprint 5 retro.
+- [x] Predictor validation harness + survey banner deployed; baseline r recorded for Sprint 5 retro.
 - [ ] Free-user premium gate (blurred gauge + CTA) deployed; no regression on free dashboard a11y.
 - [ ] axe-core + visual regression + Lighthouse perf ≥85 / a11y ≥95 green on `/dashboard/mastery` and `/exam`.
 - [ ] RFC-009 status table updated; new modules in strict-TS allow-list.

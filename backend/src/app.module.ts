@@ -32,6 +32,7 @@ import { QueuesModule } from './queues/queues.module';
 import { MasteryModule } from './mastery/mastery.module';
 import { EventsModule } from './events/events.module';
 import { InsightsModule } from './insights/insights.module';
+import { PassLikelihoodModule } from './surveys/pass-likelihood.module';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { InsightsModule } from './insights/insights.module';
     MasteryModule,
     EventsModule,
     InsightsModule,
+    PassLikelihoodModule,
   ],
   providers: [
     // TODO: RLS interceptor disabled — current implementation tries to set context via request.prisma,

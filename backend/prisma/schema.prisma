@@ -187,6 +187,7 @@ model User {
   points         Int        @default(0)
   suspendedUntil DateTime?  @map("suspended_until")
   banReason      String?    @map("ban_reason")
+  featureFlags   Json       @default("{}") @map("feature_flags")
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
@@ -209,6 +210,7 @@ model User {
   attemptEvents              AttemptEvent[]
   readinessScores            ReadinessScore[]
   llmUsageEvents             LlmUsageEvent[]
+  passLikelihoodSurveys      PassLikelihoodSurvey[]
 
   @@index([status])
   @@map("users")
@@ -252,6 +254,7 @@ model Certification {
   catalogItems   ExamCatalogItem[]
   orgQuestions   OrgQuestion[]
   readinessScores ReadinessScore[]
+  passLikelihoodSurveys PassLikelihoodSurvey[]
 
   @@map("certifications")
 }
@@ -1054,4 +1057,21 @@ model LlmUsageEvent {
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
   @@map("llm_usage_events")
+}
+
+// US-408 — Pass-likelihood self-report survey for predictor validation.
+// One response per user per certification; score is 1..10 (CHECK enforced in migration).
+model PassLikelihoodSurvey {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  certificationId String   @map("certification_id")
+  score           Int
+  submittedAt     DateTime @default(now()) @map("submitted_at")
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certification Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, certificationId])
+  @@index([certificationId])
+  @@map("pass_likelihood_surveys")
 }
