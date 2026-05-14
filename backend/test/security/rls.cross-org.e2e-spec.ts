@@ -47,11 +47,21 @@ describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
   beforeEach(async () => {
     // Clean up tables (order matters due to foreign keys)
+    // Delete dependent records first, then parents
     await prisma.questionGenerationJob.deleteMany({});
     await prisma.llmUsageEvent.deleteMany({});
+    await prisma.attemptEvent.deleteMany({});
+    await prisma.examAttempt.deleteMany({});
+    await prisma.readinessScore.deleteMany({});
+    await prisma.passLikelihoodSurvey.deleteMany({});
+    await prisma.exam.deleteMany({});
+    await prisma.question.deleteMany({});
+    await prisma.assessment.deleteMany({});
     await prisma.orgQuestion.deleteMany({});
     await prisma.orgMember.deleteMany({});
     await prisma.organization.deleteMany({});
+    await prisma.certification.deleteMany({});
+    await prisma.provider.deleteMany({});
     await prisma.user.deleteMany({});
 
     // Create test users
