@@ -40,6 +40,9 @@ export default function MasteryPage() {
 
   const { data: readiness } = useReadiness(certId);
   const authUser = useAuthStore().user;
+  const isPremiumUser =
+    authUser?.plan === "PREMIUM" || authUser?.plan === "ENTERPRISE";
+  const showReadiness = authUser?.featureFlags?.["FF_PREDICTOR_BETA"] ?? false;
 
   const { data: nextTopicSuggestion, isLoading: isLoadingNextTopic } = useQuery(
     {
@@ -74,16 +77,18 @@ export default function MasteryPage() {
 
   return (
     <main id="main-content" className="mastery-page">
-      <ReadinessGauge
-        score={readiness?.score ?? null}
-        confidence={readiness?.confidence ?? 0}
-        attempts={readiness?.attempts ?? data.totalAttempts}
-        label={scoreLabelFor(readiness?.score)}
-        isPremium={true}
-        signals={readiness?.signals}
-        onOpenBreakdown={() => setDrawerOpen(true)}
-        breakdownTriggerRef={gaugeRef}
-      />
+      {showReadiness && (
+        <ReadinessGauge
+          score={readiness?.score ?? null}
+          confidence={readiness?.confidence ?? 0}
+          attempts={readiness?.attempts ?? data.totalAttempts}
+          label={scoreLabelFor(readiness?.score)}
+          isPremium={isPremiumUser}
+          signals={readiness?.signals}
+          onOpenBreakdown={() => setDrawerOpen(true)}
+          breakdownTriggerRef={gaugeRef}
+        />
+      )}
 
       <NextTopicCard
         suggestion={nextTopicSuggestion ?? null}
