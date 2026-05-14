@@ -92,6 +92,7 @@ enum TimerMode {
   STRICT
   ACCELERATED
   RELAXED
+  TIME_PRESSURE
 }
 
 enum ExamType {

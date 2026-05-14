@@ -20,7 +20,7 @@ import { JwtService } from '@nestjs/jwt';
  * Tests written first; RLS guards/middleware implementation is pending.
  * Unskip these tests once NestJS authorization guards are implemented.
  */
-describe.skip('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
+describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let jwtService: JwtService;
@@ -47,11 +47,21 @@ describe.skip('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
 
   beforeEach(async () => {
     // Clean up tables (order matters due to foreign keys)
+    // Delete dependent records first, then parents
     await prisma.questionGenerationJob.deleteMany({});
     await prisma.llmUsageEvent.deleteMany({});
+    await prisma.attemptEvent.deleteMany({});
+    await prisma.examAttempt.deleteMany({});
+    await prisma.readinessScore.deleteMany({});
+    await prisma.passLikelihoodSurvey.deleteMany({});
+    await prisma.exam.deleteMany({});
+    await prisma.question.deleteMany({});
+    await prisma.assessment.deleteMany({});
     await prisma.orgQuestion.deleteMany({});
     await prisma.orgMember.deleteMany({});
     await prisma.organization.deleteMany({});
+    await prisma.certification.deleteMany({});
+    await prisma.provider.deleteMany({});
     await prisma.user.deleteMany({});
 
     // Create test users
@@ -245,7 +255,7 @@ describe.skip('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
     });
   });
 
-  describe('org_groups RLS', () => {
+  describe.skip('org_groups RLS (Phase-2: controllers not yet implemented)', () => {
     it('should allow reading own organization groups', async () => {
       const response = await request(app.getHttpServer())
         .get(`/organizations/${org1.id}/groups`)
@@ -284,7 +294,7 @@ describe.skip('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
     });
   });
 
-  describe('org_invites RLS', () => {
+  describe.skip('org_invites RLS (Phase-2: controllers not yet implemented)', () => {
     it('should allow reading own organization invites', async () => {
       const response = await request(app.getHttpServer())
         .get(`/organizations/${org1.id}/invites`)
@@ -315,7 +325,7 @@ describe.skip('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
     });
   });
 
-  describe('assessments RLS', () => {
+  describe.skip('assessments RLS (Phase-2: controllers not yet implemented)', () => {
     it('should allow reading own organization assessments', async () => {
       const response = await request(app.getHttpServer())
         .get(`/organizations/${org1.id}/assessments`)

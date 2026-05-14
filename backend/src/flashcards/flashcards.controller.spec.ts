@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FlashcardsController } from './flashcards.controller';
 import { FlashcardsService } from './flashcards.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../common/interfaces/request.interface';
 
 describe('FlashcardsController', () => {
   let controller: FlashcardsController;
@@ -40,7 +41,7 @@ describe('FlashcardsController', () => {
   describe('Decks', () => {
     it('should create a deck', async () => {
       const dto = { name: 'Test Deck' };
-      const req = { user: { id: 'user-1' } };
+      const req = { user: { id: 'user-1' } } as unknown as AuthenticatedRequest;
       mockFlashcardsService.createDeck.mockResolvedValue({
         id: 'deck-1',
         ...dto,
@@ -55,7 +56,7 @@ describe('FlashcardsController', () => {
     });
 
     it('should list user decks', async () => {
-      const req = { user: { id: 'user-1' } };
+      const req = { user: { id: 'user-1' } } as unknown as AuthenticatedRequest;
       mockFlashcardsService.getDecks.mockResolvedValue([]);
 
       const result = await controller.getDecks(req);
@@ -67,7 +68,7 @@ describe('FlashcardsController', () => {
   describe('Flashcards', () => {
     it('should create a flashcard', async () => {
       const dto = { deckId: 'deck-1', front: 'Q', back: 'A' };
-      const req = { user: { id: 'user-1' } };
+      const req = { user: { id: 'user-1' } } as unknown as AuthenticatedRequest;
       mockFlashcardsService.createFlashcard.mockResolvedValue({
         id: 'card-1',
         ...dto,
@@ -82,24 +83,24 @@ describe('FlashcardsController', () => {
     });
 
     it('should submit an SRS review', async () => {
-      const req = { user: { id: 'user-1' } };
+      const req = { user: { id: 'user-1' } } as unknown as AuthenticatedRequest;
       const flashcardId = 'card-1';
-      const quality = 5;
+      const dto = { quality: 5 };
       mockFlashcardsService.submitReview.mockResolvedValue({
         status: 'updated',
       });
 
-      const result = await controller.submitReview(req, flashcardId, quality);
+      const result = await controller.submitReview(req, flashcardId, dto);
       expect(result).toEqual({ status: 'updated' });
       expect(mockFlashcardsService.submitReview).toHaveBeenCalledWith(
         'user-1',
         flashcardId,
-        quality,
+        dto,
       );
     });
 
     it('should get due flashcard reviews', async () => {
-      const req = { user: { id: 'user-1' } };
+      const req = { user: { id: 'user-1' } } as unknown as AuthenticatedRequest;
       mockFlashcardsService.getDueReviews.mockResolvedValue([]);
 
       const result = await controller.getDueReviews(req, 'deck-1');
