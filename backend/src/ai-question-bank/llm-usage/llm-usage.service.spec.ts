@@ -122,6 +122,118 @@ describe('LlmUsageService', () => {
       // Should not throw
       await expect(service.recordUsageEvent(input)).resolves.toBeUndefined();
     });
+
+    describe('warn-only quota enforcement (RFC-012)', () => {
+      beforeEach(() => {
+        // Clear env var before each quota test
+        delete process.env.LLM_DAILY_QUOTA_USD;
+      });
+
+      it('should warn when org daily cost exceeds default quota ($5)', async () => {
+        const warnSpy = jest.spyOn(service['logger'], 'warn');
+        const mockDecimal = {
+          toString: jest.fn().mockReturnValue('6.5'),
+        };
+        mockPrisma.llmUsageEvent.aggregate.mockResolvedValueOnce({
+          _sum: { costUsd: mockDecimal },
+        });
+
+        const input = {
+          userId: 'user-123',
+          orgId: 'org-456',
+          feature: 'question_generation' as const,
+          modelId: 'gpt-4',
+          inputTokens: 1000,
+          outputTokens: 2000,
+        };
+
+        await service.recordUsageEvent(input);
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Organization quota exceeded'),
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('org-456'),
+        );
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('$6.50'));
+      });
+
+      it('should not warn when org daily cost is below quota', async () => {
+        const warnSpy = jest.spyOn(service['logger'], 'warn');
+        const mockDecimal = {
+          toString: jest.fn().mockReturnValue('3.5'),
+        };
+        mockPrisma.llmUsageEvent.aggregate.mockResolvedValueOnce({
+          _sum: { costUsd: mockDecimal },
+        });
+
+        const input = {
+          userId: 'user-123',
+          orgId: 'org-456',
+          feature: 'question_generation' as const,
+          modelId: 'gpt-4',
+          inputTokens: 1000,
+          outputTokens: 2000,
+        };
+
+        await service.recordUsageEvent(input);
+
+        expect(warnSpy).not.toHaveBeenCalled();
+      });
+
+      it('should respect custom quota from env var', async () => {
+        process.env.LLM_DAILY_QUOTA_USD = '2.5';
+        const warnSpy = jest.spyOn(service['logger'], 'warn');
+        const mockDecimal = {
+          toString: jest.fn().mockReturnValue('3.0'),
+        };
+        mockPrisma.llmUsageEvent.aggregate.mockResolvedValueOnce({
+          _sum: { costUsd: mockDecimal },
+        });
+
+        const input = {
+          userId: 'user-123',
+          orgId: 'org-456',
+          feature: 'question_generation' as const,
+          modelId: 'gpt-4',
+          inputTokens: 1000,
+          outputTokens: 2000,
+        };
+
+        await service.recordUsageEvent(input);
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Organization quota exceeded'),
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('limit=$2.50'),
+        );
+      });
+
+      it('should skip quota check when orgId is null', async () => {
+        const warnSpy = jest.spyOn(service['logger'], 'warn');
+        const mockDecimal = {
+          toString: jest.fn().mockReturnValue('100.0'),
+        };
+        mockPrisma.llmUsageEvent.aggregate.mockResolvedValueOnce({
+          _sum: { costUsd: mockDecimal },
+        });
+
+        const input = {
+          userId: 'user-123',
+          orgId: null,
+          feature: 'question_generation' as const,
+          modelId: 'gpt-4',
+          inputTokens: 1000,
+          outputTokens: 2000,
+        };
+
+        await service.recordUsageEvent(input);
+
+        expect(warnSpy).not.toHaveBeenCalled();
+        expect(mockPrisma.llmUsageEvent.aggregate).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('recordQuestionGeneration', () => {
