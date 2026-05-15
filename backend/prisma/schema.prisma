@@ -212,6 +212,7 @@ model User {
   readinessScores            ReadinessScore[]
   llmUsageEvents             LlmUsageEvent[]
   passLikelihoodSurveys      PassLikelihoodSurvey[]
+  behavioralInsights         BehavioralInsight[]
 
   @@index([status])
   @@map("users")
@@ -256,6 +257,7 @@ model Certification {
   orgQuestions   OrgQuestion[]
   readinessScores ReadinessScore[]
   passLikelihoodSurveys PassLikelihoodSurvey[]
+  behavioralInsights BehavioralInsight[]
 
   @@map("certifications")
 }
@@ -713,17 +715,19 @@ model AuditLog {
 // ==================== ENTERPRISE ====================
 
 model Organization {
-  id          String   @id @default(uuid())
-  name        String
-  slug        String   @unique
-  logoUrl     String?  @map("logo_url")
-  description String?
-  industry    String?
-  accentColor String?  @map("accent_color")
-  maxSeats    Int      @default(10) @map("max_seats")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  logoUrl         String?  @map("logo_url")
+  description     String?
+  industry        String?
+  accentColor     String?  @map("accent_color")
+  maxSeats        Int      @default(10) @map("max_seats")
+  isActive        Boolean  @default(true) @map("is_active")
+  /// RFC-012: Per-org daily LLM spending cap in USD. Null means fall back to LLM_DAILY_QUOTA_USD env var.
+  llmDailyUsdCap  Decimal? @map("llm_daily_usd_cap") @db.Decimal(10, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   members          OrgMember[]
   invites          OrgInvite[]
@@ -1075,4 +1079,36 @@ model PassLikelihoodSurvey {
   @@unique([userId, certificationId])
   @@index([certificationId])
   @@map("pass_likelihood_surveys")
+}
+
+// RFC-008 (Sprint 5 US-503): Behavioral Insights v0.
+// Nightly job `insights:behavioral:nightly` reads `attempt_events` (last 14 days),
+// computes per-user-per-cert patterns, upserts one row per (userId, certId, kind, generatedFor).
+// `generated_for` is the calendar date (UTC) of the nightly run — provides idempotency
+// and lets us re-run the job within a day without duplicating rows.
+//
+// `kind` is one of: "slow_on_long_stems" | "accuracy_decline_after_30min" | "domain_streak_break".
+// New kinds can be added without a migration (string column).
+//
+// `payload` shape varies by kind. Examples:
+//   slow_on_long_stems:        { avgMsLong: 92000, avgMsShort: 41000, delta: 0.18 }
+//   accuracy_decline_after_30min: { firstWindow: 0.78, secondWindow: 0.62, drop: 0.16 }
+//   domain_streak_break:       { domainId: "uuid", lastSeenAt: "2026-05-01T...", gapDays: 12 }
+model BehavioralInsight {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  certificationId String   @map("certification_id")
+  kind            String
+  payload         Json
+  evidenceCount   Int      @default(0) @map("evidence_count")
+  generatedFor    DateTime @map("generated_for") @db.Date
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certification Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, certificationId, kind, generatedFor])
+  @@index([userId, generatedFor])
+  @@index([certificationId, kind])
+  @@map("behavioral_insights")
 }

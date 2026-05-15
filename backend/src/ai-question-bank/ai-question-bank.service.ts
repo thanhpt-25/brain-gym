@@ -28,6 +28,7 @@ import { ConfigureLlmDto } from './dto/configure-llm.dto';
 import { GenerateQuestionsDto } from './dto/generate-questions.dto';
 import { SaveGeneratedQuestionsDto } from './dto/save-questions.dto';
 import { McpIntakeDto } from './mcp/mcp-intake.dto';
+import { LlmQuotaService } from './llm-usage/llm-quota.service';
 import {
   GeneratedQuestion,
   RawGeneratedQuestion,
@@ -51,6 +52,7 @@ export class AiQuestionBankService {
     private readonly questions: QuestionsService,
     private readonly encryption: EncryptionService,
     private readonly ingestion: IngestionService,
+    private readonly quota: LlmQuotaService,
     @InjectQueue(AI_GEN_QUEUE) private readonly aiGenQueue: Queue<AiGenJobData>,
   ) {}
 
@@ -170,6 +172,15 @@ export class AiQuestionBankService {
     dto: GenerateQuestionsDto,
     orgId?: string,
   ) {
+    // Resolve the caller's primary org if not provided by the route layer.
+    const resolvedOrgId =
+      orgId ?? (await this.resolveUserPrimaryOrg(userId)) ?? null;
+
+    // RFC-012 v1: Enforce daily quota before dispatching any LLM work.
+    if (resolvedOrgId) {
+      await this.quota.enforceQuota(resolvedOrgId);
+    }
+
     const config = await this.requireLlmConfig(userId, dto.provider);
 
     const cert = await this.prisma.certification.findFirst({
@@ -180,7 +191,7 @@ export class AiQuestionBankService {
     const job = await this.prisma.questionGenerationJob.create({
       data: {
         userId,
-        orgId: orgId || null,
+        orgId: resolvedOrgId,
         certificationId: cert.id,
         domainId: dto.domainId || null,
         materialId: dto.materialId || null,
@@ -498,5 +509,19 @@ export class AiQuestionBankService {
     if (score >= QUALITY_HIGH) return QualityTier.HIGH;
     if (score >= QUALITY_MEDIUM) return QualityTier.MEDIUM;
     return null; // discard
+  }
+
+  /**
+   * Returns the ID of the first active org the user belongs to, or null if the
+   * user has no org membership. Used by `generateQuestions` to resolve an org
+   * context for quota enforcement when no org ID is passed by the route layer.
+   */
+  private async resolveUserPrimaryOrg(userId: string): Promise<string | null> {
+    const membership = await this.prisma.orgMember.findFirst({
+      where: { userId, isActive: true },
+      select: { orgId: true },
+      orderBy: { joinedAt: 'asc' },
+    });
+    return membership?.orgId ?? null;
   }
 }
