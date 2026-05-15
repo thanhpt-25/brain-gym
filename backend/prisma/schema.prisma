@@ -70,6 +70,12 @@ enum ReportReason {
   INAPPROPRIATE
 }
 
+/// US-508: action taken by a reviewer in the Reviewer Queue.
+enum ModerationAction {
+  ACCEPTED
+  REJECTED
+}
+
 enum ReportStatus {
   PENDING
   RESOLVED
@@ -219,6 +225,7 @@ model User {
   llmUsageEvents             LlmUsageEvent[]
   passLikelihoodSurveys      PassLikelihoodSurvey[]
   behavioralInsights         BehavioralInsight[]
+  moderationAudits           ModerationAudit[] @relation("ModerationAuditsReviewed")
 
   @@index([status])
   @@map("users")
@@ -316,17 +323,18 @@ model Question {
   author          User            @relation(fields: [createdBy], references: [id])
   generationJob   QuestionGenerationJob? @relation(fields: [generationJobId], references: [id])
   sourceChunk     SourceChunk?    @relation(fields: [sourceChunkId], references: [id])
-  choices         Choice[]
-  tags            QuestionTag[]
-  examQuestions   ExamQuestion[]
-  answers         Answer[]
-  comments        Comment[]
-  votes           Vote[]
-  reports         Report[]
-  reviewSchedules ReviewSchedule[]
-  capturedWords   CapturedWord[]
-  catalogLinks    ExamCatalogQuestion[]
-  assessmentLinks AssessmentQuestion[]
+  choices            Choice[]
+  tags               QuestionTag[]
+  examQuestions      ExamQuestion[]
+  answers            Answer[]
+  comments           Comment[]
+  votes              Vote[]
+  reports            Report[]
+  reviewSchedules    ReviewSchedule[]
+  capturedWords      CapturedWord[]
+  catalogLinks       ExamCatalogQuestion[]
+  assessmentLinks    AssessmentQuestion[]
+  moderationAudits   ModerationAudit[]
 
   @@index([deletedAt])
   @@index([status])
@@ -1125,4 +1133,24 @@ model BehavioralInsight {
   @@index([userId, generatedFor])
   @@index([certificationId, kind])
   @@map("behavioral_insights")
+}
+
+// ─── US-508: Reviewer Queue audit trail ───────────────────────────────────────
+
+/// Immutable audit record for every Accept / Reject action in the Reviewer Queue.
+model ModerationAudit {
+  id         String           @id @default(uuid())
+  questionId String           @map("question_id")
+  reviewerId String           @map("reviewer_id")
+  action     ModerationAction
+  /// Required for REJECTED actions (≥ 10 chars); null for ACCEPTED.
+  reason     String?
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  reviewer User     @relation("ModerationAuditsReviewed", fields: [reviewerId], references: [id])
+
+  @@index([questionId])
+  @@index([reviewerId])
+  @@map("moderation_audits")
 }
