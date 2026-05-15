@@ -9,6 +9,8 @@ import { DomainBentoCard } from "../../components/mastery/DomainBentoCard";
 import { DomainBreakdownDrawer } from "../../components/mastery/DomainBreakdownDrawer";
 import { NextTopicCard } from "../../components/mastery/NextTopicCard";
 import { PassLikelihoodSurveyBanner } from "../../components/mastery/PassLikelihoodSurveyBanner";
+import { useBehavioralInsights } from "../../services/insights";
+import { BehavioralInsightBanner } from "../../components/mastery/BehavioralInsightBanner";
 
 /** Map a numeric score to the canonical readiness label. */
 function scoreLabelFor(score: number | undefined): string {
@@ -43,6 +45,11 @@ export default function MasteryPage() {
   const isPremiumUser =
     authUser?.plan === "PREMIUM" || authUser?.plan === "ENTERPRISE";
   const showReadiness = authUser?.featureFlags?.["FF_PREDICTOR_BETA"] ?? false;
+  const showInsights = authUser?.featureFlags?.["FF_INSIGHTS_BETA"] ?? false;
+  const { data: insights = [] } = useBehavioralInsights(
+    showInsights ? certId : undefined,
+  );
+  const primaryInsight = insights?.[0];
 
   const { data: nextTopicSuggestion, isLoading: isLoadingNextTopic } = useQuery(
     {
@@ -98,6 +105,10 @@ export default function MasteryPage() {
 
       {authUser?.featureFlags?.passPredictorBeta && (
         <PassLikelihoodSurveyBanner certificationId={certId ?? ""} />
+      )}
+
+      {showInsights && primaryInsight && (
+        <BehavioralInsightBanner insight={primaryInsight} />
       )}
 
       {data.isEmpty ? (
