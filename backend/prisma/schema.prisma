@@ -141,6 +141,12 @@ enum OrgRole {
   MEMBER
 }
 
+/// RFC-011 / Decision D5: squads are Organization rows with kind = SQUAD.
+enum OrgKind {
+  ORG
+  SQUAD
+}
+
 enum OrgInviteStatus {
   PENDING
   ACCEPTED
@@ -258,6 +264,7 @@ model Certification {
   readinessScores ReadinessScore[]
   passLikelihoodSurveys PassLikelihoodSurvey[]
   behavioralInsights BehavioralInsight[]
+  squads         Organization[] @relation("SquadCertification")
 
   @@map("certifications")
 }
@@ -716,6 +723,8 @@ model AuditLog {
 
 model Organization {
   id              String   @id @default(uuid())
+  /// RFC-011: ORG = company org, SQUAD = user-led study group.
+  kind            OrgKind  @default(ORG)
   name            String
   slug            String   @unique
   logoUrl         String?  @map("logo_url")
@@ -726,6 +735,10 @@ model Organization {
   isActive        Boolean  @default(true) @map("is_active")
   /// RFC-012: Per-org daily LLM spending cap in USD. Null means fall back to LLM_DAILY_QUOTA_USD env var.
   llmDailyUsdCap  Decimal? @map("llm_daily_usd_cap") @db.Decimal(10, 2)
+  /// RFC-011: For SQUAD kind — the target certification ID.
+  certificationId String?  @map("certification_id")
+  /// RFC-011: For SQUAD kind — optional target exam date.
+  targetExamDate  DateTime? @map("target_exam_date")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -738,6 +751,7 @@ model Organization {
   joinLinks        OrgJoinLink[]
   learningTracks   LearningTrack[]
   generationJobs   QuestionGenerationJob[] // RFC-012: Track org-level LLM costs
+  certification    Certification? @relation("SquadCertification", fields: [certificationId], references: [id])
 
   @@map("organizations")
 }
