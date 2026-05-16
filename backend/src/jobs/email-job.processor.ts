@@ -8,7 +8,7 @@ export interface WelcomeEmailJob {
   name: string;
 }
 
-@Processor('queue:email:welcome')
+@Processor('queue-email-welcome')
 export class EmailJobProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailJobProcessor.name);
 

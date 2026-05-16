@@ -19,7 +19,7 @@ import { JobsController } from './jobs.controller';
       }),
     }),
     BullModule.registerQueue({
-      name: 'queue:email:welcome',
+      name: 'queue-email-welcome',
     }),
   ],
   controllers: [JobsController],
