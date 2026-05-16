@@ -62,6 +62,9 @@ const CandidateExam = lazy(() => import("./pages/CandidateExam"));
 const CandidateResult = lazy(() => import("./pages/CandidateResult"));
 const MasteryPage = lazy(() => import("./pages/Dashboard/MasteryPage"));
 
+// Squads pages
+const SquadDashboard = lazy(() => import("./pages/SquadDashboard"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -247,6 +250,20 @@ const AnimatedRoutes = () => {
             <PageTransition>
               <ProtectedRoute>
                 <AiQuestionGenerator />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+
+        {/* Squad routes */}
+        <Route
+          path="/squads/:slug"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <SquadDashboard />
+                </Suspense>
               </ProtectedRoute>
             </PageTransition>
           }
