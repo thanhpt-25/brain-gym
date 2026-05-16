@@ -11,6 +11,7 @@ import {
   Body,
   Req,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
@@ -633,7 +634,11 @@ export class AdminController {
     @Req() req: AdminRequest,
     @Param('questionId') questionId: string,
   ) {
-    return this.adminService.acceptQuestion(questionId, req.user.id);
+    const userId = req.user.id || req.user.sub;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in request');
+    }
+    return this.adminService.acceptQuestion(questionId, userId);
   }
 
   @Post('review-queue/:questionId/reject')
@@ -646,7 +651,11 @@ export class AdminController {
     @Param('questionId') questionId: string,
     @Body('reason') reason: string,
   ) {
-    return this.adminService.rejectQuestion(questionId, req.user.id, reason);
+    const userId = req.user.id || req.user.sub;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in request');
+    }
+    return this.adminService.rejectQuestion(questionId, userId, reason);
   }
 
   @Get('review-queue/:questionId/history')

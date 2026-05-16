@@ -57,7 +57,6 @@ export class SquadsService {
         targetExamDate: dto.targetExamDate
           ? new Date(dto.targetExamDate)
           : null,
-        ownerId: userId,
         maxSeats: 50, // Default squad capacity
       },
       include: {
@@ -116,7 +115,7 @@ export class SquadsService {
     const inviteCount = await this.prisma.orgInvite.count({
       where: {
         orgId: squadId,
-        invitedByUserId: ownerId,
+        invitedBy: ownerId,
         createdAt: {
           gte: oneDayAgo,
         },
@@ -136,9 +135,10 @@ export class SquadsService {
     const invite = await this.prisma.orgInvite.create({
       data: {
         orgId: squadId,
+        email: '', // Token-based invite (no email required for squads)
         token,
         status: 'PENDING',
-        invitedByUserId: ownerId,
+        invitedBy: ownerId,
         expiresAt,
       },
     });
