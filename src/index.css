@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
-@import './styles/tokens.css';
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap");
+@import "./styles/tokens.css";
 
 @tailwind base;
 @tailwind components;
@@ -23,7 +23,7 @@
     --secondary-foreground: 210 20% 85%;
 
     --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 50%;
+    --muted-foreground: 215 12% 58%;
 
     --accent: 160 85% 45%;
     --accent-foreground: 220 20% 6%;
@@ -55,7 +55,7 @@
     --green-glow: 160 85% 45%;
     --surface-glass: 220 18% 10% / 0.7;
 
-    font-family: 'Inter', sans-serif;
+    font-family: "Inter", sans-serif;
   }
 }
 
@@ -75,19 +75,28 @@
     }
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'JetBrains Mono', monospace;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "JetBrains Mono", monospace;
   }
 }
 
 @layer utilities {
   .font-mono-display {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: "JetBrains Mono", monospace;
   }
 
   .text-gradient-cyan {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(190 95% 50%), hsl(160 85% 45%));
+    background-image: linear-gradient(
+      135deg,
+      hsl(190 95% 50%),
+      hsl(160 85% 45%)
+    );
   }
 
   .text-gradient-warm {
@@ -96,11 +105,15 @@
   }
 
   .glow-cyan {
-    box-shadow: 0 0 20px hsl(190 95% 50% / 0.15), 0 0 60px hsl(190 95% 50% / 0.05);
+    box-shadow:
+      0 0 20px hsl(190 95% 50% / 0.15),
+      0 0 60px hsl(190 95% 50% / 0.05);
   }
 
   .glow-green {
-    box-shadow: 0 0 20px hsl(160 85% 45% / 0.15), 0 0 60px hsl(160 85% 45% / 0.05);
+    box-shadow:
+      0 0 20px hsl(160 85% 45% / 0.15),
+      0 0 60px hsl(160 85% 45% / 0.05);
   }
 
   .bg-grid {

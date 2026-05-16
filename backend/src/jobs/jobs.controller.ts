@@ -5,7 +5,7 @@ import { Queue } from 'bullmq';
 @Controller('jobs/test')
 export class JobsController {
   constructor(
-    @InjectQueue('queue:email:welcome') private readonly emailQueue: Queue,
+    @InjectQueue('queue-email-welcome') private readonly emailQueue: Queue,
   ) {}
 
   @Post('email')

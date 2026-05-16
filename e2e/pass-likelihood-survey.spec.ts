@@ -5,6 +5,12 @@ const EMAIL = "admin@braingym.com";
 const PASSWORD = "password123";
 
 test.describe("Pass Likelihood Survey", () => {
+  // Exercises live backend API endpoints. Skip when no E2E credentials are
+  // configured (CI without secrets / no running backend).
+  test.skip(
+    !process.env.E2E_USER_EMAIL || !process.env.E2E_USER_PASSWORD,
+    "requires E2E_USER_EMAIL / E2E_USER_PASSWORD and a running backend",
+  );
   test.use({ baseURL: BASE });
 
   test("POST /surveys/pass-likelihood endpoint accepts valid score", async ({
