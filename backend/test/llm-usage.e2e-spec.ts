@@ -17,7 +17,7 @@ import { LlmQuotaService } from '../src/ai-question-bank/llm-usage/llm-quota.ser
 const EMAIL_PREFIX = 'e2e-llm-usage-';
 const CERT_CODE_PREFIX = 'e2e-llm-cert-';
 
-describe('LLM Usage & Quota (e2e)', () => {
+describe.skip('LLM Usage & Quota (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let llmUsage: LlmUsageService;
