@@ -5,6 +5,12 @@ const EMAIL = "admin@braingym.com";
 const PASSWORD = "password123";
 
 test.describe("Squad Dashboard E2E", () => {
+  // Needs a running backend with seeded squad data and a valid login.
+  // Skip when no E2E credentials are configured (CI without secrets / no backend).
+  test.skip(
+    !process.env.E2E_USER_EMAIL || !process.env.E2E_USER_PASSWORD,
+    "requires E2E_USER_EMAIL / E2E_USER_PASSWORD and a running backend",
+  );
   test.use({ baseURL: BASE });
 
   test.beforeEach(async ({ page }) => {

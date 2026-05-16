@@ -62,6 +62,12 @@ for (const pg of PUBLIC_PAGES) {
 // ─── Auth-required pages ──────────────────────────────────────────────────────
 
 test.describe("authenticated pages", () => {
+  // Requires a real authenticated session produced by the `setup` project.
+  // Skip when no E2E credentials are configured (CI without secrets / no backend).
+  test.skip(
+    !process.env.E2E_USER_EMAIL || !process.env.E2E_USER_PASSWORD,
+    "requires E2E_USER_EMAIL / E2E_USER_PASSWORD",
+  );
   test.use({ storageState: "e2e/.auth/user.json" });
 
   for (const pg of AUTH_PAGES) {
@@ -78,27 +84,4 @@ test.describe("authenticated pages", () => {
       });
     }
   }
-});
-
-// ─── Auth setup (runs once before auth-required tests) ───────────────────────
-
-test.describe("auth setup", () => {
-  test("save auth state", async ({ page }) => {
-    const email = process.env.E2E_USER_EMAIL;
-    const password = process.env.E2E_USER_PASSWORD;
-
-    // Skip if credentials not provided (CI without secrets)
-    if (!email || !password) {
-      test.skip();
-      return;
-    }
-
-    await page.goto("/auth");
-    await page.getByPlaceholder(/email/i).fill(email);
-    await page.getByPlaceholder(/password/i).fill(password);
-    await page.getByRole("button", { name: /sign in/i }).click();
-    await page.waitForURL("**/dashboard");
-
-    await page.context().storageState({ path: "e2e/.auth/user.json" });
-  });
 });

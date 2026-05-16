@@ -10,6 +10,14 @@ export default defineConfig({
     headless: true,
     ...devices["Desktop Chrome"],
   },
+  projects: [
+    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+    },
+  ],
   webServer: {
     command: "npm run dev",
     port: 8080,
