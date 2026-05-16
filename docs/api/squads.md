@@ -1,138 +1,57 @@
-# Squads API Documentation
+# Squads API
+
+Squad management endpoints for creating study groups, generating invites, and joining squads.
 
 ## Overview
 
-The Squads API provides endpoints for creating user-led study groups (Squads), generating token-based invite links, and joining squads. Squads are built on top of the existing Organization infrastructure with a special `kind = 'SQUAD'` designation.
+Squads are user-led study groups for collaborative certification exam preparation. Implemented as Organizations with `kind='SQUAD'`, squads inherit all multi-tenant isolation and RBAC from the organization infrastructure.
 
-**Base URL:** `/api/v1`  
-**Feature Flag:** `FF_SQUADS_BETA` (required to enable squads feature)
+**Feature Flag:** `FF_SQUADS_BETA`
 
----
-
-## Authentication
-
-All endpoints require a valid JWT Bearer token in the `Authorization` header:
-
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Error Response (401):**
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized"
-}
-```
+**Base URL:** `/api/v1/squads`
 
 ---
 
-## Data Models
+## POST /api/v1/squads
 
-### SquadDto
+Create a new squad.
 
-Response model for squad operations. Represents a Squad with basic metadata.
+**Authentication:** Required (AuthGuard + JWT)
 
-```json
+**Authorization:** User must have PREMIUM or ENTERPRISE plan
+
+### Request
+
+```typescript
 {
-  "id": "uuid",
-  "name": "AWS SAA-C03 Study Group",
-  "slug": "aws-saa-c03-study-group-abc123",
-  "certificationId": "uuid",
-  "targetExamDate": "2026-06-15T00:00:00Z",
-  "memberCount": 3,
-  "createdAt": "2026-05-16T10:30:00Z"
+  name: string;                    // Squad display name (e.g., "AWS SAA-C03 Study Group")
+  certificationId: string;         // UUID of certification this squad is studying for
+  targetExamDate?: string;         // Optional target exam date (ISO 8601 format, e.g., "2026-06-15")
 }
 ```
 
-**Fields:**
-- `id` (UUID): Unique squad identifier
-- `name` (string): Squad name (max 100 characters)
-- `slug` (string): URL-safe identifier, auto-generated from name with random suffix for uniqueness
-- `certificationId` (UUID): Associated certification
-- `targetExamDate` (ISO 8601 date, optional): Target exam date for the squad
-- `memberCount` (number): Current member count
-- `createdAt` (ISO 8601 datetime): Squad creation timestamp
+### Response
 
-### InviteLinkDto
+**Status:** `201 Created`
 
-Response model for invite link generation.
-
-```json
+```typescript
 {
-  "token": "550e8400-e29b-41d4-a716-446655440000",
-  "expiresAt": "2026-05-23T10:30:00Z",
-  "squadName": "AWS SAA-C03 Study Group",
-  "joinUrl": "https://app.certgym.com/squads/join/550e8400-e29b-41d4-a716-446655440000"
+  id: string;                      // UUID of the created squad (Organization)
+  name: string;                    // Squad display name
+  slug: string;                    // URL-friendly slug (auto-generated from name)
+  certificationId: string;         // UUID of the certification
+  targetExamDate?: Date;           // Target exam date (ISO 8601)
+  memberCount: number;             // Number of members (creator=1 initially)
+  createdAt: Date;                 // Creation timestamp
 }
 ```
 
-**Fields:**
-- `token` (UUID string): Unique, single-use invite token (7-day TTL)
-- `expiresAt` (ISO 8601 datetime): Token expiration timestamp
-- `squadName` (string): Name of the squad being invited to
-- `joinUrl` (string): Full URL for joining the squad
+### Example
 
----
-
-## Endpoints
-
-### 1. Create Squad
-
-Create a new study group (Squad).
-
-```
-POST /squads
-```
-
-**Authentication:** Required (JWT Bearer token)
-
-**Request Headers:**
-```
-Authorization: Bearer <jwt_token>
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "name": "AWS SAA-C03 Study Group",
-  "certificationId": "550e8400-e29b-41d4-a716-446655440000",
-  "targetExamDate": "2026-06-15"
-}
-```
-
-**Request Parameters:**
-- `name` (string, required): Squad name, max 100 characters
-- `certificationId` (UUID, required): ID of the certification to study for
-- `targetExamDate` (ISO 8601 date, optional): Target exam date in YYYY-MM-DD format
-
-**Success Response (201 Created):**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "name": "AWS SAA-C03 Study Group",
-  "slug": "aws-saa-c03-study-group-def456",
-  "certificationId": "550e8400-e29b-41d4-a716-446655440000",
-  "targetExamDate": "2026-06-15T00:00:00Z",
-  "memberCount": 1,
-  "createdAt": "2026-05-16T10:30:00Z"
-}
-```
-
-**Error Responses:**
-
-| Status | Code | Message | Reason |
-|--------|------|---------|--------|
-| 400 | BAD_REQUEST | "Certification not found" | Provided certificationId doesn't exist |
-| 400 | BAD_REQUEST | "Invalid name" | Name is empty or exceeds 100 characters |
-| 401 | UNAUTHORIZED | "Unauthorized" | Missing or invalid JWT token |
-| 403 | FORBIDDEN | "Free users cannot create squads" | User has FREE plan |
-
-**cURL Example:**
+**Request:**
 ```bash
-curl -X POST http://localhost:3000/api/v1/squads \
-  -H "Authorization: Bearer eyJhbGc..." \
+curl -X POST https://brain-gym.com/api/v1/squads \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "AWS SAA-C03 Study Group",
@@ -141,405 +60,231 @@ curl -X POST http://localhost:3000/api/v1/squads \
   }'
 ```
 
-**Constraints:**
-- Only PREMIUM and ENTERPRISE users can create squads
-- Squad creator is automatically added as OWNER
-- Squads cannot own ExamCatalogItem or Assessment (enforced at service layer)
-
----
-
-### 2. Generate Invite Link
-
-Create a token-based invite link for a squad.
-
-```
-POST /squads/:id/invites
-```
-
-**Authentication:** Required (JWT Bearer token) + OWNER/ADMIN role in squad
-
-**Request Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Path Parameters:**
-- `id` (UUID): Squad ID
-
-**Request Body:** Empty
-
-**Success Response (201 Created):**
+**Response:**
 ```json
 {
-  "token": "550e8400-e29b-41d4-a716-446655440002",
-  "expiresAt": "2026-05-23T10:30:00Z",
-  "squadName": "AWS SAA-C03 Study Group",
-  "joinUrl": "https://app.certgym.com/squads/join/550e8400-e29b-41d4-a716-446655440002"
-}
-```
-
-**Error Responses:**
-
-| Status | Code | Message | Reason |
-|--------|------|---------|--------|
-| 400 | BAD_REQUEST | "Daily invite limit reached" | Max 10 invite links created today by this user |
-| 401 | UNAUTHORIZED | "Unauthorized" | Missing or invalid JWT token |
-| 403 | FORBIDDEN | "Only OWNER and ADMIN can generate invites" | User is not OWNER/ADMIN of squad |
-| 404 | NOT_FOUND | "Squad not found" | Squad ID doesn't exist |
-
-**Rate Limiting:**
-- Max **10 invite links per owner per day** (calendar day, UTC)
-- Returns `429 Too Many Requests` when limit exceeded
-- Response includes `Retry-After` header with seconds until limit reset
-
-**cURL Example:**
-```bash
-curl -X POST http://localhost:3000/api/v1/squads/550e8400-e29b-41d4-a716-446655440001/invites \
-  -H "Authorization: Bearer eyJhbGc..."
-```
-
-**Token Characteristics:**
-- Format: UUID v4 string
-- TTL: 7 days from creation
-- Single-use: Marked as ACCEPTED after first successful join
-- Revocable: Can be revoked by updating OrgInvite.status to REVOKED (admin-only)
-
----
-
-### 3. Join Squad
-
-Accept an invite link and join a squad.
-
-```
-POST /squads/join/:token
-```
-
-**Authentication:** Required (JWT Bearer token)
-
-**Request Headers:**
-```
-Authorization: Bearer <jwt_token>
-```
-
-**Path Parameters:**
-- `token` (UUID string): Invite token from InviteLinkDto
-
-**Request Body:** Empty
-
-**Success Response (200 OK):**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440001",
+  "id": "org-123456",
   "name": "AWS SAA-C03 Study Group",
-  "slug": "aws-saa-c03-study-group-def456",
+  "slug": "aws-saa-c03-study-group",
   "certificationId": "550e8400-e29b-41d4-a716-446655440000",
   "targetExamDate": "2026-06-15T00:00:00Z",
-  "memberCount": 4,
-  "createdAt": "2026-05-16T10:30:00Z"
+  "memberCount": 1,
+  "createdAt": "2026-05-16T12:00:00Z"
 }
 ```
 
-**Error Responses:**
+### Error Codes
 
-| Status | Code | Message | Reason |
-|--------|------|---------|--------|
-| 400 | BAD_REQUEST | "Invite expired" | Token TTL has passed (>7 days) |
-| 400 | BAD_REQUEST | "Invite no longer valid" | Token status is REVOKED or DECLINED |
-| 400 | BAD_REQUEST | "Squad at capacity" | Squad has reached maxSeats limit |
-| 401 | UNAUTHORIZED | "Unauthorized" | Missing or invalid JWT token |
-| 404 | NOT_FOUND | "Invite not found" | Token doesn't match any pending invite |
+| Code | Message | Cause |
+|------|---------|-------|
+| 400 | "Free users cannot create squads" | User plan is FREE |
+| 400 | "Certification not found" | certificationId doesn't exist |
+| 401 | Unauthorized | Missing or invalid JWT token |
+| 422 | Validation error | Invalid request body (name not string, certificationId not UUID, etc.) |
 
-**cURL Example:**
+---
+
+## POST /api/v1/squads/:id/invites
+
+Generate a new invite link for the squad.
+
+**Authentication:** Required (AuthGuard + JWT)
+
+**Authorization:** User must be OWNER or ADMIN of the squad (OrgRoleGuard)
+
+**Rate Limit:** Max 10 invite links per owner per 24-hour period
+
+### Request
+
+No body required.
+
+**Path Parameters:**
+- `id` (string): Squad ID (Organization UUID)
+
+### Response
+
+**Status:** `201 Created`
+
+```typescript
+{
+  token: string;                   // UUID token for accepting the invite
+  expiresAt: Date;                 // Expiration timestamp (7 days from now)
+  squadName: string;               // Name of the squad
+  joinUrl: string;                 // Full URL to join (includes app domain + token)
+}
+```
+
+### Example
+
+**Request:**
 ```bash
-curl -X POST http://localhost:3000/api/v1/squads/join/550e8400-e29b-41d4-a716-446655440002 \
-  -H "Authorization: Bearer eyJhbGc..."
+curl -X POST https://brain-gym.com/api/v1/squads/org-123456/invites \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
-**Behavior:**
-- Idempotent: Re-joining with same token doesn't create duplicate members
-- Automatic member role: User added as MEMBER (not OWNER)
-- Invite status: Updated from PENDING to ACCEPTED
-- Capacity check: Enforced against org.maxSeats
-- RLS filtering: Automatic via org_id isolation
+**Response:**
+```json
+{
+  "token": "a1b2c3d4-e5f6-41d4-a716-446655440000",
+  "expiresAt": "2026-05-23T12:00:00Z",
+  "squadName": "AWS SAA-C03 Study Group",
+  "joinUrl": "https://brain-gym.com/squads/join/a1b2c3d4-e5f6-41d4-a716-446655440000"
+}
+```
+
+### Error Codes
+
+| Code | Message | Cause |
+|------|---------|-------|
+| 400 | "Squad not found" | Squad (Organization) doesn't exist |
+| 400 | "Daily invite limit reached (max 10 per day)" | Owner has already generated 10 invites in the past 24h |
+| 401 | Unauthorized | Missing or invalid JWT token |
+| 403 | Forbidden | User is not OWNER/ADMIN of the squad |
 
 ---
 
-## Common Workflows
+## POST /api/v1/squads/join/:token
 
-### Workflow 1: Create Squad and Share Invite
+Accept an invite and join a squad.
 
-1. **Create squad:**
-   ```bash
-   POST /api/v1/squads
-   {
-     "name": "CKAD Study Group",
-     "certificationId": "...",
-     "targetExamDate": "2026-07-01"
-   }
-   ```
-   Response includes squad ID.
+**Authentication:** Required (AuthGuard + JWT)
 
-2. **Generate invite link:**
-   ```bash
-   POST /api/v1/squads/{squadId}/invites
-   ```
-   Response includes `joinUrl`.
+### Request
 
-3. **Share `joinUrl` with friends** — they can join at any time within 7 days.
+No body required.
 
-### Workflow 2: Join via Invite Link
+**Path Parameters:**
+- `token` (string): Invite token from the invite link
 
-1. **Receive invite link** from a squad member (in email, chat, etc.)
-   ```
-   https://app.certgym.com/squads/join/550e8400-e29b-41d4-a716-446655440002
-   ```
+### Response
 
-2. **Click link or call API:**
-   ```bash
-   POST /api/v1/squads/join/550e8400-e29b-41d4-a716-446655440002
-   Authorization: Bearer <jwt_token>
-   ```
+**Status:** `200 OK`
 
-3. **User is now a member** of the squad with MEMBER role.
+Returns squad details after user is added as MEMBER:
 
----
-
-## Rate Limits
-
-| Endpoint | Limit | Window | Status Code |
-|----------|-------|--------|------------|
-| POST /squads | 5/min per user | Sliding window | 429 |
-| POST /squads/:id/invites | 10/day per user | Calendar day (UTC) | 429 |
-| POST /squads/join/:token | 1/request | Per token | N/A |
-
-**Rate Limit Headers:**
-```
-X-RateLimit-Limit: 10
-X-RateLimit-Remaining: 8
-X-RateLimit-Reset: 1684756800
+```typescript
+{
+  id: string;                      // Squad ID (Organization UUID)
+  name: string;                    // Squad name
+  slug: string;                    // URL-friendly slug
+  certificationId: string;         // Certification UUID
+  targetExamDate?: Date;           // Target exam date
+  memberCount: number;             // Updated member count (including new member)
+  createdAt: Date;                 // Squad creation timestamp
+}
 ```
 
----
+### Example
 
-## Constraints & Validation
-
-### Squad Constraints
-
-1. **Plan-based access:**
-   - FREE users cannot create squads
-   - PREMIUM and ENTERPRISE users can create unlimited squads
-
-2. **Catalog & Assessment ownership:**
-   - Squads cannot own ExamCatalogItem
-   - Squads cannot own Assessment
-   - Enforced via CHECK constraints in database
-
-3. **Invite limits:**
-   - Max 10 invite links per owner per calendar day
-   - Verified via query on OrgInvite with created_at filter
-
-4. **Token TTL:**
-   - All tokens expire after 7 days
-   - Tokens are UUID v4 format
-   - Single-use behavior recommended (status → ACCEPTED on join)
-
-5. **Capacity:**
-   - Limited by org.maxSeats (inherited from Organization)
-   - Default: 50 (configurable per organization)
-
-### Data Validation
-
-```
-name:
-  - Required
-  - Max 100 characters
-  - Trimmed, non-empty
-
-certificationId:
-  - Required
-  - Valid UUID
-  - Must exist in Certification table
-
-targetExamDate:
-  - Optional
-  - ISO 8601 date format (YYYY-MM-DD)
-  - Must be in future
-```
-
----
-
-## Security Considerations
-
-### Token Security
-
-- Tokens are **not** JWTs; they are opaque UUIDs
-- Transmitted over **HTTPS only** in production
-- No sensitive data embedded in tokens
-- Tokens should be treated as single-use secrets
-
-### Role-Based Access
-
-- **OWNER**: Can generate invites, manage squad settings
-- **ADMIN**: Same as OWNER (configurable by organization)
-- **MEMBER**: Can view squad data, participate in exams
-- Enforced via `OrgRoleGuard` decorator on controller endpoints
-
-### Row-Level Security (RLS)
-
-- All squad data filtered by org_id via database policies
-- Users cannot access squads they don't belong to
-- Enforced at database layer for defense-in-depth
-
----
-
-## Examples
-
-### Example 1: Creating a Squad and Inviting Members
-
+**Request:**
 ```bash
-# 1. Create squad
-curl -X POST http://localhost:3000/api/v1/squads \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "AWS Solutions Architect Associate",
-    "certificationId": "550e8400-e29b-41d4-a716-446655440000",
-    "targetExamDate": "2026-06-30"
-  }'
+curl -X POST https://brain-gym.com/api/v1/squads/join/a1b2c3d4-e5f6-41d4-a716-446655440000 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
 
-# Response:
+**Response:**
+```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "name": "AWS Solutions Architect Associate",
-  "slug": "aws-solutions-architect-associate-xyz",
-  ...
-}
-
-# 2. Generate invite link
-curl -X POST http://localhost:3000/api/v1/squads/550e8400-e29b-41d4-a716-446655440001/invites \
-  -H "Authorization: Bearer <token>"
-
-# Response:
-{
-  "token": "550e8400-e29b-41d4-a716-446655440002",
-  "expiresAt": "2026-05-23T...",
-  "squadName": "AWS Solutions Architect Associate",
-  "joinUrl": "https://app.certgym.com/squads/join/550e8400-e29b-41d4-a716-446655440002"
-}
-
-# 3. Share joinUrl with friend
-# Friend receives email/Slack with link and clicks it
-
-# 4. Friend joins
-curl -X POST http://localhost:3000/api/v1/squads/join/550e8400-e29b-41d4-a716-446655440002 \
-  -H "Authorization: Bearer <friend_token>"
-
-# Response:
-{
-  "id": "550e8400-e29b-41d4-a716-446655440001",
-  "memberCount": 2,  # Increased from 1
-  ...
+  "id": "org-123456",
+  "name": "AWS SAA-C03 Study Group",
+  "slug": "aws-saa-c03-study-group",
+  "certificationId": "550e8400-e29b-41d4-a716-446655440000",
+  "targetExamDate": "2026-06-15T00:00:00Z",
+  "memberCount": 2,
+  "createdAt": "2026-05-16T12:00:00Z"
 }
 ```
 
-### Example 2: Error Scenarios
+### Error Codes
 
-```bash
-# Attempt to create squad as FREE user
-curl -X POST http://localhost:3000/api/v1/squads \
-  -H "Authorization: Bearer <free_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Study Group", "certificationId": "..."}'
-
-# Response (403):
-{
-  "statusCode": 403,
-  "message": "Free users cannot create squads",
-  "error": "Forbidden"
-}
-
-# Attempt to join with expired token
-curl -X POST http://localhost:3000/api/v1/squads/join/550e8400-e29b-41d4-a716-446655440099 \
-  -H "Authorization: Bearer <token>"
-
-# Response (400):
-{
-  "statusCode": 400,
-  "message": "Invite expired",
-  "error": "Bad Request"
-}
-
-# Exceed daily invite limit
-curl -X POST http://localhost:3000/api/v1/squads/{id}/invites \
-  -H "Authorization: Bearer <token>"
-
-# Response (429):
-{
-  "statusCode": 429,
-  "message": "Daily invite limit reached",
-  "error": "Too Many Requests"
-}
-```
+| Code | Message | Cause |
+|------|---------|-------|
+| 400 | "Invite link has expired" | Token expired (>7 days old) |
+| 400 | "Invite has already been accepted" | Token status is not PENDING |
+| 400 | "Squad is at full capacity" | Squad has reached maxSeats limit |
+| 400 | "Squad not found" | Squad doesn't exist |
+| 401 | Unauthorized | Missing or invalid JWT token |
 
 ---
 
-## Database Schema
+## Rate Limiting
 
-### Key Tables
+**Daily Invite Limit:** Max 10 invite links per owner per 24-hour period
 
-**Organization** (with kind = 'SQUAD')
-```
-id (UUID PK)
-kind (OrgKind enum): 'SQUAD', 'COMPANY', ...
-name (string)
-slug (string, unique per owner)
-certificationId (UUID FK → Certification)
-targetExamDate (timestamp, nullable)
-maxSeats (int, default 50)
-createdAt (timestamp)
-```
+When limit is exceeded, the API returns `400 Bad Request` with message: "Daily invite limit reached (max 10 per day)"
 
-**OrgMember**
-```
-id (UUID PK)
-orgId (UUID FK → Organization)
-userId (UUID FK → User)
-role (OrgRole enum): 'OWNER', 'ADMIN', 'MEMBER'
-isActive (boolean)
-joinedAt (timestamp)
-```
-
-**OrgInvite**
-```
-id (UUID PK)
-orgId (UUID FK → Organization)
-email (string, nullable for token-based invites)
-token (string, nullable, unique)
-status (InviteStatus enum): 'PENDING', 'ACCEPTED', 'REVOKED', 'DECLINED'
-invitedBy (UUID FK → User)
-expiresAt (timestamp)
-createdAt (timestamp)
-```
-
-### Indexes
-
-```sql
-CREATE INDEX idx_orginvite_squad_daily_limit
-  ON OrgInvite(org_id, invited_by, created_at)
-  WHERE status = 'PENDING';
-```
-
-This index optimizes the daily rate limit query for invite generation.
+The limit resets every 24 hours, calculated from the creation time of the oldest invite.
 
 ---
 
-## Changelog
+## Token TTL
 
-### Version 1.0 (2026-05-16)
+Invite tokens expire after **7 days** from creation.
 
-- Initial release of Squads API
-- Three core endpoints: create, invite, join
-- Token-based invites with 7-day TTL
-- Rate limiting: 10 invites per owner per day
-- Plan-based access control
-- RLS enforcement at database layer
+After expiration, attempting to join with that token returns `400 Bad Request` with message: "Invite link has expired"
+
+---
+
+## Constraints
+
+### Squads Cannot Own Assets
+
+By design, squads (Organizations with `kind='SQUAD'`) cannot:
+- Create or own ExamCatalogItem
+- Create or own Assessment
+
+These are restricted to regular organizations.
+
+Attempting to create catalog items or assessments on a squad organization will fail with a database-level CHECK constraint.
+
+---
+
+## FAQ
+
+### How many people can join a squad?
+Default capacity is 50 members per squad. This can be adjusted via the `maxSeats` field on the Organization row.
+
+### Can an invite token be used multiple times?
+No. After one person accepts an invite (status transitions to ACCEPTED), that token can no longer be used. Generate a new invite link for additional members.
+
+### What if I lose my invite link?
+Request a new invite from the squad OWNER. There is no way to recover or list previous tokens.
+
+### Can I join multiple squads?
+Yes. A user can be a member of multiple squads simultaneously.
+
+### Who can generate invites?
+Only OWNER and ADMIN roles within the squad can generate invites. MEMBER role cannot.
+
+---
+
+## Integration Notes
+
+### RLS (Row-Level Security)
+
+All squad endpoints automatically inherit org-level RLS policies:
+- Users can only see/modify squads they're members of
+- Cross-org data access is automatically blocked at the database level
+
+### Feature Flag
+
+Squads are gated behind `FF_SQUADS_BETA` feature flag. Ensure the flag is enabled for users before they can create or join squads.
+
+### Plan Restrictions
+
+Only PREMIUM and ENTERPRISE plan users can create squads. FREE users receive `400 Bad Request` with message: "Free users cannot create squads"
+
+---
+
+## Errors Summary
+
+| Scenario | Endpoint | Status | Error |
+|----------|----------|--------|-------|
+| FREE user creates squad | POST /squads | 400 | "Free users cannot create squads" |
+| Certification missing | POST /squads | 400 | "Certification not found" |
+| Invite limit exceeded | POST /:id/invites | 400 | "Daily invite limit reached (max 10 per day)" |
+| Token expired | POST /join/:token | 400 | "Invite link has expired" |
+| Token already accepted | POST /join/:token | 400 | "Invite has already been accepted" |
+| Squad at capacity | POST /join/:token | 400 | "Squad is at full capacity" |
+| Missing auth | All | 401 | "Unauthorized" |
+| Non-OWNER/ADMIN | POST /:id/invites | 403 | "Forbidden" |
