@@ -7,8 +7,8 @@ CREATE TYPE "ModerationAction" AS ENUM ('ACCEPTED', 'REJECTED');
 -- 2. Audit table
 CREATE TABLE "moderation_audits" (
   "id"          UUID         NOT NULL DEFAULT gen_random_uuid(),
-  "question_id" UUID         NOT NULL,
-  "reviewer_id" UUID         NOT NULL,
+  "question_id" TEXT         NOT NULL,
+  "reviewer_id" TEXT         NOT NULL,
   "action"      "ModerationAction" NOT NULL,
   "reason"      TEXT         NULL,
   "created_at"  TIMESTAMPTZ  NOT NULL DEFAULT now(),

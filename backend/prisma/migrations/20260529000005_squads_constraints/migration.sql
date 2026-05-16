@@ -1,20 +1,7 @@
--- Add CHECK constraint: Squads cannot own ExamCatalogItem
-ALTER TABLE "ExamCatalogItem" ADD CONSTRAINT chk_catalog_non_squad
-  CHECK (
-    org_id NOT IN (
-      SELECT id FROM "Organization" WHERE kind = 'SQUAD'
-    )
-  );
+-- Note: Constraints moved to service layer (PostgreSQL doesn't allow subqueries in CHECK)
+-- Application layer enforces: Squads cannot own exam_catalog_items or assessments
 
--- Add CHECK constraint: Squads cannot own Assessment
-ALTER TABLE "Assessment" ADD CONSTRAINT chk_assessment_non_squad
-  CHECK (
-    org_id NOT IN (
-      SELECT id FROM "Organization" WHERE kind = 'SQUAD'
-    )
-  );
-
--- Index on OrgInvite for efficient daily rate limit query
-CREATE INDEX idx_orginvite_squad_daily_limit
-  ON "OrgInvite"(org_id, invited_by, created_at)
+-- Index on org_invites for efficient daily rate limit query
+CREATE INDEX IF NOT EXISTS idx_orginvite_squad_daily_limit
+  ON "org_invites"(org_id, invited_by, created_at)
   WHERE status = 'PENDING';

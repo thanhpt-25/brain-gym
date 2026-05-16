@@ -1,23 +1,2 @@
--- Verify OrgKind enum includes SQUAD
--- (Already added in RFC-011 schema migration: 20260529000002)
-
--- Add CHECK constraint: Squads cannot own ExamCatalogItem
-ALTER TABLE "ExamCatalogItem" ADD CONSTRAINT chk_catalog_non_squad
-  CHECK (
-    org_id NOT IN (
-      SELECT id FROM "Organization" WHERE kind = 'SQUAD'
-    )
-  );
-
--- Add CHECK constraint: Squads cannot own Assessment
-ALTER TABLE "Assessment" ADD CONSTRAINT chk_assessment_non_squad
-  CHECK (
-    org_id NOT IN (
-      SELECT id FROM "Organization" WHERE kind = 'SQUAD'
-    )
-  );
-
--- Index on OrgInvite for efficient daily rate limit query
-CREATE INDEX idx_orginvite_squad_daily_limit
-  ON "OrgInvite"(org_id, invited_by_user_id, created_at)
-  WHERE status = 'PENDING';
+-- Duplicate migration from 20260529000005_squads_constraints
+-- This is intentionally a no-op: constraints and index already applied in previous migration
