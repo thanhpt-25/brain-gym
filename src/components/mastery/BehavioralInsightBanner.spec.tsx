@@ -194,7 +194,7 @@ describe("BehavioralInsightBanner", () => {
       const { rerender } = render(
         <BehavioralInsightBanner insight={insight1} />,
       );
-      let dismissButton = screen.getByRole("button", { name: /dismiss/i });
+      const dismissButton = screen.getByRole("button", { name: /dismiss/i });
       fireEvent.click(dismissButton);
 
       // Verify first is dismissed
