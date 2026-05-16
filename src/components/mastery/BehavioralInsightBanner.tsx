@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Brain, Clock, Lightbulb, TrendingDown } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { BehavioralInsight } from "@/services/insights";
@@ -13,6 +13,13 @@ export function BehavioralInsightBanner({
   const [dismissed, setDismissed] = useState(
     localStorage.getItem(`dismissed_insight_${insight.id}`) === "true",
   );
+
+  // Update dismissed state when insight changes
+  useEffect(() => {
+    setDismissed(
+      localStorage.getItem(`dismissed_insight_${insight.id}`) === "true",
+    );
+  }, [insight.id]);
 
   if (dismissed) return null;
 

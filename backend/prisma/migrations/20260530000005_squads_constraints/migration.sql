@@ -1,0 +1,2 @@
+-- Duplicate migration from 20260529000005_squads_constraints
+-- This is intentionally a no-op: constraints and index already applied in previous migration

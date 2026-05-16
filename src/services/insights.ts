@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "./api";
+import api from "./api";
 
 export interface BehavioralInsight {
   id: string;
@@ -16,26 +16,38 @@ export interface BehavioralInsight {
 }
 
 /**
- * Fetch behavioral insights for a user in a specific certification
+ * Fetch behavioral insights for a certification.
+ * Returns an empty array if no insights are available.
  */
 export async function getBehavioralInsights(
   certificationId: string,
 ): Promise<BehavioralInsight[]> {
-  const response = await api.get<BehavioralInsight[]>(
-    `/insights/behavioral?certificationId=${certificationId}`,
-  );
-  return response.data || [];
+  try {
+    const response = await api.get<BehavioralInsight[]>(
+      `/insights/behavioral?certificationId=${certificationId}`,
+    );
+    return response.data || [];
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as { response?: { status: number } };
+      if (axiosError.response?.status === 404) {
+        return [];
+      }
+    }
+    throw error;
+  }
 }
 
 /**
- * React hook to fetch behavioral insights with caching
- * Respects feature flag gating on backend
+ * TanStack Query hook for behavioral insights.
+ * Disabled when certificationId is undefined.
+ * Data is considered fresh for 1 hour (insights refresh nightly on backend).
  */
 export function useBehavioralInsights(certificationId: string | undefined) {
   return useQuery({
     queryKey: ["behavioral-insights", certificationId],
     queryFn: () => getBehavioralInsights(certificationId!),
     enabled: !!certificationId,
-    staleTime: 3600000, // 1 hour — insights refresh nightly
+    staleTime: 3600000, // 1 hour
   });
 }

@@ -11,6 +11,7 @@ import {
   Body,
   Req,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
@@ -604,5 +605,62 @@ export class AdminController {
       'attachment; filename="analytics.csv"',
     );
     res.send(csv);
+  }
+
+  // ─── US-508: Reviewer Queue ──────────────────────────────────────────────────
+
+  @Get('review-queue')
+  @ApiOperation({
+    summary: 'List questions pending review. filter: flagged | new | ambiguous',
+  })
+  @ApiQuery({
+    name: 'filter',
+    enum: ['flagged', 'new', 'ambiguous'],
+    required: false,
+  })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  getReviewQueue(
+    @Query('filter') filter: 'flagged' | 'new' | 'ambiguous' = 'new',
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+  ) {
+    return this.adminService.getReviewQueue(filter, +page, +limit);
+  }
+
+  @Post('review-queue/:questionId/accept')
+  @ApiOperation({ summary: 'Accept a question — sets status to APPROVED' })
+  acceptQuestion(
+    @Req() req: AdminRequest,
+    @Param('questionId') questionId: string,
+  ) {
+    const userId = req.user.id || req.user.sub;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in request');
+    }
+    return this.adminService.acceptQuestion(questionId, userId);
+  }
+
+  @Post('review-queue/:questionId/reject')
+  @ApiOperation({
+    summary:
+      'Reject a question — sets status to REJECTED (reason required, ≥10 chars)',
+  })
+  rejectQuestion(
+    @Req() req: AdminRequest,
+    @Param('questionId') questionId: string,
+    @Body('reason') reason: string,
+  ) {
+    const userId = req.user.id || req.user.sub;
+    if (!userId) {
+      throw new BadRequestException('User ID not found in request');
+    }
+    return this.adminService.rejectQuestion(questionId, userId, reason);
+  }
+
+  @Get('review-queue/:questionId/history')
+  @ApiOperation({ summary: 'Get moderation audit history for a question' })
+  getModerationHistory(@Param('questionId') questionId: string) {
+    return this.adminService.getModerationHistory(questionId);
   }
 }

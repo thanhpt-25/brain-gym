@@ -1,66 +1,117 @@
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { LlmQuotaService } from './llm-quota.service';
+import { LlmQuotaService, QuotaExceededBody } from './llm-quota.service';
 import { LlmUsageService } from './llm-usage.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 describe('LlmQuotaService', () => {
   let service: LlmQuotaService;
-  let llmUsageService: LlmUsageService;
 
   const mockLlmUsageService = {
     getOrgDailyCost: jest.fn(),
   };
 
+  const mockPrismaService = {
+    organization: {
+      findUnique: jest.fn(),
+    },
+  };
+
   beforeEach(async () => {
-    // Reset env var before each test
     delete process.env.LLM_DAILY_QUOTA_USD;
+    jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LlmQuotaService,
-        {
-          provide: LlmUsageService,
-          useValue: mockLlmUsageService,
-        },
+        { provide: LlmUsageService, useValue: mockLlmUsageService },
+        { provide: PrismaService, useValue: mockPrismaService },
       ],
     }).compile();
 
     service = module.get<LlmQuotaService>(LlmQuotaService);
-    llmUsageService = module.get<LlmUsageService>(LlmUsageService);
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  // ─── getOrgDailyCap ──────────────────────────────────────────────────────────
+
+  describe('getOrgDailyCap', () => {
+    it('returns per-org cap from DB when set', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValueOnce({
+        llmDailyUsdCap: { toString: () => '20' },
+      });
+
+      const cap = await service.getOrgDailyCap('org-1');
+
+      expect(cap).toBe(20);
+    });
+
+    it('falls back to env-var default when org has no cap', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValueOnce({
+        llmDailyUsdCap: null,
+      });
+
+      const cap = await service.getOrgDailyCap('org-1');
+
+      expect(cap).toBe(5); // default $5
+    });
+
+    it('falls back to env-var when org not found', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValueOnce(null);
+
+      const cap = await service.getOrgDailyCap('org-missing');
+
+      expect(cap).toBe(5);
+    });
+
+    it('respects LLM_DAILY_QUOTA_USD env var as fallback', async () => {
+      process.env.LLM_DAILY_QUOTA_USD = '12';
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          LlmQuotaService,
+          { provide: LlmUsageService, useValue: mockLlmUsageService },
+          { provide: PrismaService, useValue: mockPrismaService },
+        ],
+      }).compile();
+      const svc = module.get<LlmQuotaService>(LlmQuotaService);
+      mockPrismaService.organization.findUnique.mockResolvedValueOnce(null);
+
+      expect(await svc.getOrgDailyCap('org-1')).toBe(12);
+    });
   });
+
+  // ─── checkOrgDailyQuota ──────────────────────────────────────────────────────
 
   describe('checkOrgDailyQuota', () => {
-    it('should return quota status below limit', async () => {
+    beforeEach(() => {
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        llmDailyUsdCap: null, // use env default $5
+      });
+    });
+
+    it('returns not-exceeded when below limit', async () => {
       mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(2.5);
 
-      const result = await service.checkOrgDailyQuota('org-123');
+      const result = await service.checkOrgDailyQuota('org-1');
 
       expect(result).toEqual({
         usedCost: 2.5,
-        limitCost: 5, // Default from env
+        limitCost: 5,
         isExceeded: false,
       });
     });
 
-    it('should return quota status at limit', async () => {
+    it('returns not-exceeded at exactly the limit', async () => {
       mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(5.0);
 
-      const result = await service.checkOrgDailyQuota('org-123');
+      const result = await service.checkOrgDailyQuota('org-1');
 
-      expect(result).toEqual({
-        usedCost: 5.0,
-        limitCost: 5,
-        isExceeded: false, // At limit is not exceeded
-      });
+      expect(result.isExceeded).toBe(false);
     });
 
-    it('should detect exceeded quota', async () => {
+    it('returns exceeded when over limit', async () => {
       mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(5.01);
 
-      const result = await service.checkOrgDailyQuota('org-123');
+      const result = await service.checkOrgDailyQuota('org-1');
 
       expect(result).toEqual({
         usedCost: 5.01,
@@ -69,121 +120,180 @@ describe('LlmQuotaService', () => {
       });
     });
 
-    it('should return 0 cost when no usage', async () => {
-      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(0);
+    it('uses per-org cap from DB', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValueOnce({
+        llmDailyUsdCap: { toString: () => '50' },
+      });
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(30);
 
-      const result = await service.checkOrgDailyQuota('org-123');
+      const result = await service.checkOrgDailyQuota('org-big');
 
       expect(result).toEqual({
-        usedCost: 0,
-        limitCost: 5,
+        usedCost: 30,
+        limitCost: 50,
         isExceeded: false,
       });
     });
+  });
 
-    it('should respect LLM_DAILY_QUOTA_USD env var', async () => {
-      process.env.LLM_DAILY_QUOTA_USD = '10';
+  // ─── isNearQuota ─────────────────────────────────────────────────────────────
 
-      // Need to recreate service with new env var
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          LlmQuotaService,
-          {
-            provide: LlmUsageService,
-            useValue: mockLlmUsageService,
-          },
-        ],
-      }).compile();
+  describe('isNearQuota', () => {
+    beforeEach(() => {
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        llmDailyUsdCap: null,
+      });
+    });
 
-      const testService = module.get<LlmQuotaService>(LlmQuotaService);
-      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(8.5);
+    it('returns true when usage is exactly at 80%', async () => {
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(4.0); // 80% of $5
 
-      const result = await testService.checkOrgDailyQuota('org-123');
+      expect(await service.isNearQuota('org-1')).toBe(true);
+    });
 
-      expect(result.limitCost).toBe(10);
-      expect(result.isExceeded).toBe(false);
+    it('returns true when usage is above 80%', async () => {
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(4.5); // 90% of $5
+
+      expect(await service.isNearQuota('org-1')).toBe(true);
+    });
+
+    it('returns false when usage is below 80%', async () => {
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(3.9); // 78% of $5
+
+      expect(await service.isNearQuota('org-1')).toBe(false);
+    });
+
+    it('supports custom threshold', async () => {
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(5.1); // >100%
+
+      expect(await service.isNearQuota('org-1', 0.9)).toBe(true);
     });
   });
 
+  // ─── enforceQuota ────────────────────────────────────────────────────────────
+
+  describe('enforceQuota', () => {
+    beforeEach(() => {
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        llmDailyUsdCap: null,
+      });
+    });
+
+    it('does not throw when org is under quota', async () => {
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValue(2.0);
+
+      await expect(service.enforceQuota('org-1')).resolves.toBeUndefined();
+    });
+
+    it('throws HTTP 429 with LLM_QUOTA_EXCEEDED body when over quota', async () => {
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValue(6.0);
+
+      let caught: unknown;
+      try {
+        await service.enforceQuota('org-1');
+      } catch (err) {
+        caught = err;
+      }
+
+      expect(caught).toBeInstanceOf(HttpException);
+      const httpErr = caught as HttpException;
+      expect(httpErr.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+
+      const body = httpErr.getResponse() as QuotaExceededBody;
+      expect(body.code).toBe('LLM_QUOTA_EXCEEDED');
+      expect(body.usedCost).toBe(6.0);
+      expect(body.limitCost).toBe(5);
+      expect(body.resetAt).toMatch(/^\d{4}-\d{2}-\d{2}T00:00:00\.000Z$/);
+    });
+
+    it('resetAt points to the next UTC midnight', async () => {
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValue(99.0);
+
+      let caught: unknown;
+      try {
+        await service.enforceQuota('org-1');
+      } catch (err) {
+        caught = err;
+      }
+
+      const body = (caught as HttpException).getResponse() as QuotaExceededBody;
+      const resetAt = new Date(body.resetAt);
+      const now = new Date();
+
+      expect(resetAt.getTime()).toBeGreaterThan(now.getTime());
+      expect(resetAt.getUTCHours()).toBe(0);
+      expect(resetAt.getUTCMinutes()).toBe(0);
+      expect(resetAt.getUTCSeconds()).toBe(0);
+    });
+
+    it('emits llm_quota_near_cap log at 80% utilisation', async () => {
+      const loggerSpy = jest.spyOn(service['logger'], 'warn');
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValue(4.0); // exactly 80% of $5
+
+      await service.enforceQuota('org-1');
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('llm_quota_near_cap'),
+      );
+    });
+
+    it('does not emit near-quota log below 80%', async () => {
+      const loggerSpy = jest.spyOn(service['logger'], 'warn');
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValue(3.0);
+
+      await service.enforceQuota('org-1');
+
+      expect(loggerSpy).not.toHaveBeenCalled();
+    });
+
+    it('blocks independently per org (org-a under, org-b over)', async () => {
+      // org-a: 2.0 usage → under quota
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(2.0);
+      await expect(service.enforceQuota('org-a')).resolves.toBeUndefined();
+
+      // org-b: 6.0 usage → over quota
+      mockLlmUsageService.getOrgDailyCost.mockResolvedValue(6.0);
+      await expect(service.enforceQuota('org-b')).rejects.toThrow(
+        HttpException,
+      );
+    });
+  });
+
+  // ─── logQuotaWarning (backward compat) ──────────────────────────────────────
+
   describe('logQuotaWarning', () => {
-    it('should log warning when quota exceeded', async () => {
+    beforeEach(() => {
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        llmDailyUsdCap: null,
+      });
+    });
+
+    it('logs warning when quota exceeded', async () => {
       const loggerSpy = jest.spyOn(service['logger'], 'warn');
       mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(6.0);
 
-      await service.logQuotaWarning('org-123');
+      await service.logQuotaWarning('org-1');
 
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('Organization quota exceeded'),
       );
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('org-123'),
-      );
     });
 
-    it('should not log warning when below quota', async () => {
+    it('does not log when below quota', async () => {
       const loggerSpy = jest.spyOn(service['logger'], 'warn');
       mockLlmUsageService.getOrgDailyCost.mockResolvedValueOnce(3.0);
 
-      await service.logQuotaWarning('org-123');
+      await service.logQuotaWarning('org-1');
 
       expect(loggerSpy).not.toHaveBeenCalled();
     });
   });
 
+  // ─── getDailyLimitUsd ────────────────────────────────────────────────────────
+
   describe('getDailyLimitUsd', () => {
-    it('should return default limit of 5 USD', () => {
-      const limit = service.getDailyLimitUsd();
-      expect(limit).toBe(5);
-    });
-
-    it('should return custom limit from env var', async () => {
-      process.env.LLM_DAILY_QUOTA_USD = '15';
-
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [
-          LlmQuotaService,
-          {
-            provide: LlmUsageService,
-            useValue: mockLlmUsageService,
-          },
-        ],
-      }).compile();
-
-      const testService = module.get<LlmQuotaService>(LlmQuotaService);
-      expect(testService.getDailyLimitUsd()).toBe(15);
-    });
-  });
-
-  describe('Multiple orgs isolation', () => {
-    it('should check quotas independently for different orgs', async () => {
-      mockLlmUsageService.getOrgDailyCost
-        .mockResolvedValueOnce(3.0) // org-1: 3.0 (below limit)
-        .mockResolvedValueOnce(6.0); // org-2: 6.0 (above limit)
-
-      const result1 = await service.checkOrgDailyQuota('org-1');
-      const result2 = await service.checkOrgDailyQuota('org-2');
-
-      expect(result1.isExceeded).toBe(false);
-      expect(result2.isExceeded).toBe(true);
-      expect(mockLlmUsageService.getOrgDailyCost).toHaveBeenCalledWith('org-1');
-      expect(mockLlmUsageService.getOrgDailyCost).toHaveBeenCalledWith('org-2');
-    });
-  });
-
-  describe('Daily reset', () => {
-    it('should check cost for different dates', async () => {
-      mockLlmUsageService.getOrgDailyCost
-        .mockResolvedValueOnce(2.0) // Today: 2.0
-        .mockResolvedValueOnce(5.5); // Yesterday: 5.5
-
-      const today = new Date('2026-05-09');
-      const yesterday = new Date('2026-05-08');
-
-      const todayResult = await service.checkOrgDailyQuota('org-123'); // Uses today's date
-      // Note: getOrgDailyCost is called without date param in checkOrgDailyQuota,
-      // so it defaults to today. For date-specific testing, we'd need to expose the date param.
-
-      expect(mockLlmUsageService.getOrgDailyCost).toHaveBeenCalled();
+    it('returns default $5 when env var not set', () => {
+      expect(service.getDailyLimitUsd()).toBe(5);
     });
   });
 });

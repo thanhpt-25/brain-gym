@@ -34,6 +34,7 @@ import { MasteryModule } from './mastery/mastery.module';
 import { EventsModule } from './events/events.module';
 import { InsightsModule } from './insights/insights.module';
 import { PassLikelihoodModule } from './surveys/pass-likelihood.module';
+import { SquadsModule } from './squads/squads.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { PassLikelihoodModule } from './surveys/pass-likelihood.module';
     EventsModule,
     InsightsModule,
     PassLikelihoodModule,
+    SquadsModule,
   ],
   providers: [
     RequestContextService,
