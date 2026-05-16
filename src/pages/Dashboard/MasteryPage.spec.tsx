@@ -8,11 +8,18 @@ import * as mastery from "../../services/mastery";
 import * as readiness from "../../services/readiness";
 import { useAuthStore } from "../../stores/auth.store";
 
-// Mock the services
+// Mock the services and router
 vi.mock("../../services/insights");
 vi.mock("../../services/mastery");
 vi.mock("../../services/readiness");
 vi.mock("../../stores/auth.store");
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useParams: vi.fn(() => ({ certId: "cert-1" })),
+  };
+});
 
 const mockQueryClient = new QueryClient({
   defaultOptions: {
