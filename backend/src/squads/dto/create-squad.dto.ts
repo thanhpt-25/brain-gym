@@ -1,26 +1,16 @@
-import {
-  IsString,
-  IsUUID,
-  IsOptional,
-  IsDateString,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, MaxLength, IsUUID, IsOptional, IsDateString } from 'class-validator';
 
 export class CreateSquadDto {
-  @ApiProperty({ description: 'Squad name', minLength: 2, maxLength: 80 })
   @IsString()
-  @MinLength(2)
-  @MaxLength(80)
+  @IsNotEmpty()
+  @MaxLength(100)
   name: string;
 
-  @ApiProperty({ description: 'Target certification UUID' })
   @IsUUID()
+  @IsNotEmpty()
   certificationId: string;
 
-  @ApiPropertyOptional({ description: 'Target exam date (ISO date string)' })
-  @IsOptional()
   @IsDateString()
+  @IsOptional()
   targetExamDate?: string;
 }

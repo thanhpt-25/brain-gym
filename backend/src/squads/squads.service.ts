@@ -1,172 +1,261 @@
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
   BadRequestException,
-  ConflictException,
-  GoneException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrgKind, OrgRole, OrgMember } from '@prisma/client';
 import { CreateSquadDto } from './dto/create-squad.dto';
-import {
-  FF_SQUADS_BETA,
-  SQUAD_INVITE_TTL_DAYS,
-  SQUAD_INVITE_DAILY_LIMIT,
-} from './squads.constants';
+import { SquadDto } from './dto/squad.dto';
+import { InviteLinkDto } from './dto/invite-link.dto';
+import { OrgRole, OrgInviteStatus, UserPlan, OrgKind } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class SquadsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  assertFlagEnabled(): void {
-    if (process.env[FF_SQUADS_BETA] !== 'true') {
-      throw new NotFoundException('Squads beta not enabled');
-    }
+  private slugify(text: string): string {
+    return (
+      text
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^\w-]+/g, '')
+        .replace(/--+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '') +
+      '-' +
+      Math.random().toString(36).substring(2, 6)
+    );
   }
 
-  /**
-   * Create a new Squad (Organization with kind=SQUAD) and assign the creator as OWNER.
-   *
-   * Constraint note: Squads cannot own Catalog or Assessment resources. This constraint
-   * is enforced in the Catalog and Assessment services by checking org.kind !== SQUAD.
-   * No DB enforcement is required here.
-   */
-  async create(
+  async createSquad(
     userId: string,
     dto: CreateSquadDto,
-  ): Promise<{ org: any; member: OrgMember }> {
-    const slug = this.slugify(dto.name);
-
-    const org = await this.prisma.organization.create({
-      data: {
-        name: dto.name,
-        slug,
-        kind: OrgKind.SQUAD,
-        certificationId: dto.certificationId,
-        targetExamDate: dto.targetExamDate
-          ? new Date(dto.targetExamDate)
-          : null,
-      },
+  ): Promise<SquadDto> {
+    // 1. Validate user exists and get user details
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
     });
+    if (!user) throw new NotFoundException('User not found');
 
-    const member = await this.prisma.orgMember.create({
-      data: {
-        userId,
-        orgId: org.id,
-        role: OrgRole.OWNER,
-        isActive: true,
-      },
-    });
-
-    return { org, member };
-  }
-
-  async createInvite(
-    userId: string,
-    squadId: string,
-  ): Promise<{ inviteUrl: string; code: string; expiresAt: Date }> {
-    const membership = await this.prisma.orgMember.findFirst({
-      where: { userId, orgId: squadId, isActive: true },
-    });
-
-    if (!membership || membership.role !== OrgRole.OWNER) {
-      throw new ForbiddenException('Only squad owners can create invites');
-    }
-
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const dailyCount = await this.prisma.orgJoinLink.count({
-      where: {
-        orgId: squadId,
-        createdAt: { gte: startOfDay },
-      },
-    });
-
-    if (dailyCount >= SQUAD_INVITE_DAILY_LIMIT) {
-      throw new BadRequestException(
-        `Daily invite limit of ${SQUAD_INVITE_DAILY_LIMIT} reached for this squad`,
+    // 2. Validate user plan (no FREE users can create squads)
+    if (user.plan === UserPlan.FREE) {
+      throw new ForbiddenException(
+        'Upgrade to Premium or Enterprise to create a squad.',
       );
     }
 
-    const code = this.generateCode();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + SQUAD_INVITE_TTL_DAYS);
-
-    const link = await this.prisma.orgJoinLink.create({
-      data: {
-        orgId: squadId,
-        code,
-        maxUses: 1,
-        currentUses: 0,
-        expiresAt,
-        isActive: true,
-      },
+    // 3. Validate certification exists
+    const certification = await this.prisma.certification.findUnique({
+      where: { id: dto.certificationId },
     });
+    if (!certification) {
+      throw new NotFoundException('Certification not found');
+    }
 
-    return {
-      inviteUrl: `/squads/join/${link.code}`,
-      code: link.code,
-      expiresAt: link.expiresAt,
-    };
-  }
+    // 4. Create organization with kind='SQUAD'
+    const slug = this.slugify(dto.name);
+    const maxSeats =
+      user.plan === UserPlan.ENTERPRISE ? 50 : 10;
 
-  async join(userId: string, code: string): Promise<OrgMember> {
     return this.prisma.$transaction(async (tx) => {
-      const link = await tx.orgJoinLink.findUnique({ where: { code } });
-
-      if (!link || !link.isActive) {
-        throw new NotFoundException('Invite link not found or inactive');
-      }
-
-      if (link.expiresAt && link.expiresAt < new Date()) {
-        throw new GoneException('Invite link has expired');
-      }
-
-      if (link.maxUses !== null && link.currentUses >= link.maxUses) {
-        throw new BadRequestException('Invite link has already been used');
-      }
-
-      const existing = await tx.orgMember.findFirst({
-        where: { userId, orgId: link.orgId, isActive: true },
-      });
-
-      if (existing) {
-        throw new ConflictException('User is already a member of this squad');
-      }
-
-      const member = await tx.orgMember.create({
+      // Create the squad (Organization with kind=SQUAD)
+      const org = await tx.organization.create({
         data: {
-          userId,
-          orgId: link.orgId,
-          role: OrgRole.MEMBER,
-          isActive: true,
+          kind: OrgKind.SQUAD,
+          name: dto.name,
+          slug,
+          maxSeats,
+          certificationId: dto.certificationId,
+          targetExamDate: dto.targetExamDate
+            ? new Date(dto.targetExamDate)
+            : undefined,
         },
       });
 
-      await tx.orgJoinLink.update({
-        where: { id: link.id },
-        data: { currentUses: { increment: 1 } },
+      // Add creator as OWNER
+      await tx.orgMember.create({
+        data: {
+          orgId: org.id,
+          userId,
+          role: OrgRole.OWNER,
+        },
       });
 
-      return member;
+      // Return SquadDto
+      return {
+        id: org.id,
+        name: org.name,
+        slug: org.slug,
+        certificationId: org.certificationId!,
+        targetExamDate: org.targetExamDate || undefined,
+        memberCount: 1, // Creator
+        createdAt: org.createdAt,
+      };
     });
   }
 
-  private slugify(text: string): string {
-    const base = text
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]/g, '');
-    const suffix = Math.random().toString(36).substring(2, 6);
-    return `${base}-${suffix}`;
+  async createInviteLink(
+    squadId: string,
+    ownerId: string,
+  ): Promise<InviteLinkDto> {
+    // 1. Verify squad exists
+    const squad = await this.prisma.organization.findUnique({
+      where: { id: squadId },
+      include: {
+        _count: {
+          select: { members: { where: { isActive: true } } },
+        },
+      },
+    });
+    if (!squad) {
+      throw new NotFoundException('Squad not found');
+    }
+
+    // Verify it's actually a squad
+    if (squad.kind !== OrgKind.SQUAD) {
+      throw new BadRequestException('Organization is not a squad');
+    }
+
+    // 2. Verify caller is OWNER/ADMIN (this is enforced by guard, but double-check)
+    const memberRole = await this.prisma.orgMember.findUnique({
+      where: { orgId_userId: { orgId: squadId, userId: ownerId } },
+    });
+    if (
+      !memberRole ||
+      ![OrgRole.OWNER, OrgRole.ADMIN].includes(memberRole.role)
+    ) {
+      throw new ForbiddenException(
+        'Only squad owners and admins can generate invite links',
+      );
+    }
+
+    // 3. Enforce daily rate limit (max 10/day per owner)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const invitesCreatedToday = await this.prisma.orgInvite.count({
+      where: {
+        orgId: squadId,
+        invitedBy: ownerId,
+        createdAt: { gte: today },
+      },
+    });
+
+    if (invitesCreatedToday >= 10) {
+      throw new BadRequestException(
+        'You have reached the daily invite limit (10 per day)',
+      );
+    }
+
+    // 4. Generate token and create OrgInvite
+    const token = uuidv4();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7-day TTL
+
+    // Use a placeholder email for squad invites (token-based)
+    const placeholderEmail = `squad_${token.substring(0, 8)}@squad.internal`;
+
+    const invite = await this.prisma.orgInvite.create({
+      data: {
+        orgId: squadId,
+        email: placeholderEmail,
+        token,
+        status: OrgInviteStatus.PENDING,
+        invitedBy: ownerId,
+        expiresAt,
+      },
+    });
+
+    // 5. Return InviteLinkDto with full URL
+    const appUrl = process.env.APP_URL || 'http://localhost:8080';
+    return {
+      token: invite.token,
+      expiresAt: invite.expiresAt,
+      squadName: squad.name,
+      joinUrl: `${appUrl}/squads/join/${token}`,
+    };
   }
 
-  private generateCode(): string {
-    return (
-      Math.random().toString(36).substring(2, 10) +
-      Math.random().toString(36).substring(2, 10)
-    );
+  async joinSquad(token: string, userId: string): Promise<SquadDto> {
+    // 1. Find OrgInvite by token
+    const invite = await this.prisma.orgInvite.findUnique({
+      where: { token },
+      include: { organization: true },
+    });
+
+    if (!invite) {
+      throw new NotFoundException('Invite not found or expired');
+    }
+
+    // 2. Validate not expired and status is PENDING
+    if (invite.status !== OrgInviteStatus.PENDING) {
+      throw new BadRequestException('Invite is no longer valid');
+    }
+
+    if (new Date() > invite.expiresAt) {
+      // Mark as expired
+      await this.prisma.orgInvite.update({
+        where: { id: invite.id },
+        data: { status: OrgInviteStatus.EXPIRED },
+      });
+      throw new BadRequestException('Invite has expired');
+    }
+
+    // 3. Verify it's a squad
+    if (invite.organization.kind !== OrgKind.SQUAD) {
+      throw new BadRequestException('Organization is not a squad');
+    }
+
+    // 4. Check squad capacity
+    const memberCount = await this.prisma.orgMember.count({
+      where: { orgId: invite.orgId, isActive: true },
+    });
+
+    if (memberCount >= invite.organization.maxSeats) {
+      throw new BadRequestException('Squad is at capacity');
+    }
+
+    // 5. Upsert OrgMember and update invite status
+    return this.prisma.$transaction(async (tx) => {
+      // Check if user is already a member
+      const existingMember = await tx.orgMember.findUnique({
+        where: { orgId_userId: { orgId: invite.orgId, userId } },
+      });
+
+      if (!existingMember) {
+        // Add as MEMBER
+        await tx.orgMember.create({
+          data: {
+            orgId: invite.orgId,
+            userId,
+            role: OrgRole.MEMBER,
+          },
+        });
+      }
+
+      // Update invite status to ACCEPTED
+      await tx.orgInvite.update({
+        where: { id: invite.id },
+        data: { status: OrgInviteStatus.ACCEPTED },
+      });
+
+      // Get updated member count
+      const updatedMemberCount = await tx.orgMember.count({
+        where: { orgId: invite.orgId, isActive: true },
+      });
+
+      // Return SquadDto
+      return {
+        id: invite.organization.id,
+        name: invite.organization.name,
+        slug: invite.organization.slug,
+        certificationId: invite.organization.certificationId!,
+        targetExamDate: invite.organization.targetExamDate || undefined,
+        memberCount: updatedMemberCount,
+        createdAt: invite.organization.createdAt,
+      };
+    });
   }
 }

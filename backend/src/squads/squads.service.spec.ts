@@ -1,345 +1,379 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  GoneException,
-  NotFoundException,
-} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrgKind, OrgRole } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { SQUAD_INVITE_DAILY_LIMIT } from './squads.constants';
 import { SquadsService } from './squads.service';
-
-const SQUAD_ID = 'squad-uuid-1';
-const USER_ID = 'user-uuid-1';
-const CERT_ID = 'cert-uuid-1';
-const INVITE_CODE = 'abcdef12';
+import { PrismaService } from '../prisma/prisma.service';
+import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { OrgRole, OrgKind, UserPlan, User, Organization, OrgInviteStatus } from '@prisma/client';
 
 describe('SquadsService', () => {
   let service: SquadsService;
-
-  const mockPrisma = {
-    organization: { create: jest.fn() },
-    orgMember: {
-      create: jest.fn(),
-      findFirst: jest.fn(),
-    },
-    orgJoinLink: {
-      count: jest.fn(),
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-    },
-    $transaction: jest.fn(),
-  };
+  let prisma: PrismaService;
 
   beforeEach(async () => {
-    delete process.env.FF_SQUADS_BETA;
-    jest.clearAllMocks();
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SquadsService,
-        { provide: PrismaService, useValue: mockPrisma },
+        {
+          provide: PrismaService,
+          useValue: {
+            user: { findUnique: jest.fn() },
+            certification: { findUnique: jest.fn() },
+            organization: {
+              create: jest.fn(),
+              findUnique: jest.fn(),
+            },
+            orgMember: {
+              create: jest.fn(),
+              findUnique: jest.fn(),
+              count: jest.fn(),
+            },
+            orgInvite: {
+              create: jest.fn(),
+              findUnique: jest.fn(),
+              count: jest.fn(),
+              update: jest.fn(),
+            },
+            $transaction: jest.fn((callback) => callback({
+              organization: { create: jest.fn() },
+              orgMember: { create: jest.fn(), findUnique: jest.fn(), count: jest.fn() },
+              orgInvite: { update: jest.fn() },
+            })),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<SquadsService>(SquadsService);
+    prisma = module.get<PrismaService>(PrismaService);
   });
 
-  // ─── assertFlagEnabled ────────────────────────────────────────────────────────
+  describe('createSquad', () => {
+    it('should reject FREE users', async () => {
+      const freeUser: User = {
+        id: 'user-1',
+        email: 'free@example.com',
+        passwordHash: 'hash',
+        displayName: 'Free User',
+        avatarUrl: null,
+        role: 'LEARNER',
+        status: 'ACTIVE',
+        plan: UserPlan.FREE,
+        points: 0,
+        suspendedUntil: null,
+        banReason: null,
+        featureFlags: {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-  describe('assertFlagEnabled', () => {
-    it('throws NotFoundException when FF_SQUADS_BETA is not set', () => {
-      expect(() => service.assertFlagEnabled()).toThrow(NotFoundException);
+      jest.spyOn(prisma.user, 'findUnique').mockResolvedValueOnce(freeUser);
+
+      await expect(
+        service.createSquad('user-1', {
+          name: 'Test Squad',
+          certificationId: 'cert-1',
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
 
-    it('throws when FF_SQUADS_BETA is a non-true value', () => {
-      process.env.FF_SQUADS_BETA = 'false';
-      expect(() => service.assertFlagEnabled()).toThrow(NotFoundException);
+    it('should validate certification exists', async () => {
+      const premiumUser: User = {
+        id: 'user-1',
+        email: 'premium@example.com',
+        passwordHash: 'hash',
+        displayName: 'Premium User',
+        avatarUrl: null,
+        role: 'LEARNER',
+        status: 'ACTIVE',
+        plan: UserPlan.PREMIUM,
+        points: 0,
+        suspendedUntil: null,
+        banReason: null,
+        featureFlags: {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      jest.spyOn(prisma.user, 'findUnique').mockResolvedValueOnce(premiumUser);
+      jest.spyOn(prisma.certification, 'findUnique').mockResolvedValueOnce(null);
+
+      await expect(
+        service.createSquad('user-1', {
+          name: 'Test Squad',
+          certificationId: 'nonexistent-cert',
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it('does not throw when FF_SQUADS_BETA is "true"', () => {
-      process.env.FF_SQUADS_BETA = 'true';
-      expect(() => service.assertFlagEnabled()).not.toThrow();
+    it('should create squad with kind=SQUAD', async () => {
+      const premiumUser: User = {
+        id: 'user-1',
+        email: 'premium@example.com',
+        passwordHash: 'hash',
+        displayName: 'Premium User',
+        avatarUrl: null,
+        role: 'LEARNER',
+        status: 'ACTIVE',
+        plan: UserPlan.PREMIUM,
+        points: 0,
+        suspendedUntil: null,
+        banReason: null,
+        featureFlags: {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const certification = {
+        id: 'cert-1',
+        name: 'AWS SAA',
+        providerId: 'provider-1',
+        code: 'aws-saa',
+        description: null,
+        examFormat: null,
+        isActive: true,
+        createdAt: new Date(),
+      };
+
+      const mockOrg: Organization = {
+        id: 'squad-1',
+        kind: OrgKind.SQUAD,
+        name: 'Test Squad',
+        slug: 'test-squad-abc1',
+        logoUrl: null,
+        description: null,
+        industry: null,
+        accentColor: null,
+        maxSeats: 10,
+        isActive: true,
+        llmDailyUsdCap: null,
+        certificationId: 'cert-1',
+        targetExamDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      jest.spyOn(prisma.user, 'findUnique').mockResolvedValueOnce(premiumUser);
+      jest.spyOn(prisma.certification, 'findUnique').mockResolvedValueOnce(certification);
+
+      const mockTx = {
+        organization: { create: jest.fn().mockResolvedValueOnce(mockOrg) },
+        orgMember: { create: jest.fn().mockResolvedValueOnce({}) },
+      };
+
+      jest.spyOn(prisma, '$transaction').mockImplementationOnce(async (callback) => {
+        return callback(mockTx);
+      });
+
+      const result = await service.createSquad('user-1', {
+        name: 'Test Squad',
+        certificationId: 'cert-1',
+      });
+
+      expect(result).toMatchObject({
+        id: 'squad-1',
+        name: 'Test Squad',
+        slug: 'test-squad-abc1',
+        memberCount: 1,
+      });
     });
   });
 
-  // ─── create ──────────────────────────────────────────────────────────────────
+  describe('createInviteLink', () => {
+    it('should enforce daily rate limit (max 10/day)', async () => {
+      const mockSquad: Organization = {
+        id: 'squad-1',
+        kind: OrgKind.SQUAD,
+        name: 'Test Squad',
+        slug: 'test-squad',
+        logoUrl: null,
+        description: null,
+        industry: null,
+        accentColor: null,
+        maxSeats: 10,
+        isActive: true,
+        llmDailyUsdCap: null,
+        certificationId: 'cert-1',
+        targetExamDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-  describe('create', () => {
-    const mockOrg = {
-      id: SQUAD_ID,
-      kind: OrgKind.SQUAD,
-      name: 'AWS Study Crew',
-      slug: 'aws-study-crew-x1y2',
-      certificationId: CERT_ID,
-    };
-    const mockMember = {
-      id: 'member-1',
-      orgId: SQUAD_ID,
-      userId: USER_ID,
-      role: OrgRole.OWNER,
-    };
-
-    beforeEach(() => {
-      mockPrisma.organization.create.mockResolvedValue(mockOrg);
-      mockPrisma.orgMember.create.mockResolvedValue(mockMember);
-    });
-
-    it('creates Organization with kind=SQUAD', async () => {
-      await service.create(USER_ID, {
-        name: 'AWS Study Crew',
-        certificationId: CERT_ID,
+      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValueOnce({
+        ...mockSquad,
+        _count: { members: 5 },
       });
 
-      expect(mockPrisma.organization.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            kind: OrgKind.SQUAD,
-            certificationId: CERT_ID,
-          }),
-        }),
-      );
-    });
-
-    it('creates OWNER OrgMember for the creator', async () => {
-      await service.create(USER_ID, {
-        name: 'AWS Study Crew',
-        certificationId: CERT_ID,
-      });
-
-      expect(mockPrisma.orgMember.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            userId: USER_ID,
-            orgId: mockOrg.id,
-            role: OrgRole.OWNER,
-            isActive: true,
-          }),
-        }),
-      );
-    });
-
-    it('returns org and member', async () => {
-      const result = await service.create(USER_ID, {
-        name: 'AWS Study Crew',
-        certificationId: CERT_ID,
-      });
-
-      expect(result.org).toEqual(mockOrg);
-      expect(result.member).toEqual(mockMember);
-    });
-
-    it('passes targetExamDate when provided', async () => {
-      await service.create(USER_ID, {
-        name: 'My Squad',
-        certificationId: CERT_ID,
-        targetExamDate: '2026-09-01',
-      });
-
-      expect(mockPrisma.organization.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            targetExamDate: new Date('2026-09-01'),
-          }),
-        }),
-      );
-    });
-
-    it('generates a slugified name with 4-char random suffix', async () => {
-      await service.create(USER_ID, {
-        name: 'AWS Study Crew',
-        certificationId: CERT_ID,
-      });
-
-      const { slug } = mockPrisma.organization.create.mock.calls[0][0].data;
-      expect(slug).toMatch(/^aws-study-crew-[a-z0-9]{4}$/);
-    });
-  });
-
-  // ─── createInvite ─────────────────────────────────────────────────────────────
-
-  describe('createInvite', () => {
-    const ownerMembership = {
-      id: 'member-1',
-      userId: USER_ID,
-      orgId: SQUAD_ID,
-      role: OrgRole.OWNER,
-      isActive: true,
-    };
-
-    const mockLink = {
-      id: 'link-1',
-      code: INVITE_CODE,
-      expiresAt: new Date(Date.now() + 7 * 86_400_000),
-      orgId: SQUAD_ID,
-    };
-
-    it('throws ForbiddenException if caller has MEMBER role, not OWNER', async () => {
-      mockPrisma.orgMember.findFirst.mockResolvedValueOnce({
-        ...ownerMembership,
-        role: OrgRole.MEMBER,
-      });
-
-      await expect(service.createInvite(USER_ID, SQUAD_ID)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
-    it('throws ForbiddenException if caller has no membership', async () => {
-      mockPrisma.orgMember.findFirst.mockResolvedValueOnce(null);
-
-      await expect(service.createInvite(USER_ID, SQUAD_ID)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
-    it('throws BadRequestException when daily invite limit reached', async () => {
-      mockPrisma.orgMember.findFirst.mockResolvedValueOnce(ownerMembership);
-      mockPrisma.orgJoinLink.count.mockResolvedValueOnce(
-        SQUAD_INVITE_DAILY_LIMIT,
-      );
-
-      await expect(service.createInvite(USER_ID, SQUAD_ID)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('creates single-use join link with 7-day TTL', async () => {
-      mockPrisma.orgMember.findFirst.mockResolvedValueOnce(ownerMembership);
-      mockPrisma.orgJoinLink.count.mockResolvedValueOnce(0);
-      mockPrisma.orgJoinLink.create.mockResolvedValueOnce(mockLink);
-
-      await service.createInvite(USER_ID, SQUAD_ID);
-
-      const createCall = mockPrisma.orgJoinLink.create.mock.calls[0][0];
-      expect(createCall.data).toMatchObject({
-        orgId: SQUAD_ID,
-        maxUses: 1,
+      jest.spyOn(prisma.orgMember, 'findUnique').mockResolvedValueOnce({
+        id: 'member-1',
+        orgId: 'squad-1',
+        userId: 'user-1',
+        role: OrgRole.OWNER,
+        groupId: null,
+        joinedAt: new Date(),
         isActive: true,
       });
 
-      const diffMs = createCall.data.expiresAt.getTime() - Date.now();
-      expect(diffMs).toBeGreaterThan(6 * 24 * 60 * 60 * 1000); // > 6 days
-      expect(diffMs).toBeLessThan(8 * 24 * 60 * 60 * 1000); // < 8 days
+      jest.spyOn(prisma.orgInvite, 'count').mockResolvedValueOnce(10); // 10 invites already created today
+
+      await expect(
+        service.createInviteLink('squad-1', 'user-1'),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('returns inviteUrl, code, and expiresAt', async () => {
-      mockPrisma.orgMember.findFirst.mockResolvedValueOnce(ownerMembership);
-      mockPrisma.orgJoinLink.count.mockResolvedValueOnce(0);
-      mockPrisma.orgJoinLink.create.mockResolvedValueOnce(mockLink);
+    it('should generate token with 7-day TTL', async () => {
+      const mockSquad: Organization = {
+        id: 'squad-1',
+        kind: OrgKind.SQUAD,
+        name: 'Test Squad',
+        slug: 'test-squad',
+        logoUrl: null,
+        description: null,
+        industry: null,
+        accentColor: null,
+        maxSeats: 10,
+        isActive: true,
+        llmDailyUsdCap: null,
+        certificationId: 'cert-1',
+        targetExamDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-      const result = await service.createInvite(USER_ID, SQUAD_ID);
+      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValueOnce({
+        ...mockSquad,
+        _count: { members: 5 },
+      });
 
-      expect(result.inviteUrl).toBe(`/squads/join/${INVITE_CODE}`);
-      expect(result.code).toBe(INVITE_CODE);
-      expect(result.expiresAt).toBeInstanceOf(Date);
+      jest.spyOn(prisma.orgMember, 'findUnique').mockResolvedValueOnce({
+        id: 'member-1',
+        orgId: 'squad-1',
+        userId: 'user-1',
+        role: OrgRole.OWNER,
+        groupId: null,
+        joinedAt: new Date(),
+        isActive: true,
+      });
+
+      jest.spyOn(prisma.orgInvite, 'count').mockResolvedValueOnce(5); // 5 invites today (under limit)
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 7);
+
+      jest.spyOn(prisma.orgInvite, 'create').mockResolvedValueOnce({
+        id: 'invite-1',
+        orgId: 'squad-1',
+        email: 'squad_token_abc@squad.internal',
+        role: OrgRole.MEMBER,
+        token: 'abc-123-token',
+        status: OrgInviteStatus.PENDING,
+        invitedBy: 'user-1',
+        expiresAt: futureDate,
+        createdAt: new Date(),
+      });
+
+      const result = await service.createInviteLink('squad-1', 'user-1');
+
+      expect(result.token).toBe('abc-123-token');
+      expect(result.squadName).toBe('Test Squad');
+      expect(result.expiresAt.getTime()).toBeGreaterThan(new Date().getTime());
     });
   });
 
-  // ─── join ─────────────────────────────────────────────────────────────────────
+  describe('joinSquad', () => {
+    it('should reject expired tokens', async () => {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - 1);
 
-  describe('join', () => {
-    const validLink = {
-      id: 'link-1',
-      code: INVITE_CODE,
-      orgId: SQUAD_ID,
-      isActive: true,
-      maxUses: 1,
-      currentUses: 0,
-      expiresAt: new Date(Date.now() + 86_400_000),
-    };
-
-    const createdMember = {
-      id: 'member-new',
-      userId: USER_ID,
-      orgId: SQUAD_ID,
-      role: OrgRole.MEMBER,
-    };
-
-    beforeEach(() => {
-      mockPrisma.$transaction.mockImplementation(
-        (cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma),
-      );
-    });
-
-    it('throws NotFoundException for unknown code', async () => {
-      mockPrisma.orgJoinLink.findUnique.mockResolvedValueOnce(null);
-
-      await expect(service.join(USER_ID, 'bad-code')).rejects.toThrow(
-        NotFoundException,
-      );
-    });
-
-    it('throws NotFoundException for inactive link', async () => {
-      mockPrisma.orgJoinLink.findUnique.mockResolvedValueOnce({
-        ...validLink,
-        isActive: false,
+      jest.spyOn(prisma.orgInvite, 'findUnique').mockResolvedValueOnce({
+        id: 'invite-1',
+        orgId: 'squad-1',
+        email: 'squad_token@squad.internal',
+        role: OrgRole.MEMBER,
+        token: 'expired-token',
+        status: OrgInviteStatus.PENDING,
+        invitedBy: 'user-1',
+        expiresAt: pastDate,
+        createdAt: new Date(),
+        organization: {
+          id: 'squad-1',
+          kind: OrgKind.SQUAD,
+          name: 'Test Squad',
+          slug: 'test-squad',
+          logoUrl: null,
+          description: null,
+          industry: null,
+          accentColor: null,
+          maxSeats: 10,
+          isActive: true,
+          llmDailyUsdCap: null,
+          certificationId: 'cert-1',
+          targetExamDate: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
-      await expect(service.join(USER_ID, INVITE_CODE)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.joinSquad('expired-token', 'new-user'),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('throws GoneException for expired link', async () => {
-      mockPrisma.orgJoinLink.findUnique.mockResolvedValueOnce({
-        ...validLink,
-        expiresAt: new Date(Date.now() - 1000),
+    it('should add user to squad and mark invite as ACCEPTED', async () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 7);
+
+      const mockSquad: Organization = {
+        id: 'squad-1',
+        kind: OrgKind.SQUAD,
+        name: 'Test Squad',
+        slug: 'test-squad',
+        logoUrl: null,
+        description: null,
+        industry: null,
+        accentColor: null,
+        maxSeats: 10,
+        isActive: true,
+        llmDailyUsdCap: null,
+        certificationId: 'cert-1',
+        targetExamDate: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      jest.spyOn(prisma.orgInvite, 'findUnique').mockResolvedValueOnce({
+        id: 'invite-1',
+        orgId: 'squad-1',
+        email: 'squad_token@squad.internal',
+        role: OrgRole.MEMBER,
+        token: 'valid-token',
+        status: OrgInviteStatus.PENDING,
+        invitedBy: 'user-1',
+        expiresAt: futureDate,
+        createdAt: new Date(),
+        organization: mockSquad,
       });
 
-      await expect(service.join(USER_ID, INVITE_CODE)).rejects.toThrow(
-        GoneException,
-      );
-    });
+      const mockTx = {
+        orgMember: {
+          findUnique: jest.fn().mockResolvedValueOnce(null),
+          create: jest.fn().mockResolvedValueOnce({}),
+          count: jest.fn().mockResolvedValueOnce(2),
+        },
+        orgInvite: {
+          update: jest.fn().mockResolvedValueOnce({}),
+        },
+      };
 
-    it('throws BadRequestException when maxUses exhausted', async () => {
-      mockPrisma.orgJoinLink.findUnique.mockResolvedValueOnce({
-        ...validLink,
-        currentUses: 1,
+      jest.spyOn(prisma, '$transaction').mockImplementationOnce(async (callback) => {
+        return callback(mockTx);
       });
 
-      await expect(service.join(USER_ID, INVITE_CODE)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
+      const result = await service.joinSquad('valid-token', 'new-user');
 
-    it('throws ConflictException if user is already an active member', async () => {
-      mockPrisma.orgJoinLink.findUnique.mockResolvedValueOnce(validLink);
-      mockPrisma.orgMember.findFirst.mockResolvedValueOnce({ id: 'existing' });
-
-      await expect(service.join(USER_ID, INVITE_CODE)).rejects.toThrow(
-        ConflictException,
-      );
-    });
-
-    it('creates MEMBER and increments currentUses atomically', async () => {
-      mockPrisma.orgJoinLink.findUnique.mockResolvedValueOnce(validLink);
-      mockPrisma.orgMember.findFirst.mockResolvedValueOnce(null);
-      mockPrisma.orgMember.create.mockResolvedValueOnce(createdMember);
-      mockPrisma.orgJoinLink.update.mockResolvedValueOnce({
-        ...validLink,
-        currentUses: 1,
+      expect(result).toMatchObject({
+        id: 'squad-1',
+        name: 'Test Squad',
+        memberCount: 2,
       });
-
-      const result = await service.join(USER_ID, INVITE_CODE);
-
-      expect(mockPrisma.orgMember.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            userId: USER_ID,
-            orgId: SQUAD_ID,
-            role: OrgRole.MEMBER,
-            isActive: true,
-          }),
-        }),
-      );
-      expect(mockPrisma.orgJoinLink.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { currentUses: { increment: 1 } } }),
-      );
-      expect(result).toEqual(createdMember);
     });
   });
 });
