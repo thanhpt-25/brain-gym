@@ -12,10 +12,9 @@ import { CreateSquadDto } from './dto/create-squad.dto';
 import { SquadDto } from './dto/squad.dto';
 import { InviteLinkDto } from './dto/invite-link.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthUser } from '@/src/auth/decorators/auth-user.decorator';
-import { User } from '@prisma/client';
-import { OrgRoleGuard } from '@/src/orgs/guards/org-role.guard';
-import { OrgRoles } from '@/src/orgs/decorators/org-roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
+import { OrgRoles } from '../common/decorators/org-roles.decorator';
 
 /**
  * Squads REST API Controller
@@ -34,10 +33,10 @@ export class SquadsController {
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.CREATED)
   async createSquad(
-    @AuthUser() user: User,
+    @CurrentUser('id') userId: string,
     @Body() dto: CreateSquadDto,
   ): Promise<SquadDto> {
-    return this.squadsService.createSquad(user.id, dto);
+    return this.squadsService.createSquad(userId, dto);
   }
 
   /**
@@ -51,9 +50,9 @@ export class SquadsController {
   @HttpCode(HttpStatus.CREATED)
   async createInviteLink(
     @Param('id') squadId: string,
-    @AuthUser() user: User,
+    @CurrentUser('id') userId: string,
   ): Promise<InviteLinkDto> {
-    return this.squadsService.createInviteLink(squadId, user.id);
+    return this.squadsService.createInviteLink(squadId, userId);
   }
 
   /**
@@ -66,8 +65,8 @@ export class SquadsController {
   @HttpCode(HttpStatus.OK)
   async joinSquad(
     @Param('token') token: string,
-    @AuthUser() user: User,
+    @CurrentUser('id') userId: string,
   ): Promise<SquadDto> {
-    return this.squadsService.joinSquad(token, user.id);
+    return this.squadsService.joinSquad(token, userId);
   }
 }

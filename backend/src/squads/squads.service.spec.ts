@@ -1,8 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SquadsService } from './squads.service';
-import { PrismaService } from '@/src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateSquadDto } from './dto/create-squad.dto';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { SQUADS } from './squads.constants';
 
 describe('SquadsService', () => {
@@ -124,7 +128,9 @@ describe('SquadsService', () => {
       jest
         .spyOn(prisma.certification, 'findUnique')
         .mockResolvedValue(mockCertification as any);
-      jest.spyOn(prisma.organization, 'create').mockResolvedValue(mockSquad as any);
+      jest
+        .spyOn(prisma.organization, 'create')
+        .mockResolvedValue(mockSquad as any);
       jest.spyOn(prisma.orgMember, 'create').mockResolvedValue({} as any);
 
       const dto: CreateSquadDto = {
@@ -167,7 +173,9 @@ describe('SquadsService', () => {
       jest
         .spyOn(prisma.certification, 'findUnique')
         .mockResolvedValue(mockCertification as any);
-      jest.spyOn(prisma.organization, 'create').mockResolvedValue(mockSquad as any);
+      jest
+        .spyOn(prisma.organization, 'create')
+        .mockResolvedValue(mockSquad as any);
       jest.spyOn(prisma.orgMember, 'create').mockResolvedValue({} as any);
 
       const dto: CreateSquadDto = {
@@ -196,7 +204,9 @@ describe('SquadsService', () => {
     });
 
     it('should enforce daily rate limit (max 10/day)', async () => {
-      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValue(mockSquad as any);
+      jest
+        .spyOn(prisma.organization, 'findUnique')
+        .mockResolvedValue(mockSquad as any);
       jest.spyOn(prisma.orgInvite, 'count').mockResolvedValue(10); // Already at limit
 
       await expect(
@@ -208,7 +218,9 @@ describe('SquadsService', () => {
     });
 
     it('should generate token with 7-day TTL', async () => {
-      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValue(mockSquad as any);
+      jest
+        .spyOn(prisma.organization, 'findUnique')
+        .mockResolvedValue(mockSquad as any);
       jest.spyOn(prisma.orgInvite, 'count').mockResolvedValue(5); // Within limit
 
       const mockInvite = {
@@ -217,7 +229,9 @@ describe('SquadsService', () => {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       };
 
-      jest.spyOn(prisma.orgInvite, 'create').mockResolvedValue(mockInvite as any);
+      jest
+        .spyOn(prisma.orgInvite, 'create')
+        .mockResolvedValue(mockInvite as any);
 
       const result = await service.createInviteLink(mockSquad.id, 'user-1');
 
@@ -240,7 +254,9 @@ describe('SquadsService', () => {
     });
 
     it('should include full join URL in response', async () => {
-      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValue(mockSquad as any);
+      jest
+        .spyOn(prisma.organization, 'findUnique')
+        .mockResolvedValue(mockSquad as any);
       jest.spyOn(prisma.orgInvite, 'count').mockResolvedValue(0);
 
       const mockInvite = {
@@ -249,11 +265,14 @@ describe('SquadsService', () => {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       };
 
-      jest.spyOn(prisma.orgInvite, 'create').mockResolvedValue(mockInvite as any);
+      jest
+        .spyOn(prisma.orgInvite, 'create')
+        .mockResolvedValue(mockInvite as any);
 
       const result = await service.createInviteLink(mockSquad.id, 'user-1');
 
-      expect(result.joinUrl).toMatch(/\/squads\/join\/abc-123-def/);
+      expect(result.joinUrl).toMatch(/\/squads\/join\/[a-f0-9-]+$/); // UUID format
+      expect(result.token).toBeDefined();
       expect(result.squadName).toBe(mockSquad.name);
     });
   });
@@ -267,7 +286,9 @@ describe('SquadsService', () => {
         expiresAt: new Date(Date.now() - 1000), // 1 second in the past
       };
 
-      jest.spyOn(prisma.orgInvite, 'findUnique').mockResolvedValue(expiredInvite as any);
+      jest
+        .spyOn(prisma.orgInvite, 'findUnique')
+        .mockResolvedValue(expiredInvite as any);
 
       await expect(service.joinSquad('token-123', 'user-2')).rejects.toThrow(
         BadRequestException,
@@ -285,7 +306,9 @@ describe('SquadsService', () => {
         expiresAt: new Date(Date.now() + 1000),
       };
 
-      jest.spyOn(prisma.orgInvite, 'findUnique').mockResolvedValue(acceptedInvite as any);
+      jest
+        .spyOn(prisma.orgInvite, 'findUnique')
+        .mockResolvedValue(acceptedInvite as any);
 
       await expect(service.joinSquad('token-123', 'user-2')).rejects.toThrow(
         BadRequestException,
@@ -301,8 +324,12 @@ describe('SquadsService', () => {
         expiresAt: new Date(Date.now() + 1000),
       };
 
-      jest.spyOn(prisma.orgInvite, 'findUnique').mockResolvedValue(validInvite as any);
-      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValue(mockSquad as any);
+      jest
+        .spyOn(prisma.orgInvite, 'findUnique')
+        .mockResolvedValue(validInvite as any);
+      jest
+        .spyOn(prisma.organization, 'findUnique')
+        .mockResolvedValue(mockSquad as any);
       jest.spyOn(prisma.orgMember, 'findUnique').mockResolvedValue(null); // New member
       jest.spyOn(prisma.orgMember, 'create').mockResolvedValue({} as any);
       jest.spyOn(prisma.orgMember, 'count').mockResolvedValue(2); // Including new member
@@ -338,8 +365,12 @@ describe('SquadsService', () => {
         expiresAt: new Date(Date.now() + 1000),
       };
 
-      jest.spyOn(prisma.orgInvite, 'findUnique').mockResolvedValue(validInvite as any);
-      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValue(fullSquad as any);
+      jest
+        .spyOn(prisma.orgInvite, 'findUnique')
+        .mockResolvedValue(validInvite as any);
+      jest
+        .spyOn(prisma.organization, 'findUnique')
+        .mockResolvedValue(fullSquad as any);
 
       await expect(service.joinSquad('token-123', 'user-3')).rejects.toThrow(
         BadRequestException,
@@ -365,9 +396,15 @@ describe('SquadsService', () => {
         isActive: false,
       };
 
-      jest.spyOn(prisma.orgInvite, 'findUnique').mockResolvedValue(validInvite as any);
-      jest.spyOn(prisma.organization, 'findUnique').mockResolvedValue(mockSquad as any);
-      jest.spyOn(prisma.orgMember, 'findUnique').mockResolvedValue(existingMember as any);
+      jest
+        .spyOn(prisma.orgInvite, 'findUnique')
+        .mockResolvedValue(validInvite as any);
+      jest
+        .spyOn(prisma.organization, 'findUnique')
+        .mockResolvedValue(mockSquad as any);
+      jest
+        .spyOn(prisma.orgMember, 'findUnique')
+        .mockResolvedValue(existingMember as any);
       jest.spyOn(prisma.orgMember, 'update').mockResolvedValue({} as any);
       jest.spyOn(prisma.orgMember, 'count').mockResolvedValue(2);
       jest.spyOn(prisma.orgInvite, 'update').mockResolvedValue({} as any);

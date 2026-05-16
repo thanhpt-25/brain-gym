@@ -1,10 +1,16 @@
-import { Injectable, BadRequestException, ForbiddenException, NotFoundException, Logger } from '@nestjs/common';
-import { PrismaService } from '@/src/prisma/prisma.service';
+import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateSquadDto } from './dto/create-squad.dto';
 import { SquadDto } from './dto/squad.dto';
 import { InviteLinkDto } from './dto/invite-link.dto';
 import { SQUADS } from './squads.constants';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class SquadsService {
@@ -48,7 +54,9 @@ export class SquadsService {
         slug,
         kind: SQUADS.ORG_KIND as any, // 'SQUAD'
         certificationId: dto.certificationId,
-        targetExamDate: dto.targetExamDate ? new Date(dto.targetExamDate) : null,
+        targetExamDate: dto.targetExamDate
+          ? new Date(dto.targetExamDate)
+          : null,
         ownerId: userId,
         maxSeats: 50, // Default squad capacity
       },
@@ -121,7 +129,7 @@ export class SquadsService {
     }
 
     // 3. Generate signed UUID token (7-day TTL)
-    const token = uuidv4();
+    const token = randomUUID();
     const expiresAt = new Date(Date.now() + SQUADS.INVITE_TOKEN_TTL_MS);
 
     // 4. Create OrgInvite with token

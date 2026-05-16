@@ -9,7 +9,7 @@ CREATE TYPE "OrgKind" AS ENUM ('ORG', 'SQUAD');
 -- 2. New columns on organizations
 ALTER TABLE "organizations"
   ADD COLUMN "kind"             "OrgKind"    NOT NULL DEFAULT 'ORG',
-  ADD COLUMN "certification_id" UUID         NULL,
+  ADD COLUMN "certification_id" TEXT         NULL,
   ADD COLUMN "target_exam_date" TIMESTAMPTZ  NULL;
 
 -- 3. FK: squad → certification (optional, only for SQUAD rows)

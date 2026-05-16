@@ -2,7 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SquadsController } from './squads.controller';
 import { SquadsService } from './squads.service';
 import { CreateSquadDto } from './dto/create-squad.dto';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, CanActivate } from '@nestjs/common';
+import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 
 describe('SquadsController', () => {
   let controller: SquadsController;
@@ -31,6 +32,10 @@ describe('SquadsController', () => {
   };
 
   beforeEach(async () => {
+    const mockGuard: CanActivate = {
+      canActivate: jest.fn().mockReturnValue(true),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SquadsController],
       providers: [
@@ -43,7 +48,10 @@ describe('SquadsController', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(OrgRoleGuard)
+      .useValue(mockGuard)
+      .compile();
 
     controller = module.get<SquadsController>(SquadsController);
     service = module.get<SquadsService>(SquadsService);
@@ -58,7 +66,7 @@ describe('SquadsController', () => {
 
       jest.spyOn(service, 'createSquad').mockResolvedValue(mockSquadDto);
 
-      const result = await controller.createSquad(mockUser as any, dto);
+      const result = await controller.createSquad(mockUser.id, dto);
 
       expect(service.createSquad).toHaveBeenCalledWith(mockUser.id, dto);
       expect(result).toEqual(mockSquadDto);
@@ -76,7 +84,7 @@ describe('SquadsController', () => {
           new BadRequestException('Free users cannot create squads'),
         );
 
-      await expect(controller.createSquad(mockUser as any, dto)).rejects.toThrow(
+      await expect(controller.createSquad(mockUser.id, dto)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -91,7 +99,7 @@ describe('SquadsController', () => {
         .spyOn(service, 'createSquad')
         .mockRejectedValue(new BadRequestException('Certification not found'));
 
-      await expect(controller.createSquad(mockUser as any, dto)).rejects.toThrow(
+      await expect(controller.createSquad(mockUser.id, dto)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -99,11 +107,16 @@ describe('SquadsController', () => {
 
   describe('POST /squads/:id/invites', () => {
     it('should create invite link and return InviteLinkDto', async () => {
-      jest.spyOn(service, 'createInviteLink').mockResolvedValue(mockInviteLinkDto);
+      jest
+        .spyOn(service, 'createInviteLink')
+        .mockResolvedValue(mockInviteLinkDto);
 
-      const result = await controller.createInviteLink('squad-1', mockUser as any);
+      const result = await controller.createInviteLink('squad-1', mockUser.id);
 
-      expect(service.createInviteLink).toHaveBeenCalledWith('squad-1', mockUser.id);
+      expect(service.createInviteLink).toHaveBeenCalledWith(
+        'squad-1',
+        mockUser.id,
+      );
       expect(result).toEqual(mockInviteLinkDto);
     });
 
@@ -111,11 +124,13 @@ describe('SquadsController', () => {
       jest
         .spyOn(service, 'createInviteLink')
         .mockRejectedValue(
-          new BadRequestException('Daily invite limit reached (max 10 per day)'),
+          new BadRequestException(
+            'Daily invite limit reached (max 10 per day)',
+          ),
         );
 
       await expect(
-        controller.createInviteLink('squad-1', mockUser as any),
+        controller.createInviteLink('squad-1', mockUser.id),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -125,7 +140,7 @@ describe('SquadsController', () => {
         .mockRejectedValue(new BadRequestException('Squad not found'));
 
       await expect(
-        controller.createInviteLink('unknown-squad', mockUser as any),
+        controller.createInviteLink('unknown-squad', mockUser.id),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -134,9 +149,12 @@ describe('SquadsController', () => {
     it('should accept invite and return SquadDto', async () => {
       jest.spyOn(service, 'joinSquad').mockResolvedValue(mockSquadDto);
 
-      const result = await controller.joinSquad('abc-123-def', mockUser as any);
+      const result = await controller.joinSquad('abc-123-def', mockUser.id);
 
-      expect(service.joinSquad).toHaveBeenCalledWith('abc-123-def', mockUser.id);
+      expect(service.joinSquad).toHaveBeenCalledWith(
+        'abc-123-def',
+        mockUser.id,
+      );
       expect(result).toEqual(mockSquadDto);
     });
 
@@ -145,25 +163,27 @@ describe('SquadsController', () => {
         .spyOn(service, 'joinSquad')
         .mockRejectedValue(new BadRequestException('Invite link has expired'));
 
-      await expect(controller.joinSquad('expired-token', mockUser as any)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        controller.joinSquad('expired-token', mockUser.id),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should reject if squad at capacity', async () => {
       jest
         .spyOn(service, 'joinSquad')
-        .mockRejectedValue(new BadRequestException('Squad is at full capacity'));
+        .mockRejectedValue(
+          new BadRequestException('Squad is at full capacity'),
+        );
 
-      await expect(controller.joinSquad('abc-123-def', mockUser as any)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        controller.joinSquad('abc-123-def', mockUser.id),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should handle already-joined users (idempotent)', async () => {
       jest.spyOn(service, 'joinSquad').mockResolvedValue(mockSquadDto);
 
-      const result = await controller.joinSquad('abc-123-def', mockUser as any);
+      const result = await controller.joinSquad('abc-123-def', mockUser.id);
 
       // Should succeed without error
       expect(result).toEqual(mockSquadDto);
