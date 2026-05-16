@@ -164,7 +164,9 @@ describe("SquadDashboard", () => {
 
   describe("Not Found State", () => {
     it("displays not found message when squad does not exist", async () => {
-      vi.mocked(squadsService.getSquadBySlug).mockResolvedValue(null as any);
+      vi.mocked(squadsService.getSquadBySlug).mockResolvedValue(
+        null as unknown as SquadDto,
+      );
 
       renderComponent();
 
