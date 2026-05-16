@@ -6,8 +6,8 @@
 //   evidence count so the FE banner never shows a low-confidence insight.
 // - LOOKBACK_DAYS: matches the spec's "last 14 days" rolling window.
 
-export const BEHAVIORAL_QUEUE = 'insights:behavioral';
-export const BEHAVIORAL_NIGHTLY_JOB = 'insights:behavioral:nightly';
+export const BEHAVIORAL_QUEUE = 'insights-behavioral';
+export const BEHAVIORAL_NIGHTLY_JOB = 'insights-behavioral-nightly';
 
 /** Words in `title + description` above which a question stem is considered "long". */
 export const LONG_STEM_WORDS = 200;
