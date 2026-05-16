@@ -145,7 +145,6 @@ describe('SquadsService', () => {
           name: 'AWS SAA Study Group',
           kind: 'SQUAD',
           certificationId: 'cert-1',
-          ownerId: mockUser.id,
         }),
         include: expect.any(Object),
       });
@@ -238,8 +237,9 @@ describe('SquadsService', () => {
       expect(prisma.orgInvite.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           orgId: mockSquad.id,
+          email: '',
           status: 'PENDING',
-          invitedByUserId: 'user-1',
+          invitedBy: 'user-1',
           expiresAt: expect.any(Date),
         }),
       });
