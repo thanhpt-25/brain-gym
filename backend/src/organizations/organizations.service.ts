@@ -307,6 +307,36 @@ export class OrganizationsService {
     });
   }
 
+  async deleteGroup(slugOrId: string, groupId: string) {
+    const orgId = await this.resolveOrgId(slugOrId);
+    return this.prisma.orgGroup.delete({
+      where: { id: groupId, orgId },
+    });
+  }
+
+  async findInvites(slugOrId: string) {
+    const orgId = await this.resolveOrgId(slugOrId);
+    return this.prisma.orgInvite.findMany({
+      where: { orgId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async updateInvite(slugOrId: string, inviteId: string, dto: any) {
+    const orgId = await this.resolveOrgId(slugOrId);
+    return this.prisma.orgInvite.update({
+      where: { id: inviteId, orgId },
+      data: dto,
+    });
+  }
+
+  async deleteInvite(slugOrId: string, inviteId: string) {
+    const orgId = await this.resolveOrgId(slugOrId);
+    return this.prisma.orgInvite.delete({
+      where: { id: inviteId, orgId },
+    });
+  }
+
   async acceptInvite(userId: string, token: string) {
     const invite = await this.prisma.orgInvite.findUnique({
       where: { token },

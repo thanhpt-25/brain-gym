@@ -20,7 +20,7 @@ import { JwtService } from '@nestjs/jwt';
  * Tests written first; RLS guards/middleware implementation is pending.
  * Unskip these tests once NestJS authorization guards are implemented.
  */
-describe.skip('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
+describe('RLS Cross-Organization Data Isolation (RFC-006 Phase-1)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let jwtService: JwtService;

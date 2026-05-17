@@ -307,4 +307,11 @@ export class AssessmentsService {
     );
     return [header, ...rows].join('\n');
   }
+
+  async delete(slugOrId: string, assessmentId: string) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    return this.prisma.assessment.delete({
+      where: { id: assessmentId, orgId },
+    });
+  }
 }

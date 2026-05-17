@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -97,5 +98,11 @@ export class AssessmentsController {
       'attachment; filename="assessment-results.csv"',
     );
     res.send(csv);
+  }
+
+  @Delete(':aid')
+  @OrgRoles('OWNER', 'ADMIN')
+  delete(@Param('orgId') orgId: string, @Param('aid') aid: string) {
+    return this.service.delete(orgId, aid);
   }
 }

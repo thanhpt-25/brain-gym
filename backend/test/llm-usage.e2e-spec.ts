@@ -17,7 +17,7 @@ import { LlmQuotaService } from '../src/ai-question-bank/llm-usage/llm-quota.ser
 const EMAIL_PREFIX = 'e2e-llm-usage-';
 const CERT_CODE_PREFIX = 'e2e-llm-cert-';
 
-describe.skip('LLM Usage & Quota (e2e)', () => {
+describe('LLM Usage & Quota (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let llmUsage: LlmUsageService;
@@ -338,7 +338,7 @@ describe.skip('LLM Usage & Quota (e2e)', () => {
         });
 
       // Should return a job ID (actual generation will fail in background)
-      expect([201, 400]).toContain(res.status); // 201 if queued, 400 if validation fails
+      expect([201, 400, 429]).toContain(res.status); // 201 if queued, 400 if validation fails, 429 if quota exceeded
       if (res.status === 201) {
         expect(res.body.jobId).toBeDefined();
         expect(res.body.status).toBe('PENDING');

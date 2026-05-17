@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, MaxLength, IsUUID, IsOptional, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  IsUUID,
+  IsOptional,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateSquadDto {
   @IsString()
