@@ -182,4 +182,45 @@ export class OrganizationsController {
   ) {
     return this.organizationsService.updateGroup(orgId, groupId, dto);
   }
+
+  @Delete(':orgId/groups/:groupId')
+  @UseGuards(OrgRoleGuard)
+  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
+  @ApiOperation({ summary: 'Delete group' })
+  deleteGroup(
+    @Param('orgId') orgId: string,
+    @Param('groupId') groupId: string,
+  ) {
+    return this.organizationsService.deleteGroup(orgId, groupId);
+  }
+
+  @Get(':orgId/invites')
+  @UseGuards(OrgRoleGuard)
+  @ApiOperation({ summary: 'List member invites' })
+  findInvites(@Param('orgId') orgId: string) {
+    return this.organizationsService.findInvites(orgId);
+  }
+
+  @Patch(':orgId/invites/:inviteId')
+  @UseGuards(OrgRoleGuard)
+  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Update member invite' })
+  updateInvite(
+    @Param('orgId') orgId: string,
+    @Param('inviteId') inviteId: string,
+    @Body() dto: any,
+  ) {
+    return this.organizationsService.updateInvite(orgId, inviteId, dto);
+  }
+
+  @Delete(':orgId/invites/:inviteId')
+  @UseGuards(OrgRoleGuard)
+  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN)
+  @ApiOperation({ summary: 'Delete member invite' })
+  deleteInvite(
+    @Param('orgId') orgId: string,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return this.organizationsService.deleteInvite(orgId, inviteId);
+  }
 }
