@@ -272,7 +272,7 @@ export async function createTestScenario(
   return scenario;
 }
 
-export async function createTestCoachSession(
+export function createTestCoachSession(
   prisma: PrismaService,
   opts: {
     userId: string;

@@ -55,8 +55,8 @@ describe('DigestGenerationService', () => {
   });
 
   describe('generateDigestHTML', () => {
-    it('should render digest with user insights and stats', async () => {
-      const result = await service.generateDigestHTML('user-1', {
+    it('should render digest with user insights and stats', () => {
+      const result = service.generateDigestHTML('user-1', {
         questionsAnswered: 42,
         correctCount: 35,
         streakDays: 7,
@@ -77,8 +77,8 @@ describe('DigestGenerationService', () => {
       expect(result).toContain('fast_learner');
     });
 
-    it('should include progress breakdown by topic', async () => {
-      const result = await service.generateDigestHTML('user-1', {
+    it('should include progress breakdown by topic', () => {
+      const result = service.generateDigestHTML('user-1', {
         questionsAnswered: 20,
         correctCount: 16,
         streakDays: 3,
@@ -96,8 +96,8 @@ describe('DigestGenerationService', () => {
       expect(result).toContain('40%');
     });
 
-    it('should include call-to-action link', async () => {
-      const result = await service.generateDigestHTML('user-1', {
+    it('should include call-to-action link', () => {
+      const result = service.generateDigestHTML('user-1', {
         questionsAnswered: 0,
         correctCount: 0,
         streakDays: 0,
@@ -110,8 +110,8 @@ describe('DigestGenerationService', () => {
       expect(result).toContain('/dashboard');
     });
 
-    it('should include unsubscribe footer', async () => {
-      const result = await service.generateDigestHTML('user-1', {
+    it('should include unsubscribe footer', () => {
+      const result = service.generateDigestHTML('user-1', {
         questionsAnswered: 10,
         correctCount: 8,
         streakDays: 1,
@@ -575,7 +575,7 @@ describe('DigestGenerationService', () => {
   });
 
   describe('formatAggregateInsights', () => {
-    it('should format insights array as readable bullets', async () => {
+    it('should format insights array as readable bullets', () => {
       const insightData = {
         topicProgress: [
           { topic: 'AWS', mastery: 0.9 },
@@ -585,7 +585,7 @@ describe('DigestGenerationService', () => {
         streakDays: 7,
       };
 
-      const result = await service.formatAggregateInsights(insightData);
+      const result = service.formatAggregateInsights(insightData);
 
       expect(result).toBeInstanceOf(Array);
       expect(result.length).toBeGreaterThan(0);

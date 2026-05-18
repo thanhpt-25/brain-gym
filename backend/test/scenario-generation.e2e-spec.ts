@@ -483,7 +483,7 @@ describe('Scenario Generation (US-012a)', () => {
       ).rejects.toThrow('Missing required');
     });
 
-    it('should respect exponential backoff delays', async () => {
+    it('should respect exponential backoff delays', () => {
       const jobData = {
         scenarioId: 'scenario-7',
         topic: 'literature',
@@ -502,7 +502,7 @@ describe('Scenario Generation (US-012a)', () => {
   });
 
   describe('Error Handling', () => {
-    it('should provide clear error messages for validation failures', async () => {
+    it('should provide clear error messages for validation failures', () => {
       const error = service.validatePassage('short');
 
       expect(error.error).toMatch(/words|length/i);
@@ -539,7 +539,7 @@ describe('Scenario Generation (US-012a)', () => {
   });
 
   describe('Coverage Edge Cases', () => {
-    it('should handle passages with special characters', async () => {
+    it('should handle passages with special characters', () => {
       const passage =
         'Temperature changes @ different altitudes & pressures. ' +
         'Symbols: °C, %, ÷ appear in scientific text. ' +
