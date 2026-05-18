@@ -31,6 +31,8 @@ describe('Digest E2E Tests', () => {
   });
 
   beforeEach(async () => {
+    // Clean up in correct dependency order
+    await prisma.orgMember.deleteMany({});
     await prisma.user.deleteMany({});
     const user = await prisma.user.create({
       data: {
