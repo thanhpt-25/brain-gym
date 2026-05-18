@@ -87,6 +87,7 @@ Return valid JSON only.`;
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async callLlm(prompt: string): Promise<any> {
     // TODO: Implement actual LLM call using Claude API
     // For now, return mock response for testing

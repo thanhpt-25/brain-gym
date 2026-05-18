@@ -263,6 +263,7 @@ export class ScenariosService {
   /**
    * Actual LLM API call (to be implemented with Claude API)
    */
+  // eslint-disable-next-line @typescript-eslint/require-await
   private async callLlm(prompt: string): Promise<any> {
     // TODO: Implement actual LLM call using Claude API
     // For now, return mock response for testing

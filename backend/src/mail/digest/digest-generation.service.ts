@@ -35,7 +35,7 @@ export class DigestGenerationService {
     private insights: BehavioralService,
   ) {}
 
-  async generateDigestHTML(userId: string, data: DigestData): Promise<string> {
+  generateDigestHTML(userId: string, data: DigestData): string {
     const topicRows = data.topicProgress
       .map(
         (t) => `
@@ -195,7 +195,7 @@ export class DigestGenerationService {
       (sum, i) => sum + (i.metadata?.correctCount || 0),
       0,
     );
-    const streakDays = await this.calculateStreakDays(insights);
+    const streakDays = this.calculateStreakDays(insights);
 
     // Aggregate by topic
     const topicMap = new Map<string, { correct: number; total: number }>();
@@ -226,7 +226,7 @@ export class DigestGenerationService {
     });
 
     // Format insights
-    const formattedInsights = await this.formatAggregateInsights({
+    const formattedInsights = this.formatAggregateInsights({
       questionsAnswered,
       correctCount,
       streakDays,
@@ -270,7 +270,7 @@ export class DigestGenerationService {
         return { sent: false };
       }
 
-      const html = await this.generateDigestHTML(userId, data);
+      const html = this.generateDigestHTML(userId, data);
       await this.mail.sendEmail({
         to: user.email,
         subject: `Your Weekly CertGym Digest – ${data.questionsAnswered} Questions Answered`,
@@ -372,9 +372,9 @@ export class DigestGenerationService {
     }
   }
 
-  private async calculateStreakDays(
+  private calculateStreakDays(
     insights: Array<{ metadata?: Record<string, unknown> }>,
-  ): Promise<number> {
+  ): number {
     if (insights.length === 0) return 0;
 
     const dates = insights
@@ -406,7 +406,7 @@ export class DigestGenerationService {
     return streak;
   }
 
-  private async formatAggregateInsights(data: DigestData): Promise<string[]> {
+  private formatAggregateInsights(data: DigestData): string[] {
     const insights: string[] = [];
 
     if (data.topicProgress.length > 0) {

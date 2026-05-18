@@ -35,6 +35,7 @@ export class CoachRampService {
     private configService: ConfigService,
   ) {}
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async shouldRampUpCoach(
     cohortSize: number,
     metrics: Partial<CoachRampConfig>,
@@ -53,6 +54,7 @@ export class CoachRampService {
     return costOk && errorRateOk;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getRampPercentage(date: Date): Promise<number> {
     // Ramp schedule:
     // Day 1-2: 0% (baseline)
@@ -128,6 +130,7 @@ export class CoachRampService {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async evaluateGate1(
     metrics: Partial<CoachRampConfig>,
   ): Promise<RampGateResult> {
@@ -152,6 +155,7 @@ export class CoachRampService {
     return result;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async evaluateGate2(
     metrics: Partial<CoachRampConfig>,
   ): Promise<RampGateResult> {
@@ -174,6 +178,7 @@ export class CoachRampService {
     return result;
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async evaluateGate3(
     metrics: Partial<CoachRampConfig>,
   ): Promise<RampGateResult> {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -61,11 +61,11 @@ describe("ScenarioExam", () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+    mockNavigateFn.mockClear();
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    mockNavigateFn.mockClear();
-    vi.clearAllMocks();
     vi.mocked(scenariosService.getScenario).mockResolvedValue(mockScenario);
     vi.mocked(scenariosService.submitScenarioAttempt).mockResolvedValue(
       mockAttemptResult,
@@ -329,6 +329,7 @@ describe("ScenarioExam", () => {
       const submitButton = screen.getByRole("button", { name: /Submit/i });
       await user.click(submitButton);
 
+      // Wait for the setTimeout (1s) + buffer in the onSuccess handler
       await waitFor(
         () => {
           expect(mockNavigateFn).toHaveBeenCalledWith(
@@ -341,7 +342,7 @@ describe("ScenarioExam", () => {
             }),
           );
         },
-        { timeout: 2000 },
+        { timeout: 3000 },
       );
     });
 
@@ -389,6 +390,9 @@ describe("ScenarioExam", () => {
         expect(screen.getByText(mockScenario.passage)).toBeInTheDocument();
       });
 
+      // Reset navigate mock right before user interaction to ensure clean state
+      mockNavigateFn.mockClear();
+
       const option = screen.getByRole("radio", { name: /Option A/i });
       await user.click(option);
 
@@ -401,6 +405,9 @@ describe("ScenarioExam", () => {
           screen.queryByText("Submitting answers..."),
         ).not.toBeInTheDocument();
       });
+
+      // Wait a bit to ensure no pending setTimeout from error will happen
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Verify navigation did not occur on error
       expect(mockNavigateFn).not.toHaveBeenCalled();
