@@ -2,9 +2,6 @@
 ALTER TABLE "llm_usage_events" ALTER COLUMN "user_id" DROP NOT NULL;
 
 -- AlterTable
-ALTER TABLE "organizations" ALTER COLUMN "target_exam_date" SET DATA TYPE TIMESTAMP(3);
-
--- AlterTable
 ALTER TABLE "users" ADD COLUMN     "preferences" JSONB NOT NULL DEFAULT '{}',
 ADD COLUMN     "subscription_tier" TEXT NOT NULL DEFAULT 'free';
 
@@ -86,9 +83,6 @@ CREATE INDEX "scenario_attempts_scenario_id_idx" ON "scenario_attempts"("scenari
 
 -- CreateIndex
 CREATE INDEX "coach_sessions_user_id_created_at_idx" ON "coach_sessions"("user_id", "created_at");
-
--- AddForeignKey
-ALTER TABLE "organizations" ADD CONSTRAINT "organizations_certification_id_fkey" FOREIGN KEY ("certification_id") REFERENCES "certifications"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "scenarios" ADD CONSTRAINT "scenarios_exam_id_fkey" FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
