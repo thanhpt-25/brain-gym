@@ -234,8 +234,9 @@ export class ScenariosService {
    * Calls LLM with timeout protection
    */
   private async callLlmWithTimeout(prompt: string): Promise<any> {
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(
+    let timeoutHandle: NodeJS.Timeout | null = null;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutHandle = setTimeout(
         () =>
           reject(
             new Error(
@@ -243,8 +244,8 @@ export class ScenariosService {
             ),
           ),
         this.LLM_TIMEOUT_MS,
-      ),
-    );
+      );
+    });
 
     try {
       return await Promise.race([this.callLlm(prompt), timeoutPromise]);
@@ -257,6 +258,11 @@ export class ScenariosService {
         .replace(/sk-proj-[a-zA-Z0-9]+/g, '***')
         .replace(/Bearer [a-zA-Z0-9]+/g, '***');
       throw new Error(`LLM call failed: ${sanitizedMessage}`);
+    } finally {
+      // Always clear the timeout to prevent hanging processes
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
     }
   }
 
