@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ScenariosService } from '../src/scenarios/scenarios.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { LlmUsageService } from '../src/ai-question-bank/llm-usage/llm-usage.service';
+import { ExplanationGenerationService } from '../src/scenarios/explanation-generation.service';
 import { ConfigService } from '@nestjs/config';
 
 describe('Scenario Generation (US-012a)', () => {
@@ -15,6 +16,7 @@ describe('Scenario Generation (US-012a)', () => {
         ScenariosService,
         PrismaService,
         LlmUsageService,
+        ExplanationGenerationService,
         ConfigService,
       ],
     }).compile();
