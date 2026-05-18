@@ -109,4 +109,21 @@ export class MailService {
       );
     }
   }
+
+  async sendEmail(options: {
+    to: string;
+    subject: string;
+    html: string;
+  }): Promise<void> {
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send email to ${options.to}`, error);
+    }
+  }
 }

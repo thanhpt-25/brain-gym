@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { DigestGenerationService } from './digest-generation.service';
 import { DigestGenerationProcessor } from './digest-generation.processor';
 import { DigestSchedulerService } from './digest-scheduler.service';
 import { DigestController } from './digest.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { BehavioralInsightsModule } from '../../ai-question-bank/behavioral-insights/behavioral-insights.module';
+import { BehavioralModule } from '../../insights/behavioral/behavioral.module';
 import { MailService } from '../mail.service';
 
 @Module({
@@ -14,7 +14,7 @@ import { MailService } from '../mail.service';
       name: 'DIGEST_GENERATION',
     }),
     PrismaModule,
-    BehavioralInsightsModule,
+    BehavioralModule,
   ],
   controllers: [DigestController],
   providers: [

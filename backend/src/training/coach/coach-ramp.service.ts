@@ -84,9 +84,6 @@ export class CoachRampService {
           gte: fromDate,
         },
       },
-      include: {
-        coachMessages: true,
-      },
     });
 
     if (coachSessions.length === 0) {
@@ -100,7 +97,7 @@ export class CoachRampService {
 
     const totalCost = await this.llmUsageService.getOrgDailyCost(
       'all',
-      'coach',
+      fromDate,
     );
     const costPerSession =
       coachSessions.length > 0 ? totalCost / coachSessions.length : 0;

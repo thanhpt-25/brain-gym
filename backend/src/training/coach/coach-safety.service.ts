@@ -150,7 +150,8 @@ export class CoachSafetyService {
         data: {
           userId,
           action: 'JAILBREAK_ATTEMPT',
-          target: 'AI_COACH',
+          targetType: 'AI_COACH',
+          targetId: userId,
           metadata: {
             userMessage: userMessage.substring(0, 500),
             detectedPattern,

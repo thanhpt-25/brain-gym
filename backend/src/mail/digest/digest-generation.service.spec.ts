@@ -134,7 +134,7 @@ describe('DigestGenerationService', () => {
         {
           userId: 'user-1',
           type: 'question_answered',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 1,
             topic: 'AWS',
@@ -146,7 +146,7 @@ describe('DigestGenerationService', () => {
         {
           userId: 'user-1',
           type: 'question_answered',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 0,
             topic: 'AWS',
@@ -158,7 +158,7 @@ describe('DigestGenerationService', () => {
         {
           userId: 'user-1',
           type: 'badge_earned',
-          metadata: { badgeEarned: 'fast_learner' },
+          payload: { badgeEarned: 'fast_learner' },
           createdAt: new Date(),
         },
       ]);
@@ -174,7 +174,7 @@ describe('DigestGenerationService', () => {
       (insights.getBehavioralInsightsForUser as jest.Mock).mockResolvedValue([
         {
           userId: 'user-1',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 1,
             topic: 'AWS',
@@ -183,7 +183,7 @@ describe('DigestGenerationService', () => {
         },
         {
           userId: 'user-1',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 1,
             topic: 'AWS',
@@ -192,7 +192,7 @@ describe('DigestGenerationService', () => {
         },
         {
           userId: 'user-1',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 0,
             topic: 'AWS',
@@ -214,7 +214,7 @@ describe('DigestGenerationService', () => {
       (insights.getBehavioralInsightsForUser as jest.Mock).mockResolvedValue([
         {
           userId: 'user-1',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 1,
             topic: 'IAM',
@@ -223,7 +223,7 @@ describe('DigestGenerationService', () => {
         },
         {
           userId: 'user-1',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 0,
             topic: 'EC2',
@@ -232,7 +232,7 @@ describe('DigestGenerationService', () => {
         },
         {
           userId: 'user-1',
-          metadata: {
+          payload: {
             questionsAnswered: 1,
             correctCount: 1,
             topic: 'IAM',

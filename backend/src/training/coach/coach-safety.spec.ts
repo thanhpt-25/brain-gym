@@ -493,7 +493,8 @@ describe('CoachSafetyService', () => {
         data: {
           userId,
           action: 'JAILBREAK_ATTEMPT',
-          target: 'AI_COACH',
+          targetType: 'AI_COACH',
+          targetId: userId,
           metadata: {
             userMessage: userMessage.substring(0, 500),
             detectedPattern,
@@ -514,7 +515,8 @@ describe('CoachSafetyService', () => {
         data: {
           userId,
           action: 'JAILBREAK_ATTEMPT',
-          target: 'AI_COACH',
+          targetType: 'AI_COACH',
+          targetId: userId,
           metadata: {
             userMessage: 'a'.repeat(500),
             detectedPattern,

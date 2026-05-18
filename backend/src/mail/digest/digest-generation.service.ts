@@ -187,26 +187,27 @@ export class DigestGenerationService {
       };
     }
 
-    const questionsAnswered = insights.reduce(
-      (sum, i) => sum + (i.metadata?.questionsAnswered || 0),
-      0,
-    );
-    const correctCount = insights.reduce(
-      (sum, i) => sum + (i.metadata?.correctCount || 0),
-      0,
-    );
+    const questionsAnswered = insights.reduce((sum, i) => {
+      const payload = i.payload as Record<string, unknown>;
+      return sum + ((payload?.questionsAnswered as number) || 0);
+    }, 0);
+    const correctCount = insights.reduce((sum, i) => {
+      const payload = i.payload as Record<string, unknown>;
+      return sum + ((payload?.correctCount as number) || 0);
+    }, 0);
     const streakDays = this.calculateStreakDays(insights);
 
     // Aggregate by topic
     const topicMap = new Map<string, { correct: number; total: number }>();
     insights.forEach((insight) => {
-      const topic = insight.metadata?.topic || 'General';
+      const payload = insight.payload as Record<string, unknown>;
+      const topic = (payload?.topic as string) || 'General';
       if (!topicMap.has(topic)) {
         topicMap.set(topic, { correct: 0, total: 0 });
       }
       const entry = topicMap.get(topic)!;
-      entry.total += insight.metadata?.questionsAnswered || 0;
-      entry.correct += insight.metadata?.correctCount || 0;
+      entry.total += (payload?.questionsAnswered as number) || 0;
+      entry.correct += (payload?.correctCount as number) || 0;
     });
 
     const topicProgress: TopicProgress[] = Array.from(topicMap.entries())
@@ -220,8 +221,9 @@ export class DigestGenerationService {
     // Extract badges
     const badgesEarned = new Set<string>();
     insights.forEach((i) => {
-      if (i.metadata?.badgeEarned) {
-        badgesEarned.add(i.metadata.badgeEarned);
+      const payload = i.payload as Record<string, unknown>;
+      if (payload?.badgeEarned) {
+        badgesEarned.add(payload.badgeEarned as string);
       }
     });
 
@@ -372,14 +374,18 @@ export class DigestGenerationService {
     }
   }
 
-  private calculateStreakDays(
-    insights: Array<{ metadata?: Record<string, unknown> }>,
-  ): number {
+  private calculateStreakDays(insights: Array<{ payload: any }>): number {
     if (insights.length === 0) return 0;
 
     const dates = insights
-      .filter((i) => i.metadata?.activityDate)
-      .map((i) => new Date(i.metadata!.activityDate as string).toDateString())
+      .filter((i) => {
+        const payload = i.payload as Record<string, unknown>;
+        return payload?.activityDate;
+      })
+      .map((i) => {
+        const payload = i.payload as Record<string, unknown>;
+        return new Date(payload.activityDate as string).toDateString();
+      })
       .sort();
 
     if (dates.length === 0) return 0;

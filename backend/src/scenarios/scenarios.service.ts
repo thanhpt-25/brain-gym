@@ -575,10 +575,12 @@ Return JSON with: passage (200-400 words markdown), questions (3-5 with question
       userId: attempt.user.id,
       score: attempt.score,
       timeSpent:
-        Math.round(
-          (attempt.completedAt?.getTime() - attempt.attemptedAt?.getTime()) /
-            1000,
-        ) || 0,
+        attempt.completedAt && attempt.attemptedAt
+          ? Math.round(
+              (attempt.completedAt.getTime() - attempt.attemptedAt.getTime()) /
+                1000,
+            )
+          : 0,
       completedAt: attempt.completedAt,
     }));
   }

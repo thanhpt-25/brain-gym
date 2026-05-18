@@ -19,7 +19,6 @@ export class DigestGenerationProcessor extends WorkerHost {
       this.logger.log(
         `Digest generation completed: sent=${result.sent}, skipped=${result.skipped}, failed=${result.failed}`,
       );
-      return result;
     } catch (error) {
       this.logger.error(
         `Digest generation job failed: ${error instanceof Error ? error.message : String(error)}`,

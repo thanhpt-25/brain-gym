@@ -201,6 +201,8 @@ model User {
   suspendedUntil DateTime?  @map("suspended_until")
   banReason      String?    @map("ban_reason")
   featureFlags   Json       @default("{}") @map("feature_flags")
+  preferences    Json       @default("{}") // { digestEnabled: boolean, coachEnabled: boolean, ... }
+  subscriptionTier String   @default("free") @map("subscription_tier") // free, pro, enterprise
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
@@ -1230,6 +1232,7 @@ model CoachSession {
   id        String   @id @default(uuid())
   userId    String   @map("user_id")
   topic     String   @default("general") // certification domain or topic
+  status    String   @default("active") // "active", "error", "completed"
   messages  Json     // Array of { role: "user" | "assistant", content: string, timestamp }
   costUsd   Decimal  @db.Decimal(10, 6) @default(0) @map("cost_usd") // LLM cost for this session
   createdAt DateTime @default(now()) @map("created_at")
