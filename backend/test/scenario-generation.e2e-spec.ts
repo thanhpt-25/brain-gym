@@ -68,6 +68,26 @@ describe('Scenario Generation (US-012a)', () => {
       }
     }
     console.log('[Test Setup] All test organizations created successfully');
+
+    // Create system user for LLM usage tracking
+    console.log('[Test Setup] Creating system user...');
+    try {
+      await prisma.user.upsert({
+        where: { id: 'system' },
+        update: {},
+        create: {
+          id: 'system',
+          email: 'system@localhost',
+          displayName: 'System',
+          passwordHash:
+            '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcg7b3XeKeUxWdeS86E36BGYuTe', // bcrypt hash of 'test'
+        },
+      });
+      console.log('[Test Setup] Created system user');
+    } catch (error) {
+      console.error('[Test Setup] Failed to create system user:', error);
+      throw error;
+    }
   });
 
   afterEach(() => {
