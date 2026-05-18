@@ -3,11 +3,14 @@ import { TrainingController } from './training.controller';
 import { TrainingService } from './training.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { LlmUsageModule } from '../ai-question-bank/llm-usage/llm-usage.module';
+import { CoachRampService } from './coach/coach-ramp.service';
+import { CoachSafetyService } from './coach/coach-safety.service';
 
 @Module({
-  imports: [PrismaModule, AnalyticsModule],
+  imports: [PrismaModule, AnalyticsModule, LlmUsageModule],
   controllers: [TrainingController],
-  providers: [TrainingService],
-  exports: [TrainingService],
+  providers: [TrainingService, CoachRampService, CoachSafetyService],
+  exports: [TrainingService, CoachRampService, CoachSafetyService],
 })
 export class TrainingModule {}

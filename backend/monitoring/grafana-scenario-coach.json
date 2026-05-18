@@ -1,0 +1,458 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Prometheus --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(scenario_generation_latency_ms_bucket[5m]))",
+          "legendFormat": "p95 Latency (ms)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(scenario_generation_latency_ms_bucket[5m]))",
+          "legendFormat": "p99 Latency (ms)",
+          "refId": "B"
+        }
+      ],
+      "title": "Scenario Generation Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(scenario_generation_total{status='success'}[5m])",
+          "legendFormat": "Success Rate",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(scenario_generation_total{status='error'}[5m])",
+          "legendFormat": "Error Rate",
+          "refId": "B"
+        }
+      ],
+      "title": "Scenario Generation Success/Error Rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(llm_usage_tokens_total{feature='scenario'}[1h])",
+          "legendFormat": "Scenario Tokens/Hour",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(llm_usage_cost_total{feature='scenario'}[1h])",
+          "legendFormat": "Scenario Cost/Hour ($)",
+          "refId": "B"
+        }
+      ],
+      "title": "Scenario LLM Cost & Token Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(coach_session_latency_ms_bucket[5m]))",
+          "legendFormat": "p95 Response Latency (ms)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(coach_session_latency_ms_bucket[5m]))",
+          "legendFormat": "p99 Response Latency (ms)",
+          "refId": "B"
+        }
+      ],
+      "title": "Coach Session Response Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(coach_session_total{status='success'}[5m])",
+          "legendFormat": "Success Rate",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(coach_session_total{status='error'}[5m])",
+          "legendFormat": "Error Rate",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(coach_jailbreak_detected_total[5m])",
+          "legendFormat": "Jailbreak Attempts/Min",
+          "refId": "C"
+        }
+      ],
+      "title": "Coach Session Success/Error & Jailbreak Detection",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(llm_usage_tokens_total{feature='coach'}[1h])",
+          "legendFormat": "Coach Tokens/Hour",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(llm_usage_cost_total{feature='coach'}[1h])",
+          "legendFormat": "Coach Cost/Hour ($)",
+          "refId": "B"
+        }
+      ],
+      "title": "Coach LLM Cost & Token Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(digest_sent_total{status='success'}[1h])",
+          "legendFormat": "Digest Sends/Hour",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(digest_sent_total{status='error'}[1h])",
+          "legendFormat": "Digest Errors/Hour",
+          "refId": "B"
+        }
+      ],
+      "title": "Weekly Digest Send Success/Error",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(digest_optout_total[1d])",
+          "legendFormat": "Opt-Out Rate",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(email_opened_total[1h])",
+          "legendFormat": "Open Rate/Hour",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(email_clicked_total[1h])",
+          "legendFormat": "CTR/Hour",
+          "refId": "C"
+        }
+      ],
+      "title": "Weekly Digest Engagement Metrics",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["sprint-07", "scenario-engine", "ai-coach"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Sprint 07: Scenario Engine & AI Coach Metrics",
+  "uid": "sprint07-monitoring",
+  "version": 1
+}

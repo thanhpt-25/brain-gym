@@ -153,6 +153,29 @@ export class LlmUsageService {
   }
 
   /**
+   * Generic method for recording LLM usage with minimal required fields
+   * Used by scenario generation, AI coach, and other features
+   */
+  async recordUsage(data: {
+    feature: string;
+    inputTokens: number;
+    outputTokens: number;
+    model?: string;
+    topic?: string;
+    difficulty?: string;
+    costUsd?: number;
+    duration?: number;
+  }): Promise<void> {
+    await this.recordUsageEvent({
+      userId: 'system',
+      feature: data.feature,
+      modelId: data.model || 'claude-3-haiku',
+      inputTokens: data.inputTokens,
+      outputTokens: data.outputTokens,
+    });
+  }
+
+  /**
    * Get total LLM cost for an organization on a specific date
    * Defaults to today if date not provided
    */

@@ -229,3 +229,119 @@ export async function cleanupCertByCode(
     await prisma.certification.deleteMany({ where: { id: { in: certIds } } });
   }
 }
+
+// ─── Scenario Engine helpers ──────────────────────────────────────────────
+
+export async function createTestScenario(
+  prisma: PrismaService,
+  opts: {
+    orgId: string;
+    passage: string;
+    diagramUrl?: string;
+    questionIds?: string[];
+    timeLimit?: number;
+  },
+) {
+  const scenario = await prisma.scenario.create({
+    data: {
+      orgId: opts.orgId,
+      passageMarkdown: opts.passage,
+      diagramUrl: opts.diagramUrl,
+      timeLimit: opts.timeLimit ?? 900,
+    },
+  });
+
+  if (opts.questionIds && opts.questionIds.length > 0) {
+    const scenarioQuestions = await Promise.all(
+      opts.questionIds.map((qId, index) =>
+        prisma.scenarioQuestion.create({
+          data: {
+            scenarioId: scenario.id,
+            questionId: qId,
+            order: index,
+          },
+        }),
+      ),
+    );
+    return {
+      ...scenario,
+      questions: scenarioQuestions,
+    };
+  }
+
+  return scenario;
+}
+
+export async function createTestCoachSession(
+  prisma: PrismaService,
+  opts: {
+    userId: string;
+    topic?: string;
+    turns?: Array<{ role: 'user' | 'assistant'; content: string }>;
+    costUsd?: number;
+  },
+) {
+  const messages =
+    opts.turns?.map((turn) => ({
+      role: turn.role,
+      content: turn.content,
+      timestamp: new Date().toISOString(),
+    })) ?? [];
+
+  return prisma.coachSession.create({
+    data: {
+      userId: opts.userId,
+      topic: opts.topic ?? 'general',
+      messages: messages,
+      costUsd: opts.costUsd ?? 0,
+    },
+  });
+}
+
+export async function createTestDigestData(
+  prisma: PrismaService,
+  opts: {
+    userId: string;
+    certificationId: string;
+    insights?: Array<{
+      kind: string;
+      payload: Record<string, any>;
+      evidenceCount?: number;
+    }>;
+  },
+) {
+  const generatedFor = new Date();
+
+  const insights = await Promise.all(
+    (opts.insights ?? []).map((insight) =>
+      prisma.behavioralInsight.upsert({
+        where: {
+          userId_certificationId_kind_generatedFor: {
+            userId: opts.userId,
+            certificationId: opts.certificationId,
+            kind: insight.kind,
+            generatedFor: generatedFor,
+          },
+        },
+        create: {
+          userId: opts.userId,
+          certificationId: opts.certificationId,
+          kind: insight.kind,
+          payload: insight.payload,
+          evidenceCount: insight.evidenceCount ?? 1,
+          generatedFor: generatedFor,
+        },
+        update: {
+          payload: insight.payload,
+          evidenceCount: insight.evidenceCount ?? 1,
+        },
+      }),
+    ),
+  );
+
+  return {
+    userId: opts.userId,
+    certificationId: opts.certificationId,
+    insights,
+  };
+}
