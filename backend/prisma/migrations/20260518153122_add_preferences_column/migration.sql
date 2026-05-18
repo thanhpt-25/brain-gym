@@ -1,30 +1,5 @@
-/*
-  Warnings:
-
-  - The primary key for the `moderation_audits` table will be changed. If it partially fails, the table could be left without primary key constraint.
-
-*/
--- DropForeignKey
-ALTER TABLE "moderation_audits" DROP CONSTRAINT "moderation_audits_question_id_fkey";
-
--- DropForeignKey
-ALTER TABLE "moderation_audits" DROP CONSTRAINT "moderation_audits_reviewer_id_fkey";
-
--- DropForeignKey
-ALTER TABLE "organizations" DROP CONSTRAINT "organizations_certification_id_fkey";
-
--- DropIndex
-DROP INDEX "organizations_kind_certification_id_idx";
-
 -- AlterTable
 ALTER TABLE "llm_usage_events" ALTER COLUMN "user_id" DROP NOT NULL;
-
--- AlterTable
-ALTER TABLE "moderation_audits" DROP CONSTRAINT "moderation_audits_pkey",
-ALTER COLUMN "id" DROP DEFAULT,
-ALTER COLUMN "id" SET DATA TYPE TEXT,
-ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(3),
-ADD CONSTRAINT "moderation_audits_pkey" PRIMARY KEY ("id");
 
 -- AlterTable
 ALTER TABLE "organizations" ALTER COLUMN "target_exam_date" SET DATA TYPE TIMESTAMP(3);
@@ -116,12 +91,6 @@ CREATE INDEX "coach_sessions_user_id_created_at_idx" ON "coach_sessions"("user_i
 ALTER TABLE "organizations" ADD CONSTRAINT "organizations_certification_id_fkey" FOREIGN KEY ("certification_id") REFERENCES "certifications"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "moderation_audits" ADD CONSTRAINT "moderation_audits_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "moderation_audits" ADD CONSTRAINT "moderation_audits_reviewer_id_fkey" FOREIGN KEY ("reviewer_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "scenarios" ADD CONSTRAINT "scenarios_exam_id_fkey" FOREIGN KEY ("exam_id") REFERENCES "exams"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -141,6 +110,3 @@ ALTER TABLE "scenario_attempts" ADD CONSTRAINT "scenario_attempts_scenario_id_fk
 
 -- AddForeignKey
 ALTER TABLE "coach_sessions" ADD CONSTRAINT "coach_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- RenameIndex
-ALTER INDEX "behavioral_insights_user_cert_kind_for_key" RENAME TO "behavioral_insights_user_id_certification_id_kind_generated_key";
