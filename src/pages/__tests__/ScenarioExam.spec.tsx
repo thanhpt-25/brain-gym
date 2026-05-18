@@ -383,8 +383,8 @@ describe("ScenarioExam", () => {
     it("should handle submission error gracefully", async () => {
       const user = userEvent.setup();
       const error = new Error("Submission failed");
-      // Mock to reject on first call, succeed on retry (to test error handling)
-      vi.mocked(scenariosService.submitScenarioAttempt).mockRejectedValueOnce(
+      // Mock to reject on ALL calls (not just once) to test error handling
+      vi.mocked(scenariosService.submitScenarioAttempt).mockRejectedValue(
         error,
       );
 
