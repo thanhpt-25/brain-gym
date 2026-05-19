@@ -10,6 +10,18 @@ export async function cleanDb(prisma: PrismaClient): Promise<void> {
   // Deepest children first, root tables last.
   // Order derived from schema.prisma FK relationships.
   const tables = [
+    // Scenario engine layer (Sprint 07)
+    'scenario_attempts',
+    'scenario_questions',
+    'coach_sessions',
+    'behavioral_insights',
+    'pass_likelihood_surveys',
+    'readiness_scores',
+    'llm_usage_events',
+    'moderation_audits',
+    'attempt_events',
+    'scenarios',
+
     // Leaf / deep children
     'candidate_answers',
     'candidate_invites',
