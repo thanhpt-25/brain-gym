@@ -201,6 +201,8 @@ model User {
   suspendedUntil DateTime?  @map("suspended_until")
   banReason      String?    @map("ban_reason")
   featureFlags   Json       @default("{}") @map("feature_flags")
+  preferences    Json       @default("{}") // { digestEnabled: boolean, coachEnabled: boolean, ... }
+  subscriptionTier String   @default("free") @map("subscription_tier") // free, pro, enterprise
   createdAt      DateTime   @default(now()) @map("created_at")
   updatedAt      DateTime   @updatedAt @map("updated_at")
 
@@ -226,6 +228,8 @@ model User {
   passLikelihoodSurveys      PassLikelihoodSurvey[]
   behavioralInsights         BehavioralInsight[]
   moderationAudits           ModerationAudit[] @relation("ModerationAuditsReviewed")
+  scenarioAttempts           ScenarioAttempt[]
+  coachSessions              CoachSession[]
 
   @@index([status])
   @@map("users")
@@ -326,6 +330,7 @@ model Question {
   choices            Choice[]
   tags               QuestionTag[]
   examQuestions      ExamQuestion[]
+  scenarioQuestions  ScenarioQuestion[]
   answers            Answer[]
   comments           Comment[]
   votes              Vote[]
@@ -399,6 +404,7 @@ model Exam {
   certification Certification  @relation(fields: [certificationId], references: [id])
   examQuestions ExamQuestion[]
   attempts      ExamAttempt[]
+  scenarios     Scenario[]
 
   @@map("exams")
 }
@@ -759,6 +765,7 @@ model Organization {
   joinLinks        OrgJoinLink[]
   learningTracks   LearningTrack[]
   generationJobs   QuestionGenerationJob[] // RFC-012: Track org-level LLM costs
+  scenarios        Scenario[]
   certification    Certification? @relation("SquadCertification", fields: [certificationId], references: [id])
 
   @@map("organizations")
@@ -1070,7 +1077,7 @@ model ReadinessScore {
 // One row per AI gen call. Used for per-org quota enforcement (warn-only this sprint).
 model LlmUsageEvent {
   id           String   @id @default(uuid())
-  userId       String   @map("user_id")
+  userId       String?  @map("user_id")
   orgId        String?  @map("org_id")
   feature      String   // "question_generation" | "coach" | etc.
   modelId      String   @map("model_id")
@@ -1079,7 +1086,7 @@ model LlmUsageEvent {
   costUsd      Decimal  @db.Decimal(10, 6) @map("cost_usd")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([orgId, createdAt])
@@ -1153,4 +1160,86 @@ model ModerationAudit {
   @@index([questionId])
   @@index([reviewerId])
   @@map("moderation_audits")
+}
+
+// ─── Sprint 07: Scenario Engine & AI Coach ──────────────────────────────────────
+
+// US-012a: Passage-based exam container.
+// Scenario = a multi-question exam focused on a single passage + domain.
+// Passage is markdown (200-400 words); diagram URL optional.
+model Scenario {
+  id               String   @id @default(uuid())
+  examId           String?  @map("exam_id") // Optional: scenarios can exist independently or be part of an exam
+  orgId            String   @map("org_id") // Organization that owns this scenario
+  passageMarkdown  String   @db.Text // Markdown text, 200-400 words
+  diagramUrl       String?  @map("diagram_url") // Optional diagram URL
+  timeLimit        Int      @default(900) @map("time_limit") // seconds, default 15 min
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  exam      Exam?               @relation(fields: [examId], references: [id], onDelete: Cascade)
+  org       Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  questions ScenarioQuestion[]
+  attempts  ScenarioAttempt[]
+
+  @@index([examId])
+  @@index([orgId])
+  @@map("scenarios")
+}
+
+// US-012a: Junction model linking questions to scenarios.
+// Preserves order of questions within a scenario via `order` field.
+model ScenarioQuestion {
+  id         String   @id @default(uuid())
+  scenarioId String   @map("scenario_id")
+  questionId String   @map("question_id")
+  order      Int      @default(0) // 0-indexed position within scenario
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, questionId])
+  @@index([scenarioId, order])
+  @@index([questionId])
+  @@map("scenario_questions")
+}
+
+// US-012a / US-012c: User attempt at a scenario exam.
+// Tracks score, reasoning trace (explanation metadata), and completion time.
+model ScenarioAttempt {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  scenarioId     String   @map("scenario_id")
+  attemptedAt    DateTime @default(now()) @map("attempted_at")
+  completedAt    DateTime? @map("completed_at") // null if in-progress
+  score          Int?     @default(0) // 0-100; null if not yet scored
+  reasoningTrace String?  @map("reasoning_trace") @db.Text // Explanation metadata from explanation generation
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@index([userId, scenarioId])
+  @@index([userId, attemptedAt])
+  @@index([scenarioId])
+  @@map("scenario_attempts")
+}
+
+// US-603 (S6 carry-forward) / US-019: AI Coach multi-turn session.
+// Stores conversation state (messages array), cost tracking, and session metadata.
+// Indexed on (userId, createdAt) for rate limiting queries (e.g., count sessions in last hour).
+model CoachSession {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  topic     String   @default("general") // certification domain or topic
+  status    String   @default("active") // "active", "error", "completed"
+  messages  Json     // Array of { role: "user" | "assistant", content: string, timestamp }
+  costUsd   Decimal  @db.Decimal(10, 6) @default(0) @map("cost_usd") // LLM cost for this session
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("coach_sessions")
 }

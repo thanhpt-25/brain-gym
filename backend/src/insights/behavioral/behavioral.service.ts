@@ -149,6 +149,24 @@ export class BehavioralService {
     });
   }
 
+  /**
+   * Retrieves behavioral insights for a specific user across all certifications.
+   * Used by digest generation to include insights in user's weekly digest.
+   * Optionally filters by date range.
+   */
+  async getBehavioralInsightsForUser(
+    userId: string,
+    fromDate?: Date,
+  ): Promise<BehavioralInsight[]> {
+    return this.prisma.behavioralInsight.findMany({
+      where: {
+        userId,
+        ...(fromDate && { generatedFor: { gte: fromDate } }),
+      },
+      orderBy: { generatedFor: 'desc' },
+    });
+  }
+
   private async upsertInsight(
     userId: string,
     certificationId: string,
