@@ -65,6 +65,10 @@ const MasteryPage = lazy(() => import("./pages/Dashboard/MasteryPage"));
 // Squads pages
 const SquadDashboard = lazy(() => import("./pages/SquadDashboard"));
 
+// Scenario pages
+const ScenarioExam = lazy(() => import("./pages/ScenarioExam"));
+const ScenarioResults = lazy(() => import("./pages/ScenarioResults"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -376,6 +380,26 @@ const AnimatedRoutes = () => {
             <PageTransition>
               <ProtectedRoute>
                 <ExamPage />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/scenarios/:id"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <ScenarioExam />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/scenarios/:id/results"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <ScenarioResults />
               </ProtectedRoute>
             </PageTransition>
           }
