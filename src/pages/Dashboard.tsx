@@ -36,6 +36,7 @@ import { ScoreTrendChart } from "@/components/dashboard/ScoreTrendChart";
 import { WeakTopicsChart } from "@/components/dashboard/WeakTopicsChart";
 import { FlashcardStatsPanel } from "@/components/dashboard/FlashcardStatsPanel";
 import { ExamHistoryList } from "@/components/dashboard/ExamHistoryList";
+import { LlmCostPanel } from "@/components/dashboard/LlmCostPanel";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -298,6 +299,15 @@ const Dashboard = () => {
               </motion.div>
             );
           })()}
+
+        {/* LLM Cost Panel */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
+          <LlmCostPanel />
+        </motion.div>
 
         {/* Readiness + Mistake Patterns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

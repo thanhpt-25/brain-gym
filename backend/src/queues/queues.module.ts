@@ -14,6 +14,8 @@ import { IngestionService } from '../ai-question-bank/ingestion/ingestion.servic
 import { EncryptionService } from '../ai-question-bank/crypto/encryption.service';
 import { DigestGenerationProcessor } from '../mail/digest/digest-generation.processor';
 import { DigestModule } from '../mail/digest/digest.module';
+import { BurnoutProcessor } from './processors/burnout.processor';
+import { TrainingModule } from '../training/training.module';
 
 @Module({
   imports: [
@@ -35,6 +37,7 @@ import { DigestModule } from '../mail/digest/digest.module';
     BullModule.registerQueue({ name: SCENARIO_GENERATION_QUEUE }),
     BullModule.registerQueue({ name: DIGEST_GENERATION_QUEUE }),
     BullModule.registerQueue({ name: COACH_SESSION_MONITORING_QUEUE }),
+    BullModule.registerQueue({ name: 'burnout-detection' }),
     BullBoardModule.forRoot({
       route: '/admin/queues',
       adapter: ExpressAdapter,
@@ -55,13 +58,19 @@ import { DigestModule } from '../mail/digest/digest.module';
       name: COACH_SESSION_MONITORING_QUEUE,
       adapter: BullMQAdapter,
     }),
+    BullBoardModule.forFeature({
+      name: 'burnout-detection',
+      adapter: BullMQAdapter,
+    }),
     PrismaModule,
     LlmUsageModule,
     DigestModule,
+    TrainingModule,
   ],
   providers: [
     AiGenProcessor,
     DigestGenerationProcessor,
+    BurnoutProcessor,
     IngestionService,
     EncryptionService,
   ],

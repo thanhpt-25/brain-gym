@@ -78,4 +78,11 @@ api.interceptors.response.use(
   },
 );
 
+export const getLlmMetrics = async (days?: number) => {
+  const response = await api.get('/ai-question-bank/llm-usage/metrics', {
+    params: { days },
+  });
+  return response.data;
+};
+
 export default api;
