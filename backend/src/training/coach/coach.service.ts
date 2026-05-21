@@ -98,25 +98,29 @@ export class CoachService {
 
   private async getAttemptContext(userId: string): Promise<string> {
     try {
-      // Last 30 days of exam attempts
+      // Last 30 days of exam attempts - simplified query
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const attempts = await this.prisma.examAttempt.findMany({
         where: {
           userId,
-          createdAt: { gte: thirtyDaysAgo },
+          startedAt: { gte: thirtyDaysAgo },
         },
-        include: {
-          exam: { select: { title: true } },
-          answers: { select: { isCorrect: true } },
-        },
-        orderBy: { createdAt: "desc" },
+        orderBy: { startedAt: "desc" },
         take: 5,
       });
+
+      // Get the exams for these attempts
+      const examIds = attempts.map((a) => a.examId);
+      const exams = await this.prisma.exam.findMany({
+        where: { id: { in: examIds } },
+        select: { id: true, title: true },
+      });
+      const examMap = new Map(exams.map((e) => [e.id, e.title]));
 
       // Latest readiness score
       const readiness = await this.prisma.readinessScore.findFirst({
         where: { userId },
-        orderBy: { createdAt: "desc" },
+        orderBy: { computedAt: "desc" },
       });
 
       // Recent attempt events (last 7 days) to detect focus/time patterns
@@ -133,24 +137,24 @@ export class CoachService {
         return "";
       }
 
-      // Calculate metrics
+      // Use score from attempt directly (or calculate from totalCorrect/totalQuestions)
       const avgScore = attempts.reduce((sum, att) => {
-        const correct = att.answers?.filter((a) => a.isCorrect).length ?? 0;
-        const total = att.answers?.length ?? 1;
-        return sum + (total > 0 ? (correct / total) * 100 : 0);
+        const score = att.score ? parseFloat(att.score.toString()) :
+          (att.totalCorrect && att.totalQuestions ? (att.totalCorrect / att.totalQuestions) * 100 : 0);
+        return sum + score;
       }, 0) / attempts.length;
 
       const focusLosses = recentEvents.filter((e) => e.eventType === "FOCUS_LOST").length;
       const readinessScore = readiness?.score ?? 0;
 
-      // Identify weak areas (exams with < 60% average)
+      // Identify weak areas (attempts with < 60% score)
       const weakAreas = attempts
         .filter((att) => {
-          const correct = att.answers?.filter((a) => a.isCorrect).length ?? 0;
-          const total = att.answers?.length ?? 1;
-          return total > 0 && (correct / total) * 100 < 60;
+          const score = att.score ? parseFloat(att.score.toString()) :
+            (att.totalCorrect && att.totalQuestions ? (att.totalCorrect / att.totalQuestions) * 100 : 0);
+          return score < 60;
         })
-        .map((att) => att.exam.title)
+        .map((att) => examMap.get(att.examId) || "Unknown")
         .slice(0, 3);
 
       let contextStr = `Recent Performance Context:
