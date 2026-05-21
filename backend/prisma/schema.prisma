@@ -230,6 +230,7 @@ model User {
   moderationAudits           ModerationAudit[] @relation("ModerationAuditsReviewed")
   scenarioAttempts           ScenarioAttempt[]
   coachSessions              CoachSession[]
+  burnoutSignals             BurnoutSignal[]
 
   @@index([status])
   @@map("users")
@@ -276,6 +277,7 @@ model Certification {
   passLikelihoodSurveys PassLikelihoodSurvey[]
   behavioralInsights BehavioralInsight[]
   squads         Organization[] @relation("SquadCertification")
+  burnoutSignals BurnoutSignal[]
 
   @@map("certifications")
 }
@@ -1243,3 +1245,26 @@ model CoachSession {
   @@index([userId, createdAt])
   @@map("coach_sessions")
 }
+
+// US-015: Burnout detection via multi-signal analysis (exam score decline, question attempt patterns, time pressure).
+// Indexed on (userId, detectedAt) for daily burnout checks and triggering coach interventions.
+model BurnoutSignal {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  certificationId  String?  @map("certification_id")
+  severity         String   @default("low") // "low", "medium", "high", "critical"
+  signals          Json     // Array of { signal: "scoreDecline" | "timeAllocation" | "attemptFrequency" | "errorRate", score: float, metadata: {...} }
+  recommendedAction String? @map("recommended_action") // e.g., "SUGGEST_BREAK", "SUGGEST_COACH", "ESCALATE"
+  acknowledged     Boolean  @default(false)
+  acknowledgedAt   DateTime? @map("acknowledged_at")
+  detectedAt       DateTime @default(now()) @map("detected_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certification Certification? @relation(fields: [certificationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, detectedAt])
+  @@index([userId, acknowledged])
+  @@map("burnout_signals")
+}
+
