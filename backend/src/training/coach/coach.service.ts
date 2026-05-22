@@ -466,7 +466,7 @@ Always be supportive and never judgmental.${contextSection}`,
       sessions.forEach((session) => {
         const messages = ((session.messages as any) || []) as CoachMessage[];
         totalMessages += messages.length;
-        totalCost += session.costUsd || 0;
+        totalCost += session.costUsd ? parseFloat(session.costUsd.toString()) : 0;
 
         // Group by day
         const day = session.createdAt.toISOString().split("T")[0];
@@ -597,7 +597,7 @@ Always be supportive and never judgmental.${contextSection}`,
         topicsDiscussed: Array.from(topicsSet),
         userSentimentScore: Math.min(Math.round(sentimentScore), 100),
         effectivenessScore: Math.min(Math.round(effectiveness), 100),
-        costUsd: Math.round(session.costUsd * 100) / 100,
+        costUsd: Math.round(parseFloat(session.costUsd.toString()) * 100) / 100,
         createdAt: session.createdAt.toISOString(),
         lastMessageAt: lastMessage,
       };
