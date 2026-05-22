@@ -291,7 +291,7 @@ The `.github/workflows/deploy.yml` workflow automates:
 ### Triggers
 
 - **Push to `main`** → auto-deploy to **staging**
-- **Manual trigger** or **git tag `v*`** → deploy to **production** (requires approval)
+- **Manual trigger** (`workflow_dispatch` with `environment: production`) → deploy to **production** (gated by Environment approval rule)
 
 ### Rollback
 

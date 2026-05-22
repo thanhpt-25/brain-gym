@@ -94,15 +94,48 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # ECS containerOverrides cannot override the image, so we register a fresh
+      # revision of the migrate task definition with the new SHA-tagged image,
+      # then run a one-off task from it (overriding only the command).
+      - name: Download current migrate task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition braingym-backend-migrate \
+            --query 'taskDefinition' \
+            --output json > migrate-task-def.json
+
+      - name: Render migrate task definition with new image
+        id: render-migrate
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: migrate-task-def.json
+          container-name: braingym-backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-backend:${{ needs.setup.outputs.image-tag }}
+
+      - name: Register migrate task definition
+        id: register-migrate
+        run: |
+          # Strip read-only fields that describe-task-definition returns but
+          # register-task-definition rejects.
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            ${{ steps.render-migrate.outputs.task-definition }} > migrate-register.json
+
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://migrate-register.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task-def-arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+
       - name: Run migrations
         run: |
-          # Run one-off ECS task to execute migrations
+          # Run one-off ECS task from the freshly registered revision.
+          # Only the command is overridden (image is baked into the task def).
           TASK_ARN=$(aws ecs run-task \
             --cluster braingym-${{ needs.setup.outputs.environment }} \
-            --task-definition braingym-backend-migrate:1 \
+            --task-definition ${{ steps.register-migrate.outputs.task-def-arn }} \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.AWS_PRIVATE_SUBNET_IDS }}],securityGroups=[${{ secrets.AWS_ECS_SECURITY_GROUP }}]}" \
-            --overrides containerOverrides="[{name=braingym-backend,image=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-backend:${{ needs.setup.outputs.image-tag }},command=[\"sh\",\"docker-entrypoint.sh\",\"migrate\"]}]" \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.AWS_PRIVATE_SUBNET_IDS }}],securityGroups=[${{ secrets.AWS_ECS_SECURITY_GROUP }}],assignPublicIp=DISABLED}" \
+            --overrides containerOverrides="[{name=braingym-backend,command=[\"sh\",\"docker-entrypoint.sh\",\"migrate\"]}]" \
             --query 'tasks[0].taskArn' \
             --output text)
 
@@ -159,22 +192,31 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Update ECS service
+      # Render + register a SHA-pinned revision of the service task definition,
+      # then deploy it. This guarantees the exact built image runs (not whatever
+      # :latest happens to resolve to) and gives clean revision-based rollback.
+      - name: Download current task definition
         run: |
-          aws ecs update-service \
-            --cluster braingym-${{ needs.setup.outputs.environment }} \
-            --service braingym-backend \
-            --force-new-deployment \
-            --region ${{ env.AWS_REGION }}
+          aws ecs describe-task-definition \
+            --task-definition braingym-backend \
+            --query 'taskDefinition' \
+            --output json > task-def.json
 
-      - name: Wait for service stability
-        run: |
-          aws ecs wait services-stable \
-            --cluster braingym-${{ needs.setup.outputs.environment }} \
-            --services braingym-backend \
-            --region ${{ env.AWS_REGION }}
+      - name: Render task definition with new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: braingym-backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-backend:${{ needs.setup.outputs.image-tag }}
 
-          echo "✓ Backend deployment successful"
+      - name: Deploy to ECS and wait for stability
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: braingym-backend
+          cluster: braingym-${{ needs.setup.outputs.environment }}
+          wait-for-service-stability: true
 
   # Build and deploy frontend to S3 + CloudFront
   deploy-frontend:

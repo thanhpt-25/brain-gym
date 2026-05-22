@@ -11,9 +11,11 @@ resource "aws_db_subnet_group" "main" {
 # RDS PostgreSQL
 resource "aws_db_instance" "postgres" {
   identifier            = "${var.app_name}-${var.environment}"
-  engine                = "postgres"
-  engine_version        = "16.3"
-  instance_class        = var.db_instance_class
+  engine                     = "postgres"
+  engine_version             = "16"
+  allow_major_version_upgrade = false
+  auto_minor_version_upgrade  = true
+  instance_class             = var.db_instance_class
   allocated_storage     = var.db_allocated_storage
   storage_type          = "gp3"
   storage_encrypted     = true
@@ -33,7 +35,8 @@ resource "aws_db_instance" "postgres" {
   copy_tags_to_snapshot   = true
 
   skip_final_snapshot       = var.environment == "staging" ? true : false
-  final_snapshot_identifier = var.environment == "production" ? "${var.app_name}-${var.environment}-final-$(timestamp())" : null
+  final_snapshot_identifier = var.environment == "production" ? "${var.app_name}-${var.environment}-final-${random_id.snapshot_suffix.hex}" : null
+  deletion_protection       = var.environment == "production"
 
   tags = merge(var.common_tags, {
     Name = "${var.app_name}-${var.environment}-postgres"
@@ -42,10 +45,17 @@ resource "aws_db_instance" "postgres" {
   depends_on = [aws_security_group.rds]
 }
 
-# Generate secure DB password
+# Generate secure DB password. Restricted to URL-safe symbols since this value is
+# embedded directly into DATABASE_URL (chars like # % @ / : would corrupt the URL).
 resource "random_password" "db_password" {
-  length  = 32
-  special = true
+  length           = 32
+  special          = true
+  override_special = "-_.~"
+}
+
+# Suffix for the final snapshot identifier (snapshot IDs can't contain colons/parens)
+resource "random_id" "snapshot_suffix" {
+  byte_length = 4
 }
 
 # Store DB password in Secrets Manager

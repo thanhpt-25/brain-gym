@@ -31,11 +31,11 @@ output "rds_address" {
 
 # ElastiCache
 output "redis_endpoint" {
-  value = aws_elasticache_cluster.redis.cache_nodes[0].address
+  value = aws_elasticache_replication_group.redis.primary_endpoint_address
 }
 
 output "redis_port" {
-  value = aws_elasticache_cluster.redis.port
+  value = aws_elasticache_replication_group.redis.port
 }
 
 # GitHub Secrets Instruction
@@ -77,7 +77,7 @@ Key Resources:
 - VPC: ${aws_vpc.main.id}
 - Private Subnets: ${join(", ", aws_subnet.private[*].id)}
 - RDS Endpoint: ${aws_db_instance.postgres.address}
-- Redis Endpoint: ${aws_elasticache_cluster.redis.cache_nodes[0].address}:${aws_elasticache_cluster.redis.port}
+- Redis Endpoint: ${aws_elasticache_replication_group.redis.primary_endpoint_address}:${aws_elasticache_replication_group.redis.port}
 - ECR Repository: ${aws_ecr_repository.backend.repository_url}
 
 Next Steps:

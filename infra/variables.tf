@@ -75,9 +75,15 @@ variable "redis_node_type" {
 }
 
 variable "redis_num_cache_nodes" {
-  description = "Number of cache nodes"
+  description = "Number of cache clusters (primary + replicas). >1 enables automatic failover + multi-AZ"
   type        = number
   default     = 1
+}
+
+variable "redis_transit_encryption" {
+  description = "Enable in-transit encryption + AUTH token. Requires the backend to connect via rediss:// with a password — leave false until the app supports TLS+auth"
+  type        = bool
+  default     = false
 }
 
 # ECS Configuration

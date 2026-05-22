@@ -249,7 +249,7 @@ Repeat Phase 2 (Infrastructure) and Phase 3 (GitHub) but with `production` envir
 ### Production Deployment Protection:
 - [ ] GitHub Environment > Deployment Branches > Select `main` only
 - [ ] GitHub Environment > Deployment Branches > Require code reviews
-- [ ] Create a `v1.0.0` git tag and push to trigger production deploy, or use workflow_dispatch
+- [ ] Trigger production via workflow_dispatch (Actions tab > Deploy > Run workflow > environment: production). To enable git-tag triggers instead, add a `push: tags: ['v*']` trigger to deploy.yml and map it to the production environment.
 
 ---
 
