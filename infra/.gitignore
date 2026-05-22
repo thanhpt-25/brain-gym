@@ -1,0 +1,22 @@
+# Local terraform working directory and plugins
+.terraform/
+
+# State files (use remote state instead — never commit local state)
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Variable files with real values (commit only the .example)
+terraform.tfvars
+*.auto.tfvars
+
+# Plan output
+*.tfplan
+
+# Crash logs and overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Note: .terraform.lock.hcl IS committed (provider version pinning)

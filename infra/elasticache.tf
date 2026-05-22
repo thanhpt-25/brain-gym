@@ -36,8 +36,8 @@ resource "aws_elasticache_replication_group" "redis" {
   transit_encryption_enabled = var.redis_transit_encryption
   auth_token                 = var.redis_transit_encryption ? random_password.redis_auth_token.result : null
 
-  maintenance_window      = "mon:03:00-mon:04:00"
-  notification_topic_arn  = var.environment == "production" ? aws_sns_topic.alerts[0].arn : null
+  maintenance_window     = "mon:03:00-mon:04:00"
+  notification_topic_arn = var.environment == "production" ? aws_sns_topic.alerts[0].arn : null
 
   tags = merge(var.common_tags, {
     Name = "${var.app_name}-${var.environment}-redis"

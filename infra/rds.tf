@@ -10,17 +10,17 @@ resource "aws_db_subnet_group" "main" {
 
 # RDS PostgreSQL
 resource "aws_db_instance" "postgres" {
-  identifier            = "${var.app_name}-${var.environment}"
-  engine                     = "postgres"
-  engine_version             = "16"
+  identifier                  = "${var.app_name}-${var.environment}"
+  engine                      = "postgres"
+  engine_version              = "16"
   allow_major_version_upgrade = false
   auto_minor_version_upgrade  = true
-  instance_class             = var.db_instance_class
-  allocated_storage     = var.db_allocated_storage
-  storage_type          = "gp3"
-  storage_encrypted     = true
-  multi_az              = var.db_multi_az
-  publicly_accessible   = false
+  instance_class              = var.db_instance_class
+  allocated_storage           = var.db_allocated_storage
+  storage_type                = "gp3"
+  storage_encrypted           = true
+  multi_az                    = var.db_multi_az
+  publicly_accessible         = false
 
   db_name  = "braingym"
   username = "braingym"
