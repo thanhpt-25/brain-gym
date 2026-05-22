@@ -1,40 +1,73 @@
 #!/bin/sh
 set -e
 
-echo "Running database migrations..."
+MODE=${1:-start}
 
-# Resolve any previously failed migrations so deploy can proceed
-npx prisma migrate resolve --rolled-back "20260328000002_fix_schema_drift" 2>/dev/null || true
+# Shared migration logic
+run_migrations() {
+  echo "Running database migrations..."
 
-# Attempt migrate deploy; if P3005 (non-empty DB with no migration history), baseline first
-if ! deploy_output=$(npx prisma migrate deploy 2>&1); then
-  echo "$deploy_output"
-  if echo "$deploy_output" | grep -q "P3005"; then
-    echo "Detected P3005 — baselining existing migrations..."
-    npx prisma migrate resolve --applied "20260308122554_init"
-    npx prisma migrate resolve --applied "20260317150938_add_analytics_training"
-    npx prisma migrate resolve --applied "20260321032903_flashcards_init"
-    npx prisma migrate resolve --applied "20260326144134_add_timer_mode_and_trap_question"
-    npx prisma migrate resolve --applied "20260328000000_ai_question_bank"
-    npx prisma migrate resolve --applied "20260328000001_add_user_status"
-    npx prisma migrate resolve --applied "20260328000002_fix_schema_drift"
-    npx prisma migrate resolve --applied "20260328000003_add_question_soft_delete"
-    npx prisma migrate resolve --applied "20260401000000_enterprise_plan"
-    npx prisma migrate resolve --applied "20260412_add_assessment_questions"
-    npx prisma migrate resolve --applied "20260412_add_certification_to_org_questions"
-    npx prisma migrate resolve --applied "20260429000000_question_srs_fields"
-    npx prisma migrate resolve --applied "20260430000000_flashcard_srs_fields"
-    echo "Baseline complete. Running migrate deploy..."
-    npx prisma migrate deploy
+  # Resolve any previously failed migrations so deploy can proceed
+  npx prisma migrate resolve --rolled-back "20260328000002_fix_schema_drift" 2>/dev/null || true
+
+  # Attempt migrate deploy; if P3005 (non-empty DB with no migration history), baseline first
+  if ! deploy_output=$(npx prisma migrate deploy 2>&1); then
+    echo "$deploy_output"
+    if echo "$deploy_output" | grep -q "P3005"; then
+      echo "Detected P3005 — baselining existing migrations..."
+      npx prisma migrate resolve --applied "20260308122554_init"
+      npx prisma migrate resolve --applied "20260317150938_add_analytics_training"
+      npx prisma migrate resolve --applied "20260321032903_flashcards_init"
+      npx prisma migrate resolve --applied "20260326144134_add_timer_mode_and_trap_question"
+      npx prisma migrate resolve --applied "20260328000000_ai_question_bank"
+      npx prisma migrate resolve --applied "20260328000001_add_user_status"
+      npx prisma migrate resolve --applied "20260328000002_fix_schema_drift"
+      npx prisma migrate resolve --applied "20260328000003_add_question_soft_delete"
+      npx prisma migrate resolve --applied "20260401000000_enterprise_plan"
+      npx prisma migrate resolve --applied "20260412_add_assessment_questions"
+      npx prisma migrate resolve --applied "20260412_add_certification_to_org_questions"
+      npx prisma migrate resolve --applied "20260429000000_question_srs_fields"
+      npx prisma migrate resolve --applied "20260430000000_flashcard_srs_fields"
+      echo "Baseline complete. Running migrate deploy..."
+      npx prisma migrate deploy
+    else
+      exit 1
+    fi
   else
-    exit 1
+    echo "$deploy_output"
   fi
-else
-  echo "$deploy_output"
-fi
+}
 
-echo "Seeding database..."
-npx ts-node --compiler-options '{"module":"CommonJS"}' --transpile-only prisma/seed.ts
+# Shared seed logic (optional, off by default in production)
+run_seed() {
+  if [ "${RUN_SEED:-false}" = "true" ]; then
+    echo "Seeding database..."
+    npx ts-node --compiler-options '{"module":"CommonJS"}' --transpile-only prisma/seed.ts
+  else
+    echo "Skipping seed (RUN_SEED=${RUN_SEED:-false})"
+  fi
+}
 
-echo "Starting application..."
-exec npm run start:prod
+case "$MODE" in
+  migrate)
+    # One-off migration task (called from CI/CD pipeline)
+    run_migrations
+    echo "Migrations completed successfully"
+    ;;
+  start)
+    # Application startup (default)
+    # In production, migrations run separately before deploy.
+    # In dev/compose, run them here for convenience.
+    if [ "${NODE_ENV:-production}" != "production" ]; then
+      run_migrations
+      run_seed
+    fi
+    echo "Starting application..."
+    exec npm run start:prod
+    ;;
+  *)
+    echo "Unknown mode: $MODE"
+    echo "Usage: $0 [start|migrate]"
+    exit 1
+    ;;
+esac
