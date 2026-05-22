@@ -7,14 +7,11 @@ import { LlmUsageModule } from '../ai-question-bank/llm-usage/llm-usage.module';
 import { CoachRampService } from './coach/coach-ramp.service';
 import { CoachSafetyService } from './coach/coach-safety.service';
 import { CoachService } from './coach/coach.service';
-import { CoachController } from './coach/coach.controller';
 import { BurnoutDetector } from './coach/burnout.detector';
-import { BurnoutController } from './coach/burnout.controller';
-import { CommonModule } from '../common/common.module';
 
 @Module({
-  imports: [PrismaModule, AnalyticsModule, LlmUsageModule, CommonModule],
-  controllers: [TrainingController, CoachController, BurnoutController],
+  imports: [PrismaModule, AnalyticsModule, LlmUsageModule],
+  controllers: [TrainingController],
   providers: [
     TrainingService,
     CoachRampService,

@@ -37,6 +37,7 @@ import { WeakTopicsChart } from "@/components/dashboard/WeakTopicsChart";
 import { FlashcardStatsPanel } from "@/components/dashboard/FlashcardStatsPanel";
 import { ExamHistoryList } from "@/components/dashboard/ExamHistoryList";
 import { WeeklyDigestBanner } from "@/components/dashboard/WeeklyDigestBanner";
+import { BurnoutIndicator } from "@/components/dashboard/BurnoutIndicator";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -119,6 +120,7 @@ const Dashboard = () => {
         <Breadcrumb items={[{ label: "Dashboard" }]} className="mb-2" />
 
         <WeeklyDigestBanner />
+        <BurnoutIndicator />
 
         {/* Cert filter */}
         <div className="flex items-center gap-2 flex-wrap">

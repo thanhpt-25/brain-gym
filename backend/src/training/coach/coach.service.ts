@@ -1,8 +1,7 @@
-import { Injectable, BadRequestException } from "@nestjs/common";
+import { Injectable, BadRequestException, Logger } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { LlmUsageService } from "../../ai-question-bank/llm-usage/llm-usage.service";
 import { CoachSafetyService } from "./coach-safety.service";
-import Anthropic from "@anthropic-ai/sdk";
 
 interface CoachSessionResponse {
   id: string;
@@ -19,16 +18,19 @@ interface CoachMessage {
 
 @Injectable()
 export class CoachService {
-  private anthropic: Anthropic;
+  private readonly logger = new Logger(CoachService.name);
+  private readonly ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+  private readonly MODEL = "claude-3-5-haiku-20241022";
+  private readonly API_KEY = process.env.ANTHROPIC_API_KEY;
 
   constructor(
     private prisma: PrismaService,
     private llmUsageService: LlmUsageService,
     private coachSafetyService: CoachSafetyService,
   ) {
-    this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    if (!this.API_KEY) {
+      this.logger.warn("ANTHROPIC_API_KEY not set - coach LLM will be unavailable");
+    }
   }
 
   async getOrCreateCoachSession(userId: string): Promise<CoachSessionResponse> {
@@ -67,9 +69,15 @@ export class CoachService {
       },
     });
 
+    const sessionMessages = ((session.messages as any) || []) as CoachMessage[];
     return {
       id: session.id,
-      messages: session.messages || [],
+      messages: sessionMessages.map(m => ({
+        id: `${m.timestamp}`,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      })),
       createdAt: session.createdAt.toISOString(),
       sessionCount,
     };
@@ -109,17 +117,15 @@ export class CoachService {
     }
 
     // Validate user message for jailbreak/safety issues
-    const safetyResult = await this.coachSafetyService.detectJailbreakAttempt(
-      userMessage,
-    );
-    if (safetyResult.isJailbreak) {
+    const isJailbreak = this.coachSafetyService.detectJailbreakAttempt(userMessage);
+    if (isJailbreak) {
       throw new BadRequestException(
         "Message violates safety guidelines. Please try again.",
       );
     }
 
     // Add user message to session
-    const messages = (session.messages as CoachMessage[]) || [];
+    const messages = ((session.messages as any) || []) as CoachMessage[];
     const userMsg: CoachMessage = {
       role: "user",
       content: userMessage,
@@ -144,13 +150,27 @@ export class CoachService {
     sessionMessages: CoachMessage[],
   ): AsyncIterable<string> {
     let fullResponse = "";
-    let costUsd = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    if (!this.API_KEY) {
+      yield "[Coach Error] LLM service unavailable. Please try again later.";
+      return;
+    }
 
     try {
-      const stream = await this.anthropic.messages.stream({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        system: `You are an empathetic AI coach helping certification exam candidates.
+      const response = await fetch(this.ANTHROPIC_API_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": this.API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.MODEL,
+          max_tokens: 1024,
+          stream: true,
+          system: `You are an empathetic AI coach helping certification exam candidates.
 Your role is to:
 - Provide targeted study recommendations based on weak areas
 - Offer encouragement and break suggestions when needed
@@ -160,27 +180,65 @@ Your role is to:
 
 Keep responses concise (2-3 sentences max for quick tips, longer for explanations).
 Always be supportive and never judgmental.`,
-        messages: anthropicMessages,
+          messages: anthropicMessages,
+        }),
       });
 
-      for await (const event of stream) {
-        if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-          fullResponse += event.delta.text;
-          yield event.delta.text;
-        }
+      if (!response.ok) {
+        throw new Error(`Anthropic API error: ${response.status}`);
       }
 
-      // Get final message for cost calculation
-      const finalMessage = await stream.finalMessage();
-      costUsd =
-        ((finalMessage.usage.input_tokens + finalMessage.usage.output_tokens) / 1000) *
-        0.03; // Haiku costs ~$0.03/1M tokens
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No response stream");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+
+        // Keep last incomplete line in buffer
+        buffer = lines[lines.length - 1];
+
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i].trim();
+          if (!line || !line.startsWith("data:")) continue;
+
+          const data = line.slice(5).trim();
+          if (!data) continue;
+
+          try {
+            const event = JSON.parse(data);
+
+            if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+              fullResponse += event.delta.text;
+              yield event.delta.text;
+            } else if (event.type === "message_delta" && event.usage) {
+              outputTokens = event.usage.output_tokens;
+            } else if (event.type === "message_start" && event.message?.usage) {
+              inputTokens = event.message.usage.input_tokens;
+            }
+          } catch {
+            // Ignore parse errors for SSE frames
+          }
+        }
+      }
     } catch (error) {
+      this.logger.error(
+        "Coach LLM error",
+        error instanceof Error ? error.message : String(error),
+      );
       yield `[Coach Error] Unable to process request. Please try again.`;
       throw error;
     }
 
-    // Persist assistant response and update session
+    // Persist assistant response
     const assistantMsg: CoachMessage = {
       role: "assistant",
       content: fullResponse,
@@ -188,23 +246,30 @@ Always be supportive and never judgmental.`,
     };
     sessionMessages.push(assistantMsg);
 
+    const costUsd = ((inputTokens + outputTokens) / 1000000) * 0.8; // Haiku costs ~$0.80/1M tokens
+
     await this.prisma.coachSession.update({
       where: { id: sessionId },
       data: {
-        messages: sessionMessages,
+        messages: sessionMessages as any,
         costUsd: { increment: costUsd },
       },
     });
 
     // Track LLM usage
-    await this.llmUsageService.trackUsage({
-      userId,
-      provider: "anthropic",
-      model: "claude-haiku-4-5-20251001",
-      inputTokens: sessionMessages.length * 200, // Rough estimate
-      outputTokens: Math.ceil(fullResponse.length / 4),
-      costUsd,
-      context: "coach_session",
-    });
+    try {
+      await this.llmUsageService.recordUsageEvent({
+        userId,
+        feature: "coach",
+        modelId: this.MODEL,
+        inputTokens,
+        outputTokens,
+      });
+    } catch (error) {
+      this.logger.error(
+        "Failed to track LLM usage",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
 }

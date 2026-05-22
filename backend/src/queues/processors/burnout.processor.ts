@@ -1,21 +1,36 @@
-import { Processor, Process } from '@nestjs/bull';
-import { Job } from 'bull';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Job } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BurnoutDetector } from '../../training/coach/burnout.detector';
 
+interface BurnoutJobData {
+  userId?: string;
+  type: 'check-user' | 'daily-scan';
+}
+
 @Processor('burnout-detection')
-export class BurnoutProcessor {
+export class BurnoutProcessor extends WorkerHost {
   private readonly logger = new Logger(BurnoutProcessor.name);
 
   constructor(
     private prisma: PrismaService,
     private burnoutDetector: BurnoutDetector,
-  ) {}
+  ) {
+    super();
+  }
 
-  @Process('check-user-burnout')
-  async checkUserBurnout(job: Job<{ userId: string }>) {
-    const { userId } = job.data;
+  async process(job: Job<BurnoutJobData>): Promise<void> {
+    const { type, userId } = job.data;
+
+    if (type === 'check-user' && userId) {
+      await this.checkUserBurnout(userId);
+    } else if (type === 'daily-scan') {
+      await this.dailyBurnoutScan();
+    }
+  }
+
+  private async checkUserBurnout(userId: string): Promise<void> {
     this.logger.debug(`Checking burnout for user ${userId}`);
 
     try {
@@ -29,8 +44,6 @@ export class BurnoutProcessor {
         // Could emit event here for coach intervention flow
         // e.g., schedule follow-up coach session, send notification, etc.
       }
-
-      return result;
     } catch (error) {
       this.logger.error(
         `Error checking burnout for user ${userId}`,
@@ -40,8 +53,7 @@ export class BurnoutProcessor {
     }
   }
 
-  @Process('daily-burnout-scan')
-  async dailyBurnoutScan(job: Job) {
+  private async dailyBurnoutScan(): Promise<void> {
     this.logger.log('Starting daily burnout scan...');
 
     try {
@@ -71,8 +83,6 @@ export class BurnoutProcessor {
       this.logger.log(
         `Burnout scan complete: ${criticalCount} critical, ${highCount} high`,
       );
-
-      return { scanned: activeUsers.length, criticalCount, highCount };
     } catch (error) {
       this.logger.error(
         'Error in daily burnout scan',
