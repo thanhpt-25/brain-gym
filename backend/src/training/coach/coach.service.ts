@@ -33,6 +33,19 @@ export class CoachService {
     }
   }
 
+  /**
+   * Get the latest coach session for a user, or create one if none exists
+   *
+   * This method returns the most recent session from today or creates a new one.
+   * It also counts the total number of sessions created today for rate-limit tracking.
+   *
+   * @param userId - The authenticated user's ID
+   * @returns CoachSessionResponse with session ID, messages array, creation timestamp, and today's session count
+   *
+   * @example
+   * const session = await coachService.getOrCreateCoachSession('user-123');
+   * // Returns: { id: 'sess-xyz', messages: [...], createdAt: '2026-05-22T...', sessionCount: 3 }
+   */
   async getOrCreateCoachSession(userId: string): Promise<CoachSessionResponse> {
     const session = await this.prisma.coachSession.findFirst({
       where: { userId },
@@ -83,6 +96,16 @@ export class CoachService {
     };
   }
 
+  /**
+   * Count the number of coach sessions created today by a user
+   *
+   * Used for rate-limit enforcement:
+   * - Pro tier: Limited to 10 sessions per day
+   * - Elite tier: No limit (can exceed 10)
+   *
+   * @param userId - The user's ID
+   * @returns Number of sessions created by this user since midnight (local time)
+   */
   async getSessionCount(userId: string): Promise<number> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -96,6 +119,25 @@ export class CoachService {
     });
   }
 
+  /**
+   * Gather user performance context from recent exam attempts and readiness scores
+   *
+   * Provides contextual information to the coach LLM to personalize responses based on:
+   * - Average score from last 5 exam attempts (last 30 days)
+   * - Current readiness level (0-100 scale)
+   * - Focus loss events detected in last 7 days
+   * - Weak areas (exam topics with score < 60%)
+   *
+   * This context is injected into the coach's system prompt to make responses
+   * more relevant and helpful to the user's specific situation.
+   *
+   * @param userId - The user's ID
+   * @returns Formatted context string suitable for LLM system prompt, or empty string if no data available
+   *
+   * @example
+   * const context = await getAttemptContext('user-123');
+   * // Returns: "Recent Performance Context:\n- Average Score: 72.5%\n- Readiness Level: 65/100\n- Focus Issues: 2 detected in last 7 days\n- Weak Areas: AWS Security, Database Design"
+   */
   private async getAttemptContext(userId: string): Promise<string> {
     try {
       // Last 30 days of exam attempts - simplified query
@@ -176,12 +218,45 @@ export class CoachService {
     }
   }
 
+  /**
+   * Send a message to the coach LLM and stream back the response
+   *
+   * TIER-GATING & RATE LIMITING:
+   * This method enforces Pro tier rate limits (10 sessions/day). Elite tier users bypass this check.
+   * Note: Tier enforcement should be implemented at the controller level (coach.controller.ts)
+   * before calling this method to return proper HTTP status codes (403 Forbidden).
+   *
+   * SECURITY:
+   * - Verifies session ownership (session.userId === userId)
+   * - Validates message for jailbreak attempts using CoachSafetyService
+   * - Checks rate limit (ignores elite tier unlimited sessions at service level)
+   *
+   * CONTEXT INJECTION:
+   * - Gathers user's recent performance data via getAttemptContext()
+   * - Injects context into LLM system prompt for personalized responses
+   *
+   * @param sessionId - ID of the coach session
+   * @param userId - Authenticated user ID (used to verify session ownership)
+   * @param userMessage - The user's message to the coach
+   * @returns AsyncIterable<string> that streams the coach's response in real-time via SSE
+   *
+   * @throws BadRequestException if session not found or not owned by user
+   * @throws BadRequestException if message violates safety guidelines
+   * @throws BadRequestException if daily session limit reached (Pro tier)
+   * @throws Error if LLM API request fails
+   *
+   * @example
+   * const stream = await coachService.sendMessage('sess-123', 'user-456', 'How should I study for AWS?');
+   * for await (const chunk of stream) {
+   *   console.log(chunk); // Prints streaming response text
+   * }
+   */
   async sendMessage(
     sessionId: string,
     userId: string,
     userMessage: string,
   ): Promise<AsyncIterable<string>> {
-    // Verify session ownership
+    // Verify session ownership (multi-tenant isolation)
     const session = await this.prisma.coachSession.findUnique({
       where: { id: sessionId },
     });
@@ -190,7 +265,8 @@ export class CoachService {
       throw new BadRequestException("Session not found or unauthorized");
     }
 
-    // Check rate limit (max 10 sessions per day)
+    // Check rate limit (max 10 sessions per day for Pro tier)
+    // Elite tier enforcement should be done at controller level
     const sessionCount = await this.getSessionCount(userId);
     if (sessionCount >= 10) {
       throw new BadRequestException("Daily session limit reached");

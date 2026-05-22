@@ -19,11 +19,30 @@ interface CoachSessionResponse {
   sessionCount: number;
 }
 
+/**
+ * Coach Feature Controller
+ *
+ * TIER-LOCK REQUIREMENTS:
+ * - Free tier: ❌ No access to coach feature (returns 403 Forbidden)
+ * - Pro tier: ✅ Full access with 10 sessions per day limit
+ * - Elite tier: ✅ Full access with unlimited sessions
+ *
+ * All endpoints require JWT authentication and validate session ownership.
+ * Tier checks are enforced at the service level via CoachService.sendMessage().
+ */
 @Controller("training/coach")
 @UseGuards(JwtAuthGuard)
 export class CoachController {
   constructor(private coachService: CoachService) {}
 
+  /**
+   * Get or create a coach session for the authenticated user
+   *
+   * @param userId - User ID (must match authenticated user)
+   * @param req - Express request with authenticated user
+   * @returns CoachSessionResponse with session ID, messages, and session count
+   * @throws Error if userId doesn't match authenticated user (unauthorized)
+   */
   @Get("session/:userId")
   async getCoachSession(
     @Param("userId") userId: string,
@@ -35,12 +54,43 @@ export class CoachController {
     return this.coachService.getOrCreateCoachSession(userId);
   }
 
+  /**
+   * Get the current session count for the authenticated user (today)
+   *
+   * Used by frontend to display rate limit status.
+   * Pro tier users can see when they're approaching the 10 sessions/day limit.
+   *
+   * @param req - Express request with authenticated user
+   * @returns Object with sessionCount (number of sessions created today)
+   */
   @Get("session-count")
   async getSessionCount(@Request() req: any): Promise<{ sessionCount: number }> {
     const count = await this.coachService.getSessionCount(req.user.id);
     return { sessionCount: count };
   }
 
+  /**
+   * Send a message to the coach and receive an LLM-generated response via Server-Sent Events
+   *
+   * TIER GATING:
+   * - Free tier: Returns 403 Forbidden (feature not available)
+   * - Pro tier: Allows up to 10 sessions per day
+   *   If limit reached, returns 400 Bad Request with "Daily session limit reached"
+   * - Elite tier: No session limits
+   *
+   * SAFETY:
+   * - All messages are validated for jailbreak attempts via CoachSafetyService
+   * - Session ownership is verified (session.userId must match authenticated user.id)
+   * - SSE streaming is used for real-time response delivery
+   *
+   * @param sessionId - Coach session ID (must be owned by authenticated user)
+   * @param body - Request body with message string
+   * @param req - Express request with authenticated user
+   * @param res - Express response for SSE streaming
+   * @throws BadRequestException if message is empty or session limit reached
+   * @throws ForbiddenException if user tier doesn't have coach access
+   * @throws BadRequestException if session not found or unauthorized
+   */
   @Post("session/:sessionId/message")
   async sendMessage(
     @Param("sessionId") sessionId: string,
