@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getScenario, type Scenario } from "@/services/scenarios";
 import { ScenarioPassage } from "./ScenarioPassage";
+import { ScenarioDiagram } from "./ScenarioDiagram";
 import { ScenarioQuestionSidebar } from "./ScenarioQuestionSidebar";
 
 interface ScenarioReaderProps {
@@ -82,6 +83,7 @@ export function ScenarioReader({
     <div className="flex h-screen bg-gray-50">
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
+        <ScenarioDiagram diagramUrl={scenario.diagramUrl} title="Scenario context" />
         <ScenarioPassage passage={scenario.passage} />
       </div>
 
