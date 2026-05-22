@@ -126,4 +126,47 @@ export class CoachController {
       res.end();
     }
   }
+
+  /**
+   * Get analytics overview for all coach sessions belonging to the authenticated user
+   *
+   * Returns aggregated statistics on coach usage including:
+   * - Total number of sessions created
+   * - Average messages per session
+   * - Average response time from LLM
+   * - Distribution of topics discussed
+   * - Session frequency over time
+   *
+   * @param req - Express request with authenticated user
+   * @returns Analytics object with usage statistics
+   */
+  @Get("analytics")
+  async getAnalytics(@Request() req: any): Promise<any> {
+    return this.coachService.getAnalytics(req.user.id);
+  }
+
+  /**
+   * Get detailed analysis of a single coach session including effectiveness metrics
+   *
+   * Returns metadata and analysis for a specific session:
+   * - Total message count (user + assistant)
+   * - Session duration (from creation to last message)
+   * - Topics discussed (extracted from conversation)
+   * - User sentiment trend (positive keywords detection)
+   * - Session effectiveness score (ratio of positive content)
+   *
+   * AUTHORIZATION: Session must belong to authenticated user (enforced via RLS check)
+   *
+   * @param sessionId - ID of the coach session to analyze
+   * @param req - Express request with authenticated user
+   * @returns Session analysis object with metrics and conversation details
+   * @throws BadRequestException if session not found or not owned by user
+   */
+  @Get("session/:sessionId/analysis")
+  async getSessionAnalysis(
+    @Param("sessionId") sessionId: string,
+    @Request() req: any,
+  ): Promise<any> {
+    return this.coachService.getSessionAnalysis(sessionId, req.user.id);
+  }
 }

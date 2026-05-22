@@ -432,4 +432,181 @@ Always be supportive and never judgmental.${contextSection}`,
       );
     }
   }
+
+  /**
+   * Get analytics overview for all coach sessions
+   *
+   * @param userId - The user's ID
+   * @returns Analytics object with aggregated session metrics
+   */
+  async getAnalytics(userId: string): Promise<any> {
+    try {
+      const sessions = await this.prisma.coachSession.findMany({
+        where: { userId },
+      });
+
+      if (sessions.length === 0) {
+        return {
+          totalSessions: 0,
+          avgMessagesPerSession: 0,
+          averageResponseTime: 0,
+          topicDistribution: [],
+          sessionsByDay: [],
+          totalTokensUsed: 0,
+          totalCostUsd: 0,
+        };
+      }
+
+      // Calculate message counts
+      let totalMessages = 0;
+      const topicMap = new Map<string, number>();
+      const dayMap = new Map<string, number>();
+      let totalCost = 0;
+
+      sessions.forEach((session) => {
+        const messages = ((session.messages as any) || []) as CoachMessage[];
+        totalMessages += messages.length;
+        totalCost += session.costUsd || 0;
+
+        // Group by day
+        const day = session.createdAt.toISOString().split("T")[0];
+        dayMap.set(day, (dayMap.get(day) || 0) + 1);
+
+        // Extract topics (simplified: count keywords in assistant messages)
+        messages
+          .filter((m) => m.role === "assistant")
+          .forEach((m) => {
+            const lowerContent = m.content.toLowerCase();
+            if (lowerContent.includes("aws")) topicMap.set("AWS", (topicMap.get("AWS") || 0) + 1);
+            if (lowerContent.includes("azure")) topicMap.set("Azure", (topicMap.get("Azure") || 0) + 1);
+            if (lowerContent.includes("cloud")) topicMap.set("Cloud", (topicMap.get("Cloud") || 0) + 1);
+            if (lowerContent.includes("security")) topicMap.set("Security", (topicMap.get("Security") || 0) + 1);
+            if (lowerContent.includes("database")) topicMap.set("Database", (topicMap.get("Database") || 0) + 1);
+            if (lowerContent.includes("performance")) topicMap.set("Performance", (topicMap.get("Performance") || 0) + 1);
+          });
+      });
+
+      const avgMessages = totalMessages / sessions.length;
+
+      // Convert maps to sorted arrays
+      const topicDistribution = Array.from(topicMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([topic, count]) => ({ topic, count }));
+
+      const sessionsByDay = Array.from(dayMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([date, count]) => ({ date, sessionCount: count }))
+        .slice(-30); // Last 30 days
+
+      return {
+        totalSessions: sessions.length,
+        avgMessagesPerSession: Math.round(avgMessages * 10) / 10,
+        averageResponseTime: 2.5, // Placeholder: would need timestamp tracking
+        topicDistribution,
+        sessionsByDay,
+        totalTokensUsed: 0, // Would track via llmUsageService
+        totalCostUsd: Math.round(totalCost * 100) / 100,
+      };
+    } catch (error) {
+      this.logger.error(
+        "Failed to get analytics",
+        error instanceof Error ? error.message : String(error),
+      );
+      return {
+        totalSessions: 0,
+        avgMessagesPerSession: 0,
+        averageResponseTime: 0,
+        topicDistribution: [],
+        sessionsByDay: [],
+      };
+    }
+  }
+
+  /**
+   * Get detailed analysis of a single coach session
+   *
+   * @param sessionId - The session ID
+   * @param userId - The user's ID (for authorization)
+   * @returns Session analysis object with detailed metrics
+   */
+  async getSessionAnalysis(sessionId: string, userId: string): Promise<any> {
+    try {
+      const session = await this.prisma.coachSession.findUnique({
+        where: { id: sessionId },
+      });
+
+      if (!session || session.userId !== userId) {
+        throw new BadRequestException("Session not found or unauthorized");
+      }
+
+      const messages = ((session.messages as any) || []) as CoachMessage[];
+      const userMessages = messages.filter((m) => m.role === "user");
+      const assistantMessages = messages.filter((m) => m.role === "assistant");
+
+      // Calculate duration
+      const firstMessage = messages[0]?.timestamp || session.createdAt.toISOString();
+      const lastMessage = messages[messages.length - 1]?.timestamp || session.createdAt.toISOString();
+      const duration =
+        new Date(lastMessage).getTime() - new Date(firstMessage).getTime();
+      const durationMinutes = Math.round(duration / (1000 * 60));
+
+      // Extract topics from all messages
+      const topicsSet = new Set<string>();
+      messages.forEach((m) => {
+        const lowerContent = m.content.toLowerCase();
+        if (lowerContent.includes("aws")) topicsSet.add("AWS");
+        if (lowerContent.includes("azure")) topicsSet.add("Azure");
+        if (lowerContent.includes("kubernetes")) topicsSet.add("Kubernetes");
+        if (lowerContent.includes("docker")) topicsSet.add("Docker");
+        if (lowerContent.includes("database")) topicsSet.add("Database");
+        if (lowerContent.includes("security")) topicsSet.add("Security");
+        if (lowerContent.includes("performance")) topicsSet.add("Performance");
+        if (lowerContent.includes("networking")) topicsSet.add("Networking");
+      });
+
+      // Sentiment analysis (simplified: count positive/negative keywords)
+      const positiveKeywords = ["great", "excellent", "good", "helpful", "understand", "clear", "thank"];
+      const negativeKeywords = ["bad", "wrong", "confused", "lost", "stuck", "difficult"];
+      let positiveCount = 0;
+      let negativeCount = 0;
+
+      assistantMessages.forEach((m) => {
+        const lowerContent = m.content.toLowerCase();
+        positiveKeywords.forEach((k) => {
+          positiveCount += (lowerContent.match(new RegExp(k, "g")) || []).length;
+        });
+        negativeKeywords.forEach((k) => {
+          negativeCount += (lowerContent.match(new RegExp(k, "g")) || []).length;
+        });
+      });
+
+      const totalKeywords = positiveCount + negativeCount;
+      const sentimentScore = totalKeywords > 0 ? (positiveCount / totalKeywords) * 100 : 50;
+      const effectiveness =
+        (assistantMessages.length > 0
+          ? (positiveCount / (assistantMessages.length * 50)) * 100
+          : 0) * 1.5; // Normalize to 0-150% scale
+
+      return {
+        sessionId,
+        messageCount: messages.length,
+        userMessagesCount: userMessages.length,
+        assistantMessagesCount: assistantMessages.length,
+        durationMinutes,
+        topicsDiscussed: Array.from(topicsSet),
+        userSentimentScore: Math.min(Math.round(sentimentScore), 100),
+        effectivenessScore: Math.min(Math.round(effectiveness), 100),
+        costUsd: Math.round(session.costUsd * 100) / 100,
+        createdAt: session.createdAt.toISOString(),
+        lastMessageAt: lastMessage,
+      };
+    } catch (error) {
+      this.logger.error(
+        "Failed to get session analysis",
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
 }

@@ -11,6 +11,7 @@ import {
   Building2,
   Layers,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -307,6 +308,45 @@ const Dashboard = () => {
           transition={{ delay: 0.15 }}
         >
           <LlmCostPanel />
+        </motion.div>
+
+        {/* Coach Analytics Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card
+            className="glass-card border-primary/30 cursor-pointer hover:border-primary/60 transition-colors"
+            onClick={() => navigate("/coach/analytics")}
+          >
+            <CardContent className="p-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-2.5 rounded-lg bg-primary/10">
+                  <Zap className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <div className="text-base font-bold font-mono">Coach Analytics</div>
+                  <div className="text-xs text-muted-foreground">
+                    View your coach session insights and patterns
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  className="glow-cyan font-mono text-xs h-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/coach/analytics");
+                  }}
+                >
+                  View Analytics
+                  <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Readiness + Mistake Patterns */}

@@ -85,4 +85,14 @@ export const getLlmMetrics = async (days?: number) => {
   return response.data;
 };
 
+export const getCoachAnalytics = async () => {
+  const response = await api.get('/training/coach/analytics');
+  return response.data;
+};
+
+export const getCoachSessionAnalysis = async (sessionId: string) => {
+  const response = await api.get(`/training/coach/session/${sessionId}/analysis`);
+  return response.data;
+};
+
 export default api;

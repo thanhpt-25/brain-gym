@@ -35,6 +35,7 @@ const DeckDetail = lazy(() => import("./pages/DeckDetail"));
 const FlashcardStudy = lazy(() => import("./pages/FlashcardStudy"));
 const TrapQuestionsPage = lazy(() => import("./pages/TrapQuestionsPage"));
 const AiQuestionGenerator = lazy(() => import("./pages/AiQuestionGenerator"));
+const CoachAnalytics = lazy(() => import("./pages/CoachAnalytics"));
 
 // Organization pages
 const OrgSelector = lazy(() => import("./pages/org/OrgSelector"));
@@ -176,6 +177,16 @@ const AnimatedRoutes = () => {
             <PageTransition>
               <ProtectedRoute>
                 <MasteryPage />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/coach/analytics"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <CoachAnalytics />
               </ProtectedRoute>
             </PageTransition>
           }
