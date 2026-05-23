@@ -43,11 +43,7 @@ export class BenchmarkService {
     userId: string,
     certificationId: string,
   ): Promise<BenchmarkDto> {
-    const cert = await this.prisma.certification.findUnique({
-      where: { id: certificationId },
-      select: { passingScore: true },
-    });
-    const passingScore = cert?.passingScore ?? 70;
+    const passingScore = 70;
 
     // Passers-only cohort: submitted + score >= passingScore, joined through Exam
     const attempts = await this.prisma.examAttempt.findMany({
@@ -78,12 +74,8 @@ export class BenchmarkService {
     ];
     if (!certIds.length) return [];
 
-    const certs = await this.prisma.certification.findMany({
-      where: { id: { in: certIds } },
-      select: { id: true, passingScore: true },
-    });
     const passingScoreMap = new Map(
-      certs.map((c) => [c.id, c.passingScore ?? 70]),
+      certIds.map((id) => [id, 70]),
     );
 
     // Single batch query for all attempts across relevant certs

@@ -185,12 +185,12 @@ export class PeerReviewService {
       where: { squadId },
       orderBy: { points: 'desc' },
       take: limit,
-      include: { user: { select: { id: true, name: true } } },
+      include: { user: { select: { id: true, displayName: true } } },
     });
 
     return rows.map((r) => ({
       userId: r.userId,
-      displayName: (r.user as { name?: string | null }).name ?? null,
+      displayName: r.user.displayName ?? null,
       points: r.points,
       tier: this.resolveTier(r.points),
     }));
