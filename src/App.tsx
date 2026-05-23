@@ -70,6 +70,9 @@ const SquadDashboard = lazy(() => import("./pages/SquadDashboard"));
 const ScenarioExam = lazy(() => import("./pages/ScenarioExam"));
 const ScenarioResults = lazy(() => import("./pages/ScenarioResults"));
 
+// Knowledge Graph page
+const KnowledgeGraph = lazy(() => import("./pages/KnowledgeGraph"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

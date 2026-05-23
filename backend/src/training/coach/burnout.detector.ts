@@ -93,10 +93,7 @@ export class BurnoutDetector {
     return 'low';
   }
 
-  private getRecommendedAction(
-    severity: string,
-    signals: any[],
-  ): string {
+  private getRecommendedAction(severity: string, signals: any[]): string {
     const signalMap = new Map(signals.map((s) => [s.signal, s.score]));
     const scoreDecline = signalMap.get('scoreDecline') ?? 0;
     const timeAllocation = signalMap.get('timeAllocation') ?? 0;
@@ -205,9 +202,7 @@ export class BurnoutDetector {
     if (attempts.length < 5) return 0;
 
     const last24h = attempts.filter(
-      (a) =>
-        a.createdAt >
-        new Date(Date.now() - 24 * 60 * 60 * 1000),
+      (a) => a.createdAt > new Date(Date.now() - 24 * 60 * 60 * 1000),
     );
 
     // If more than 10 attempts in 24h, flag as excessive
@@ -220,9 +215,7 @@ export class BurnoutDetector {
 
     // Count attempts in last 3 days
     const last3Days = attempts.filter(
-      (a) =>
-        a.createdAt >
-        new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+      (a) => a.createdAt > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
     );
 
     // If more than 20 in 3 days, flag as high frequency

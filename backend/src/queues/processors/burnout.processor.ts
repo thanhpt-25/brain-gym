@@ -67,7 +67,9 @@ export class BurnoutProcessor extends WorkerHost {
         select: { id: true },
       });
 
-      this.logger.log(`Scanning ${activeUsers.length} active users for burnout`);
+      this.logger.log(
+        `Scanning ${activeUsers.length} active users for burnout`,
+      );
 
       let criticalCount = 0;
       let highCount = 0;

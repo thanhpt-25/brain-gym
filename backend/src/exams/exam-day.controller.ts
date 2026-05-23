@@ -58,7 +58,9 @@ export class ExamDayController {
     });
 
     if (!isAuthor && !isAttempting) {
-      throw new BadRequestException('You do not have permission to schedule this exam');
+      throw new BadRequestException(
+        'You do not have permission to schedule this exam',
+      );
     }
 
     // Create or update Exam Day schedule
@@ -90,7 +92,8 @@ export class ExamDayController {
     return {
       examId: input.examId,
       scheduledDate: input.scheduledDate,
-      message: 'Exam day scheduled. You will receive a reminder 24 hours before.',
+      message:
+        'Exam day scheduled. You will receive a reminder 24 hours before.',
     };
   }
 
@@ -161,7 +164,7 @@ export class ExamDayController {
         {
           id: '8',
           category: 'During Exam',
-          description: 'Read questions carefully (don\'t rush)',
+          description: "Read questions carefully (don't rush)",
           completed: false,
         },
         {
