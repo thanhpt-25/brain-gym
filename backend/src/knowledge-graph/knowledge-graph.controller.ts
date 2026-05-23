@@ -36,7 +36,7 @@ export class KnowledgeGraphController {
    */
   @Post('overlap/:certId/compute')
   @HttpCode(HttpStatus.ACCEPTED)
-  async triggerCompute(@Param('certId') certId: string) {
+  triggerCompute(@Param('certId') certId: string) {
     void this.kg.computeOverlaps(certId);
     return { message: 'Overlap computation enqueued', certId };
   }
