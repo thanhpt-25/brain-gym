@@ -159,19 +159,19 @@ describe('PeerReviewService — reputation engine (US-1005)', () => {
           userId: 'u-1',
           squadId: 'squad-1',
           points: 55,
-          user: { id: 'u-1', name: 'Alice' },
+          user: { id: 'u-1', displayName: 'Alice' },
         },
         {
           userId: 'u-2',
           squadId: 'squad-1',
           points: 22,
-          user: { id: 'u-2', name: 'Bob' },
+          user: { id: 'u-2', displayName: 'Bob' },
         },
         {
           userId: 'u-3',
           squadId: 'squad-1',
           points: 3,
-          user: { id: 'u-3', name: null },
+          user: { id: 'u-3', displayName: null },
         },
       ]);
 
