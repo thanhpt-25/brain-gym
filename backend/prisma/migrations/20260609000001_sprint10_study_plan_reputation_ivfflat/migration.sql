@@ -53,15 +53,18 @@ CREATE INDEX "user_reputations_squad_id_points_idx" ON "user_reputations"("squad
 --
 -- Dev/test: created inline when table exists and has enough rows.
 DO $$
+DECLARE
+  row_count INTEGER;
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.tables WHERE table_name = 'question_embeddings'
-  ) AND (
-    SELECT COUNT(*) FROM question_embeddings
-  ) >= 10000 THEN
-    EXECUTE 'CREATE INDEX IF NOT EXISTS question_embeddings_ivfflat_idx
-             ON question_embeddings USING ivfflat (embedding vector_cosine_ops)
-             WITH (lists = 100)';
+  ) THEN
+    SELECT COUNT(*) INTO row_count FROM question_embeddings;
+    IF row_count >= 10000 THEN
+      EXECUTE 'CREATE INDEX IF NOT EXISTS question_embeddings_ivfflat_idx
+               ON question_embeddings USING ivfflat (embedding vector_cosine_ops)
+               WITH (lists = 100)';
+    END IF;
   END IF;
 END
 $$;
