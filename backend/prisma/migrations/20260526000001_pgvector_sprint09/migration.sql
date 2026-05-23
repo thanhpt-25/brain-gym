@@ -5,7 +5,8 @@
 
 -- ─── pgvector extension ───────────────────────────────────────────────────────
 -- Requires pgvector/pgvector:16-pg16 (or equivalent) Postgres image.
-CREATE EXTENSION IF NOT EXISTS vector;
+-- TODO: Update Docker Postgres image to pgvector-enabled image for Sprint 09+ pgvector features
+-- CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ─── VoteTargetType enum: add EXPLANATION value ───────────────────────────────
 ALTER TYPE "VoteTargetType" ADD VALUE IF NOT EXISTS 'EXPLANATION';
@@ -24,18 +25,19 @@ END $$;
 
 -- ─── question_embeddings ─────────────────────────────────────────────────────
 -- Raw SQL: Prisma doesn't support pgvector column type natively (RFC-007 strategy).
-CREATE TABLE IF NOT EXISTS "question_embeddings" (
-  "question_id" TEXT        NOT NULL,
-  "model_id"    TEXT        NOT NULL DEFAULT 'text-embedding-3-small',
-  "embedding"   vector(1536),
-  "updated_at"  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT "question_embeddings_pkey" PRIMARY KEY ("question_id"),
-  CONSTRAINT "question_embeddings_question_fk"
-    FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS "question_embeddings_model_idx" ON "question_embeddings"("model_id");
-
+-- TODO: Uncomment after Docker Postgres image is updated to support pgvector
+-- CREATE TABLE IF NOT EXISTS "question_embeddings" (
+--   "question_id" TEXT        NOT NULL,
+--   "model_id"    TEXT        NOT NULL DEFAULT 'text-embedding-3-small',
+--   "embedding"   vector(1536),
+--   "updated_at"  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+--   CONSTRAINT "question_embeddings_pkey" PRIMARY KEY ("question_id"),
+--   CONSTRAINT "question_embeddings_question_fk"
+--     FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE CASCADE
+-- );
+--
+-- CREATE INDEX IF NOT EXISTS "question_embeddings_model_idx" ON "question_embeddings"("model_id");
+--
 -- IVFFlat index: run separately after ≥10k rows are backfilled (RFC-007):
 --   CREATE INDEX CONCURRENTLY question_embeddings_ivfflat_idx
 --   ON question_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
