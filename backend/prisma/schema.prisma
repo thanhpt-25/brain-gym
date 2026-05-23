@@ -247,6 +247,8 @@ model User {
   burnoutSignals             BurnoutSignal[]
   peerExplanations           PeerExplanation[]
   variantReviews             QuestionVariant[] @relation("QuestionVariantReviewer")
+  studyPlans                 StudyPlan[]
+  userReputations            UserReputation[]
 
   @@index([status])
   @@map("users")
@@ -296,6 +298,7 @@ model Certification {
   burnoutSignals BurnoutSignal[]
   certOverlapsA  CertOverlap[] @relation("CertOverlapA")
   certOverlapsB  CertOverlap[] @relation("CertOverlapB")
+  studyPlans     StudyPlan[]
 
   @@map("certifications")
 }
@@ -793,6 +796,7 @@ model Organization {
   scenarios        Scenario[]
   certification    Certification? @relation("SquadCertification", fields: [certificationId], references: [id])
   peerExplanations PeerExplanation[]
+  userReputations  UserReputation[]
 
   @@map("organizations")
 }
@@ -1370,5 +1374,44 @@ model PeerExplanation {
   @@index([questionId, squadId, upvotes])
   @@index([squadId, createdAt])
   @@map("peer_explanations")
+}
+
+// US-1002 (Sprint 10): Persisted study plan generated from Knowledge Graph overlap.
+// One row per generation; users may regenerate (creates a new row).
+model StudyPlan {
+  id                 String   @id @default(uuid())
+  userId             String   @map("user_id")
+  targetCertId       String   @map("target_cert_id")
+  sourceCertIds      String[] @map("source_cert_ids")
+  skipTopics         Json     @map("skip_topics")
+  mustLearnTopics    Json     @map("must_learn_topics")
+  effortReductionPct Int      @map("effort_reduction_pct")
+  totalTopics        Int      @map("total_topics")
+  skippableCount     Int      @map("skippable_count")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetCert Certification @relation(fields: [targetCertId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, targetCertId])
+  @@map("study_plans")
+}
+
+// US-1005 (Sprint 10): Accumulated reputation points per user per squad.
+// Points incremented on explanation upvotes/promotions; idempotent via Vote id.
+model UserReputation {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  squadId   String   @map("squad_id")
+  points    Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  squad Organization @relation(fields: [squadId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, squadId])
+  @@index([squadId, points])
+  @@map("user_reputations")
 }
 

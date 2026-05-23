@@ -73,3 +73,21 @@ export async function joinSquadWithToken(token: string): Promise<SquadDto> {
   const response = await api.post<SquadDto>(`/squads/join/${token}`);
   return response.data;
 }
+
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string | null;
+  points: number;
+  tier: "gold" | "silver" | "bronze" | "none";
+}
+
+export async function getReputationLeaderboard(
+  squadId: string,
+  limit = 10,
+): Promise<LeaderboardEntry[]> {
+  const response = await api.get<LeaderboardEntry[]>(
+    `/squads/peer-review/${squadId}/reputation/leaderboard`,
+    { params: { limit } },
+  );
+  return response.data;
+}

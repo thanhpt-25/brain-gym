@@ -83,4 +83,16 @@ export class DdsController {
   ) {
     return this.dds.rollback(variantId, reviewerId);
   }
+
+  /** POST /ai-question-bank/dds/variants/:variantId/auto-apply */
+  @Post('variants/:variantId/auto-apply')
+  async tryAutoApply(@Param('variantId') variantId: string) {
+    return this.dds.tryAutoApply(variantId);
+  }
+
+  /** GET /ai-question-bank/dds/variants/:variantId/auto-apply/evaluate */
+  @Get('variants/:variantId/auto-apply/evaluate')
+  async evaluateAutoApply(@Param('variantId') variantId: string) {
+    return this.dds.evaluateAutoApply(variantId);
+  }
 }
