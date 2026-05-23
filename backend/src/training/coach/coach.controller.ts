@@ -8,13 +8,18 @@ import {
   Request,
   Res,
   BadRequestException,
-} from "@nestjs/common";
-import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard";
-import { CoachService } from "./coach.service";
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { CoachService } from './coach.service';
 
 interface CoachSessionResponse {
   id: string;
-  messages: Array<{ id: string; role: string; content: string; timestamp: string }>;
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp: string;
+  }>;
   createdAt: string;
   sessionCount: number;
 }
@@ -30,7 +35,7 @@ interface CoachSessionResponse {
  * All endpoints require JWT authentication and validate session ownership.
  * Tier checks are enforced at the service level via CoachService.sendMessage().
  */
-@Controller("training/coach")
+@Controller('training/coach')
 @UseGuards(JwtAuthGuard)
 export class CoachController {
   constructor(private coachService: CoachService) {}
@@ -43,13 +48,13 @@ export class CoachController {
    * @returns CoachSessionResponse with session ID, messages, and session count
    * @throws Error if userId doesn't match authenticated user (unauthorized)
    */
-  @Get("session/:userId")
+  @Get('session/:userId')
   async getCoachSession(
-    @Param("userId") userId: string,
+    @Param('userId') userId: string,
     @Request() req: any,
   ): Promise<CoachSessionResponse> {
     if (req.user.id !== userId) {
-      throw new Error("Unauthorized");
+      throw new Error('Unauthorized');
     }
     return this.coachService.getOrCreateCoachSession(userId);
   }
@@ -63,8 +68,10 @@ export class CoachController {
    * @param req - Express request with authenticated user
    * @returns Object with sessionCount (number of sessions created today)
    */
-  @Get("session-count")
-  async getSessionCount(@Request() req: any): Promise<{ sessionCount: number }> {
+  @Get('session-count')
+  async getSessionCount(
+    @Request() req: any,
+  ): Promise<{ sessionCount: number }> {
     const count = await this.coachService.getSessionCount(req.user.id);
     return { sessionCount: count };
   }
@@ -91,22 +98,22 @@ export class CoachController {
    * @throws ForbiddenException if user tier doesn't have coach access
    * @throws BadRequestException if session not found or unauthorized
    */
-  @Post("session/:sessionId/message")
+  @Post('session/:sessionId/message')
   async sendMessage(
-    @Param("sessionId") sessionId: string,
+    @Param('sessionId') sessionId: string,
     @Body() body: { message: string },
     @Request() req: any,
     @Res() res: any,
   ): Promise<void> {
     if (!body.message || body.message.trim().length === 0) {
-      throw new BadRequestException("Message cannot be empty");
+      throw new BadRequestException('Message cannot be empty');
     }
 
     // Stream response as Server-Sent Events
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     try {
       const stream = await this.coachService.sendMessage(
@@ -119,7 +126,7 @@ export class CoachController {
         res.write(`data: ${JSON.stringify({ delta: chunk })}\n\n`);
       }
 
-      res.write("data: [DONE]\n\n");
+      res.write('data: [DONE]\n\n');
       res.end();
     } catch (error) {
       res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
@@ -140,7 +147,7 @@ export class CoachController {
    * @param req - Express request with authenticated user
    * @returns Analytics object with usage statistics
    */
-  @Get("analytics")
+  @Get('analytics')
   async getAnalytics(@Request() req: any): Promise<any> {
     return this.coachService.getAnalytics(req.user.id);
   }
@@ -162,9 +169,9 @@ export class CoachController {
    * @returns Session analysis object with metrics and conversation details
    * @throws BadRequestException if session not found or not owned by user
    */
-  @Get("session/:sessionId/analysis")
+  @Get('session/:sessionId/analysis')
   async getSessionAnalysis(
-    @Param("sessionId") sessionId: string,
+    @Param('sessionId') sessionId: string,
     @Request() req: any,
   ): Promise<any> {
     return this.coachService.getSessionAnalysis(sessionId, req.user.id);

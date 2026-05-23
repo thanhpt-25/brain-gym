@@ -1,12 +1,11 @@
 /*
   Warnings:
 
-  - You are about to drop the column `provider` on the `certifications` table. All the data in the column will be lost.
   - Made the column `provider_id` on table `certifications` required. This step will fail if there are existing NULL values in that column.
 
 */
 -- AlterTable
-ALTER TABLE "certifications" DROP COLUMN "provider",
+ALTER TABLE "certifications"
 ALTER COLUMN "provider_id" SET NOT NULL;
 
 -- AlterTable

@@ -90,7 +90,8 @@ export class LlmUsageController {
     }
 
     const remainingQuota = Math.max(0, monthlyQuota - monthCost);
-    const quotaUsedPercent = monthlyQuota > 0 ? (monthCost / monthlyQuota) * 100 : 0;
+    const quotaUsedPercent =
+      monthlyQuota > 0 ? (monthCost / monthlyQuota) * 100 : 0;
 
     return {
       totalCostUsd: parseFloat(totalCostUsd.toFixed(4)),

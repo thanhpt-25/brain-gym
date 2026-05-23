@@ -1,17 +1,22 @@
-import { Injectable, BadRequestException, Logger } from "@nestjs/common";
-import { PrismaService } from "../../prisma/prisma.service";
-import { LlmUsageService } from "../../ai-question-bank/llm-usage/llm-usage.service";
-import { CoachSafetyService } from "./coach-safety.service";
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { LlmUsageService } from '../../ai-question-bank/llm-usage/llm-usage.service';
+import { CoachSafetyService } from './coach-safety.service';
 
 interface CoachSessionResponse {
   id: string;
-  messages: Array<{ id: string; role: string; content: string; timestamp: string }>;
+  messages: Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp: string;
+  }>;
   createdAt: string;
   sessionCount: number;
 }
 
 interface CoachMessage {
-  role: "user" | "assistant";
+  role: 'user' | 'assistant';
   content: string;
   timestamp: string;
 }
@@ -19,8 +24,8 @@ interface CoachMessage {
 @Injectable()
 export class CoachService {
   private readonly logger = new Logger(CoachService.name);
-  private readonly ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-  private readonly MODEL = "claude-3-5-haiku-20241022";
+  private readonly ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+  private readonly MODEL = 'claude-3-5-haiku-20241022';
   private readonly API_KEY = process.env.ANTHROPIC_API_KEY;
 
   constructor(
@@ -29,7 +34,9 @@ export class CoachService {
     private coachSafetyService: CoachSafetyService,
   ) {
     if (!this.API_KEY) {
-      this.logger.warn("ANTHROPIC_API_KEY not set - coach LLM will be unavailable");
+      this.logger.warn(
+        'ANTHROPIC_API_KEY not set - coach LLM will be unavailable',
+      );
     }
   }
 
@@ -49,7 +56,7 @@ export class CoachService {
   async getOrCreateCoachSession(userId: string): Promise<CoachSessionResponse> {
     const session = await this.prisma.coachSession.findFirst({
       where: { userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       take: 1,
     });
 
@@ -85,7 +92,7 @@ export class CoachService {
     const sessionMessages = ((session.messages as any) || []) as CoachMessage[];
     return {
       id: session.id,
-      messages: sessionMessages.map(m => ({
+      messages: sessionMessages.map((m) => ({
         id: `${m.timestamp}`,
         role: m.role,
         content: m.content,
@@ -147,7 +154,7 @@ export class CoachService {
           userId,
           startedAt: { gte: thirtyDaysAgo },
         },
-        orderBy: { startedAt: "desc" },
+        orderBy: { startedAt: 'desc' },
         take: 5,
       });
 
@@ -162,7 +169,7 @@ export class CoachService {
       // Latest readiness score
       const readiness = await this.prisma.readinessScore.findFirst({
         where: { userId },
-        orderBy: { computedAt: "desc" },
+        orderBy: { computedAt: 'desc' },
       });
 
       // Recent attempt events (last 7 days) to detect focus/time patterns
@@ -176,27 +183,36 @@ export class CoachService {
       });
 
       if (attempts.length === 0) {
-        return "";
+        return '';
       }
 
       // Use score from attempt directly (or calculate from totalCorrect/totalQuestions)
-      const avgScore = attempts.reduce((sum, att) => {
-        const score = att.score ? parseFloat(att.score.toString()) :
-          (att.totalCorrect && att.totalQuestions ? (att.totalCorrect / att.totalQuestions) * 100 : 0);
-        return sum + score;
-      }, 0) / attempts.length;
+      const avgScore =
+        attempts.reduce((sum, att) => {
+          const score = att.score
+            ? parseFloat(att.score.toString())
+            : att.totalCorrect && att.totalQuestions
+              ? (att.totalCorrect / att.totalQuestions) * 100
+              : 0;
+          return sum + score;
+        }, 0) / attempts.length;
 
-      const focusLosses = recentEvents.filter((e) => e.eventType === "FOCUS_LOST").length;
+      const focusLosses = recentEvents.filter(
+        (e) => e.eventType === 'FOCUS_LOST',
+      ).length;
       const readinessScore = readiness?.score ?? 0;
 
       // Identify weak areas (attempts with < 60% score)
       const weakAreas = attempts
         .filter((att) => {
-          const score = att.score ? parseFloat(att.score.toString()) :
-            (att.totalCorrect && att.totalQuestions ? (att.totalCorrect / att.totalQuestions) * 100 : 0);
+          const score = att.score
+            ? parseFloat(att.score.toString())
+            : att.totalCorrect && att.totalQuestions
+              ? (att.totalCorrect / att.totalQuestions) * 100
+              : 0;
           return score < 60;
         })
-        .map((att) => examMap.get(att.examId) || "Unknown")
+        .map((att) => examMap.get(att.examId) || 'Unknown')
         .slice(0, 3);
 
       let contextStr = `Recent Performance Context:
@@ -205,16 +221,16 @@ export class CoachService {
 - Focus Issues: ${focusLosses} detected in last 7 days`;
 
       if (weakAreas.length > 0) {
-        contextStr += `\n- Weak Areas: ${weakAreas.join(", ")}`;
+        contextStr += `\n- Weak Areas: ${weakAreas.join(', ')}`;
       }
 
       return contextStr;
     } catch (error) {
       this.logger.error(
-        "Failed to gather attempt context",
+        'Failed to gather attempt context',
         error instanceof Error ? error.message : String(error),
       );
-      return "";
+      return '';
     }
   }
 
@@ -262,28 +278,29 @@ export class CoachService {
     });
 
     if (!session || session.userId !== userId) {
-      throw new BadRequestException("Session not found or unauthorized");
+      throw new BadRequestException('Session not found or unauthorized');
     }
 
     // Check rate limit (max 10 sessions per day for Pro tier)
     // Elite tier enforcement should be done at controller level
     const sessionCount = await this.getSessionCount(userId);
     if (sessionCount >= 10) {
-      throw new BadRequestException("Daily session limit reached");
+      throw new BadRequestException('Daily session limit reached');
     }
 
     // Validate user message for jailbreak/safety issues
-    const isJailbreak = this.coachSafetyService.detectJailbreakAttempt(userMessage);
+    const isJailbreak =
+      this.coachSafetyService.detectJailbreakAttempt(userMessage);
     if (isJailbreak) {
       throw new BadRequestException(
-        "Message violates safety guidelines. Please try again.",
+        'Message violates safety guidelines. Please try again.',
       );
     }
 
     // Add user message to session
     const messages = ((session.messages as any) || []) as CoachMessage[];
     const userMsg: CoachMessage = {
-      role: "user",
+      role: 'user',
       content: userMessage,
       timestamp: new Date().toISOString(),
     };
@@ -296,7 +313,12 @@ export class CoachService {
     }));
 
     // Stream LLM response
-    return this.streamCoachResponse(sessionId, userId, anthropicMessages, messages);
+    return this.streamCoachResponse(
+      sessionId,
+      userId,
+      anthropicMessages,
+      messages,
+    );
   }
 
   private async *streamCoachResponse(
@@ -305,26 +327,26 @@ export class CoachService {
     anthropicMessages: any[],
     sessionMessages: CoachMessage[],
   ): AsyncIterable<string> {
-    let fullResponse = "";
+    let fullResponse = '';
     let inputTokens = 0;
     let outputTokens = 0;
 
     if (!this.API_KEY) {
-      yield "[Coach Error] LLM service unavailable. Please try again later.";
+      yield '[Coach Error] LLM service unavailable. Please try again later.';
       return;
     }
 
     try {
       // Gather user's performance context
       const attemptContext = await this.getAttemptContext(userId);
-      const contextSection = attemptContext ? `\n\nUser ${attemptContext}` : "";
+      const contextSection = attemptContext ? `\n\nUser ${attemptContext}` : '';
 
       const response = await fetch(this.ANTHROPIC_API_URL, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "x-api-key": this.API_KEY,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
+          'x-api-key': this.API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
         },
         body: JSON.stringify({
           model: this.MODEL,
@@ -350,25 +372,25 @@ Always be supportive and never judgmental.${contextSection}`,
 
       const reader = response.body?.getReader();
       if (!reader) {
-        throw new Error("No response stream");
+        throw new Error('No response stream');
       }
 
       const decoder = new TextDecoder();
-      let buffer = "";
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
+        const lines = buffer.split('\n');
 
         // Keep last incomplete line in buffer
         buffer = lines[lines.length - 1];
 
         for (let i = 0; i < lines.length - 1; i++) {
           const line = lines[i].trim();
-          if (!line || !line.startsWith("data:")) continue;
+          if (!line || !line.startsWith('data:')) continue;
 
           const data = line.slice(5).trim();
           if (!data) continue;
@@ -376,12 +398,15 @@ Always be supportive and never judgmental.${contextSection}`,
           try {
             const event = JSON.parse(data);
 
-            if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+            if (
+              event.type === 'content_block_delta' &&
+              event.delta?.type === 'text_delta'
+            ) {
               fullResponse += event.delta.text;
               yield event.delta.text;
-            } else if (event.type === "message_delta" && event.usage) {
+            } else if (event.type === 'message_delta' && event.usage) {
               outputTokens = event.usage.output_tokens;
-            } else if (event.type === "message_start" && event.message?.usage) {
+            } else if (event.type === 'message_start' && event.message?.usage) {
               inputTokens = event.message.usage.input_tokens;
             }
           } catch {
@@ -391,7 +416,7 @@ Always be supportive and never judgmental.${contextSection}`,
       }
     } catch (error) {
       this.logger.error(
-        "Coach LLM error",
+        'Coach LLM error',
         error instanceof Error ? error.message : String(error),
       );
       yield `[Coach Error] Unable to process request. Please try again.`;
@@ -400,7 +425,7 @@ Always be supportive and never judgmental.${contextSection}`,
 
     // Persist assistant response
     const assistantMsg: CoachMessage = {
-      role: "assistant",
+      role: 'assistant',
       content: fullResponse,
       timestamp: new Date().toISOString(),
     };
@@ -420,14 +445,14 @@ Always be supportive and never judgmental.${contextSection}`,
     try {
       await this.llmUsageService.recordUsageEvent({
         userId,
-        feature: "coach",
+        feature: 'coach',
         modelId: this.MODEL,
         inputTokens,
         outputTokens,
       });
     } catch (error) {
       this.logger.error(
-        "Failed to track LLM usage",
+        'Failed to track LLM usage',
         error instanceof Error ? error.message : String(error),
       );
     }
@@ -466,23 +491,34 @@ Always be supportive and never judgmental.${contextSection}`,
       sessions.forEach((session) => {
         const messages = ((session.messages as any) || []) as CoachMessage[];
         totalMessages += messages.length;
-        totalCost += session.costUsd ? parseFloat(session.costUsd.toString()) : 0;
+        totalCost += session.costUsd
+          ? parseFloat(session.costUsd.toString())
+          : 0;
 
         // Group by day
-        const day = session.createdAt.toISOString().split("T")[0];
+        const day = session.createdAt.toISOString().split('T')[0];
         dayMap.set(day, (dayMap.get(day) || 0) + 1);
 
         // Extract topics (simplified: count keywords in assistant messages)
         messages
-          .filter((m) => m.role === "assistant")
+          .filter((m) => m.role === 'assistant')
           .forEach((m) => {
             const lowerContent = m.content.toLowerCase();
-            if (lowerContent.includes("aws")) topicMap.set("AWS", (topicMap.get("AWS") || 0) + 1);
-            if (lowerContent.includes("azure")) topicMap.set("Azure", (topicMap.get("Azure") || 0) + 1);
-            if (lowerContent.includes("cloud")) topicMap.set("Cloud", (topicMap.get("Cloud") || 0) + 1);
-            if (lowerContent.includes("security")) topicMap.set("Security", (topicMap.get("Security") || 0) + 1);
-            if (lowerContent.includes("database")) topicMap.set("Database", (topicMap.get("Database") || 0) + 1);
-            if (lowerContent.includes("performance")) topicMap.set("Performance", (topicMap.get("Performance") || 0) + 1);
+            if (lowerContent.includes('aws'))
+              topicMap.set('AWS', (topicMap.get('AWS') || 0) + 1);
+            if (lowerContent.includes('azure'))
+              topicMap.set('Azure', (topicMap.get('Azure') || 0) + 1);
+            if (lowerContent.includes('cloud'))
+              topicMap.set('Cloud', (topicMap.get('Cloud') || 0) + 1);
+            if (lowerContent.includes('security'))
+              topicMap.set('Security', (topicMap.get('Security') || 0) + 1);
+            if (lowerContent.includes('database'))
+              topicMap.set('Database', (topicMap.get('Database') || 0) + 1);
+            if (lowerContent.includes('performance'))
+              topicMap.set(
+                'Performance',
+                (topicMap.get('Performance') || 0) + 1,
+              );
           });
       });
 
@@ -510,7 +546,7 @@ Always be supportive and never judgmental.${contextSection}`,
       };
     } catch (error) {
       this.logger.error(
-        "Failed to get analytics",
+        'Failed to get analytics',
         error instanceof Error ? error.message : String(error),
       );
       return {
@@ -537,16 +573,19 @@ Always be supportive and never judgmental.${contextSection}`,
       });
 
       if (!session || session.userId !== userId) {
-        throw new BadRequestException("Session not found or unauthorized");
+        throw new BadRequestException('Session not found or unauthorized');
       }
 
       const messages = ((session.messages as any) || []) as CoachMessage[];
-      const userMessages = messages.filter((m) => m.role === "user");
-      const assistantMessages = messages.filter((m) => m.role === "assistant");
+      const userMessages = messages.filter((m) => m.role === 'user');
+      const assistantMessages = messages.filter((m) => m.role === 'assistant');
 
       // Calculate duration
-      const firstMessage = messages[0]?.timestamp || session.createdAt.toISOString();
-      const lastMessage = messages[messages.length - 1]?.timestamp || session.createdAt.toISOString();
+      const firstMessage =
+        messages[0]?.timestamp || session.createdAt.toISOString();
+      const lastMessage =
+        messages[messages.length - 1]?.timestamp ||
+        session.createdAt.toISOString();
       const duration =
         new Date(lastMessage).getTime() - new Date(firstMessage).getTime();
       const durationMinutes = Math.round(duration / (1000 * 60));
@@ -555,34 +594,52 @@ Always be supportive and never judgmental.${contextSection}`,
       const topicsSet = new Set<string>();
       messages.forEach((m) => {
         const lowerContent = m.content.toLowerCase();
-        if (lowerContent.includes("aws")) topicsSet.add("AWS");
-        if (lowerContent.includes("azure")) topicsSet.add("Azure");
-        if (lowerContent.includes("kubernetes")) topicsSet.add("Kubernetes");
-        if (lowerContent.includes("docker")) topicsSet.add("Docker");
-        if (lowerContent.includes("database")) topicsSet.add("Database");
-        if (lowerContent.includes("security")) topicsSet.add("Security");
-        if (lowerContent.includes("performance")) topicsSet.add("Performance");
-        if (lowerContent.includes("networking")) topicsSet.add("Networking");
+        if (lowerContent.includes('aws')) topicsSet.add('AWS');
+        if (lowerContent.includes('azure')) topicsSet.add('Azure');
+        if (lowerContent.includes('kubernetes')) topicsSet.add('Kubernetes');
+        if (lowerContent.includes('docker')) topicsSet.add('Docker');
+        if (lowerContent.includes('database')) topicsSet.add('Database');
+        if (lowerContent.includes('security')) topicsSet.add('Security');
+        if (lowerContent.includes('performance')) topicsSet.add('Performance');
+        if (lowerContent.includes('networking')) topicsSet.add('Networking');
       });
 
       // Sentiment analysis (simplified: count positive/negative keywords)
-      const positiveKeywords = ["great", "excellent", "good", "helpful", "understand", "clear", "thank"];
-      const negativeKeywords = ["bad", "wrong", "confused", "lost", "stuck", "difficult"];
+      const positiveKeywords = [
+        'great',
+        'excellent',
+        'good',
+        'helpful',
+        'understand',
+        'clear',
+        'thank',
+      ];
+      const negativeKeywords = [
+        'bad',
+        'wrong',
+        'confused',
+        'lost',
+        'stuck',
+        'difficult',
+      ];
       let positiveCount = 0;
       let negativeCount = 0;
 
       assistantMessages.forEach((m) => {
         const lowerContent = m.content.toLowerCase();
         positiveKeywords.forEach((k) => {
-          positiveCount += (lowerContent.match(new RegExp(k, "g")) || []).length;
+          positiveCount += (lowerContent.match(new RegExp(k, 'g')) || [])
+            .length;
         });
         negativeKeywords.forEach((k) => {
-          negativeCount += (lowerContent.match(new RegExp(k, "g")) || []).length;
+          negativeCount += (lowerContent.match(new RegExp(k, 'g')) || [])
+            .length;
         });
       });
 
       const totalKeywords = positiveCount + negativeCount;
-      const sentimentScore = totalKeywords > 0 ? (positiveCount / totalKeywords) * 100 : 50;
+      const sentimentScore =
+        totalKeywords > 0 ? (positiveCount / totalKeywords) * 100 : 50;
       const effectiveness =
         (assistantMessages.length > 0
           ? (positiveCount / (assistantMessages.length * 50)) * 100
@@ -603,7 +660,7 @@ Always be supportive and never judgmental.${contextSection}`,
       };
     } catch (error) {
       this.logger.error(
-        "Failed to get session analysis",
+        'Failed to get session analysis',
         error instanceof Error ? error.message : String(error),
       );
       throw error;

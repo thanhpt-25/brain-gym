@@ -66,7 +66,7 @@ export class SseGateway {
 
   getClientsByPrefix(prefix: string): string[] {
     return Array.from(this.clients.keys()).filter((id) =>
-      id.startsWith(prefix)
+      id.startsWith(prefix),
     );
   }
 }

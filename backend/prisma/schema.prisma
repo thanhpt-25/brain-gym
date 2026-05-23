@@ -61,6 +61,20 @@ enum AttemptStatus {
 enum VoteTargetType {
   QUESTION
   COMMENT
+  EXPLANATION
+}
+
+enum DdsReason {
+  DDS_HARDEN
+  DDS_SOFTEN
+  MANUAL
+}
+
+enum DdsVariantStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ROLLED_BACK
 }
 
 enum ReportReason {
@@ -231,6 +245,8 @@ model User {
   scenarioAttempts           ScenarioAttempt[]
   coachSessions              CoachSession[]
   burnoutSignals             BurnoutSignal[]
+  peerExplanations           PeerExplanation[]
+  variantReviews             QuestionVariant[] @relation("QuestionVariantReviewer")
 
   @@index([status])
   @@map("users")
@@ -278,6 +294,8 @@ model Certification {
   behavioralInsights BehavioralInsight[]
   squads         Organization[] @relation("SquadCertification")
   burnoutSignals BurnoutSignal[]
+  certOverlapsA  CertOverlap[] @relation("CertOverlapA")
+  certOverlapsB  CertOverlap[] @relation("CertOverlapB")
 
   @@map("certifications")
 }
@@ -292,6 +310,8 @@ model Domain {
   certification  Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
   questions      Question[]
   generationJobs QuestionGenerationJob[]
+  certOverlapsA  CertOverlap[] @relation("CertOverlapDomainA")
+  certOverlapsB  CertOverlap[] @relation("CertOverlapDomainB")
 
   @@map("domains")
 }
@@ -342,6 +362,9 @@ model Question {
   catalogLinks       ExamCatalogQuestion[]
   assessmentLinks    AssessmentQuestion[]
   moderationAudits   ModerationAudit[]
+  embedding          QuestionEmbedding?
+  variants           QuestionVariant[]
+  peerExplanations   PeerExplanation[]
 
   @@index([deletedAt])
   @@index([status])
@@ -769,6 +792,7 @@ model Organization {
   generationJobs   QuestionGenerationJob[] // RFC-012: Track org-level LLM costs
   scenarios        Scenario[]
   certification    Certification? @relation("SquadCertification", fields: [certificationId], references: [id])
+  peerExplanations PeerExplanation[]
 
   @@map("organizations")
 }
@@ -1266,5 +1290,85 @@ model BurnoutSignal {
   @@index([userId, detectedAt])
   @@index([userId, acknowledged])
   @@map("burnout_signals")
+}
+
+// US-807 / RFC-007: Vector embedding for semantic dedup + cross-cert knowledge graph.
+// Raw `embedding vector(1536)` column is added via raw SQL migration (Prisma doesn't support pgvector natively).
+model QuestionEmbedding {
+  questionId String   @id @map("question_id")
+  modelId    String   @map("model_id") // e.g. 'text-embedding-3-small'
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_embeddings")
+}
+
+// US-017a: Cached cross-cert domain overlap scores.
+// Populated by the overlap compute job; queried by GET /knowledge-graph/overlap.
+model CertOverlap {
+  id              String   @id @default(uuid())
+  certAId         String   @map("cert_a_id")
+  certBId         String   @map("cert_b_id")
+  domainAId       String?  @map("domain_a_id")
+  domainBId       String?  @map("domain_b_id")
+  overlapPct      Float    @map("overlap_pct") // 0.0–1.0
+  sharedTopics    Json     @default("[]") @map("shared_topics") // string[]
+  computedAt      DateTime @default(now()) @map("computed_at")
+
+  certA   Certification  @relation("CertOverlapA", fields: [certAId], references: [id], onDelete: Cascade)
+  certB   Certification  @relation("CertOverlapB", fields: [certBId], references: [id], onDelete: Cascade)
+  domainA Domain?        @relation("CertOverlapDomainA", fields: [domainAId], references: [id], onDelete: SetNull)
+  domainB Domain?        @relation("CertOverlapDomainB", fields: [domainBId], references: [id], onDelete: SetNull)
+
+  @@unique([certAId, certBId, domainAId, domainBId])
+  @@index([certAId, computedAt])
+  @@map("cert_overlaps")
+}
+
+// US-018 / RFC-010: DDS audit trail — each LLM-proposed distractor rewrite.
+// Preserves full diff for review + rollback. Correctness invariant: correct answer never changes.
+model QuestionVariant {
+  id            String           @id @default(uuid())
+  questionId    String           @map("question_id")
+  variantOf     String?          @map("variant_of") // parent variant id for rollback chain
+  rewriteJobId  String?          @map("rewrite_job_id")
+  reason        DdsReason        @default(DDS_HARDEN)
+  status        DdsVariantStatus @default(PENDING)
+  diff          Json             // { originalChoices: Choice[], revisedChoices: Choice[] }
+  reviewedBy    String?          @map("reviewed_by")
+  reviewedAt    DateTime?        @map("reviewed_at")
+  reviewNote    String?          @map("review_note")
+  createdAt     DateTime         @default(now()) @map("created_at")
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  reviewer   User?    @relation("QuestionVariantReviewer", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([questionId, status])
+  @@index([createdAt])
+  @@map("question_variants")
+}
+
+// US-020: Peer explanation submitted by a squad member for a question.
+// Voted on by other squad members; top explanation earns the 'Top Explainer' badge.
+model PeerExplanation {
+  id          String   @id @default(uuid())
+  questionId  String   @map("question_id")
+  squadId     String   @map("squad_id")  // org_id of the squad
+  authorId    String   @map("author_id")
+  content     String   @db.Text
+  upvotes     Int      @default(0)
+  isTop       Boolean  @default(false) @map("is_top")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  question Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  squad    Organization  @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, squadId, authorId])
+  @@index([questionId, squadId, upvotes])
+  @@index([squadId, createdAt])
+  @@map("peer_explanations")
 }
 
