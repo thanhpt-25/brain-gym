@@ -415,6 +415,21 @@ const AnimatedRoutes = () => {
             </PageTransition>
           }
         />
+
+        {/* Knowledge Graph route (Sprint 09) */}
+        <Route
+          path="/knowledge-graph"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <Suspense fallback={<LoadingFallback />}>
+                  <KnowledgeGraph />
+                </Suspense>
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+
         <Route
           path="*"
           element={

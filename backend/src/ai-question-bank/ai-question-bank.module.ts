@@ -9,12 +9,16 @@ import { EncryptionService } from './crypto/encryption.service';
 import { IngestionService } from './ingestion/ingestion.service';
 import { AI_GEN_QUEUE } from '../queues/ai-gen/ai-gen.job.interface';
 import { LlmUsageModule } from './llm-usage/llm-usage.module';
+import { EmbeddingModule } from './embedding/embedding.module';
+import { DdsModule } from './dds/dds.module';
 
 @Module({
   imports: [
     PrismaModule,
     QuestionsModule,
     LlmUsageModule,
+    EmbeddingModule,
+    DdsModule,
     MulterModule.register({ limits: { fileSize: 20 * 1024 * 1024 } }),
     BullModule.registerQueue({ name: AI_GEN_QUEUE }),
   ],

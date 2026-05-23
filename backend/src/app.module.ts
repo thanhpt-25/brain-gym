@@ -35,6 +35,7 @@ import { EventsModule } from './events/events.module';
 import { InsightsModule } from './insights/insights.module';
 import { PassLikelihoodModule } from './surveys/pass-likelihood.module';
 import { SquadsModule } from './squads/squads.module';
+import { KnowledgeGraphModule } from './knowledge-graph/knowledge-graph.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { SquadsModule } from './squads/squads.module';
     InsightsModule,
     PassLikelihoodModule,
     SquadsModule,
+    KnowledgeGraphModule,
   ],
   providers: [
     RequestContextService,
