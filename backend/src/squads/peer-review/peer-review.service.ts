@@ -60,11 +60,11 @@ export class PeerReviewService {
     const squad = await this.prisma.organization.findUnique({
       where: { id: squadId },
       include: {
-        memberships: { where: { userId } },
+        members: { where: { userId } },
       },
     });
     if (!squad) throw new NotFoundException(`Squad ${squadId} not found`);
-    if (!squad.memberships.length) {
+    if (!squad.members.length) {
       throw new ForbiddenException('You are not a member of this squad');
     }
 
@@ -171,21 +171,20 @@ export class PeerReviewService {
     try {
       // Find the "top-explainer" badge
       const badge = await this.prisma.badge.findFirst({
-        where: { code: 'top-explainer' },
+        where: { name: 'top-explainer' },
       });
       if (!badge) {
         this.logger.warn('top-explainer badge not found in DB');
         return;
       }
 
-      await this.prisma.userBadge.upsert({
+      // Upsert badge award (no metadata field available)
+      await this.prisma.badgeAward.upsert({
         where: { userId_badgeId: { userId, badgeId: badge.id } },
         update: {},
         create: {
           userId,
           badgeId: badge.id,
-          awardedAt: new Date(),
-          meta: { explanationId },
         },
       });
 

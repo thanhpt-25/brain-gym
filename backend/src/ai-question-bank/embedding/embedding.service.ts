@@ -96,7 +96,7 @@ export class EmbeddingService {
     );
 
     // Record LLM cost (~$0.0001 per 1k tokens; embeddings ~500 input tokens avg)
-    await this.llmUsage.recordUsage({
+    await this.llmUsage.recordUsageEvent({
       userId: userId ?? 'system',
       orgId: null,
       feature: 'embedding',

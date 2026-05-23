@@ -292,7 +292,7 @@ export class DdsService {
       rawContent = data.choices[0]?.message?.content ?? '[]';
     }
 
-    await this.llmUsage.recordUsage({
+    await this.llmUsage.recordUsageEvent({
       userId: userId ?? 'system',
       orgId: null,
       feature: 'dds',

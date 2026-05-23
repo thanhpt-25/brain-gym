@@ -11,7 +11,8 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { PeerReviewService, SubmitExplanationDto } from './peer-review.service';
+import type { SubmitExplanationDto } from './peer-review.service';
+import { PeerReviewService } from './peer-review.service';
 
 @Controller('squads/peer-review')
 @UseGuards(AuthGuard('jwt'))
