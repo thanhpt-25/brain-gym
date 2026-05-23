@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LlmUsageService } from '../llm-usage/llm-usage.service';
+import { LlmQuotaService } from '../llm-usage/llm-quota.service';
+import { llmClient } from '../llm/llm-client';
 import { DdsReason, DdsVariantStatus } from '@prisma/client';
 
 export interface QuestionVariantDto {
@@ -31,11 +33,25 @@ export interface QuestionVariantDto {
   createdAt: Date;
 }
 
+/** US-1003: Result of evaluating whether a variant should auto-apply. */
+export interface AutoApplyDecision {
+  shouldApply: boolean;
+  reason: string;
+  cohort: string;
+  approvedCount: number;
+  threshold: number;
+}
+
 const DDS_SYSTEM_PROMPT =
   'You are an expert exam question editor. Rewrite the WRONG answer choices ' +
   '(distractors) to be harder and more plausible. NEVER change which answer is ' +
   'correct. Return ONLY a JSON array: ' +
   '[{"label":"A","content":"...","isCorrect":false},{"label":"B","content":"...","isCorrect":true},...]';
+
+/** US-1003: Read at call time so tests can override via process.env. */
+function getAutoApplyThreshold(): number {
+  return parseInt(process.env.DDS_AUTO_APPLY_THRESHOLD ?? '30', 10);
+}
 
 @Injectable()
 export class DdsService {
@@ -44,13 +60,20 @@ export class DdsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly llmUsage: LlmUsageService,
+    private readonly llmQuota: LlmQuotaService,
   ) {}
 
   async proposeVariant(
     questionId: string,
     reason: DdsReason = DdsReason.DDS_HARDEN,
     triggeredByUserId?: string,
+    orgId?: string,
   ): Promise<QuestionVariantDto> {
+    // US-1004: enforce org quota before calling LLM
+    if (orgId) {
+      await this.llmQuota.enforceQuota(orgId);
+    }
+
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
       include: { choices: { orderBy: { sortOrder: 'asc' } } },
@@ -74,7 +97,7 @@ export class DdsService {
 
     const revisedChoices = await this.callLlm(userPrompt, triggeredByUserId);
 
-    // Correctness invariant
+    // Correctness invariant: correct answer must not change
     const originalCorrect = question.choices.find((c) => c.isCorrect);
     const revisedCorrect = revisedChoices.find((c) => c.isCorrect);
     if (!originalCorrect || !revisedCorrect) {
@@ -228,6 +251,92 @@ export class DdsService {
     );
   }
 
+  // ─── US-1003: Auto-apply ─────────────────────────────────────────────────
+
+  /**
+   * Evaluate whether a pending variant should be auto-applied.
+   * Shadow mode (DDS_SHADOW_MODE != 'false'): logs decision but never applies.
+   */
+  async evaluateAutoApply(variantId: string): Promise<AutoApplyDecision> {
+    const threshold = getAutoApplyThreshold();
+    const killSwitch = process.env.DDS_AUTO_APPLY_ENABLED === 'true';
+    const cohort = process.env.DDS_AUTO_APPLY_COHORT ?? 'default';
+
+    if (!killSwitch) {
+      return {
+        shouldApply: false,
+        reason: 'auto-apply disabled (kill-switch off)',
+        cohort,
+        approvedCount: 0,
+        threshold,
+      };
+    }
+
+    const variant = await this.prisma.questionVariant.findUnique({
+      where: { id: variantId },
+    });
+    if (!variant || variant.status !== DdsVariantStatus.PENDING) {
+      return {
+        shouldApply: false,
+        reason: 'variant not found or not PENDING',
+        cohort,
+        approvedCount: 0,
+        threshold,
+      };
+    }
+
+    const approved = await this.prisma.questionVariant.findMany({
+      where: { status: DdsVariantStatus.APPROVED },
+      select: { id: true },
+    });
+    const approvedCount = approved.length;
+
+    const shouldApply = approvedCount >= threshold;
+
+    return {
+      shouldApply,
+      reason: shouldApply
+        ? `cohort=${cohort} reached threshold (${approvedCount}/${threshold})`
+        : `cohort=${cohort} below threshold (${approvedCount}/${threshold})`,
+      cohort,
+      approvedCount,
+      threshold,
+    };
+  }
+
+  /**
+   * Evaluate and optionally execute auto-apply for a pending variant.
+   * Default is shadow mode (DDS_SHADOW_MODE=true): decision logged, not applied.
+   */
+  async tryAutoApply(variantId: string): Promise<{
+    decision: AutoApplyDecision;
+    applied: boolean;
+    shadowMode: boolean;
+  }> {
+    const shadowMode = process.env.DDS_SHADOW_MODE !== 'false';
+    const decision = await this.evaluateAutoApply(variantId);
+
+    if (!decision.shouldApply) {
+      return { decision, applied: false, shadowMode };
+    }
+
+    if (shadowMode) {
+      this.logger.log(
+        `dds_auto_apply_shadow variantId=${variantId} reason="${decision.reason}"`,
+      );
+      return { decision, applied: false, shadowMode: true };
+    }
+
+    const note = `auto-applied (cohort=${decision.cohort}, threshold=${decision.threshold}, approvedCount=${decision.approvedCount})`;
+    await this.approve(variantId, 'auto', note);
+    this.logger.log(
+      `dds_auto_applied variantId=${variantId} reason="${decision.reason}"`,
+    );
+    return { decision, applied: true, shadowMode: false };
+  }
+
+  // ─── Private helpers ──────────────────────────────────────────────────────
+
   private async findPendingOrThrow(variantId: string) {
     const variant = await this.prisma.questionVariant.findUnique({
       where: { id: variantId },
@@ -243,66 +352,29 @@ export class DdsService {
     userPrompt: string,
     userId?: string,
   ): Promise<Array<{ label: string; content: string; isCorrect: boolean }>> {
-    const apiKey = process.env.ANTHROPIC_API_KEY ?? process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    if (!llmClient.configured) {
       this.logger.warn('No LLM API key configured for DDS');
       return [];
     }
 
-    const isAnthropic = !!process.env.ANTHROPIC_API_KEY;
-    const modelId = isAnthropic ? 'claude-haiku-4-5' : 'gpt-3.5-turbo';
-    let rawContent: string;
-
-    if (isAnthropic) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelId,
-          max_tokens: 1024,
-          system: DDS_SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userPrompt }],
-        }),
-      });
-      const data = (await res.json()) as { content: Array<{ text: string }> };
-      rawContent = data.content[0]?.text ?? '[]';
-    } else {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelId,
-          messages: [
-            { role: 'system', content: DDS_SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt },
-          ],
-          max_tokens: 1024,
-        }),
-      });
-      const data = (await res.json()) as {
-        choices: Array<{ message: { content: string } }>;
-      };
-      rawContent = data.choices[0]?.message?.content ?? '[]';
-    }
+    // US-1004: shared client returns real token counts
+    const result = await llmClient.call({
+      system: DDS_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userPrompt }],
+      maxTokens: 1024,
+    });
 
     await this.llmUsage.recordUsageEvent({
       userId: userId ?? 'system',
       orgId: null,
       feature: 'dds',
-      modelId,
-      inputTokens: 600,
-      outputTokens: 300,
+      modelId: result.modelId,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
     });
 
     try {
-      const cleaned = rawContent.replace(/```(?:json)?\n?/g, '').trim();
+      const cleaned = result.content.replace(/```(?:json)?\n?/g, '').trim();
       return JSON.parse(cleaned) as Array<{
         label: string;
         content: string;

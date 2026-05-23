@@ -31,7 +31,21 @@ export interface VoteResult {
   isTop: boolean;
 }
 
-const TOP_EXPLANATION_THRESHOLD = 5; // upvotes needed to earn "top" badge
+export interface LeaderboardEntry {
+  userId: string;
+  displayName: string | null;
+  points: number;
+  tier: 'gold' | 'silver' | 'bronze' | 'none';
+}
+
+const TOP_EXPLANATION_THRESHOLD = 5;
+const TOP_PROMOTION_BONUS = 2;
+
+const BADGE_TIERS = [
+  { name: 'gold-explainer', threshold: 50 },
+  { name: 'silver-explainer', threshold: 20 },
+  { name: 'bronze-explainer', threshold: 5 },
+] as const;
 
 @Injectable()
 export class PeerReviewService {
@@ -39,29 +53,21 @@ export class PeerReviewService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Submit or update an explanation for a question within a squad.
-   * Each member may have at most one explanation per question per squad.
-   */
   async submitExplanation(
     userId: string,
     dto: SubmitExplanationDto,
   ): Promise<PeerExplanationDto> {
     const { questionId, squadId, content } = dto;
 
-    // Verify question exists
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
     });
     if (!question)
       throw new NotFoundException(`Question ${questionId} not found`);
 
-    // Verify squad exists and user is a member
     const squad = await this.prisma.organization.findUnique({
       where: { id: squadId },
-      include: {
-        members: { where: { userId } },
-      },
+      include: { members: { where: { userId } } },
     });
     if (!squad) throw new NotFoundException(`Squad ${squadId} not found`);
     if (!squad.members.length) {
@@ -79,9 +85,6 @@ export class PeerReviewService {
     return this.toDto(explanation);
   }
 
-  /**
-   * Vote on a peer explanation. Prevents duplicate votes from the same user.
-   */
   async vote(userId: string, explanationId: string): Promise<VoteResult> {
     const explanation = await this.prisma.peerExplanation.findUnique({
       where: { id: explanationId },
@@ -93,7 +96,7 @@ export class PeerReviewService {
       throw new BadRequestException('Cannot vote on your own explanation');
     }
 
-    // Idempotent vote — one vote per user per explanation
+    // Idempotent — one vote per user per explanation
     const existing = await this.prisma.vote.findFirst({
       where: {
         userId,
@@ -123,7 +126,13 @@ export class PeerReviewService {
     const newUpvotes = updated.upvotes;
     let isTop = explanation.isTop;
 
-    // Promote to top if threshold reached and not already top
+    // Accrue +1 reputation point to the explanation author in this squad
+    let rep = await this.accrueReputation(
+      explanation.authorId,
+      explanation.squadId,
+      1,
+    );
+
     if (!isTop && newUpvotes >= TOP_EXPLANATION_THRESHOLD) {
       await this.prisma.peerExplanation.update({
         where: { id: explanationId },
@@ -131,16 +140,23 @@ export class PeerReviewService {
       });
       isTop = true;
 
-      // Award badge to author
-      await this.awardTopExplanationBadge(explanation.authorId, explanationId);
+      // Bonus points for first-time top promotion
+      rep = await this.accrueReputation(
+        explanation.authorId,
+        explanation.squadId,
+        TOP_PROMOTION_BONUS,
+      );
     }
+
+    await this.awardTieredBadge(
+      explanation.authorId,
+      rep.points,
+      explanationId,
+    );
 
     return { newUpvotes, isTop };
   }
 
-  /**
-   * List all explanations for a question within a squad, ordered by upvotes desc.
-   */
   async listForQuestion(
     questionId: string,
     squadId: string,
@@ -152,9 +168,6 @@ export class PeerReviewService {
     return explanations.map((e) => this.toDto(e));
   }
 
-  /**
-   * List top explanations across all squads for a question.
-   */
   async listTopForQuestion(questionId: string): Promise<PeerExplanationDto[]> {
     const explanations = await this.prisma.peerExplanation.findMany({
       where: { questionId, isTop: true },
@@ -164,34 +177,75 @@ export class PeerReviewService {
     return explanations.map((e) => this.toDto(e));
   }
 
-  private async awardTopExplanationBadge(
+  async getLeaderboard(
+    squadId: string,
+    limit = 10,
+  ): Promise<LeaderboardEntry[]> {
+    const rows = await this.prisma.userReputation.findMany({
+      where: { squadId },
+      orderBy: { points: 'desc' },
+      take: limit,
+      include: { user: { select: { id: true, displayName: true } } },
+    });
+
+    return rows.map((r) => ({
+      userId: r.userId,
+      displayName: r.user.displayName ?? null,
+      points: r.points,
+      tier: this.resolveTier(r.points),
+    }));
+  }
+
+  // ─── Private helpers ──────────────────────────────────────────────────────
+
+  private async accrueReputation(
     userId: string,
+    squadId: string,
+    delta: number,
+  ) {
+    return this.prisma.userReputation.upsert({
+      where: { userId_squadId: { userId, squadId } },
+      update: { points: { increment: delta } },
+      create: { userId, squadId, points: delta },
+    });
+  }
+
+  private async awardTieredBadge(
+    userId: string,
+    totalPoints: number,
     explanationId: string,
   ): Promise<void> {
     try {
-      // Find the "top-explainer" badge
+      const tier = BADGE_TIERS.find((t) => totalPoints >= t.threshold);
+      if (!tier) return;
+
       const badge = await this.prisma.badge.findFirst({
-        where: { name: 'top-explainer' },
+        where: { name: tier.name },
       });
       if (!badge) {
-        this.logger.warn('top-explainer badge not found in DB');
+        this.logger.warn(`Badge ${tier.name} not found in DB`);
         return;
       }
 
-      // Upsert badge award (no metadata field available)
       await this.prisma.badgeAward.upsert({
         where: { userId_badgeId: { userId, badgeId: badge.id } },
         update: {},
-        create: {
-          userId,
-          badgeId: badge.id,
-        },
+        create: { userId, badgeId: badge.id },
       });
 
-      this.logger.log(`Awarded top-explainer badge to user ${userId}`);
+      this.logger.log(
+        `Awarded ${tier.name} to user ${userId} (points=${totalPoints}, explanation=${explanationId})`,
+      );
     } catch (err) {
       this.logger.error(`Failed to award badge: ${err}`);
     }
+  }
+
+  private resolveTier(points: number): 'gold' | 'silver' | 'bronze' | 'none' {
+    if (points >= 50) return 'gold';
+    if (points >= 20) return 'silver';
+    if (points >= 5) return 'bronze';
+    return 'none';
   }
 
   private toDto(e: {

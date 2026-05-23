@@ -4,11 +4,11 @@ import { useSearchParams } from "react-router-dom";
 import {
   getKnowledgeGraph,
   getDrillDown,
-  getStudyPlan,
   triggerOverlapCompute,
 } from "../services/knowledgeGraph";
 import { GraphCanvas } from "../components/knowledge-graph/GraphCanvas";
 import { NodeDrillDown } from "../components/knowledge-graph/NodeDrillDown";
+import { StudyPlanPanel } from "../components/knowledge-graph/StudyPlan";
 import PageTransition from "../components/PageTransition";
 import { Loader2, RefreshCw, BookOpen, BarChart2 } from "lucide-react";
 import "./KnowledgeGraph.css";
@@ -31,12 +31,6 @@ export default function KnowledgeGraph() {
     queryKey: ["kg-drill-down", selectedCertId, selectedDomainId],
     queryFn: () => getDrillDown(selectedCertId!, selectedDomainId ?? undefined),
     enabled: !!selectedCertId,
-  });
-
-  const studyPlan = useQuery({
-    queryKey: ["kg-study-plan", certId],
-    queryFn: () => getStudyPlan(certId),
-    enabled: !!certId && activeTab === "study-plan",
   });
 
   const recompute = useMutation({
@@ -131,70 +125,7 @@ export default function KnowledgeGraph() {
 
         {activeTab === "study-plan" && (
           <div className="kg-study-plan">
-            {studyPlan.isLoading && (
-              <div className="kg-loading">
-                <Loader2 className="kg-spinner" />
-                <span>Generating study plan…</span>
-              </div>
-            )}
-            {studyPlan.data && (
-              <>
-                <div className="kg-effort-banner">
-                  <span className="kg-effort-pct">
-                    {studyPlan.data.effortReductionPct}%
-                  </span>
-                  <span className="kg-effort-label">
-                    estimated effort saved
-                  </span>
-                  <span className="kg-effort-detail">
-                    {studyPlan.data.skippableCount} of{" "}
-                    {studyPlan.data.totalTopics} domains can be skimmed
-                  </span>
-                </div>
-
-                <div className="kg-plan-columns">
-                  <section className="kg-plan-col kg-plan-col--skip">
-                    <h2 className="kg-plan-col-title">✓ Can Skim</h2>
-                    <p className="kg-plan-col-sub">
-                      High overlap with your passed certs
-                    </p>
-                    <ul className="kg-topic-list">
-                      {studyPlan.data.skipTopics.map((t) => (
-                        <li
-                          key={t}
-                          className="kg-topic-item kg-topic-item--skip"
-                        >
-                          {t}
-                        </li>
-                      ))}
-                      {studyPlan.data.skipTopics.length === 0 && (
-                        <li className="kg-topic-empty">None</li>
-                      )}
-                    </ul>
-                  </section>
-
-                  <section className="kg-plan-col kg-plan-col--must">
-                    <h2 className="kg-plan-col-title">★ Must Learn</h2>
-                    <p className="kg-plan-col-sub">
-                      Low overlap — focus your study here
-                    </p>
-                    <ul className="kg-topic-list">
-                      {studyPlan.data.mustLearnTopics.map((t) => (
-                        <li
-                          key={t}
-                          className="kg-topic-item kg-topic-item--must"
-                        >
-                          {t}
-                        </li>
-                      ))}
-                      {studyPlan.data.mustLearnTopics.length === 0 && (
-                        <li className="kg-topic-empty">None</li>
-                      )}
-                    </ul>
-                  </section>
-                </div>
-              </>
-            )}
+            <StudyPlanPanel targetCertId={certId} />
           </div>
         )}
       </div>

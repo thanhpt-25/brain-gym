@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmbeddingService } from '../ai-question-bank/embedding/embedding.service';
+import { OVERLAP_QUEUE, OverlapJobData } from './overlap.processor';
 
 export interface GraphNode {
   certId: string;
@@ -26,22 +29,24 @@ export interface KnowledgeGraphDto {
 export interface NodeDrillDownDto {
   certId: string;
   domainId: string | null;
-  skipTopics: string[]; // high-overlap domains the user can safely skim
-  mustLearnTopics: string[]; // low-overlap or no-coverage domains
+  skipTopics: string[];
+  mustLearnTopics: string[];
 }
 
 export interface StudyPlanDto {
+  id?: string;
   targetCertId: string;
   sourceCertIds: string[];
   skipTopics: string[];
   mustLearnTopics: string[];
-  effortReductionPct: number; // 0–100 estimated % effort saved
+  effortReductionPct: number;
   totalTopics: number;
   skippableCount: number;
+  createdAt?: Date;
 }
 
-const SKIP_THRESHOLD = 0.65; // overlap_pct ≥ this → skip-able
-const MUST_LEARN_THRESHOLD = 0.3; // overlap_pct < this → must-learn
+const SKIP_THRESHOLD = 0.65;
+const MUST_LEARN_THRESHOLD = 0.3;
 
 @Injectable()
 export class KnowledgeGraphService {
@@ -50,14 +55,23 @@ export class KnowledgeGraphService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly embedding: EmbeddingService,
+    @InjectQueue(OVERLAP_QUEUE)
+    private readonly overlapQueue: Queue<OverlapJobData>,
   ) {}
 
-  // ─── Overlap Compute ──────────────────────────────────────────────────────
+  // ─── Overlap Compute (US-1001: async via BullMQ) ──────────────────────────
 
   /**
-   * Trigger a full (re)compute of cert-pair overlaps for a given cert.
-   * Uses cosine similarity of question-embedding centroids per domain.
-   * Falls back to Jaccard on shared tags when pgvector unavailable.
+   * Enqueue an async overlap recompute job. Returns BullMQ job id (202 async).
+   */
+  async enqueueOverlapCompute(certId: string): Promise<{ jobId: string }> {
+    const job = await this.overlapQueue.add('compute', { certId });
+    this.logger.log(`overlap_enqueued certId=${certId} jobId=${job.id}`);
+    return { jobId: job.id ?? '' };
+  }
+
+  /**
+   * Core overlap compute — called by OverlapProcessor inside a BullMQ worker.
    */
   async computeOverlaps(certId: string): Promise<void> {
     const sourceCert = await this.prisma.certification.findUnique({
@@ -105,7 +119,7 @@ export class KnowledgeGraphService {
       }
     }
 
-    this.logger.log(`Overlap compute done for cert ${certId}`);
+    this.logger.log(`overlap_compute_done certId=${certId}`);
   }
 
   private async computeDomainOverlap(
@@ -114,7 +128,6 @@ export class KnowledgeGraphService {
     certBId: string,
     domainBId: string,
   ): Promise<number> {
-    // Try vector centroid cosine similarity first
     try {
       type Row = { similarity: number };
       const rows = await this.prisma.$queryRawUnsafe<Row[]>(
@@ -288,9 +301,10 @@ export class KnowledgeGraphService {
     };
   }
 
-  // ─── Study Plan Generation (US-017c) ────────────────────────────────────
+  // ─── Study Plan (US-1002: persist + cosine-weighted estimate) ────────────
 
   async generateStudyPlan(
+    userId: string,
     targetCertId: string,
     userPassedCertIds: string[],
   ): Promise<StudyPlanDto> {
@@ -300,7 +314,6 @@ export class KnowledgeGraphService {
 
     const overlaps = await this.prisma.certOverlap.findMany({
       where: { certBId: targetCertId, certAId: { in: userPassedCertIds } },
-      include: { domainB: true },
     });
 
     const domainOverlapMap = new Map<string, number>();
@@ -325,10 +338,33 @@ export class KnowledgeGraphService {
 
     const totalTopics = targetDomains.length;
     const skippableCount = skipTopics.length;
+
+    // Cosine-weighted effort reduction: sum of skip overlaps / total domains
+    let weightedSum = 0;
+    for (const domain of targetDomains) {
+      const overlap = domainOverlapMap.get(domain.id) ?? 0;
+      if (overlap >= SKIP_THRESHOLD) weightedSum += overlap;
+    }
     const effortReductionPct =
-      totalTopics > 0 ? Math.round((skippableCount / totalTopics) * 100) : 0;
+      totalTopics > 0
+        ? Math.min(100, Math.round((weightedSum / totalTopics) * 100))
+        : 0;
+
+    const plan = await this.prisma.studyPlan.create({
+      data: {
+        userId,
+        targetCertId,
+        sourceCertIds: userPassedCertIds,
+        skipTopics: skipTopics,
+        mustLearnTopics: mustLearnTopics,
+        effortReductionPct,
+        totalTopics,
+        skippableCount,
+      },
+    });
 
     return {
+      id: plan.id,
       targetCertId,
       sourceCertIds: userPassedCertIds,
       skipTopics,
@@ -336,6 +372,26 @@ export class KnowledgeGraphService {
       effortReductionPct,
       totalTopics,
       skippableCount,
+      createdAt: plan.createdAt,
     };
+  }
+
+  async listStudyPlans(userId: string): Promise<StudyPlanDto[]> {
+    const plans = await this.prisma.studyPlan.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return plans.map((p) => ({
+      id: p.id,
+      targetCertId: p.targetCertId,
+      sourceCertIds: p.sourceCertIds,
+      skipTopics: p.skipTopics as string[],
+      mustLearnTopics: p.mustLearnTopics as string[],
+      effortReductionPct: p.effortReductionPct,
+      totalTopics: p.totalTopics,
+      skippableCount: p.skippableCount,
+      createdAt: p.createdAt,
+    }));
   }
 }

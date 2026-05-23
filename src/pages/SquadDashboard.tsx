@@ -8,6 +8,8 @@ import {
 import { SquadMemberList } from "../components/squads/SquadMemberList";
 import { ReadinessCard } from "../components/squads/ReadinessCard";
 import { EmptyState } from "../components/squads/EmptyState";
+import { SquadReputationLeaderboard } from "../components/squads/SquadReputationLeaderboard";
+import { useAuthStore } from "@/stores/auth.store";
 import { Loader2 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import "../components/squads/squad-dashboard.css";
@@ -24,6 +26,7 @@ import "../components/squads/squad-dashboard.css";
  */
 export default function SquadDashboard() {
   const { slug } = useParams<{ slug: string }>();
+  const { user } = useAuthStore();
 
   // Fetch squad by slug
   const squad = useQuery({
@@ -116,6 +119,14 @@ export default function SquadDashboard() {
             ) : (
               <EmptyState message="Invite members to see their readiness." />
             )}
+          </section>
+
+          {/* Reputation Leaderboard */}
+          <section className="squad-leaderboard">
+            <SquadReputationLeaderboard
+              squadId={squad.data.id}
+              currentUserId={user?.id}
+            />
           </section>
         </div>
       </div>

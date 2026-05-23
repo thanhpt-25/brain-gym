@@ -38,6 +38,7 @@ import { WeakTopicsChart } from "@/components/dashboard/WeakTopicsChart";
 import { FlashcardStatsPanel } from "@/components/dashboard/FlashcardStatsPanel";
 import { ExamHistoryList } from "@/components/dashboard/ExamHistoryList";
 import { LlmCostPanel } from "@/components/dashboard/LlmCostPanel";
+import { BenchmarkPanel } from "@/components/dashboard/BenchmarkPanel";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -326,7 +327,9 @@ const Dashboard = () => {
                   <Zap className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <div className="text-base font-bold font-mono">Coach Analytics</div>
+                  <div className="text-base font-bold font-mono">
+                    Coach Analytics
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     View your coach session insights and patterns
                   </div>
@@ -375,6 +378,11 @@ const Dashboard = () => {
             <TabsTrigger value="history" className="font-mono text-xs">
               History
             </TabsTrigger>
+            {certFilter && (
+              <TabsTrigger value="benchmark" className="font-mono text-xs">
+                Benchmark
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="trend">
@@ -392,6 +400,12 @@ const Dashboard = () => {
           <TabsContent value="history">
             <ExamHistoryList certificationId={certFilter || undefined} />
           </TabsContent>
+
+          {certFilter && (
+            <TabsContent value="benchmark">
+              <BenchmarkPanel certificationId={certFilter} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

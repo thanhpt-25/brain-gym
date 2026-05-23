@@ -56,10 +56,20 @@ interface PeerReviewChallengeProps {
   currentUserId: string;
 }
 
+const TIER_THRESHOLDS = [
+  { min: 50, label: "Gold", className: "pr-badge--gold" },
+  { min: 20, label: "Silver", className: "pr-badge--silver" },
+  { min: 5, label: "Bronze", className: "pr-badge--bronze" },
+] as const;
+
+function resolveBadge(upvotes: number) {
+  return TIER_THRESHOLDS.find((t) => upvotes >= t.min) ?? null;
+}
+
 /**
  * Peer Review Challenge panel — shown after a question attempt.
  * Lets squad members submit an explanation and upvote each other's answers.
- * Top explanations (≥5 votes) earn the "top-explainer" badge.
+ * Top explanations earn tiered badges: Bronze (≥5), Silver (≥20), Gold (≥50).
  */
 export function PeerReviewChallenge({
   questionId,
@@ -150,11 +160,19 @@ export function PeerReviewChallenge({
                 key={ex.id}
                 className={`pr-item ${ex.isTop ? "pr-item--top" : ""} ${isOwn ? "pr-item--own" : ""}`}
               >
-                {ex.isTop && (
-                  <span className="pr-top-badge" aria-label="Top explanation">
-                    <Star size={12} /> Top
-                  </span>
-                )}
+                {ex.isTop &&
+                  (() => {
+                    const badge = resolveBadge(ex.upvotes);
+                    return (
+                      <span
+                        className={`pr-top-badge ${badge?.className ?? ""}`}
+                        aria-label={`${badge?.label ?? "Top"} explanation`}
+                      >
+                        <Star size={12} />
+                        {badge?.label ?? "Top"}
+                      </span>
+                    );
+                  })()}
                 <p className="pr-item-content">{ex.content}</p>
                 <div className="pr-item-footer">
                   <span className="pr-item-date">

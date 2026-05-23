@@ -21,10 +21,7 @@ export class KnowledgeGraphController {
     private readonly prisma: PrismaService,
   ) {}
 
-  /**
-   * GET /knowledge-graph/overlap?certId=<id>
-   * Returns the cached cross-cert graph for a given source cert.
-   */
+  /** GET /knowledge-graph/overlap?certId=<id> */
   @Get('overlap')
   async getOverlap(@Query('certId') certId: string) {
     return this.kg.getGraph(certId);
@@ -32,19 +29,16 @@ export class KnowledgeGraphController {
 
   /**
    * POST /knowledge-graph/overlap/:certId/compute
-   * Trigger (re)computation of overlap for a cert.
+   * US-1001: Enqueues async BullMQ job; returns jobId immediately (202).
    */
   @Post('overlap/:certId/compute')
   @HttpCode(HttpStatus.ACCEPTED)
-  triggerCompute(@Param('certId') certId: string) {
-    void this.kg.computeOverlaps(certId);
-    return { message: 'Overlap computation enqueued', certId };
+  async triggerCompute(@Param('certId') certId: string) {
+    const { jobId } = await this.kg.enqueueOverlapCompute(certId);
+    return { message: 'Overlap computation enqueued', certId, jobId };
   }
 
-  /**
-   * GET /knowledge-graph/drill-down?certId=<id>&domainId=<id>
-   * Returns skip-able vs must-learn topics relative to the caller's passed certs.
-   */
+  /** GET /knowledge-graph/drill-down?certId=<id>&domainId=<id> */
   @Get('drill-down')
   async getDrillDown(
     @CurrentUser('id') userId: string,
@@ -56,16 +50,23 @@ export class KnowledgeGraphController {
   }
 
   /**
-   * GET /knowledge-graph/study-plan?targetCertId=<id>
-   * Returns an optimised study plan for a target cert based on caller's history.
+   * POST /knowledge-graph/study-plan?targetCertId=<id>
+   * US-1002: Generates and persists a study plan; returns saved plan with id.
    */
-  @Get('study-plan')
-  async getStudyPlan(
+  @Post('study-plan')
+  @HttpCode(HttpStatus.CREATED)
+  async createStudyPlan(
     @CurrentUser('id') userId: string,
     @Query('targetCertId') targetCertId: string,
   ) {
     const passedCertIds = await this.getPassedCertIds(userId);
-    return this.kg.generateStudyPlan(targetCertId, passedCertIds);
+    return this.kg.generateStudyPlan(userId, targetCertId, passedCertIds);
+  }
+
+  /** GET /knowledge-graph/study-plans — list saved plans for the caller */
+  @Get('study-plans')
+  async listStudyPlans(@CurrentUser('id') userId: string) {
+    return this.kg.listStudyPlans(userId);
   }
 
   private async getPassedCertIds(userId: string): Promise<string[]> {

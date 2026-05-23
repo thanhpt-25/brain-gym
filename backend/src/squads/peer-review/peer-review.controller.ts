@@ -8,6 +8,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -64,5 +66,14 @@ export class PeerReviewController {
     @CurrentUser('id') userId: string,
   ) {
     return this.peerReview.vote(userId, explanationId);
+  }
+
+  /** GET /squads/peer-review/:squadId/reputation/leaderboard?limit=10 */
+  @Get(':squadId/reputation/leaderboard')
+  async leaderboard(
+    @Param('squadId') squadId: string,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.peerReview.getLeaderboard(squadId, limit);
   }
 }

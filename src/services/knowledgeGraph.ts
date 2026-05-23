@@ -29,6 +29,7 @@ export interface NodeDrillDownDto {
 }
 
 export interface StudyPlanDto {
+  id?: string;
   targetCertId: string;
   sourceCertIds: string[];
   skipTopics: string[];
@@ -36,6 +37,7 @@ export interface StudyPlanDto {
   effortReductionPct: number;
   totalTopics: number;
   skippableCount: number;
+  createdAt?: string;
 }
 
 export async function getKnowledgeGraph(
@@ -49,10 +51,12 @@ export async function getKnowledgeGraph(
 
 export async function triggerOverlapCompute(
   certId: string,
-): Promise<{ message: string }> {
-  const res = await api.post<{ message: string }>(
-    `/knowledge-graph/overlap/${certId}/compute`,
-  );
+): Promise<{ message: string; certId: string; jobId: string }> {
+  const res = await api.post<{
+    message: string;
+    certId: string;
+    jobId: string;
+  }>(`/knowledge-graph/overlap/${certId}/compute`);
   return res.data;
 }
 
@@ -66,11 +70,20 @@ export async function getDrillDown(
   return res.data;
 }
 
-export async function getStudyPlan(
+export async function createStudyPlan(
   targetCertId: string,
 ): Promise<StudyPlanDto> {
-  const res = await api.get<StudyPlanDto>("/knowledge-graph/study-plan", {
-    params: { targetCertId },
-  });
+  const res = await api.post<StudyPlanDto>(
+    "/knowledge-graph/study-plan",
+    null,
+    {
+      params: { targetCertId },
+    },
+  );
+  return res.data;
+}
+
+export async function listStudyPlans(): Promise<StudyPlanDto[]> {
+  const res = await api.get<StudyPlanDto[]>("/knowledge-graph/study-plans");
   return res.data;
 }
