@@ -394,4 +394,74 @@ export class KnowledgeGraphService {
       createdAt: p.createdAt,
     }));
   }
+
+  // ─── Study Plan Scheduling (US-1104) ─────────────────────────────────────
+
+  /**
+   * Generate ReviewSchedule entries for must-learn domain questions from a saved plan.
+   * Skip-able topics produce no schedules. Idempotent — existing schedules untouched.
+   */
+  async scheduleFromPlan(
+    userId: string,
+    studyPlanId: string,
+  ): Promise<{ scheduled: number; alreadyExisted: number }> {
+    const plan = await this.prisma.studyPlan.findUnique({
+      where: { id: studyPlanId },
+    });
+    if (!plan) throw new Error(`StudyPlan ${studyPlanId} not found`);
+    if (plan.userId !== userId)
+      throw new Error('StudyPlan does not belong to user');
+
+    const mustLearnTopics = plan.mustLearnTopics as string[];
+    if (!mustLearnTopics.length) return { scheduled: 0, alreadyExisted: 0 };
+
+    const domains = await this.prisma.domain.findMany({
+      where: {
+        certificationId: plan.targetCertId,
+        name: { in: mustLearnTopics },
+      },
+      select: { id: true },
+    });
+    if (!domains.length) return { scheduled: 0, alreadyExisted: 0 };
+
+    const domainIds = domains.map((d) => d.id);
+    const questions = await this.prisma.question.findMany({
+      where: {
+        domainId: { in: domainIds },
+        certificationId: plan.targetCertId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    let scheduled = 0;
+    let alreadyExisted = 0;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    for (const q of questions) {
+      const existing = await this.prisma.reviewSchedule.findUnique({
+        where: { userId_questionId: { userId, questionId: q.id } },
+      });
+      if (existing) {
+        alreadyExisted++;
+        continue;
+      }
+      await this.prisma.reviewSchedule.create({
+        data: {
+          userId,
+          questionId: q.id,
+          nextReviewDate: tomorrow,
+          intervalDays: 1,
+          repetitions: 0,
+        },
+      });
+      scheduled++;
+    }
+
+    this.logger.log(
+      `study_plan_scheduled userId=${userId} planId=${studyPlanId} scheduled=${scheduled} existed=${alreadyExisted}`,
+    );
+    return { scheduled, alreadyExisted };
+  }
 }

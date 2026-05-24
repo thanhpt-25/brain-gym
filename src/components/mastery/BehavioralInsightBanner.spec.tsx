@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { BehavioralInsightBanner } from "./BehavioralInsightBanner";
 import type { BehavioralInsight } from "../../services/insights";
 
@@ -241,6 +242,55 @@ describe("BehavioralInsightBanner", () => {
       expect(
         screen.getByText("Reading Speed Pattern Detected"),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("Accessibility (WCAG 2.1 AA)", () => {
+    it("should not have accessibility violations on initial render", async () => {
+      const { container } = render(
+        <BehavioralInsightBanner insight={mockInsight} />,
+      );
+
+      const results = await axe(container);
+      expect(results.violations.length).toBe(0);
+    });
+
+    it("should have proper ARIA labels on alert elements", async () => {
+      const { container } = render(
+        <BehavioralInsightBanner insight={mockInsight} />,
+      );
+
+      const alertElement = container.querySelector("[role='alert']");
+      expect(alertElement).toBeInTheDocument();
+
+      const results = await axe(container);
+      expect(results.violations.length).toBe(0);
+    });
+
+    it("should have accessible dismiss button", async () => {
+      const { container } = render(
+        <BehavioralInsightBanner insight={mockInsight} />,
+      );
+
+      const dismissButton = screen.getByRole("button", { name: /dismiss/i });
+      expect(dismissButton).toBeInTheDocument();
+
+      const results = await axe(container);
+      expect(results.violations.length).toBe(0);
+    });
+
+    it("should maintain accessibility after dismiss", async () => {
+      const { container, rerender } = render(
+        <BehavioralInsightBanner insight={mockInsight} />,
+      );
+
+      const dismissButton = screen.getByRole("button", { name: /dismiss/i });
+      fireEvent.click(dismissButton);
+
+      rerender(<BehavioralInsightBanner insight={mockInsight} />);
+
+      const results = await axe(container);
+      expect(results.violations.length).toBe(0);
     });
   });
 });

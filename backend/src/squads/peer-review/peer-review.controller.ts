@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -75,5 +76,24 @@ export class PeerReviewController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
     return this.peerReview.getLeaderboard(squadId, limit);
+  }
+
+  /** GET /squads/peer-review/:squadId/flags?status=pending — US-1102 admin flag review */
+  @Get(':squadId/flags')
+  async listFlags(
+    @Param('squadId') squadId: string,
+    @Query('status') status?: string,
+  ) {
+    return this.peerReview.listFlags(squadId, status);
+  }
+
+  /** PATCH /squads/peer-review/flags/:flagId/resolve — US-1102 resolve (cleared|confirmed) */
+  @Patch('flags/:flagId/resolve')
+  @HttpCode(HttpStatus.OK)
+  async resolveFlag(
+    @Param('flagId') flagId: string,
+    @Body('resolution') resolution: 'cleared' | 'confirmed',
+  ) {
+    return this.peerReview.resolveFlag(flagId, resolution);
   }
 }

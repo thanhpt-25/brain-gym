@@ -19,6 +19,7 @@ import {
   Sparkles,
   ClipboardList,
   Zap,
+  Heart,
 } from "lucide-react";
 import AdminDashboard from "./AdminDashboard";
 import UsersTab from "./UsersTab";
@@ -34,6 +35,7 @@ import { AiGenerationTab } from "./AiGenerationTab";
 import { ExamsTab } from "./ExamsTab";
 import OrganizationsTab from "./OrganizationsTab";
 import { DdsAutoApplyPanel } from "@/components/admin/DdsAutoApplyPanel";
+import { ReputationTab } from "./ReputationTab";
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -113,6 +115,9 @@ const AdminPage = () => {
             <TabsTrigger value="dds" className="font-mono text-xs">
               <Zap className="h-3 w-3 mr-1" /> DDS Auto-Apply
             </TabsTrigger>
+            <TabsTrigger value="reputation" className="font-mono text-xs">
+              <Heart className="h-3 w-3 mr-1" /> Reputation
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard">
@@ -156,6 +161,9 @@ const AdminPage = () => {
           </TabsContent>
           <TabsContent value="dds">
             <DdsAutoApplyPanel />
+          </TabsContent>
+          <TabsContent value="reputation">
+            <ReputationTab />
           </TabsContent>
         </Tabs>
       </div>

@@ -69,6 +69,19 @@ export class KnowledgeGraphController {
     return this.kg.listStudyPlans(userId);
   }
 
+  /**
+   * POST /knowledge-graph/study-plans/:planId/schedule
+   * US-1104: Generate ReviewSchedule entries for must-learn topics in the plan.
+   */
+  @Post('study-plans/:planId/schedule')
+  @HttpCode(HttpStatus.OK)
+  async scheduleFromPlan(
+    @CurrentUser('id') userId: string,
+    @Param('planId') planId: string,
+  ) {
+    return this.kg.scheduleFromPlan(userId, planId);
+  }
+
   private async getPassedCertIds(userId: string): Promise<string[]> {
     const passed = await this.prisma.readinessScore.findMany({
       where: { userId, score: { gte: 70 } },
