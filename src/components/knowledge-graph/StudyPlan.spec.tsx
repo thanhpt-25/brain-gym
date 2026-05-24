@@ -52,7 +52,7 @@ describe("StudyPlanPanel", () => {
 
     expect(screen.getByText(/Study Plans — AWS/)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Generate Plan/ }),
+      screen.getByRole("button", { name: /Generate new study plan/ }),
     ).toBeInTheDocument();
   });
 

@@ -290,8 +290,10 @@ describe('Prompt Injection Security Regression Tests (US-1113)', () => {
         // (some implementations may return a safe response instead of throwing)
       } catch (error) {
         // Expected: jailbreak blocked
-        expect(error.message).toContain('jailbreak') ||
-          expect(error.message).toContain('unsafe');
+        expect(
+          error.message.includes('jailbreak') ||
+            error.message.includes('unsafe'),
+        ).toBe(true);
       }
     });
 
@@ -367,7 +369,7 @@ describe('Prompt Injection Security Regression Tests (US-1113)', () => {
   });
 
   describe('Coach: Response Filtering', () => {
-    it('should filter harmful content from LLM response before persisting', async () => {
+    it('should filter harmful content from LLM response before persisting', () => {
       // Mock LLM response with harmful content (simulated)
       const harmfulResponse =
         'Here is how to cheat: [unsafe content]. The answer to question 5 is...';
@@ -378,7 +380,7 @@ describe('Prompt Injection Security Regression Tests (US-1113)', () => {
       expect(filtered).toBeDefined(); // Should return a sanitized version
     });
 
-    it('should preserve legitimate educational content in filtered response', async () => {
+    it('should preserve legitimate educational content in filtered response', () => {
       const legitimateResponse =
         'Based on your performance, you should focus on: spaced repetition, active recall, and interleaving. Here is a study plan...';
 
@@ -547,7 +549,7 @@ describe('Prompt Injection Security Regression Tests (US-1113)', () => {
       }
     });
 
-    it('should not log sensitive LLM internals', async () => {
+    it('should not log sensitive LLM internals', () => {
       // Verify that logs do not contain:
       // - System prompt content
       // - LLM raw responses before filtering

@@ -216,14 +216,17 @@ describe("BehavioralInsightBanner", () => {
 
   describe("edge cases", () => {
     it("handles localStorage errors gracefully", () => {
-      const storageError = new Error("QuotaExceededError");
-      vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
-        throw storageError;
-      });
+      const setItemSpy = vi
+        .spyOn(Storage.prototype, "setItem")
+        .mockImplementation(() => {
+          throw new Error("QuotaExceededError");
+        });
 
       expect(() => {
         render(<BehavioralInsightBanner insight={mockInsight} />);
       }).not.toThrow();
+
+      setItemSpy.mockRestore();
     });
 
     it("renders with different insight details object shapes", () => {
