@@ -4,48 +4,58 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LlmUsageService } from '../llm-usage/llm-usage.service';
 import { LlmQuotaService } from '../llm-usage/llm-quota.service';
 
-const mockPrisma = {
-  question: { findUnique: jest.fn(), update: jest.fn() },
-  questionVariant: {
-    create: jest.fn(),
-    findUnique: jest.fn(),
-    findUniqueOrThrow: jest.fn(),
-    findMany: jest.fn(),
-    update: jest.fn(),
-  },
-  choice: { deleteMany: jest.fn(), createMany: jest.fn() },
-  llmUsageLog: { create: jest.fn() },
-  ddsConfig: {
-    findUnique: jest.fn(),
-    upsert: jest.fn(),
-    update: jest.fn(),
-  },
-  $transaction: jest.fn(),
-};
-
 const mockLlmUsage = { logUsage: jest.fn().mockResolvedValue(undefined) };
 const mockQuota = { enforceQuota: jest.fn().mockResolvedValue(undefined) };
 
 describe('DdsService — auto-apply & quota (US-1003/1004)', () => {
   let service: DdsService;
+  let mockPrisma: any;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    // Recreate mock object fresh in each test to ensure proper jest.fn() setup
+    mockPrisma = {
+      question: { findUnique: jest.fn(), update: jest.fn() },
+      questionVariant: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
+        findMany: jest.fn(),
+        update: jest.fn(),
+      },
+      choice: { deleteMany: jest.fn(), createMany: jest.fn() },
+      llmUsageLog: { create: jest.fn() },
+      ddsConfig: {
+        findUnique: jest.fn(),
+        upsert: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+
     delete process.env.DDS_AUTO_APPLY_ENABLED;
     delete process.env.DDS_AUTO_APPLY_THRESHOLD;
     delete process.env.DDS_SHADOW_MODE;
 
-    // Setup default ddsConfig mocks
-    mockPrisma.ddsConfig.findUnique.mockResolvedValue({
-      cohortName: 'default',
-      shadowModeEnabled: true,
-      canaryArmed: false,
-      promotedAt: null,
+    // Setup default ddsConfig mocks — dynamically respond to env vars
+    // When DDS_SHADOW_MODE='false', mock returns shadowModeEnabled=false (live mode)
+    // Otherwise returns null to allow in-memory fallback
+    mockPrisma.ddsConfig.findUnique.mockImplementation(async (query) => {
+      if (process.env.DDS_SHADOW_MODE === 'false') {
+        return {
+          cohortName: 'default',
+          shadowModeEnabled: false,
+          canaryArmed: true,
+          promotedAt: null,
+        };
+      }
+      // Return null to allow in-memory fallback for env-var-driven tests
+      return null;
     });
+
     mockPrisma.ddsConfig.upsert.mockResolvedValue({
       cohortName: 'default',
-      shadowModeEnabled: true,
-      canaryArmed: false,
+      shadowModeEnabled: false,
+      canaryArmed: true,
       promotedAt: null,
     });
 
