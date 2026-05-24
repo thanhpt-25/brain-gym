@@ -6,8 +6,11 @@ import {
   Loader2,
   ShieldAlert,
   CheckCircle2,
+  TrendingUp,
+  AlertCircle,
 } from "lucide-react";
 import api from "../../services/api";
+import "./dds-auto-apply-panel.css";
 
 interface AutoApplyDecision {
   shouldApply: boolean;
@@ -25,6 +28,23 @@ interface QuestionVariant {
   createdAt: string;
 }
 
+interface AutoApplyReadiness {
+  cleanApprovals: number;
+  threshold: number;
+  rollbackCount: number;
+  lastRollbackAt: string | null;
+  readyToPromote: boolean;
+  progressPercent: number;
+}
+
+interface CohortConfig {
+  cohortName: string;
+  shadowModeEnabled: boolean;
+  canaryArmed: boolean;
+  promotedAt: string | null;
+  canaryPausedAt: string | null;
+}
+
 async function fetchAutoApplied(): Promise<QuestionVariant[]> {
   const res = await api.get<QuestionVariant[]>(
     "/ai-question-bank/dds/pending",
@@ -33,6 +53,24 @@ async function fetchAutoApplied(): Promise<QuestionVariant[]> {
     },
   );
   return res.data.filter((v) => v.status === "AUTO_APPLIED");
+}
+
+async function fetchAutoApplyReadiness(): Promise<AutoApplyReadiness> {
+  const res = await api.get<AutoApplyReadiness>(
+    "/ai-question-bank/dds/auto-apply/readiness",
+  );
+  return res.data;
+}
+
+async function fetchCohortConfig(): Promise<CohortConfig | null> {
+  const res = await api.get<CohortConfig>(
+    "/ai-question-bank/dds/auto-apply/cohort-config",
+  );
+  return res.data;
+}
+
+async function promoteCohortToLive() {
+  return api.post("/ai-question-bank/dds/auto-apply/promote");
 }
 
 async function evaluateVariant(variantId: string): Promise<AutoApplyDecision> {
@@ -61,6 +99,18 @@ export function DdsAutoApplyPanel() {
     staleTime: 30_000,
   });
 
+  const { data: readiness, isLoading: readinessLoading } = useQuery({
+    queryKey: ["dds-auto-apply-readiness"],
+    queryFn: fetchAutoApplyReadiness,
+    staleTime: 60_000,
+  });
+
+  const { data: cohortConfig, isLoading: cohortLoading } = useQuery({
+    queryKey: ["dds-cohort-config"],
+    queryFn: fetchCohortConfig,
+    staleTime: 30_000,
+  });
+
   const evaluate = useMutation({
     mutationFn: (variantId: string) => {
       setEvaluatingId(variantId);
@@ -75,12 +125,24 @@ export function DdsAutoApplyPanel() {
     onSuccess: () => {
       setDecision(null);
       qc.invalidateQueries({ queryKey: ["dds-auto-applied"] });
+      qc.invalidateQueries({ queryKey: ["dds-auto-apply-readiness"] });
     },
   });
 
   const rollback = useMutation({
     mutationFn: (variantId: string) => rollbackVariant(variantId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["dds-auto-applied"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dds-auto-applied"] });
+      qc.invalidateQueries({ queryKey: ["dds-auto-apply-readiness"] });
+    },
+  });
+
+  const promote = useMutation({
+    mutationFn: promoteCohortToLive,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["dds-auto-apply-readiness"] });
+      qc.invalidateQueries({ queryKey: ["dds-auto-applied"] });
+    },
   });
 
   const shadowMode = import.meta.env.VITE_DDS_SHADOW_MODE !== "false";
@@ -103,6 +165,125 @@ export function DdsAutoApplyPanel() {
         Variants that meet the cohort approval threshold are auto-applied. In
         shadow mode, decisions are logged but not committed.
       </p>
+
+      {readinessLoading && (
+        <div className="dds-readiness-loading" aria-busy="true">
+          <Loader2 size={16} className="dds-spin" />
+          <span>Loading Gate 2 readiness…</span>
+        </div>
+      )}
+
+      {readiness && !readinessLoading && (
+        <div
+          className={`dds-readiness ${readiness.readyToPromote ? "dds-readiness--ready" : "dds-readiness--pending"}`}
+          role="status"
+        >
+          <div className="dds-readiness-header">
+            <h4 className="dds-readiness-title">
+              <TrendingUp size={16} />
+              Gate 2: Readiness
+            </h4>
+            {readiness.readyToPromote && (
+              <span
+                className="dds-readiness-badge"
+                aria-label="Ready to promote"
+              >
+                <CheckCircle2 size={13} /> Ready
+              </span>
+            )}
+          </div>
+
+          <div className="dds-readiness-metrics">
+            <div className="dds-metric">
+              <span className="dds-metric-label">Clean Approvals</span>
+              <span className="dds-metric-value">
+                {readiness.cleanApprovals}/{readiness.threshold}
+              </span>
+              <div className="dds-metric-bar">
+                <div
+                  className="dds-metric-fill"
+                  style={{
+                    width: `${readiness.progressPercent}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="dds-metric">
+              <span className="dds-metric-label">Rollbacks</span>
+              <span className="dds-metric-value">
+                {readiness.rollbackCount}
+              </span>
+              {readiness.rollbackCount > 0 && readiness.lastRollbackAt && (
+                <span className="dds-metric-detail">
+                  Last:{" "}
+                  {new Date(readiness.lastRollbackAt).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {!readiness.readyToPromote && readiness.rollbackCount > 0 && (
+            <div className="dds-readiness-warning" role="alert">
+              <AlertCircle size={13} />
+              Cannot promote: recent rollbacks detected. Must reach zero
+              rollbacks.
+            </div>
+          )}
+
+          {!readiness.readyToPromote &&
+            readiness.cleanApprovals < readiness.threshold && (
+              <div className="dds-readiness-warning" role="alert">
+                <AlertCircle size={13} />
+                {readiness.threshold - readiness.cleanApprovals} more clean
+                approvals needed.
+              </div>
+            )}
+
+          <button
+            className="dds-promote-btn"
+            onClick={() => promote.mutate()}
+            disabled={!readiness.readyToPromote || promote.isPending}
+            aria-label="Promote DDS cohort to live mode"
+          >
+            {promote.isPending ? (
+              <Loader2 size={13} className="dds-spin" />
+            ) : (
+              <Zap size={13} />
+            )}
+            {shadowMode ? "Simulate promote" : "Promote to live"}
+          </button>
+        </div>
+      )}
+
+      {cohortConfig && !cohortLoading && (
+        <div className="dds-canary-status" role="status">
+          <h4>
+            <ShieldAlert size={14} />
+            Canary Status
+          </h4>
+          <div className="dds-canary-state">
+            {cohortConfig.canaryArmed ? (
+              <span className="dds-canary-armed">🛡️ Armed</span>
+            ) : cohortConfig.promotedAt ? (
+              <span className="dds-canary-paused">⏸️ Paused</span>
+            ) : (
+              <span className="dds-canary-inactive">○ Inactive</span>
+            )}
+          </div>
+          {cohortConfig.promotedAt && (
+            <span className="dds-canary-detail">
+              Promoted: {new Date(cohortConfig.promotedAt).toLocaleDateString()}
+            </span>
+          )}
+          {cohortConfig.canaryPausedAt && (
+            <span className="dds-canary-detail">
+              Paused:{" "}
+              {new Date(cohortConfig.canaryPausedAt).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+      )}
 
       {decision && evaluatingId && (
         <div

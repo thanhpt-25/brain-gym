@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -12,12 +13,23 @@ import {
   GamificationService,
   POINTS,
 } from '../gamification/gamification.service';
+import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
+
+// US-1103: debounce window before enqueuing overlap recompute (ms)
+const RECOMPUTE_DEBOUNCE_MS = parseInt(
+  process.env.KG_RECOMPUTE_DEBOUNCE_MS ?? '5000',
+  10,
+);
 
 @Injectable()
 export class QuestionsService {
+  private readonly logger = new Logger(QuestionsService.name);
+  private readonly recomputeDebounce = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gamification: GamificationService,
+    private readonly kg: KnowledgeGraphService,
   ) {}
 
   async findAll(
@@ -397,7 +409,10 @@ export class QuestionsService {
       }
     }
 
-    return this.prisma.question.update({
+    const domainChanged =
+      dto.domainId !== undefined && dto.domainId !== question.domainId;
+
+    const updated = await this.prisma.question.update({
       where: { id: questionId },
       data: questionData,
       include: {
@@ -408,6 +423,41 @@ export class QuestionsService {
         tags: { include: { tag: true } },
       },
     });
+
+    // US-1103: debounced overlap recompute when domain changes
+    if (domainChanged && updated.certificationId) {
+      this.scheduleOverlapRecompute(updated.certificationId);
+    }
+
+    return updated;
+  }
+
+  /**
+   * US-1103: Debounce overlap recompute — collapses burst edits into one job.
+   * Uses in-process timer; safe for single-instance deployment.
+   */
+  private scheduleOverlapRecompute(certId: string): void {
+    const existing = this.recomputeDebounce.get(certId);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(() => {
+      this.recomputeDebounce.delete(certId);
+      this.kg
+        .enqueueOverlapCompute(certId)
+        .then(({ jobId }) =>
+          this.logger.log(
+            `kg_recompute_triggered certId=${certId} jobId=${jobId}`,
+          ),
+        )
+        .catch((err: unknown) =>
+          this.logger.error(
+            `kg_recompute_enqueue_failed certId=${certId}`,
+            err,
+          ),
+        );
+    }, RECOMPUTE_DEBOUNCE_MS);
+
+    this.recomputeDebounce.set(certId, timer);
   }
 
   async adminDelete(questionId: string) {

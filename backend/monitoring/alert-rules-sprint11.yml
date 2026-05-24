@@ -1,0 +1,128 @@
+# Sprint 11 Alert Rules (US-1109)
+# Prometheus/Alertmanager configuration for DDS canary rollback-rate monitoring
+
+groups:
+  - name: sprint11_dds_canary
+    interval: 30s
+    rules:
+      # ========================================================================
+      # DDS Canary Rollback Rate Alert
+      # ========================================================================
+      # This alert fires when the variant rollback rate exceeds 10% in a 5-minute
+      # window. The 10% threshold matches the DDS canary policy (ADR-026).
+      #
+      # Context:
+      # - Rollback rate = (rolled_back_variants / total_proposed_variants) over 5m
+      # - 10% threshold is the policy limit before manual intervention
+      # - Alert severity: CRITICAL (blocks shadow→live promotion)
+      #
+      # Runbook: docs/oncall.md#dds-canary-rollback-alert
+      # ========================================================================
+      - alert: DDSCanaryRollbackRateHigh
+        expr: |
+          (rate(dds_variant_rolled_back_total[5m]) / (rate(dds_variant_proposed_total[5m]) + 1e-6)) * 100 >= 10
+        for: 2m
+        labels:
+          severity: critical
+          component: dds-canary
+          team: backend
+        annotations:
+          summary: "DDS canary rollback rate exceeds 10%"
+          description: |
+            The DDS auto-apply canary rollback rate has reached {{ $value | humanize }}%
+            over the last 5 minutes. This exceeds the 10% policy threshold.
+
+            Current status:
+            - Rollback Rate: {{ $value | humanize }}%
+            - Policy Limit: 10%
+            - Action Required: Immediate investigation
+
+            See runbook: docs/oncall.md#dds-canary-rollback-alert
+          dashboard: "http://grafana.local/d/sprint11-observability?tab=alert"
+          runbook_url: "https://docs.example.com/oncall.md#dds-canary-rollback-alert"
+
+      # ========================================================================
+      # DDS Canary Pause Alert (informational)
+      # ========================================================================
+      # Fires when canary auto-pause is triggered (informational only)
+      # ========================================================================
+      - alert: DDSCanaryPaused
+        expr: rate(dds_canary_paused_total[1h]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          component: dds-canary
+          team: backend
+        annotations:
+          summary: "DDS canary has paused due to high rollback rate"
+          description: |
+            The DDS canary safety mechanism has automatically paused auto-apply
+            due to exceeding the rollback-rate threshold in the 5-minute window.
+
+            This is a safety feature - variants are still being proposed and approved,
+            but auto-apply execution is paused until the issue is investigated.
+
+            Action: Review rollback rate metric and investigate root cause.
+            Manual resume can be triggered via admin API once issue is resolved.
+          runbook_url: "https://docs.example.com/oncall.md#dds-canary-paused"
+
+      # ========================================================================
+      # Reputation Anti-Gaming Metrics (informational alerts)
+      # ========================================================================
+      - alert: ReputationFlagCreationRate
+        expr: rate(reputation_flag_created_total[1h]) > 0.05
+        for: 5m
+        labels:
+          severity: info
+          component: reputation-anti-gaming
+          team: backend
+        annotations:
+          summary: "High reputation flag creation rate (>5% of votes)"
+          description: |
+            The reputation anti-gaming system is flagging more than 5% of votes.
+            This may indicate a coordinated attack or legitimate edge case.
+
+            Current rate: {{ $value | humanize }} flags/second
+
+            Review flags to determine if thresholds need adjustment.
+          dashboard: "http://grafana.local/d/sprint11-observability?tab=anti-gaming"
+
+      # ========================================================================
+      # KG Real-Time Recompute Monitoring
+      # ========================================================================
+      - alert: KGOverlapRecomputeFailureRate
+        expr: |
+          (rate(kg_overlap_recompute_failed_total[1h]) / (rate(kg_overlap_recompute_completed_total[1h]) + rate(kg_overlap_recompute_failed_total[1h]) + 1e-6)) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: kg-recompute
+          team: backend
+        annotations:
+          summary: "KG overlap recompute failure rate exceeds 5%"
+          description: |
+            Knowledge graph overlap recompute is failing at a rate above 5%.
+            This may impact the freshness of overlap scores in the KG.
+
+            Failure rate: {{ $value | humanize }}%
+
+            Check: Elasticsearch/vector DB connectivity, compute job queue status
+          dashboard: "http://grafana.local/d/sprint11-observability?tab=kg-recompute"
+
+      - alert: KGOverlapRecomputeDurationHigh
+        expr: histogram_quantile(0.95, rate(kg_overlap_recompute_duration_ms_bucket[5m])) > 500
+        for: 5m
+        labels:
+          severity: warning
+          component: kg-recompute
+          team: backend
+        annotations:
+          summary: "KG overlap recompute p95 latency exceeds 500ms"
+          description: |
+            Knowledge graph overlap recompute is taking longer than expected.
+            This may indicate resource contention or query complexity.
+
+            p95 Duration: {{ $value | humanize }}ms (target: <500ms)
+            p50 Duration: {{ $value | humanize }}ms
+
+            Monitor compute resource utilization and check for slow queries.

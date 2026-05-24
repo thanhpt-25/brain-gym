@@ -306,8 +306,16 @@ export class CoachService {
     };
     messages.push(userMsg);
 
+    // H-3: Limit message history sent to LLM (last 20 messages max)
+    // This prevents unbounded context and keeps API costs reasonable
+    const maxHistoryMessages = 20;
+    const historyToSend =
+      messages.length > maxHistoryMessages
+        ? messages.slice(-maxHistoryMessages)
+        : messages;
+
     // Prepare messages for LLM (convert to Anthropic format)
-    const anthropicMessages = messages.map((msg) => ({
+    const anthropicMessages = historyToSend.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
@@ -423,10 +431,19 @@ Always be supportive and never judgmental.${contextSection}`,
       throw error;
     }
 
-    // Persist assistant response
+    // H-2: Filter LLM response for safety before persisting
+    // If response contains flagged content, use safe fallback message
+    const filteredResponse =
+      this.coachSafetyService.filterResponse(fullResponse);
+    const safeResponse =
+      filteredResponse !== null
+        ? filteredResponse
+        : this.coachSafetyService.getSafeResponse();
+
+    // Persist assistant response (filtered)
     const assistantMsg: CoachMessage = {
       role: 'assistant',
-      content: fullResponse,
+      content: safeResponse,
       timestamp: new Date().toISOString(),
     };
     sessionMessages.push(assistantMsg);

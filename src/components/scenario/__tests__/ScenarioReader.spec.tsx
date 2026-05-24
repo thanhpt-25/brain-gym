@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "jest-axe";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ScenarioReader } from "../ScenarioReader";
 import * as scenariosService from "@/services/scenarios";
@@ -422,6 +423,68 @@ describe("ScenarioReader", () => {
       await user.click(secondQuestionButton!);
 
       expect(secondQuestionButton?.parentElement).toHaveClass("bg-blue-50");
+    });
+
+    it("should not have accessibility violations on initial render", async () => {
+      vi.mocked(scenariosService.getScenario).mockResolvedValue(mockScenario);
+
+      const { container } = renderWithQuery(
+        <ScenarioReader scenarioId="scenario-1" />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(mockScenario.passage)).toBeInTheDocument();
+      });
+
+      const results = await axe(container);
+      expect(results.violations.length).toBe(0);
+    });
+
+    it("should maintain accessibility during question navigation", async () => {
+      vi.mocked(scenariosService.getScenario).mockResolvedValue(mockScenario);
+      const user = userEvent.setup();
+
+      const { container } = renderWithQuery(
+        <ScenarioReader scenarioId="scenario-1" />,
+      );
+
+      await waitFor(() => {
+        const questions = screen.getAllByText("What is cloud computing?");
+        expect(questions.length).toBeGreaterThan(0);
+      });
+
+      const questionButtons = screen.getAllByRole("button");
+      const secondQuestionButton = questionButtons.find(
+        (btn) =>
+          btn.textContent &&
+          btn.textContent.includes("Which is a cloud provider?"),
+      );
+      await user.click(secondQuestionButton!);
+
+      const results = await axe(container);
+      expect(results.violations.length).toBe(0);
+    });
+
+    it("should maintain accessibility when answer is selected", async () => {
+      vi.mocked(scenariosService.getScenario).mockResolvedValue(mockScenario);
+      const user = userEvent.setup();
+
+      const { container } = renderWithQuery(
+        <ScenarioReader scenarioId="scenario-1" />,
+      );
+
+      await waitFor(() => {
+        const questions = screen.getAllByText("What is cloud computing?");
+        expect(questions.length).toBeGreaterThan(0);
+      });
+
+      const option = await screen.findByRole("radio", {
+        name: /On-demand computing resources/i,
+      });
+      await user.click(option);
+
+      const results = await axe(container);
+      expect(results.violations.length).toBe(0);
     });
   });
 

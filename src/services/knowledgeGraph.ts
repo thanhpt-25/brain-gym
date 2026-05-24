@@ -87,3 +87,13 @@ export async function listStudyPlans(): Promise<StudyPlanDto[]> {
   const res = await api.get<StudyPlanDto[]>("/knowledge-graph/study-plans");
   return res.data;
 }
+
+export async function scheduleFromPlan(
+  planId: string,
+): Promise<{ scheduled: number; alreadyExisted: number }> {
+  const res = await api.post<{
+    scheduled: number;
+    alreadyExisted: number;
+  }>(`/knowledge-graph/study-plans/${planId}/schedule`);
+  return res.data;
+}

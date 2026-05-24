@@ -47,6 +47,30 @@ const BADGE_TIERS = [
   { name: 'bronze-explainer', threshold: 5 },
 ] as const;
 
+// US-1102: anti-gaming thresholds (env-overridable for testability)
+function getVelocityWindowMs(): number {
+  return parseInt(process.env.REPUTATION_VELOCITY_WINDOW_MS ?? '60000', 10);
+}
+function getVelocityBurstThreshold(): number {
+  return parseInt(process.env.REPUTATION_VELOCITY_BURST_THRESHOLD ?? '5', 10);
+}
+function getRingThreshold(): number {
+  return parseInt(process.env.REPUTATION_RING_THRESHOLD ?? '3', 10);
+}
+
+export interface ReputationFlagDto {
+  id: string;
+  flaggedUserId: string;
+  voterId: string;
+  explanationId: string;
+  squadId: string;
+  reason: string;
+  pointsHeld: number;
+  status: string;
+  createdAt: Date;
+  resolvedAt: Date | null;
+}
+
 @Injectable()
 export class PeerReviewService {
   private readonly logger = new Logger(PeerReviewService.name);
@@ -126,6 +150,32 @@ export class PeerReviewService {
     const newUpvotes = updated.upvotes;
     let isTop = explanation.isTop;
 
+    // US-1102: anomaly detection — skip accrual and flag if suspicious
+    const anomalyReason = await this.detectAnomaly(
+      userId,
+      explanationId,
+      explanation.authorId,
+      explanation.squadId,
+    );
+
+    if (anomalyReason) {
+      await this.prisma.reputationFlag.create({
+        data: {
+          flaggedUserId: explanation.authorId,
+          voterId: userId,
+          explanationId,
+          squadId: explanation.squadId,
+          reason: anomalyReason,
+          pointsHeld: 1,
+          status: 'pending',
+        },
+      });
+      this.logger.warn(
+        `reputation_flag reason=${anomalyReason} voter=${userId} explanation=${explanationId}`,
+      );
+      return { newUpvotes, isTop };
+    }
+
     // Accrue +1 reputation point to the explanation author in this squad
     let rep = await this.accrueReputation(
       explanation.authorId,
@@ -155,6 +205,52 @@ export class PeerReviewService {
     );
 
     return { newUpvotes, isTop };
+  }
+
+  // ─── US-1102: Flag management ─────────────────────────────────────────────
+
+  async listFlags(
+    squadId: string,
+    status?: string,
+  ): Promise<ReputationFlagDto[]> {
+    const flags = await this.prisma.reputationFlag.findMany({
+      where: { squadId, ...(status ? { status } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    return flags.map((f) => this.toFlagDto(f));
+  }
+
+  async resolveFlag(
+    flagId: string,
+    resolution: 'cleared' | 'confirmed',
+  ): Promise<ReputationFlagDto> {
+    const flag = await this.prisma.reputationFlag.findUnique({
+      where: { id: flagId },
+    });
+    if (!flag) throw new NotFoundException(`Flag ${flagId} not found`);
+    if (flag.status !== 'pending') {
+      throw new BadRequestException(`Flag already resolved as ${flag.status}`);
+    }
+
+    const updated = await this.prisma.reputationFlag.update({
+      where: { id: flagId },
+      data: { status: resolution, resolvedAt: new Date() },
+    });
+
+    // If cleared (vote was legit), apply the withheld points now
+    if (resolution === 'cleared') {
+      await this.accrueReputation(
+        flag.flaggedUserId,
+        flag.squadId,
+        flag.pointsHeld,
+      );
+      this.logger.log(
+        `reputation_flag_cleared flagId=${flagId} points_released=${flag.pointsHeld}`,
+      );
+    }
+
+    return this.toFlagDto(updated);
   }
 
   async listForQuestion(
@@ -248,6 +344,57 @@ export class PeerReviewService {
     return 'none';
   }
 
+  // ─── US-1102: Anomaly detection ──────────────────────────────────────────
+
+  /**
+   * Detect vote-velocity burst or vote-ring.
+   * Returns a reason string if suspicious, null if legitimate.
+   */
+  private async detectAnomaly(
+    voterId: string,
+    explanationId: string,
+    authorId: string,
+    squadId: string,
+  ): Promise<string | null> {
+    const windowMs = getVelocityWindowMs();
+    const burstThreshold = getVelocityBurstThreshold();
+    const ringThreshold = getRingThreshold();
+    const windowStart = new Date(Date.now() - windowMs);
+
+    // velocity_burst: too many votes to this explanation within the window
+    const recentVotes = await this.prisma.vote.count({
+      where: {
+        targetId: explanationId,
+        targetType: VoteTargetType.EXPLANATION,
+        createdAt: { gte: windowStart },
+      },
+    });
+    if (recentVotes >= burstThreshold) {
+      return 'velocity_burst';
+    }
+
+    // vote_ring: voter has already voted on many explanations by the same author in this squad
+    const authorExplanations = await this.prisma.peerExplanation.findMany({
+      where: { authorId, squadId },
+      select: { id: true },
+    });
+    const authorExplanationIds = authorExplanations.map((e) => e.id);
+    if (authorExplanationIds.length > 0) {
+      const crossVotes = await this.prisma.vote.count({
+        where: {
+          userId: voterId,
+          targetType: VoteTargetType.EXPLANATION,
+          targetId: { in: authorExplanationIds },
+        },
+      });
+      if (crossVotes >= ringThreshold) {
+        return 'vote_ring';
+      }
+    }
+
+    return null;
+  }
+
   private toDto(e: {
     id: string;
     questionId: string;
@@ -269,6 +416,32 @@ export class PeerReviewService {
       isTop: e.isTop,
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
+    };
+  }
+
+  private toFlagDto(f: {
+    id: string;
+    flaggedUserId: string;
+    voterId: string;
+    explanationId: string;
+    squadId: string;
+    reason: string;
+    pointsHeld: number;
+    status: string;
+    createdAt: Date;
+    resolvedAt: Date | null;
+  }): ReputationFlagDto {
+    return {
+      id: f.id,
+      flaggedUserId: f.flaggedUserId,
+      voterId: f.voterId,
+      explanationId: f.explanationId,
+      squadId: f.squadId,
+      reason: f.reason,
+      pointsHeld: f.pointsHeld,
+      status: f.status,
+      createdAt: f.createdAt,
+      resolvedAt: f.resolvedAt,
     };
   }
 }

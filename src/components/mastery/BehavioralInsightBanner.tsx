@@ -10,15 +10,23 @@ interface BehavioralInsightBannerProps {
 export function BehavioralInsightBanner({
   insight,
 }: BehavioralInsightBannerProps) {
-  const [dismissed, setDismissed] = useState(
-    localStorage.getItem(`dismissed_insight_${insight.id}`) === "true",
-  );
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(`dismissed_insight_${insight.id}`) === "true";
+    } catch {
+      return false;
+    }
+  });
 
   // Update dismissed state when insight changes
   useEffect(() => {
-    setDismissed(
-      localStorage.getItem(`dismissed_insight_${insight.id}`) === "true",
-    );
+    try {
+      setDismissed(
+        localStorage.getItem(`dismissed_insight_${insight.id}`) === "true",
+      );
+    } catch {
+      // Silently handle localStorage errors
+    }
   }, [insight.id]);
 
   if (dismissed) return null;
@@ -27,7 +35,11 @@ export function BehavioralInsightBanner({
   const bgColor = getSeverityColor(insight.severity);
 
   const handleDismiss = () => {
-    localStorage.setItem(`dismissed_insight_${insight.id}`, "true");
+    try {
+      localStorage.setItem(`dismissed_insight_${insight.id}`, "true");
+    } catch {
+      // Silently handle localStorage errors (quota exceeded, etc.)
+    }
     setDismissed(true);
   };
 

@@ -8,6 +8,7 @@ import {
   Request,
   Res,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CoachService } from './coach.service';
@@ -105,6 +106,14 @@ export class CoachController {
     @Request() req: any,
     @Res() res: any,
   ): Promise<void> {
+    // H-1: Enforce free-tier gate - free tier users cannot access coach
+    const userTier = req.user.subscriptionTier || req.user.plan || 'free';
+    if (userTier === 'free' || userTier === 'FREE') {
+      throw new ForbiddenException(
+        'Coach feature is not available on free tier. Please upgrade to Pro or Elite tier.',
+      );
+    }
+
     if (!body.message || body.message.trim().length === 0) {
       throw new BadRequestException('Message cannot be empty');
     }

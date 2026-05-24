@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Loader2, CheckCircle2, XCircle, Plus } from "lucide-react";
+import {
+  BookOpen,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  Calendar,
+} from "lucide-react";
+import { toast } from "sonner";
 import {
   listStudyPlans,
   createStudyPlan,
+  scheduleFromPlan,
   StudyPlanDto,
 } from "../../services/knowledgeGraph";
 
@@ -102,9 +111,34 @@ function StudyPlanCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const qc = useQueryClient();
   const date = plan.createdAt
     ? new Date(plan.createdAt).toLocaleDateString()
     : null;
+
+  const schedule = useMutation({
+    mutationFn: async () => {
+      if (!plan.id) {
+        throw new Error("Cannot schedule plan without ID");
+      }
+      return scheduleFromPlan(plan.id);
+    },
+    onSuccess: (result) => {
+      toast.success(
+        `Scheduled ${result.scheduled} questions${
+          result.alreadyExisted > 0
+            ? ` (${result.alreadyExisted} already existed)`
+            : ""
+        }`,
+      );
+      qc.invalidateQueries({ queryKey: ["study-plans"] });
+    },
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message || "Failed to schedule study plan";
+      toast.error(message);
+    },
+  });
 
   return (
     <li className="study-plan-card">
@@ -164,6 +198,22 @@ function StudyPlanCard({
               </ul>
             </div>
           )}
+
+          <div className="study-plan-actions">
+            <button
+              className="study-plan-schedule-btn"
+              onClick={() => schedule.mutate()}
+              disabled={schedule.isPending || !plan.id}
+              aria-label="Schedule study plan questions for spaced repetition"
+            >
+              {schedule.isPending ? (
+                <Loader2 size={14} className="study-plan-spin" />
+              ) : (
+                <Calendar size={14} />
+              )}
+              {schedule.isPending ? "Scheduling…" : "Schedule"}
+            </button>
+          </div>
         </div>
       )}
     </li>

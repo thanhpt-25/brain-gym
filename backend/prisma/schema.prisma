@@ -249,6 +249,9 @@ model User {
   variantReviews             QuestionVariant[] @relation("QuestionVariantReviewer")
   studyPlans                 StudyPlan[]
   userReputations            UserReputation[]
+  reputationFlagsReceived    ReputationFlag[]  @relation("FlaggedUser")
+  reputationFlagsSent        ReputationFlag[]  @relation("FlagVoter")
+  ddsPromotions              DdsConfig[] // US-1101: cohorts promoted to live by this admin
 
   @@index([status])
   @@map("users")
@@ -797,6 +800,7 @@ model Organization {
   certification    Certification? @relation("SquadCertification", fields: [certificationId], references: [id])
   peerExplanations PeerExplanation[]
   userReputations  UserReputation[]
+  reputationFlags  ReputationFlag[]
 
   @@map("organizations")
 }
@@ -1366,9 +1370,10 @@ model PeerExplanation {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  question Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  squad    Organization  @relation(fields: [squadId], references: [id], onDelete: Cascade)
-  author   User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  question         Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  squad            Organization     @relation(fields: [squadId], references: [id], onDelete: Cascade)
+  author           User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  reputationFlags  ReputationFlag[]
 
   @@unique([questionId, squadId, authorId])
   @@index([questionId, squadId, upvotes])
@@ -1413,5 +1418,51 @@ model UserReputation {
   @@unique([userId, squadId])
   @@index([squadId, points])
   @@map("user_reputations")
+}
+
+// US-1102 (Sprint 11): Anti-gaming flag for suspicious votes.
+// When a vote is detected as velocity_burst or vote_ring, points are not accrued
+// and a flag is created for admin review. Admin can clear (legit) or confirm (abuse).
+model ReputationFlag {
+  id            String    @id @default(uuid())
+  flaggedUserId String    @map("flagged_user_id")
+  voterId       String    @map("voter_id")
+  explanationId String    @map("explanation_id")
+  squadId       String    @map("squad_id")
+  reason        String
+  pointsHeld    Int       @map("points_held")
+  status        String    @default("pending")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  resolvedAt    DateTime? @map("resolved_at")
+
+  flaggedUser User            @relation("FlaggedUser", fields: [flaggedUserId], references: [id], onDelete: Cascade)
+  voter       User            @relation("FlagVoter",   fields: [voterId],       references: [id], onDelete: Cascade)
+  explanation PeerExplanation @relation(fields: [explanationId], references: [id], onDelete: Cascade)
+  squad       Organization    @relation(fields: [squadId],       references: [id], onDelete: Cascade)
+
+  @@index([squadId, status])
+  @@index([flaggedUserId, createdAt])
+  @@map("reputation_flags")
+}
+
+// US-1101 (Sprint 11): DDS auto-apply config per cohort.
+// Tracks shadow mode state (live vs shadow) and canary monitoring for each cohort.
+// Default cohort starts in shadow mode; can be promoted to live after Gate 2 approval.
+model DdsConfig {
+  id                  String    @id @default(uuid())
+  cohortName          String    @unique @map("cohort_name")
+  shadowModeEnabled   Boolean   @default(true) @map("shadow_mode_enabled")
+  canaryArmed         Boolean   @default(false) @map("canary_armed")
+  promotedAt          DateTime? @map("promoted_at")
+  promotedBy          String?   @map("promoted_by") // userId of admin who flipped
+  canaryPausedAt      DateTime? @map("canary_paused_at")
+  canaryAutoResumeAt  DateTime? @map("canary_auto_resume_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  promoter User? @relation(fields: [promotedBy], references: [id], onDelete: SetNull)
+
+  @@index([cohortName])
+  @@map("dds_configs")
 }
 

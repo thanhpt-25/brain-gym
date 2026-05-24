@@ -306,14 +306,51 @@ export class DdsService {
 
   /**
    * Evaluate and optionally execute auto-apply for a pending variant.
-   * Default is shadow mode (DDS_SHADOW_MODE=true): decision logged, not applied.
+   * Shadow mode state now read from database DdsConfig per cohort.
+   * US-1101: canary auto-pause — if rollback rate in recent window exceeds threshold,
+   * automatically pause canary and log a warning.
    */
   async tryAutoApply(variantId: string): Promise<{
     decision: AutoApplyDecision;
     applied: boolean;
     shadowMode: boolean;
+    canaryPaused?: boolean;
   }> {
-    const shadowMode = process.env.DDS_SHADOW_MODE !== 'false';
+    const cohort = process.env.DDS_AUTO_APPLY_COHORT ?? 'default';
+    const config = await this.getOrInitCohortConfig(cohort);
+    let shadowMode = config.shadowModeEnabled;
+
+    // US-1101: canary check — auto-pause if rollback-rate is too high
+    if (!shadowMode && config.canaryArmed) {
+      const canarySafe = await this.checkCanary();
+      if (!canarySafe) {
+        this.logger.warn(
+          `dds_canary_paused cohort=${cohort}: rollback rate exceeded threshold, pausing canary`,
+        );
+        // Update database if config is real (not in-memory fallback)
+        if (!config.id?.startsWith('fallback-')) {
+          await this.prisma.ddsConfig.update({
+            where: { cohortName: cohort },
+            data: {
+              shadowModeEnabled: true,
+              canaryArmed: false,
+              canaryPausedAt: new Date(),
+            },
+          });
+        }
+        // Update environment to reflect paused state
+        process.env.DDS_SHADOW_MODE = 'true';
+        shadowMode = true;
+        const decision = await this.evaluateAutoApply(variantId);
+        return {
+          decision,
+          applied: false,
+          shadowMode: true,
+          canaryPaused: true,
+        };
+      }
+    }
+
     const decision = await this.evaluateAutoApply(variantId);
 
     if (!decision.shouldApply) {
@@ -322,17 +359,229 @@ export class DdsService {
 
     if (shadowMode) {
       this.logger.log(
-        `dds_auto_apply_shadow variantId=${variantId} reason="${decision.reason}"`,
+        `dds_auto_apply_shadow variantId=${variantId} cohort=${cohort} reason="${decision.reason}"`,
       );
       return { decision, applied: false, shadowMode: true };
     }
 
-    const note = `auto-applied (cohort=${decision.cohort}, threshold=${decision.threshold}, approvedCount=${decision.approvedCount})`;
+    const note = `auto-applied (live, cohort=${decision.cohort}, threshold=${decision.threshold}, approvedCount=${decision.approvedCount})`;
     await this.approve(variantId, 'auto', note);
     this.logger.log(
-      `dds_auto_applied variantId=${variantId} reason="${decision.reason}"`,
+      `dds_auto_applied variantId=${variantId} cohort=${cohort} reason="${decision.reason}"`,
     );
     return { decision, applied: true, shadowMode: false };
+  }
+
+  // ─── US-1107: Gate 2 readiness ────────────────────────────────────────────
+
+  /**
+   * Return production data to support the Gate 2 decision.
+   * "Clean approvals" = APPROVED variants not subsequently rolled back.
+   */
+  async getAutoApplyReadiness(): Promise<{
+    cleanApprovals: number;
+    threshold: number;
+    rollbackCount: number;
+    lastRollbackAt: Date | null;
+    readyToPromote: boolean;
+  }> {
+    const threshold = getAutoApplyThreshold();
+
+    const [approvedCount, rolledBackCount, lastRollback] = await Promise.all([
+      this.prisma.questionVariant.count({
+        where: { status: DdsVariantStatus.APPROVED },
+      }),
+      this.prisma.questionVariant.count({
+        where: { status: DdsVariantStatus.ROLLED_BACK },
+      }),
+      this.prisma.questionVariant.findFirst({
+        where: { status: DdsVariantStatus.ROLLED_BACK },
+        orderBy: { reviewedAt: 'desc' },
+        select: { reviewedAt: true },
+      }),
+    ]);
+
+    return {
+      cleanApprovals: approvedCount,
+      threshold,
+      rollbackCount: rolledBackCount,
+      lastRollbackAt: lastRollback?.reviewedAt ?? null,
+      readyToPromote: approvedCount >= threshold && rolledBackCount === 0,
+    };
+  }
+
+  /**
+   * Get current cohort DDS config (shadow mode, canary status).
+   * US-1101: Returns null if config does not exist in database.
+   * Exposed for FE dashboard to show promotion state.
+   */
+  async getCohortConfig(cohortName: string = 'default'): Promise<{
+    cohortName: string;
+    shadowModeEnabled: boolean;
+    canaryArmed: boolean;
+    promotedAt: Date | null;
+    canaryPausedAt: Date | null;
+    canaryAutoResumeAt: Date | null;
+  } | null> {
+    const config = await this.prisma.ddsConfig.findUnique({
+      where: { cohortName },
+    });
+
+    if (!config) {
+      return null;
+    }
+
+    return {
+      cohortName: config.cohortName,
+      shadowModeEnabled: config.shadowModeEnabled,
+      canaryArmed: config.canaryArmed,
+      promotedAt: config.promotedAt,
+      canaryPausedAt: config.canaryPausedAt,
+      canaryAutoResumeAt: config.canaryAutoResumeAt,
+    };
+  }
+
+  /**
+   * Get or initialize cohort config from database.
+   * Falls back to in-memory config when DB returns nothing (for testing without auto-create).
+   * This allows env-var-driven tests to work without mocking DB write calls.
+   */
+  private async getOrInitCohortConfig(cohortName: string = 'default') {
+    let config = await this.prisma.ddsConfig.findUnique({
+      where: { cohortName },
+    });
+
+    if (!config) {
+      // In-memory fallback: derive from env vars for test compatibility
+      // When DDS_SHADOW_MODE='false', we enter live mode and arm the canary
+      return {
+        id: `fallback-${cohortName}`,
+        cohortName,
+        shadowModeEnabled: process.env.DDS_SHADOW_MODE !== 'false',
+        canaryArmed: process.env.DDS_SHADOW_MODE === 'false',
+        promotedAt: null,
+        promotedBy: null,
+        canaryPausedAt: null,
+        canaryAutoResumeAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    }
+
+    return config;
+  }
+
+  /**
+   * US-1101: Promote a cohort from shadow mode to live.
+   * Checks Gate 2 readiness and updates database config using upsert.
+   */
+  async promoteCohortToLive(
+    cohortName: string,
+    adminUserId: string,
+  ): Promise<{
+    success: boolean;
+    reason: string;
+    config?: { cohortName: string; shadowModeEnabled: boolean };
+  }> {
+    const cohort = cohortName || 'default';
+    const readiness = await this.getAutoApplyReadiness();
+
+    // Gate 2 validation: Check for rollbacks first (distinct error message)
+    if (readiness.rollbackCount > 0) {
+      return {
+        success: false,
+        reason: `Cannot promote: rollback(s) detected (count: ${readiness.rollbackCount}). Must resolve before promotion.`,
+      };
+    }
+
+    // Gate 2 validation: Check approval threshold second (distinct error message)
+    if (readiness.cleanApprovals < readiness.threshold) {
+      return {
+        success: false,
+        reason: `Cannot promote: insufficient approvals (${readiness.cleanApprovals}/${readiness.threshold}). Need ${readiness.threshold - readiness.cleanApprovals} more approval(s).`,
+      };
+    }
+
+    // Check if already promoted
+    const existingConfig = await this.getCohortConfig(cohort);
+    if (existingConfig && existingConfig.promotedAt) {
+      return {
+        success: false,
+        reason: `Cohort ${cohort} already promoted to live mode on ${existingConfig.promotedAt.toISOString()}`,
+        config: {
+          cohortName: existingConfig.cohortName,
+          shadowModeEnabled: existingConfig.shadowModeEnabled,
+        },
+      };
+    }
+
+    // Promote: use upsert to handle both new and existing configs
+    const updated = await this.prisma.ddsConfig.upsert({
+      where: { cohortName: cohort },
+      update: {
+        shadowModeEnabled: false,
+        canaryArmed: true,
+        promotedAt: new Date(),
+        promotedBy: adminUserId,
+      },
+      create: {
+        cohortName: cohort,
+        shadowModeEnabled: false,
+        canaryArmed: true,
+        promotedBy: adminUserId,
+        promotedAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `dds_cohort_promoted cohort=${cohort} promotedBy=${adminUserId} approvals=${readiness.cleanApprovals}`,
+    );
+
+    return {
+      success: true,
+      reason: `Cohort ${cohort} successfully promoted to live mode with canary armed`,
+      config: {
+        cohortName: updated.cohortName,
+        shadowModeEnabled: updated.shadowModeEnabled,
+      },
+    };
+  }
+
+  // ─── US-1101: Canary rollback-rate check ─────────────────────────────────
+
+  /**
+   * Returns true if rollback rate in the canary window is within threshold.
+   * Window = last CANARY_WINDOW_SIZE auto-applied variants;
+   * pauses if rollback rate > CANARY_ROLLBACK_RATE_THRESHOLD (default 20%).
+   */
+  private async checkCanary(): Promise<boolean> {
+    const windowSize = parseInt(process.env.DDS_CANARY_WINDOW_SIZE ?? '20', 10);
+    const rateThreshold = parseFloat(
+      process.env.DDS_CANARY_ROLLBACK_RATE_THRESHOLD ?? '0.2',
+    );
+
+    const recentAutoApplied = await this.prisma.questionVariant.findMany({
+      where: { reviewedBy: 'auto' },
+      orderBy: { reviewedAt: 'desc' },
+      take: windowSize,
+      select: { id: true, status: true },
+    });
+
+    if (recentAutoApplied.length === 0) return true;
+
+    const rollbackCount = recentAutoApplied.filter(
+      (v) => v.status === DdsVariantStatus.ROLLED_BACK,
+    ).length;
+    const rollbackRate = rollbackCount / recentAutoApplied.length;
+
+    if (rollbackRate > rateThreshold) {
+      this.logger.warn(
+        `dds_canary_check: rollbackRate=${rollbackRate.toFixed(2)} > threshold=${rateThreshold} window=${recentAutoApplied.length}`,
+      );
+      return false;
+    }
+
+    return true;
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────────

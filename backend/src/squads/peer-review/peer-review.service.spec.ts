@@ -10,12 +10,13 @@ const mockPrisma = {
     upsert: jest.fn(),
     update: jest.fn(),
   },
-  vote: { findFirst: jest.fn(), create: jest.fn() },
+  vote: { findFirst: jest.fn(), create: jest.fn(), count: jest.fn() },
   userReputation: { upsert: jest.fn(), findMany: jest.fn() },
   badge: { findFirst: jest.fn() },
   badgeAward: { upsert: jest.fn() },
   question: { findUnique: jest.fn() },
   organization: { findUnique: jest.fn() },
+  reputationFlag: { create: jest.fn() },
   $transaction: jest.fn(),
 };
 
@@ -58,6 +59,10 @@ describe('PeerReviewService — reputation engine (US-1005)', () => {
         points: 4,
       });
       mockPrisma.badge.findFirst.mockResolvedValue(null);
+      // US-1102: anti-gaming — return safe values below burst/ring thresholds
+      mockPrisma.vote.count.mockResolvedValue(0);
+      mockPrisma.peerExplanation.findMany.mockResolvedValue([]);
+      mockPrisma.reputationFlag.create.mockResolvedValue({});
     });
 
     it('throws BadRequestException when voter is the author', async () => {

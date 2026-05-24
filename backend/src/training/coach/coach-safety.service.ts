@@ -15,12 +15,19 @@ export class CoachSafetyService {
     // System prompt injection
     {
       name: 'System prompt injection',
-      pattern: /ignore\s+(previous|all)?\s*(instruction|system|prompt)/i,
+      pattern:
+        /ignore\s+(previous|all|your)?\s*(instruction|system|prompt|rule)/i,
       severity: 'high',
     },
     {
       name: 'Direct instruction override',
-      pattern: /forget\s+(your|all)\s*(instruction|rule|constraint)/i,
+      pattern:
+        /forget\s+(your|the|all)?\s*(instruction|rule|constraint|system prompt)/i,
+      severity: 'high',
+    },
+    {
+      name: 'Ignore + action combination',
+      pattern: /ignore\s+.*\s*(exam|integrity|rule|constraint)/i,
       severity: 'high',
     },
 
@@ -28,7 +35,13 @@ export class CoachSafetyService {
     {
       name: 'Role escape - pretend instruction',
       pattern:
-        /pretend\s+(you|you're|you are)\s+(not\s+)?an?\s+(ai|assistant|chatbot|language model)/i,
+        /pretend\s+(you|you're|you are)\s+(not\s+)?an?\s+(ai|assistant|chatbot|language model|coach)/i,
+      severity: 'high',
+    },
+    {
+      name: 'Role escape - "You are now"',
+      pattern:
+        /you\s+are\s+now\s+a?\s*(homework\s+helper|teacher|friend|tutor|different)/i,
       severity: 'high',
     },
     {
@@ -48,6 +61,17 @@ export class CoachSafetyService {
       name: 'Hypothetical unrestricted mode',
       pattern:
         /imagine\s+you\s+(are\s+)?an?\s+(unrestricted|jailbroken|unfiltered)/i,
+      severity: 'medium',
+    },
+    {
+      name: 'Different approach / circumvention - imagine',
+      pattern:
+        /imagine\s+(?!as\s+an|a\s+world|a\s+scenario|if|you\s+(?:are\s+)?an?\s+(?:unrestricted|jailbroken|unfiltered))/i,
+      severity: 'medium',
+    },
+    {
+      name: 'Different approach / circumvention - try different',
+      pattern: /try\s+a\s+different\s+approach/i,
       severity: 'medium',
     },
 
@@ -72,8 +96,9 @@ export class CoachSafetyService {
     },
     {
       name: 'ROT13 or similar encoding',
-      pattern: /rot13|cipher|encode|decode.*secret/i,
-      severity: 'low',
+      pattern:
+        /rot13|cipher|(?:encode|decode).*(?:instruction|command|prompt|secret)/i,
+      severity: 'medium',
     },
 
     // Token smuggling/context confusion
@@ -85,6 +110,11 @@ export class CoachSafetyService {
     {
       name: 'Prompt injection via preamble',
       pattern: /<system>|<admin>|<root>/i,
+      severity: 'high',
+    },
+    {
+      name: 'Treat as non-binding',
+      pattern: /treat\s+everything\s+above\s+(?:\w+\s+)*as\s+non-binding/i,
       severity: 'high',
     },
   ];

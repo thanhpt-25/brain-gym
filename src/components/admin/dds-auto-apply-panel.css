@@ -1,0 +1,533 @@
+/* DDS Auto-Apply Panel Component Stylesheet
+   Uses design tokens from src/styles/tokens.css
+   Components: DdsAutoApplyPanel, Readiness Dashboard, Variant List
+*/
+
+/* ──────────────────────────────────────────────────────────────
+   PANEL CONTAINER
+   ────────────────────────────────────────────────────────────── */
+
+.dds-auto-panel {
+  padding: var(--space-section);
+  background-color: var(--color-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.dds-auto-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-section);
+}
+
+.dds-auto-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.dds-shadow-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+  padding: 0.25rem 0.75rem;
+  background-color: var(--color-warning-soft);
+  color: var(--color-warning);
+  border-radius: var(--radius-sm);
+}
+
+.dds-auto-description {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  margin: 0 0 var(--space-lg) 0;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   GATE 2 READINESS DASHBOARD
+   ────────────────────────────────────────────────────────────── */
+
+.dds-readiness {
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-border);
+  transition: all 200ms ease-out;
+}
+
+.dds-readiness--ready {
+  border-left-color: var(--color-success);
+  background-color: var(--color-success-soft);
+}
+
+.dds-readiness--pending {
+  border-left-color: var(--color-warning);
+  background-color: var(--color-warning-soft);
+}
+
+.dds-readiness-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: var(--space-lg);
+  color: var(--color-ink-muted);
+}
+
+.dds-readiness-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.dds-readiness-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.dds-readiness-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+  padding: 0.375rem 0.75rem;
+  background-color: var(--color-success);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+/* Metrics Grid */
+.dds-readiness-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.dds-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dds-metric-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-ink-muted);
+}
+
+.dds-metric-value {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.dds-metric-bar {
+  width: 100%;
+  height: 6px;
+  background-color: var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.dds-metric-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-success), var(--color-info));
+  transition: width 300ms ease-out;
+}
+
+.dds-metric-detail {
+  font-size: var(--text-xs);
+  color: var(--color-ink-soft);
+}
+
+/* Warning Messages */
+.dds-readiness-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: var(--space-md);
+  background-color: rgba(255, 193, 7, 0.1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--color-warning);
+}
+
+.dds-readiness-warning svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Promote Button */
+.dds-promote-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: white;
+  background-color: var(--color-success);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 200ms ease-out;
+}
+
+.dds-promote-btn:hover:not(:disabled) {
+  background-color: var(--color-success-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.dds-promote-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dds-promote-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   DECISION CARD
+   ────────────────────────────────────────────────────────────── */
+
+.dds-decision {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-border);
+  position: relative;
+  animation: slideIn 200ms ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dds-decision--go {
+  background-color: var(--color-success-soft);
+  border-left-color: var(--color-success);
+}
+
+.dds-decision--hold {
+  background-color: var(--color-error-soft);
+  border-left-color: var(--color-error);
+}
+
+.dds-decision strong {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.dds-decision span {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.dds-decision-dismiss {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  font-size: var(--text-lg);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 150ms ease-out;
+}
+
+.dds-decision-dismiss:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--color-ink);
+}
+
+.dds-apply-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: white;
+  background-color: var(--color-success);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 200ms ease-out;
+}
+
+.dds-apply-btn:hover:not(:disabled) {
+  background-color: var(--color-success-dark);
+  transform: translateY(-1px);
+}
+
+.dds-apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   VARIANT LIST
+   ────────────────────────────────────────────────────────────── */
+
+.dds-loading,
+.dds-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  text-align: center;
+  padding: var(--space-lg);
+}
+
+.dds-loading {
+  color: var(--color-ink-muted);
+}
+
+.dds-empty {
+  color: var(--color-ink-soft);
+}
+
+.dds-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dds-variant-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dds-variant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  transition: all 150ms ease-out;
+}
+
+.dds-variant-item:hover {
+  border-color: var(--color-info);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.dds-variant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.dds-variant-reason {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-ink);
+  word-break: break-word;
+}
+
+.dds-variant-date {
+  font-size: var(--text-xs);
+  color: var(--color-ink-soft);
+}
+
+.dds-variant-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: var(--space-md);
+  flex-shrink: 0;
+}
+
+.dds-evaluate-btn,
+.dds-rollback-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 150ms ease-out;
+}
+
+.dds-evaluate-btn {
+  color: white;
+  background-color: var(--color-info);
+}
+
+.dds-evaluate-btn:hover:not(:disabled) {
+  background-color: var(--color-info-dark);
+  transform: translateY(-1px);
+}
+
+.dds-rollback-btn {
+  color: white;
+  background-color: var(--color-error);
+}
+
+.dds-rollback-btn:hover:not(:disabled) {
+  background-color: var(--color-error-dark);
+  transform: translateY(-1px);
+}
+
+.dds-evaluate-btn:disabled,
+.dds-rollback-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   CANARY STATUS (US-1101)
+   ────────────────────────────────────────────────────────────── */
+
+.dds-canary-status {
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-info);
+}
+
+.dds-canary-status h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-ink);
+  margin: 0 0 var(--space-sm) 0;
+}
+
+.dds-canary-status h4 svg {
+  color: var(--color-info);
+}
+
+.dds-canary-state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: var(--space-sm);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.dds-canary-armed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--color-success-soft);
+  color: var(--color-success);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.dds-canary-paused {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--color-warning-soft);
+  color: var(--color-warning);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.dds-canary-inactive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background-color: var(--color-border);
+  color: var(--color-ink-muted);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.dds-canary-detail {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-ink-soft);
+  margin-top: 0.375rem;
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dds-auto-panel {
+    padding: var(--space-md);
+  }
+
+  .dds-readiness-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .dds-variant-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dds-variant-actions {
+    margin-left: 0;
+    margin-top: var(--space-md);
+    width: 100%;
+  }
+
+  .dds-variant-actions button {
+    flex: 1;
+    justify-content: center;
+  }
+}
