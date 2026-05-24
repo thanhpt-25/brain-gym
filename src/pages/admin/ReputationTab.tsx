@@ -81,7 +81,9 @@ export function ReputationTab() {
   const { data: flags = [], isLoading } = useQuery({
     queryKey: ["reputation-flags", squadId, filterStatus],
     queryFn: () =>
-      squadId ? listFlags(squadId, filterStatus) : Promise.resolve([]),
+      squadId
+        ? listFlags(squadId, filterStatus === "all" ? undefined : filterStatus)
+        : Promise.resolve([]),
     enabled: !!squadId,
   });
 
@@ -169,7 +171,7 @@ export function ReputationTab() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="cleared">Cleared</SelectItem>
             <SelectItem value="confirmed">Confirmed</SelectItem>
-            <SelectItem value="">All</SelectItem>
+            <SelectItem value="all">All</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -210,7 +212,7 @@ export function ReputationTab() {
           </div>
         ) : flags.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground font-mono text-xs">
-            No {filterStatus ? `${filterStatus} ` : ""}flags found
+            No {filterStatus !== "all" ? `${filterStatus} ` : ""}flags found
           </div>
         ) : (
           <Table>
