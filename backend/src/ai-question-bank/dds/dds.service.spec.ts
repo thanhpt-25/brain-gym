@@ -39,7 +39,7 @@ describe('DdsService — auto-apply & quota (US-1003/1004)', () => {
     // Setup default ddsConfig mocks — dynamically respond to env vars
     // When DDS_SHADOW_MODE='false', mock returns shadowModeEnabled=false (live mode)
     // Otherwise returns null to allow in-memory fallback
-    mockPrisma.ddsConfig.findUnique.mockImplementation(async (query) => {
+    mockPrisma.ddsConfig.findUnique.mockImplementation((query) => {
       if (process.env.DDS_SHADOW_MODE === 'false') {
         return {
           cohortName: 'default',
