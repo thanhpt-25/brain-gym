@@ -15,6 +15,11 @@ const mockPrisma = {
   },
   choice: { deleteMany: jest.fn(), createMany: jest.fn() },
   llmUsageLog: { create: jest.fn() },
+  ddsConfig: {
+    findUnique: jest.fn(),
+    upsert: jest.fn(),
+    update: jest.fn(),
+  },
   $transaction: jest.fn(),
 };
 
@@ -29,6 +34,20 @@ describe('DdsService — auto-apply & quota (US-1003/1004)', () => {
     delete process.env.DDS_AUTO_APPLY_ENABLED;
     delete process.env.DDS_AUTO_APPLY_THRESHOLD;
     delete process.env.DDS_SHADOW_MODE;
+
+    // Setup default ddsConfig mocks
+    mockPrisma.ddsConfig.findUnique.mockResolvedValue({
+      cohortName: 'default',
+      shadowModeEnabled: true,
+      canaryArmed: false,
+      promotedAt: null,
+    });
+    mockPrisma.ddsConfig.upsert.mockResolvedValue({
+      cohortName: 'default',
+      shadowModeEnabled: true,
+      canaryArmed: false,
+      promotedAt: null,
+    });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

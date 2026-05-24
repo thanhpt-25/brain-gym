@@ -1,0 +1,496 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Prometheus --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "description": "DDS auto-apply proposal and approval rates per hour",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(dds_variant_proposed_total[1h])",
+          "legendFormat": "Proposal Rate/Hour",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(dds_variant_approved_total[1h])",
+          "legendFormat": "Approval Rate/Hour",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(dds_variant_auto_applied_total[1h])",
+          "legendFormat": "Auto-Apply Rate/Hour",
+          "refId": "C"
+        }
+      ],
+      "title": "DDS Variant Processing Rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Percentage of rolled back variants over 5-minute windows (canary metric)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "(rate(dds_variant_rolled_back_total[5m]) / (rate(dds_variant_proposed_total[5m]) + 1e-6)) * 100",
+          "legendFormat": "Rollback Rate %",
+          "refId": "A"
+        }
+      ],
+      "title": "DDS Rollback Rate (5-min window, Alert @ 10%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Reputation flag creation and resolution rates",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(reputation_flag_created_total[1h])",
+          "legendFormat": "Flag Creation Rate/Hour",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(reputation_flag_cleared_total[1h])",
+          "legendFormat": "Flags Cleared/Hour",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(reputation_flag_confirmed_total[1h])",
+          "legendFormat": "Flags Confirmed/Hour",
+          "refId": "C"
+        }
+      ],
+      "title": "Reputation Anti-Gaming: Flag Activity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "False-positive rate: cleared vs confirmed flags (target <5%)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "(rate(reputation_flag_cleared_total[1h]) / (rate(reputation_flag_cleared_total[1h]) + rate(reputation_flag_confirmed_total[1h]) + 1e-6)) * 100",
+          "legendFormat": "False-Positive Rate %",
+          "refId": "A"
+        }
+      ],
+      "title": "Reputation Anti-Gaming: False-Positive Rate (Target <5%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Active point holds and points released per hour",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "reputation_points_on_hold",
+          "legendFormat": "Active Point Holds (count)",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(reputation_points_released_total[1h])",
+          "legendFormat": "Points Released/Hour",
+          "refId": "B"
+        }
+      ],
+      "title": "Reputation Anti-Gaming: Point Holds & Releases",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Knowledge Graph real-time recompute trigger and completion rates",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(kg_overlap_recompute_triggered_total[1h])",
+          "legendFormat": "Recompute Triggers/Hour",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(kg_overlap_recompute_completed_total[1h])",
+          "legendFormat": "Recompute Completed/Hour",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(kg_overlap_recompute_failed_total[1h])",
+          "legendFormat": "Recompute Failed/Hour",
+          "refId": "C"
+        }
+      ],
+      "title": "KG Real-Time Recompute: Trigger/Completion Rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Knowledge Graph overlap recompute duration percentiles",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, rate(kg_overlap_recompute_duration_ms_bucket[5m]))",
+          "legendFormat": "p50 Duration (ms)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(kg_overlap_recompute_duration_ms_bucket[5m]))",
+          "legendFormat": "p95 Duration (ms)",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(kg_overlap_recompute_duration_ms_bucket[5m]))",
+          "legendFormat": "p99 Duration (ms)",
+          "refId": "C"
+        }
+      ],
+      "title": "KG Real-Time Recompute: Duration Percentiles",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Canary auto-pause event tracking and uptime",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(dds_canary_paused_total[1h])",
+          "legendFormat": "Canary Pauses/Hour",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(dds_canary_resumed_total[1h])",
+          "legendFormat": "Canary Resumes/Hour",
+          "refId": "B"
+        },
+        {
+          "expr": "dds_canary_is_armed",
+          "legendFormat": "Canary Armed (1=yes, 0=no)",
+          "refId": "C"
+        }
+      ],
+      "title": "DDS Canary Safety: Pause/Resume Events",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": [
+    "sprint-11",
+    "dds-auto-apply",
+    "reputation-anti-gaming",
+    "kg-recompute"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Sprint 11: DDS Auto-Apply, Reputation Anti-Gaming, KG Real-Time Recompute",
+  "uid": "sprint11-observability",
+  "version": 1
+}

@@ -11,7 +11,7 @@ import {
   HttpStatus,
   Request,
   ForbiddenException,
-  TooManyRequestsException,
+  HttpException,
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -165,8 +165,9 @@ export class DdsController {
     // Rate limit: max 5 requests per minute per user
     const userId = req.user?.id;
     if (!userId || !this.rateLimiter.isAllowed(userId)) {
-      throw new TooManyRequestsException(
+      throw new HttpException(
         'Too many auto-apply requests. Maximum 5 requests per minute.',
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
