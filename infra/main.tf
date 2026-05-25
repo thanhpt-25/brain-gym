@@ -50,9 +50,9 @@ resource "aws_subnet" "private" {
   })
 }
 
-# Elastic IP for NAT Gateway
+# Elastic IP for NAT Gateway (single for staging cost savings)
 resource "aws_eip" "nat" {
-  count  = length(var.availability_zones)
+  count  = 1
   domain = "vpc"
 
   tags = merge(var.common_tags, {
@@ -62,11 +62,11 @@ resource "aws_eip" "nat" {
   depends_on = [aws_internet_gateway.main]
 }
 
-# NAT Gateway
+# NAT Gateway (single for staging cost savings)
 resource "aws_nat_gateway" "main" {
-  count         = length(var.availability_zones)
-  allocation_id = aws_eip.nat[count.index].id
-  subnet_id     = aws_subnet.public[count.index].id
+  count         = 1
+  allocation_id = aws_eip.nat[0].id
+  subnet_id     = aws_subnet.public[0].id
 
   tags = merge(var.common_tags, {
     Name = "${var.app_name}-${var.environment}-nat-${count.index + 1}"
@@ -95,25 +95,25 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# Route Tables for Private Subnets (one per AZ for NAT redundancy)
+# Single private route table shared across AZs (staging cost saving)
 resource "aws_route_table" "private" {
-  count  = length(var.availability_zones)
+  count  = 1
   vpc_id = aws_vpc.main.id
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
+    nat_gateway_id = aws_nat_gateway.main[0].id
   }
 
   tags = merge(var.common_tags, {
-    Name = "${var.app_name}-${var.environment}-private-rt-${count.index + 1}"
+    Name = "${var.app_name}-${var.environment}-private-rt"
   })
 }
 
 resource "aws_route_table_association" "private" {
   count          = length(var.availability_zones)
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private[count.index].id
+  route_table_id = aws_route_table.private[0].id
 }
 
 # Security Group for ALB
