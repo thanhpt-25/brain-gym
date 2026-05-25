@@ -28,3 +28,15 @@ common_tags = {
   Environment = "staging"
   Project     = "BrainGym"
 }
+
+# GitHub repository (owner/repo) — used in OIDC trust policy
+github_repo = "thanhpt-25/brain-gym"
+
+# Set to false if GitHub OIDC provider already exists in this AWS account
+create_oidc_provider = true
+
+# Application secrets — generate with: openssl rand -base64 32
+# Store these securely (e.g. 1Password). Never commit the real values.
+jwt_secret            = "REPLACE_WITH_openssl_rand_base64_32"
+jwt_refresh_secret    = "REPLACE_WITH_openssl_rand_base64_32"
+llm_encryption_secret = "REPLACE_WITH_openssl_rand_base64_32"

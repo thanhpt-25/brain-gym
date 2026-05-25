@@ -113,3 +113,35 @@ variable "common_tags" {
     ManagedBy = "Terraform"
   }
 }
+
+# GitHub OIDC
+variable "github_repo" {
+  description = "GitHub repository in owner/repo format (e.g. thanhpt-25/brain-gym)"
+  type        = string
+  default     = "thanhpt-25/brain-gym"
+}
+
+variable "create_oidc_provider" {
+  description = "Set to false if the GitHub OIDC provider already exists in this account"
+  type        = bool
+  default     = true
+}
+
+# Application secrets (injected into Secrets Manager)
+variable "jwt_secret" {
+  description = "JWT signing secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_refresh_secret" {
+  description = "JWT refresh token secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "llm_encryption_secret" {
+  description = "LLM key encryption secret"
+  type        = string
+  sensitive   = true
+}

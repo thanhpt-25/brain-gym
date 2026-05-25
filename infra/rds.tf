@@ -91,3 +91,31 @@ resource "aws_secretsmanager_secret_version" "database_url" {
   secret_id     = aws_secretsmanager_secret.database_url.id
   secret_string = local.database_url
 }
+
+# ─────────────────────────────────────────────
+# Application secrets (JWT, LLM encryption)
+# Passed in via terraform.tfvars — never hardcode
+# ─────────────────────────────────────────────
+locals {
+  app_secrets = {
+    "jwt-secret"            = var.jwt_secret
+    "jwt-refresh-secret"    = var.jwt_refresh_secret
+    "llm-encryption-secret" = var.llm_encryption_secret
+  }
+}
+
+resource "aws_secretsmanager_secret" "app_secrets" {
+  for_each                = local.app_secrets
+  name                    = "${var.app_name}/${var.environment}/${each.key}"
+  recovery_window_in_days = 0
+
+  tags = merge(var.common_tags, {
+    Name = "${var.app_name}-${var.environment}-${each.key}"
+  })
+}
+
+resource "aws_secretsmanager_secret_version" "app_secrets" {
+  for_each      = local.app_secrets
+  secret_id     = aws_secretsmanager_secret.app_secrets[each.key].id
+  secret_string = each.value
+}
