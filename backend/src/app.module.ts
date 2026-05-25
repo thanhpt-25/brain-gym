@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { RlsInterceptor } from './common/rls.interceptor';
@@ -79,7 +81,9 @@ import { KnowledgeGraphModule } from './knowledge-graph/knowledge-graph.module';
     SquadsModule,
     KnowledgeGraphModule,
   ],
+  controllers: [AppController],
   providers: [
+    AppService,
     RequestContextService,
     {
       provide: APP_INTERCEPTOR,
