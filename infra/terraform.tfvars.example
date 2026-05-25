@@ -1,0 +1,42 @@
+# Copy this to terraform.tfvars and fill in your values
+
+aws_region = "us-east-1"
+environment = "staging"  # Change to "production" for production deployment
+app_name    = "braingym"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# RDS Configuration (staging)
+db_instance_class            = "db.t3.micro"     # For production: db.t3.small or larger
+db_allocated_storage         = 20                # For production: 100+
+db_backup_retention_period   = 7                 # For production: 30
+db_multi_az                  = false             # For production: true
+
+# ElastiCache Configuration (staging)
+redis_node_type              = "cache.t3.micro"  # For production: cache.r6g.large or larger
+redis_num_cache_nodes        = 1                 # For production: 2-3 with cluster mode
+
+# ECS Configuration (staging)
+ecs_task_cpu                 = "512"             # For production: "1024" or higher
+ecs_task_memory              = "1024"            # For production: "2048" or higher
+ecs_desired_count            = 1                 # For production: 2+
+
+common_tags = {
+  ManagedBy   = "Terraform"
+  Environment = "staging"
+  Project     = "BrainGym"
+}
+
+# GitHub repository (owner/repo) — used in OIDC trust policy
+github_repo = "thanhpt-25/brain-gym"
+
+# Set to false if GitHub OIDC provider already exists in this AWS account
+create_oidc_provider = true
+
+# Application secrets — generate with: openssl rand -base64 32
+# Store these securely (e.g. 1Password). Never commit the real values.
+jwt_secret            = "REPLACE_WITH_openssl_rand_base64_32"
+jwt_refresh_secret    = "REPLACE_WITH_openssl_rand_base64_32"
+llm_encryption_secret = "REPLACE_WITH_openssl_rand_base64_32"

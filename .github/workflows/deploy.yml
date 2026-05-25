@@ -1,0 +1,319 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-${{ github.ref }}-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+  AWS_REGION: ap-southeast-1
+
+jobs:
+  # Determine which environment to deploy to
+  setup:
+    name: Setup
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      image-tag: ${{ github.sha }}
+    steps:
+      - id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+  # Build and push backend Docker image to ECR
+  build-push-backend:
+    name: Build & Push Backend
+    needs: setup
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-backend:${{ needs.setup.outputs.image-tag }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+  # Run database migrations
+  migrate-db:
+    name: Migrate Database
+    needs: [setup, build-push-backend]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ECS containerOverrides cannot override the image, so we register a fresh
+      # revision of the migrate task definition with the new SHA-tagged image,
+      # then run a one-off task from it (overriding only the command).
+      - name: Download current migrate task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition braingym-backend-migrate \
+            --query 'taskDefinition' \
+            --output json > migrate-task-def.json
+
+      - name: Render migrate task definition with new image
+        id: render-migrate
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: migrate-task-def.json
+          container-name: braingym-backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-backend:${{ needs.setup.outputs.image-tag }}
+
+      - name: Register migrate task definition
+        id: register-migrate
+        run: |
+          # Strip read-only fields that describe-task-definition returns but
+          # register-task-definition rejects.
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            ${{ steps.render-migrate.outputs.task-definition }} > migrate-register.json
+
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://migrate-register.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task-def-arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+
+      - name: Run migrations
+        run: |
+          # Run one-off ECS task from the freshly registered revision.
+          # Only the command is overridden (image is baked into the task def).
+          TASK_ARN=$(aws ecs run-task \
+            --cluster braingym-${{ needs.setup.outputs.environment }} \
+            --task-definition ${{ steps.register-migrate.outputs.task-def-arn }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.AWS_PRIVATE_SUBNET_IDS }}],securityGroups=[${{ secrets.AWS_ECS_SECURITY_GROUP }}],assignPublicIp=DISABLED}" \
+            --overrides containerOverrides="[{name=braingym-backend,command=[\"sh\",\"docker-entrypoint.sh\",\"migrate\"]}]" \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "Started migration task: $TASK_ARN"
+
+          # Wait for task to complete with timeout of 5 minutes
+          TIMEOUT=300
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            STATUS=$(aws ecs describe-tasks \
+              --cluster braingym-${{ needs.setup.outputs.environment }} \
+              --tasks $TASK_ARN \
+              --query 'tasks[0].lastStatus' \
+              --output text)
+
+            if [ "$STATUS" == "STOPPED" ]; then
+              EXIT_CODE=$(aws ecs describe-tasks \
+                --cluster braingym-${{ needs.setup.outputs.environment }} \
+                --tasks $TASK_ARN \
+                --query 'tasks[0].containers[0].exitCode' \
+                --output text)
+
+              if [ "$EXIT_CODE" == "0" ]; then
+                echo "✓ Migration succeeded"
+                exit 0
+              else
+                echo "✗ Migration failed with exit code $EXIT_CODE"
+                exit 1
+              fi
+            fi
+
+            echo "Task status: $STATUS... ($(($ELAPSED / 10))s elapsed)"
+            sleep 10
+            ELAPSED=$(($ELAPSED + 10))
+          done
+
+          echo "✗ Migration task timeout after ${TIMEOUT}s"
+          exit 1
+
+  # Deploy backend to ECS
+  deploy-backend:
+    name: Deploy Backend
+    needs: [setup, migrate-db]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Render + register a SHA-pinned revision of the service task definition,
+      # then deploy it. This guarantees the exact built image runs (not whatever
+      # :latest happens to resolve to) and gives clean revision-based rollback.
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition braingym-backend \
+            --query 'taskDefinition' \
+            --output json > task-def.json
+
+      - name: Render task definition with new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: braingym-backend
+          image: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-backend:${{ needs.setup.outputs.image-tag }}
+
+      - name: Deploy to ECS and wait for stability
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: braingym-backend
+          cluster: braingym-${{ needs.setup.outputs.environment }}
+          wait-for-service-stability: true
+
+  # Build and deploy frontend to S3 + CloudFront
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: setup
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build frontend
+        run: npm install --legacy-peer-deps && npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.AWS_S3_BUCKET }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000" \
+            --exclude "index.html"
+
+          aws s3 cp dist/index.html s3://${{ secrets.AWS_S3_BUCKET }}/index.html \
+            --cache-control "public, max-age=3600" \
+            --content-type "text/html"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+          echo "✓ Frontend deployment successful"
+
+  # Smoke test (basic health check)
+  smoke-test:
+    name: Smoke Test
+    needs: [setup, deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: ${{ needs.setup.outputs.environment }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Health check
+        run: |
+          # Get ALB or CloudFront endpoint
+          ENDPOINT=${{ secrets.DEPLOYMENT_ENDPOINT }}
+
+          echo "Testing endpoint: $ENDPOINT"
+
+          # Wait for endpoint to be ready
+          for i in {1..30}; do
+            if curl -sf "$ENDPOINT/health" > /dev/null 2>&1 || curl -sf "$ENDPOINT/api/v1/health" > /dev/null 2>&1; then
+              echo "✓ Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i/30... waiting for endpoint"
+            sleep 5
+          done
+
+          echo "✗ Health check failed"
+          exit 1
+
+  # Notify deployment status
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [setup, deploy-backend, deploy-frontend, smoke-test]
+    steps:
+      - name: Check deployment status
+        run: |
+          if [ "${{ needs.deploy-backend.result }}" == "success" ] && [ "${{ needs.deploy-frontend.result }}" == "success" ] && [ "${{ needs.smoke-test.result }}" == "success" ]; then
+            echo "✓ Deployment to ${{ needs.setup.outputs.environment }} succeeded"
+            exit 0
+          else
+            echo "✗ Deployment to ${{ needs.setup.outputs.environment }} failed"
+            exit 1
+          fi
