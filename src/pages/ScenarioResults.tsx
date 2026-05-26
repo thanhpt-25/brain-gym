@@ -11,7 +11,7 @@ interface ScenarioResultsState {
   scenarioId: string;
 }
 
-export function ScenarioResults() {
+export default function ScenarioResults() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as ScenarioResultsState | null;
@@ -38,10 +38,8 @@ export function ScenarioResults() {
     return `${m}m ${s.toString().padStart(2, "0")}s`;
   };
 
-  const correctCount = Object.values(result.answers).filter(
-    (answer) => answer.correct,
-  ).length;
-  const totalQuestions = Object.keys(result.answers).length;
+  const correctCount = result.correctCount;
+  const totalQuestions = result.totalQuestions;
   const percentage = Math.round((correctCount / totalQuestions) * 100);
   const passed = percentage >= 70;
 
@@ -98,7 +96,7 @@ export function ScenarioResults() {
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4 text-gray-600" />
               <span className="text-gray-600">
-                {formatTime(result.timeSpent)}
+                Score: {result.score}
               </span>
             </div>
           </div>
@@ -114,24 +112,6 @@ export function ScenarioResults() {
         </motion.div>
 
         {/* Explanation */}
-        {result.reasoningTrace && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="font-mono font-semibold mb-4 text-gray-900">
-                  Feedback
-                </h3>
-                <p className="text-gray-700 leading-relaxed">
-                  {result.reasoningTrace}
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
 
         {/* Question Review */}
         <motion.div
@@ -143,11 +123,11 @@ export function ScenarioResults() {
           <h3 className="font-mono font-semibold text-gray-900">
             Question Review
           </h3>
-          {Object.entries(result.answers).map(([questionId, answer], idx) => (
-            <Card key={questionId}>
+          {result.questionResults.map((answer, idx) => (
+            <Card key={answer.questionId}>
               <div className="p-4">
                 <div className="flex items-start gap-3">
-                  {answer.correct ? (
+                  {answer.isCorrect ? (
                     <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                   ) : (
                     <XCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -157,9 +137,9 @@ export function ScenarioResults() {
                       Q{idx + 1}
                     </div>
                     <div className="text-sm text-gray-600 mt-1">
-                      Your answer: {answer.selectedAnswer}
+                      Your answer: {answer.userAnswer}
                     </div>
-                    {!answer.correct && (
+                    {!answer.isCorrect && (
                       <div className="text-sm text-green-600 mt-1">
                         Correct answer: {answer.correctAnswer}
                       </div>

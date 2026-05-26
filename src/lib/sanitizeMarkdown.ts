@@ -50,7 +50,7 @@ export function sanitizeHtml(html: string): string {
     // SSR fallback — strip all tags
     return html.replace(/<[^>]*>/g, "");
   }
-  return DOMPurify.sanitize(html, PURIFY_CONFIG) as unknown as string;
+  return DOMPurify.sanitize(html, PURIFY_CONFIG as any) as unknown as string;
 }
 
 /**
