@@ -31,7 +31,7 @@ export default function AuthPage() {
           email: formData.email,
           password: formData.password,
         });
-        setAuth(user, accessToken, refreshToken);
+        setAuth(user as any, accessToken, refreshToken);
         toast.success("Welcome back to CertGym!");
       } else {
         const { user, accessToken, refreshToken } = await authService.register({
@@ -39,7 +39,7 @@ export default function AuthPage() {
           password: formData.password,
           displayName: formData.displayName,
         });
-        setAuth(user, accessToken, refreshToken);
+        setAuth(user as any, accessToken, refreshToken);
         toast.success("Account created successfully!");
       }
 

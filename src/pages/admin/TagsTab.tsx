@@ -170,7 +170,7 @@ export function TagsTab() {
           <p className="text-sm text-muted-foreground">Select the target tag — all selected tags will be merged into it and the others deleted.</p>
           <div className="space-y-2">
             {[...selected].map(id => {
-              const tag = tags.find((t: any) => t.id === id);
+              const tag = (tags as any[]).find((t: any) => t.id === id);
               return (
                 <div key={id} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${mergeTarget === id ? 'border-primary bg-primary/10' : 'border-border'}`} onClick={() => setMergeTarget(id)}>
                   <div className={`w-3 h-3 rounded-full border-2 ${mergeTarget === id ? 'border-primary bg-primary' : 'border-muted-foreground'}`} />

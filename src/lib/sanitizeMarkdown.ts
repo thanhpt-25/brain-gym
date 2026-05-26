@@ -1,7 +1,7 @@
 import DOMPurify from "dompurify";
 
 // Config for educational content: allow headings, lists, code, links
-const PURIFY_CONFIG: DOMPurify.Config = {
+const PURIFY_CONFIG = {
   ALLOWED_TAGS: [
     "p",
     "br",
@@ -39,7 +39,7 @@ const PURIFY_CONFIG: DOMPurify.Config = {
   ALLOW_DATA_ATTR: false,
   FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input"],
   FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover"],
-};
+} as const;
 
 /**
  * Sanitize HTML string from AI/user content before rendering.
@@ -50,7 +50,7 @@ export function sanitizeHtml(html: string): string {
     // SSR fallback — strip all tags
     return html.replace(/<[^>]*>/g, "");
   }
-  return DOMPurify.sanitize(html, PURIFY_CONFIG) as string;
+  return DOMPurify.sanitize(html, PURIFY_CONFIG as any) as unknown as string;
 }
 
 /**
