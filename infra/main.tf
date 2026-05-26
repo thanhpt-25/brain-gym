@@ -2,6 +2,13 @@ provider "aws" {
   region = var.aws_region
 }
 
+# CloudFront requires its ACM certificate to live in us-east-1,
+# regardless of where the rest of the stack is deployed.
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}
+
 # VPC
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr

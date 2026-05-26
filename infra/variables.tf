@@ -29,6 +29,12 @@ variable "app_name" {
   default     = "braingym"
 }
 
+variable "domain_name" {
+  description = "Custom apex domain served via CloudFront (registered externally, DNS delegated to Route53)"
+  type        = string
+  default     = "brain-gym.biz"
+}
+
 # VPC Configuration
 variable "vpc_cidr" {
   description = "CIDR block for VPC"

@@ -83,6 +83,8 @@ resource "aws_cloudfront_distribution" "main" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100" # US, Canada, Europe only — cheapest
 
+  aliases = [var.domain_name, "www.${var.domain_name}"]
+
   # Origin 1: S3 bucket (frontend)
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -167,7 +169,9 @@ resource "aws_cloudfront_distribution" "main" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true # Replace with acm_certificate_arn for custom domain
+    acm_certificate_arn      = aws_acm_certificate_validation.cdn.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 
   tags = merge(var.common_tags, {
