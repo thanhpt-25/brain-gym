@@ -8,7 +8,7 @@ import {
 import { ScenarioReader } from "@/components/scenario/ScenarioReader";
 import { ScenarioTimer } from "@/components/scenario/ScenarioTimer";
 
-export function ScenarioExam() {
+export default function ScenarioExam() {
   const { scenarioId } = useParams<{ scenarioId: string }>();
   const navigate = useNavigate();
   const [answers, setAnswers] = useState<Record<string, string>>({});

@@ -15,5 +15,5 @@ export function Coach() {
     return <CoachLockState />;
   }
 
-  return <CoachSession userId={user.id} />;
+  return <CoachSession />;
 }

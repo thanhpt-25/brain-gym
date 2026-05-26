@@ -30,7 +30,7 @@ export function WeaknessMode({ certFilter, onBack }: WeaknessModeProps) {
     if (!certFilter) return;
     setLoading(true);
     try {
-      const data = await startWeaknessTraining(certFilter, 10);
+      const data = (await startWeaknessTraining(certFilter, 10)) as { questions: Question[]; attemptId?: string };
       setSession({ questions: data.questions, attemptId: data.attemptId });
     } catch (err) {
       console.error(err);

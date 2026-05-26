@@ -128,7 +128,7 @@ export function ReadinessGauge({
     >
       {/* Radial arc */}
       <svg
-        ref={breakdownTriggerRef}
+        ref={breakdownTriggerRef as unknown as React.RefObject<SVGSVGElement>}
         width={SVG_W}
         height={SVG_H}
         viewBox={`0 0 ${SVG_W} ${SVG_H}`}
