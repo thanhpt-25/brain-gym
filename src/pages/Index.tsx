@@ -33,7 +33,7 @@ const features = [
   {
     icon: Users,
     title: "Community Driven",
-    desc: "Tạo và chia sẻ đề thi. Voting, review, verification.",
+    desc: "Create and share exams. Voting, reviews, verification.",
   },
   {
     icon: Zap,
@@ -78,9 +78,19 @@ const Index = () => {
       <Navbar />
 
       {/* Hero */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
-        <div className="absolute inset-0 bg-grid opacity-30" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px]" />
+      <section className="relative pt-32 pb-24 overflow-hidden">
+        {/* Radial depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,hsl(var(--primary)/0.12),transparent_70%)]" />
+        {/* Cyber grid */}
+        <div
+          className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          style={{
+            backgroundImage:
+              "linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-primary/5 blur-[140px]" />
 
         <div className="container relative">
           <motion.div
@@ -89,20 +99,32 @@ const Index = () => {
             transition={{ duration: 0.7 }}
             className="max-w-3xl mx-auto text-center"
           >
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-6 rounded-full border border-primary/30 bg-primary/5 text-primary text-sm font-mono">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse-glow" />
-              Phòng Gym cho Trí Não
+            <div className="inline-flex items-center gap-2 px-3 py-1 mb-8 rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-widest text-primary font-bold">
+                The Brain Gym for Certifications
+              </span>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold font-mono leading-tight mb-6">
-              Luyện thi chứng chỉ
-              <br />
-              <span className="text-gradient-cyan">cùng cộng đồng</span>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold font-mono tracking-tight leading-[1.1] mb-8">
+              <span className="block text-foreground">Master your certification</span>
+              <span
+                className="block text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary"
+                style={{ filter: "drop-shadow(0 0 18px hsl(var(--primary) / 0.35))" }}
+              >
+                with the community
+              </span>
             </h1>
-            <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
-              Tạo, chia sẻ và luyện mock exam cho các chứng chỉ quốc tế. Phân
-              tích điểm yếu. Cải thiện mỗi ngày.
+            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed mb-10 max-w-2xl mx-auto">
+              Create, share, and practice mock exams for global certifications.{" "}
+              <span className="text-foreground/90 font-medium italic">
+                Pinpoint weak spots.
+              </span>{" "}
+              Improve every day.
             </p>
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
                 size="lg"
                 className="glow-cyan font-mono"
@@ -130,20 +152,22 @@ const Index = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 max-w-2xl mx-auto"
+            className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 mt-20 max-w-3xl mx-auto pt-12 border-t border-border/50"
           >
             {stats.map((stat) => (
-              <div key={stat.label} className="text-center">
-                <div className="text-2xl md:text-3xl font-bold font-mono text-gradient-cyan">
+              <div key={stat.label} className="text-center flex flex-col gap-1">
+                <div className="text-3xl md:text-4xl font-bold font-mono text-gradient-cyan">
                   {stat.value}
                 </div>
-                <div className="text-sm text-muted-foreground mt-1">
+                <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
                   {stat.label}
                 </div>
               </div>
             ))}
           </motion.div>
         </div>
+        {/* Bottom accent line */}
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       </section>
 
       {/* Certifications */}
@@ -162,7 +186,7 @@ const Index = () => {
               Certification Library
             </h2>
             <p className="text-muted-foreground">
-              Chọn chứng chỉ và bắt đầu luyện tập
+              Pick a certification and start practicing
             </p>
           </motion.div>
           <div className="max-w-5xl mx-auto">
@@ -203,10 +227,10 @@ const Index = () => {
             className="text-center mb-12"
           >
             <h2 className="text-3xl font-bold font-mono mb-3">
-              Không chỉ là <span className="text-gradient-cyan">làm đề</span>
+              More than just <span className="text-gradient-cyan">practice tests</span>
             </h2>
             <p className="text-muted-foreground">
-              Một hệ sinh thái luyện thi hoàn chỉnh
+              A complete certification training ecosystem
             </p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
