@@ -11,8 +11,8 @@ const CertificationCard = ({ cert, onClick }: CertificationCardProps) => {
   const navigate = useNavigate();
 
   return (
-    <div className="glass-card p-6 text-left w-full hover:border-primary/30 transition-all group">
-      <button onClick={onClick} className="w-full text-left cursor-pointer">
+    <div className="glass-card p-6 text-left w-full h-full flex flex-col hover:border-primary/30 transition-all group">
+      <button onClick={onClick} className="w-full text-left cursor-pointer flex-1 flex flex-col">
         <div className="flex items-start justify-between mb-4">
           <span className="text-3xl">{cert.icon}</span>
           <span className="text-xs font-mono px-2 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
@@ -20,11 +20,11 @@ const CertificationCard = ({ cert, onClick }: CertificationCardProps) => {
           </span>
         </div>
         <div className="text-xs text-muted-foreground font-mono mb-1">{typeof cert.provider === 'object' ? cert.provider?.name : cert.provider}</div>
-        <h3 className="font-mono font-semibold mb-2 group-hover:text-primary transition-colors">
+        <h3 className="font-mono font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2 min-h-[3rem]">
           {cert.name}
         </h3>
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{cert.description}</p>
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">{cert.description}</p>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground mt-auto">
           <span>{cert.questionCount} questions</span>
           <span>{cert.timeMinutes} min</span>
           <span>Pass: {cert.passingScore}%</span>
