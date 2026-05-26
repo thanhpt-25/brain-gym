@@ -159,7 +159,7 @@ export const adjustUserPoints = async (
 };
 
 export const updateUserPlan = async (userId: string, plan: string) => {
-  const response = await api.patch(`/admin/users/${userId}/plan`, { plan });
+  const response = await api.put(`/users/${userId}/plan`, { plan });
   return response.data;
 };
 
@@ -514,7 +514,12 @@ export interface AdminOrganization {
   maxSeats: number;
   isActive: boolean;
   createdAt: string;
-  owner: { id: string; displayName: string; email: string; plan: string } | null;
+  owner: {
+    id: string;
+    displayName: string;
+    email: string;
+    plan: string;
+  } | null;
   memberCount: number;
 }
 
@@ -525,7 +530,13 @@ export interface AdminOrgMember {
   role: string;
   isActive: boolean;
   joinedAt: string;
-  user: { id: string; displayName: string; email: string; plan: string; role: string };
+  user: {
+    id: string;
+    displayName: string;
+    email: string;
+    plan: string;
+    role: string;
+  };
 }
 
 export const getAdminOrganizations = async (
@@ -534,9 +545,9 @@ export const getAdminOrganizations = async (
   search?: string,
 ): Promise<PaginatedResponse<AdminOrganization>> => {
   const params = new URLSearchParams();
-  params.append('page', page.toString());
-  params.append('limit', limit.toString());
-  if (search) params.append('search', search);
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
+  if (search) params.append("search", search);
   const response = await api.get(`/admin/organizations?${params}`);
   return response.data;
 };
@@ -550,7 +561,18 @@ export const getAdminOrganization = async (
 
 export const updateAdminOrganization = async (
   orgId: string,
-  data: Partial<Pick<AdminOrganization, 'name' | 'description' | 'industry' | 'logoUrl' | 'accentColor' | 'maxSeats' | 'isActive'>>,
+  data: Partial<
+    Pick<
+      AdminOrganization,
+      | "name"
+      | "description"
+      | "industry"
+      | "logoUrl"
+      | "accentColor"
+      | "maxSeats"
+      | "isActive"
+    >
+  >,
 ) => {
   const response = await api.patch(`/admin/organizations/${orgId}`, data);
   return response.data;
@@ -567,9 +589,11 @@ export const getAdminOrgMembers = async (
   limit = 20,
 ): Promise<PaginatedResponse<AdminOrgMember>> => {
   const params = new URLSearchParams();
-  params.append('page', page.toString());
-  params.append('limit', limit.toString());
-  const response = await api.get(`/admin/organizations/${orgId}/members?${params}`);
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
+  const response = await api.get(
+    `/admin/organizations/${orgId}/members?${params}`,
+  );
   return response.data;
 };
 
@@ -578,15 +602,17 @@ export const updateAdminOrgMemberRole = async (
   userId: string,
   role: string,
 ) => {
-  const response = await api.patch(`/admin/organizations/${orgId}/members/${userId}`, { role });
+  const response = await api.patch(
+    `/admin/organizations/${orgId}/members/${userId}`,
+    { role },
+  );
   return response.data;
 };
 
-export const removeAdminOrgMember = async (
-  orgId: string,
-  userId: string,
-) => {
-  const response = await api.delete(`/admin/organizations/${orgId}/members/${userId}`);
+export const removeAdminOrgMember = async (orgId: string, userId: string) => {
+  const response = await api.delete(
+    `/admin/organizations/${orgId}/members/${userId}`,
+  );
   return response.data;
 };
 

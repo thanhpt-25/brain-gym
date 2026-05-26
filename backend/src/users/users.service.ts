@@ -6,7 +6,13 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { User, UserRole, UserStatus, AttemptStatus } from '@prisma/client';
+import {
+  User,
+  UserRole,
+  UserPlan,
+  UserStatus,
+  AttemptStatus,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const publicSelect = {
@@ -15,6 +21,7 @@ const publicSelect = {
   displayName: true,
   avatarUrl: true,
   role: true,
+  plan: true,
   status: true,
   points: true,
   suspendedUntil: true,
@@ -89,6 +96,17 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id: userId },
       data: { role },
+      select: publicSelect,
+    });
+  }
+
+  async updatePlan(userId: string, plan: UserPlan) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { plan },
       select: publicSelect,
     });
   }

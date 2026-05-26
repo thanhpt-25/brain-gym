@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { UpdateUserPlanDto } from './dto/update-user-plan.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
 import { BanUserDto } from './dto/ban-user.dto';
@@ -89,6 +90,27 @@ export class UsersController {
       targetType: 'User',
       targetId: id,
       metadata: { newRole: dto.role },
+    });
+    return result;
+  }
+
+  @Put(':id/plan')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change user plan (admin only)' })
+  async updatePlan(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateUserPlanDto,
+  ) {
+    const result = await this.usersService.updatePlan(id, dto.plan);
+    await this.auditService.log({
+      userId: req.user.sub || req.user.id,
+      action: 'PLAN_CHANGED',
+      targetType: 'User',
+      targetId: id,
+      metadata: { newPlan: dto.plan },
     });
     return result;
   }
