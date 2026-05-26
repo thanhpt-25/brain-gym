@@ -204,6 +204,7 @@ const Index = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.1 }}
+                    className="h-full"
                   >
                     <CertificationCard
                       cert={cert}
