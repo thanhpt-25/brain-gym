@@ -37,7 +37,7 @@ export class CreateQuestionDto {
   })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(500)
+  @MaxLength(1000)
   title: string;
 
   @ApiPropertyOptional({

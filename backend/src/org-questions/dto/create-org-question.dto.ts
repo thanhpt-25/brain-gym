@@ -35,7 +35,7 @@ export class CreateOrgQuestionDto {
   @ApiProperty({ example: 'What is the correct approach for...' })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(500)
+  @MaxLength(1000)
   title: string;
 
   @ApiPropertyOptional()
