@@ -9,6 +9,8 @@ import { UsersModule } from '../users/users.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OAuthProviderRegistry } from './oauth/oauth-provider.registry';
+import { GoogleOAuthProvider } from './oauth/providers/google.provider';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
   providers: [
     AuthService,
     JwtStrategy,
+    GoogleOAuthProvider,
+    OAuthProviderRegistry,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

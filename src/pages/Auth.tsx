@@ -4,16 +4,35 @@ import { Brain, ArrowRight, Loader2 } from "lucide-react";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "../stores/auth.store";
 import { toast } from "sonner";
+import { GoogleLoginButton } from "../components/auth/GoogleLoginButton";
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const setAuth = useAuthStore((state) => state.setAuth);
 
   // Default redirect path
   const from = location.state?.from?.pathname || "/";
+
+  const handleOAuthSuccess = async (provider: string, token: string) => {
+    setOauthLoading(provider);
+    try {
+      const { user, accessToken, refreshToken } = await authService.socialLogin(provider, token);
+      setAuth(user as any, accessToken, refreshToken);
+      toast.success("Welcome to CertGym!");
+      navigate(from, { replace: true });
+    } catch (error: any) {
+      const message = error.response?.data?.message || "OAuth login failed. Please try again.";
+      toast.error(message);
+    } finally {
+      setOauthLoading(null);
+    }
+  };
 
   const [formData, setFormData] = useState({
     email: "",
@@ -176,6 +195,28 @@ export default function AuthPage() {
               </button>
             </div>
           </form>
+
+          {/* OAuth providers — only shown when at least one provider is configured */}
+          {GOOGLE_CLIENT_ID && (
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-700" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-gray-900/50 text-gray-400">Or continue with</span>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <GoogleLoginButton
+                  isLoading={oauthLoading === "google"}
+                  onSuccess={(token) => handleOAuthSuccess("google", token)}
+                />
+                {/* Add more provider buttons here as needed */}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </main>

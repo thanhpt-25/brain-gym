@@ -1,10 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { TokenResponseDto } from './dto/token-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { OAuthLoginDto } from './dto/oauth-login.dto';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('auth')
@@ -37,6 +38,21 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Email already in use' })
   async register(@Body() createUserDto: CreateUserDto) {
     return this.authService.register(createUserDto);
+  }
+
+  @Public()
+  @Post('oauth/:provider')
+  @HttpCode(HttpStatus.OK)
+  @ApiParam({ name: 'provider', example: 'google', description: 'OAuth provider name' })
+  @ApiOperation({ summary: 'Login or register via OAuth provider (e.g. Google)' })
+  @ApiResponse({ status: 200, description: 'Returns JWT tokens', type: TokenResponseDto })
+  @ApiResponse({ status: 401, description: 'Invalid or expired provider token' })
+  @ApiResponse({ status: 404, description: 'Provider not supported' })
+  async oauthLogin(
+    @Param('provider') provider: string,
+    @Body() body: OAuthLoginDto,
+  ) {
+    return this.authService.socialLogin(provider, body.token);
   }
 
   @Public()
