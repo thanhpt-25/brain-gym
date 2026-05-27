@@ -100,13 +100,13 @@ const Dashboard = () => {
         <div className="text-center">
           <Brain className="h-12 w-12 text-primary mx-auto mb-4" />
           <h2 className="text-xl font-mono font-bold mb-2">
-            Đăng nhập để xem Dashboard
+            Sign in to view Dashboard
           </h2>
           <Button
             className="glow-cyan font-mono"
             onClick={() => navigate("/auth")}
           >
-            Đăng nhập
+            Sign in
           </Button>
         </div>
       </div>

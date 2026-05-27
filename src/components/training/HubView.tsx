@@ -62,8 +62,8 @@ export function HubView({ certFilter, setCertFilter, onModeSelect }: HubViewProp
         <div>
           <h1 className="text-3xl font-mono font-bold text-gradient-cyan mb-2">Training Hub</h1>
           <p className="text-muted-foreground w-full md:w-3/4">
-            Rèn luyện kỹ năng với các chế độ luyện tập thông minh. 
-            Hệ thống phân tích điểm yếu và tối ưu hóa lộ trình học của bạn.
+            Train skills with smart practice modes. 
+            The system analyzes weak areas and optimizes your learning path.
           </p>
         </div>
 
@@ -78,9 +78,9 @@ export function HubView({ certFilter, setCertFilter, onModeSelect }: HubViewProp
             </div>
             <div>
               <div className="text-2xl font-mono font-bold text-orange-500 leading-none mb-1">
-                {streak.currentStreak} <span className="text-sm font-normal text-muted-foreground">ngày</span>
+                {streak.currentStreak} <span className="text-sm font-normal text-muted-foreground">days</span>
               </div>
-              <div className="text-xs text-muted-foreground">Kỷ lục: {streak.longestStreak} ngày</div>
+              <div className="text-xs text-muted-foreground">Record: {streak.longestStreak} days</div>
             </div>
           </Card>
         </motion.div>
@@ -106,7 +106,7 @@ export function HubView({ certFilter, setCertFilter, onModeSelect }: HubViewProp
         <ModeCard
           icon={TrendingDown}
           title="Weakness Targeting"
-          desc="Tập trung luyện tập vào các Knowledge Domain mà bạn có tỷ lệ trả lời đúng thấp nhất (<75%)."
+          desc="Focus on Knowledge Domains where your correct answer rate is lowest (<75%)."
           accentClass="text-destructive"
           bgClass="bg-destructive/10"
           onClick={() => onModeSelect('weakness')}
@@ -115,7 +115,7 @@ export function HubView({ certFilter, setCertFilter, onModeSelect }: HubViewProp
         <ModeCard
           icon={Calendar}
           title="Daily Review"
-          desc="Ôn tập 10-15 câu hỏi mỗi ngày theo phương pháp Spaced Repetition System (SRS)."
+          desc="Review 10-15 questions daily using the Spaced Repetition System (SRS)."
           accentClass="text-primary"
           bgClass="bg-primary/10"
           onClick={() => onModeSelect('daily')}
@@ -124,7 +124,7 @@ export function HubView({ certFilter, setCertFilter, onModeSelect }: HubViewProp
         <ModeCard
           icon={Layers}
           title="Flashcards"
-          desc={`Lật thẻ bài để ghi nhớ khái niệm. Thuật toán SuperMemo-2 tối ưu hóa thời điểm ôn tập lại.`}
+          desc={`Flip cards to memorize concepts. SuperMemo-2 algorithm optimizes review timing.`}
           accentClass="text-accent"
           bgClass="bg-accent/10"
           badge={dueCount > 0 ? `${dueCount} due` : undefined}

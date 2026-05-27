@@ -176,7 +176,7 @@ export default function QuestionForm() {
             <Sparkles className="inline h-5 w-5 text-primary mr-2" />
             Contribute Question
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Tạo câu hỏi mới cho cộng đồng luyện thi.</p>
+          <p className="text-sm text-muted-foreground mt-1">Create new questions for the exam prep community.</p>
         </div>
 
         <div className={`grid gap-6 ${showPreview ? 'lg:grid-cols-2' : 'max-w-3xl'}`}>
@@ -188,7 +188,7 @@ export default function QuestionForm() {
               <div className="grid grid-cols-2 gap-3">
                 <Select value={certificationId || undefined} onValueChange={(v) => { setCertificationId(v); setDomainId(''); }}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Chọn chứng chỉ" />
+                    <SelectValue placeholder="Select Certificate" />
                   </SelectTrigger>
                   <SelectContent>
                     {certifications.map(c => (
@@ -201,7 +201,7 @@ export default function QuestionForm() {
 
                 <Select value={domainId || undefined} onValueChange={setDomainId} disabled={!domains.length}>
                   <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue placeholder="Chọn domain" />
+                    <SelectValue placeholder="Select Domain" />
                   </SelectTrigger>
                   <SelectContent>
                     {domains.map(d => (
@@ -260,7 +260,7 @@ export default function QuestionForm() {
               <Textarea
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Nội dung câu hỏi chính..."
+                placeholder="Main question content..."
                 className="bg-secondary border-border min-h-[80px] text-sm"
               />
               <div className={`space-y-2 transition-all duration-300 ${isScenario ? 'p-3 rounded-lg bg-accent/5 border border-accent/20' : ''}`}>
@@ -272,7 +272,7 @@ export default function QuestionForm() {
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder={isScenario ? "Mô tả chi tiết tình huống / scenario..." : "Mô tả thêm / context (optional)..."}
+                  placeholder={isScenario ? "Detailed scenario description..." : "Additional description / context (optional)..."}
                   className={`bg-secondary border-border text-sm transition-all duration-300 ${isScenario ? 'min-h-[140px] border-accent/30' : 'min-h-[60px]'}`}
                 />
               </div>
@@ -317,7 +317,7 @@ export default function QuestionForm() {
                         next[i].content = e.target.value;
                         setChoices(next);
                       }}
-                      placeholder={`Lựa chọn ${choice.label.toUpperCase()}`}
+                      placeholder={`Option ${choice.label.toUpperCase()}`}
                       className={`bg-secondary border-border text-sm ${choice.isCorrect ? 'border-accent/30' : ''}`}
                     />
                     {choices.length > 2 && (
@@ -328,7 +328,7 @@ export default function QuestionForm() {
                   </motion.div>
                 ))}
               </AnimatePresence>
-              <p className="text-xs text-muted-foreground">Click vào chữ cái để đánh dấu đáp án đúng</p>
+              <p className="text-xs text-muted-foreground">Click on the letter to mark the correct answer</p>
             </div>
 
             {/* Explanation & Reference */}
@@ -337,7 +337,7 @@ export default function QuestionForm() {
               <Textarea
                 value={explanation}
                 onChange={(e) => setExplanation(e.target.value)}
-                placeholder="Giải thích tại sao đáp án đúng là đúng, và các đáp án khác sai ở đâu..."
+                placeholder="Explain why the correct answer is right, and why the other options are wrong..."
                 className="bg-secondary border-border min-h-[100px] text-sm"
               />
               <Input
@@ -358,7 +358,7 @@ export default function QuestionForm() {
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleTagKeyDown}
-                  placeholder="Nhập tag rồi Enter..."
+                  placeholder="Enter tag and press Enter..."
                   className="bg-secondary border-border text-sm"
                 />
                 <Button type="button" variant="outline" size="sm" onClick={addTag} className="shrink-0 font-mono">

@@ -81,7 +81,7 @@ const Leaderboard = () => {
         ) : entries.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Trophy className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p className="font-mono">Chưa có dữ liệu. Hãy hoàn thành bài thi đầu tiên!</p>
+            <p className="font-mono">No data yet. Complete your first exam!</p>
           </div>
         ) : (
           <>

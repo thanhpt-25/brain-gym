@@ -70,8 +70,8 @@ const ExamResults = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p className="text-muted-foreground">Không tìm thấy kết quả thi.</p>
-          <Button onClick={() => navigate('/')} className="font-mono">Về trang chủ</Button>
+          <p className="text-muted-foreground">No exam results found.</p>
+          <Button onClick={() => navigate('/')} className="font-mono">Back to Home</Button>
         </div>
       </div>
     );
@@ -238,7 +238,7 @@ const ExamResults = () => {
         <div className="space-y-3">
           {filteredQuestions.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
-              Không có câu hỏi nào trong filter này.
+              No questions found in this filter.
             </p>
           )}
           {filteredQuestions.map((q, i) => {

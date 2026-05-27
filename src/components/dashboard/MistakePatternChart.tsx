@@ -96,7 +96,7 @@ export default function MistakePatternChart({ history, patterns }: Props) {
       <CardContent>
         {chartData.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            Chưa có dữ liệu lỗi. Hãy hoàn thành ít nhất 1 bài thi.
+            No error data yet. Complete at least 1 exam.
           </p>
         ) : (
           <div className="flex flex-col md:flex-row items-center gap-6">

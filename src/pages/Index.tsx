@@ -23,7 +23,7 @@ const features = [
   {
     icon: Target,
     title: "Exam Simulation",
-    desc: "Timer, navigation, mark for review — giống exam thật.",
+    desc: "Timer, navigation, mark for review — like real exams.",
   },
   {
     icon: BarChart3,
@@ -48,7 +48,7 @@ const features = [
   {
     icon: Brain,
     title: "Adaptive Exam",
-    desc: "Câu đúng → khó hơn. Câu sai → dễ hơn.",
+    desc: "Right questions → harder. Wrong → easier.",
   },
 ];
 

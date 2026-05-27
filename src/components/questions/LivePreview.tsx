@@ -77,7 +77,7 @@ export function LivePreview({
 
           {/* Question */}
           <h2 className="text-base font-medium mb-1">
-            {title || <span className="text-muted-foreground italic">Nội dung câu hỏi...</span>}
+            {title || <span className="text-muted-foreground italic">Question content...</span>}
           </h2>
           {isScenario && description ? (
             <div className="p-4 rounded-lg bg-accent/5 border border-accent/10 mb-4 relative">

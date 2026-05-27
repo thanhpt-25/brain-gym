@@ -65,7 +65,7 @@ export function WeaknessMode({ certFilter, onBack }: WeaknessModeProps) {
             <TrendingDown className="h-8 w-8 text-destructive" />
           </div>
           <h2 className="text-2xl font-mono font-bold mb-2">Weakness Targeting</h2>
-          <p className="text-muted-foreground mb-4">Tập trung vào các chủ đề bạn hay sai nhất</p>
+          <p className="text-muted-foreground mb-4">Focus on the topics you get wrong most</p>
 
           {!certFilter && (
             <p className="text-xs text-warning mb-6">⚠️ Please select a certification in the Hub first.</p>

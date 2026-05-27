@@ -43,7 +43,7 @@ export function ScoreTrendChart({ history }: ScoreTrendChartProps) {
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <TrendingUp className="h-8 w-8 text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground">
-              Cần ít nhất 2 bài thi để hiển thị biểu đồ xu hướng.
+              Need at least 2 exams to display trend chart.
             </p>
           </div>
         ) : (

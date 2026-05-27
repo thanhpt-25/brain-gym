@@ -36,7 +36,7 @@ export function FlashcardReviewMode({ certFilter, onBack }: FlashcardReviewModeP
             <Layers className="h-8 w-8 text-accent" />
           </div>
           <h2 className="text-2xl font-mono font-bold mb-2">Flashcard Mastery</h2>
-          <p className="text-muted-foreground mb-4">Ôn tập các thẻ ghi nhớ và khái niệm quan trọng</p>
+          <p className="text-muted-foreground mb-4">Review flashcards and important concepts</p>
           
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="p-4 rounded-lg bg-secondary/50 border border-border">
@@ -70,9 +70,9 @@ export function FlashcardReviewMode({ certFilter, onBack }: FlashcardReviewModeP
       <div className="text-center py-20">
         <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
         <h3 className="text-lg font-mono font-bold mb-2">All Caught Up!</h3>
-        <p className="text-sm text-muted-foreground mb-6">Bạn đã hoàn thành tất cả các thẻ cần ôn tập hôm nay.</p>
+        <p className="text-sm text-muted-foreground mb-6">You've completed all flashcards for today.</p>
         <Button variant="outline" className="font-mono" onClick={onBack}>
-          <ChevronLeft className="h-4 w-4 mr-1" /> Quay lại Hub
+          <ChevronLeft className="h-4 w-4 mr-1" /> Back to Hub
         </Button>
       </div>
     );
@@ -119,7 +119,7 @@ function FlashcardPracticeSession({ cards, onBack }: { cards: Flashcard[]; onBac
         <Card className="glass-card p-8 text-center">
           <CheckCircle2 className="h-12 w-12 text-accent mx-auto mb-4" />
           <h2 className="text-2xl font-mono font-bold mb-2">Session Complete!</h2>
-          <p className="text-muted-foreground mb-6">Bạn đã ôn tập xong {cards.length} thẻ ghi nhớ.</p>
+          <p className="text-muted-foreground mb-6">You've completed {cards.length} flashcards.</p>
           <Button className="w-full glow-cyan font-mono" onClick={onBack}>
             Finish Session
           </Button>

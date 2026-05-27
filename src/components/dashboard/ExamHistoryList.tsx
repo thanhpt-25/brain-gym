@@ -55,8 +55,8 @@ export function ExamHistoryList({ certificationId }: ExamHistoryListProps) {
       ) : history.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center glass-card rounded-xl border-dashed">
           <Clock className="h-10 w-10 text-muted-foreground/30 mb-4" />
-          <h3 className="font-mono font-medium text-muted-foreground">Chưa có lịch sử thi</h3>
-          <p className="text-xs text-muted-foreground/60 mt-1">Bắt đầu luyện tập để theo dõi tiến độ của bạn tại đây.</p>
+          <h3 className="font-mono font-medium text-muted-foreground">No exam history yet</h3>
+          <p className="text-xs text-muted-foreground/60 mt-1">Start practicing to track your progress here.</p>
         </div>
       ) : (
         <>
