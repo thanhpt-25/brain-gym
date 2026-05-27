@@ -98,11 +98,11 @@ const QuestionDetail = () => {
   const reportMutation = useMutation({
     mutationFn: () => reportQuestion(id!, reportReason, reportDesc || undefined),
     onSuccess: () => {
-      toast.success('Báo cáo đã được gửi');
+      toast.success('Report submitted');
       setReportOpen(false);
       setReportDesc('');
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Không thể gửi báo cáo'),
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Unable to submit report'),
   });
 
   if (isLoading) {

@@ -26,7 +26,7 @@ export function WeakTopicsChart({ weakTopics, domains }: WeakTopicsChartProps) {
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <AlertTriangle className="h-8 w-8 text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground">
-              Chưa có dữ liệu phân tích. Hãy hoàn thành ít nhất 1 bài thi để xem điểm yếu của bạn.
+              No analysis data yet. Complete at least 1 exam to see your weak areas.
             </p>
           </div>
         ) : (

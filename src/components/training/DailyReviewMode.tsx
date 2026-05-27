@@ -35,15 +35,15 @@ export function DailyReviewMode({ certFilter, onBack }: DailyReviewModeProps) {
             <Calendar className="h-8 w-8 text-primary" />
           </div>
           <h2 className="text-2xl font-mono font-bold mb-2">Daily Review</h2>
-          <p className="text-muted-foreground mb-2">Ôn tập mỗi ngày theo phương pháp Spaced Repetition</p>
+          <p className="text-muted-foreground mb-2">Review daily using Spaced Repetition method</p>
           <p className="text-sm text-muted-foreground mb-6">
-            Hệ thống tự động chọn các câu hỏi đã đến lịch ôn tập (SRS).
+            The system automatically selects questions scheduled for review (SRS).
           </p>
 
           <div className="flex items-center justify-center gap-6 mb-6 text-sm">
             <div className="flex items-center gap-1.5">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">~10-15 phút</span>
+              <span className="text-muted-foreground">~10-15 minutes</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Flame className="h-4 w-4 text-orange-400" />

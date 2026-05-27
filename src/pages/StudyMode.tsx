@@ -138,7 +138,7 @@ const StudyMode = () => {
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass-card p-8 text-center">
             <BookOpen className="h-12 w-12 text-primary mx-auto mb-4" />
             <h2 className="text-2xl font-mono font-bold mb-2">Session Complete!</h2>
-            <p className="text-muted-foreground mb-6">Bạn đã hoàn thành {pool.length} câu hỏi</p>
+            <p className="text-muted-foreground mb-6">You've completed {pool.length} questions</p>
 
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">

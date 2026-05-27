@@ -107,10 +107,10 @@ export function PracticeSession({ questions, attemptId, modeLabel, modeIcon: Mod
     return (
       <div className="text-center py-20">
         <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-mono font-bold mb-2">Không có câu hỏi phù hợp</h3>
-        <p className="text-sm text-muted-foreground mb-4">Hãy hoàn thành vài bài thi trước để hệ thống xác định điểm yếu.</p>
+        <h3 className="text-lg font-mono font-bold mb-2">No suitable questions</h3>
+        <p className="text-sm text-muted-foreground mb-4">Complete a few practice exams first so the system can identify weak areas.</p>
         <Button variant="outline" className="font-mono" onClick={onBack}>
-          <ChevronLeft className="h-4 w-4 mr-1" /> Quay lại
+          <ChevronLeft className="h-4 w-4 mr-1" /> Back
         </Button>
       </div>
     );
@@ -125,7 +125,7 @@ export function PracticeSession({ questions, attemptId, modeLabel, modeIcon: Mod
         <Card className="glass-card p-8 text-center">
           <ModeIcon className="h-12 w-12 text-primary mx-auto mb-4" />
           <h2 className="text-2xl font-mono font-bold mb-2">Session Complete!</h2>
-          <p className="text-muted-foreground mb-6">{pool.length} câu hỏi đã hoàn thành</p>
+          <p className="text-muted-foreground mb-6">{pool.length} questions completed</p>
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">

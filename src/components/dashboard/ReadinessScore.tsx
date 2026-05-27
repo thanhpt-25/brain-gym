@@ -53,7 +53,7 @@ export default function ReadinessScore({ summary, domains, weakTopics, readiness
           </CardTitle>
         </CardHeader>
         <CardContent className="h-32 flex items-center justify-center text-sm text-muted-foreground font-mono">
-          Chọn certification để xem độ sẵn sàng
+          Select a certification to view readiness
         </CardContent>
       </Card>
     );
