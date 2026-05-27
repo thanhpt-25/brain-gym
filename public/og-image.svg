@@ -1,0 +1,48 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="hsl(220, 24%, 8%)"/>
+      <stop offset="100%" stop-color="hsl(220, 22%, 5%)"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="hsl(190, 95%, 55%)"/>
+      <stop offset="100%" stop-color="hsl(160, 85%, 50%)"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="22%" cy="32%" r="55%">
+      <stop offset="0%" stop-color="hsl(190, 95%, 50%)" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="hsl(190, 95%, 50%)" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="85%" cy="80%" r="50%">
+      <stop offset="0%" stop-color="hsl(160, 85%, 45%)" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="hsl(160, 85%, 45%)" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#glow2)"/>
+  <rect x="6" y="6" width="1188" height="618" rx="28" fill="none" stroke="hsl(220, 16%, 18%)" stroke-width="2"/>
+
+  <!-- Brain icon (lucide) -->
+  <g transform="translate(150, 232) scale(7.2)" fill="none" stroke="url(#cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
+    <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
+    <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
+    <path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
+    <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
+    <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
+    <path d="M19.938 10.5a4 4 0 0 1 .585.396"/>
+    <path d="M6 18a4 4 0 0 1-1.967-.516"/>
+    <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="290" y="300" font-family="'JetBrains Mono','SFMono-Regular',monospace" font-size="104" font-weight="800" fill="url(#cyan)">CertGym</text>
+
+  <!-- Tagline -->
+  <text x="292" y="372" font-family="'Inter','Helvetica Neue',sans-serif" font-size="40" font-weight="600" fill="hsl(210, 20%, 92%)">A gym for your brain</text>
+  <text x="150" y="468" font-family="'Inter','Helvetica Neue',sans-serif" font-size="34" font-weight="400" fill="hsl(215, 14%, 62%)">Community-driven certification prep — mock exams,</text>
+  <text x="150" y="514" font-family="'Inter','Helvetica Neue',sans-serif" font-size="34" font-weight="400" fill="hsl(215, 14%, 62%)">flashcard SRS &amp; smart result analytics</text>
+
+  <text x="150" y="582" font-family="'JetBrains Mono',monospace" font-size="26" font-weight="600" fill="hsl(190, 95%, 55%)">brain-gym.biz</text>
+</svg>
