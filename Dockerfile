@@ -12,6 +12,11 @@ RUN npm install --legacy-peer-deps
 # Copy the rest of the application
 COPY . .
 
+# Vite bakes VITE_* vars into the bundle at build time, so it must be
+# present during `npm run build` rather than relying on a gitignored .env.
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 # Build the Vite application
 RUN npm run build
 
