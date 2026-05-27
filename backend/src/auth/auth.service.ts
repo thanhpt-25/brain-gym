@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { TokenResponseDto } from './dto/token-response.dto';
+import { OAuthProviderRegistry } from './oauth/oauth-provider.registry';
 
 @Injectable()
 export class AuthService {
@@ -21,11 +22,12 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private prisma: PrismaService,
+    private oauthRegistry: OAuthProviderRegistry,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
-    if (user && (await bcrypt.compare(pass, user.passwordHash))) {
+    if (user && user.passwordHash && (await bcrypt.compare(pass, user.passwordHash))) {
       const { passwordHash, ...result } = user;
       return result;
     }
@@ -64,6 +66,67 @@ export class AuthService {
       throw new BadRequestException('Email already in use');
     }
     const user = await this.usersService.create(createUserDto);
+    return this.generateTokens(user);
+  }
+
+  async socialLogin(
+    providerName: string,
+    token: string,
+  ): Promise<TokenResponseDto> {
+    const provider = this.oauthRegistry.get(providerName);
+    const info = await provider.verify(token);
+
+    // Find existing OAuth account link
+    let oauthAccount = await this.prisma.oAuthAccount.findUnique({
+      where: {
+        provider_providerUserId: {
+          provider: providerName,
+          providerUserId: info.providerUserId,
+        },
+      },
+      include: { user: true },
+    });
+
+    let user: any;
+
+    if (oauthAccount) {
+      user = oauthAccount.user;
+    } else {
+      // Auto-link to existing user with same email, or create new user
+      user = await this.usersService.findByEmail(info.email);
+      if (!user) {
+        user = await this.prisma.user.create({
+          data: {
+            email: info.email,
+            displayName: info.displayName,
+            avatarUrl: info.avatarUrl,
+          },
+        });
+      }
+      await this.prisma.oAuthAccount.create({
+        data: {
+          userId: user.id,
+          provider: providerName,
+          providerUserId: info.providerUserId,
+          email: info.email,
+        },
+      });
+    }
+
+    if (user.status === UserStatus.BANNED) {
+      throw new ForbiddenException('Your account has been banned');
+    }
+    if (user.status === UserStatus.SUSPENDED) {
+      if (user.suspendedUntil && new Date(user.suspendedUntil) > new Date()) {
+        throw new ForbiddenException(
+          'Your account is suspended until ' +
+            new Date(user.suspendedUntil).toISOString(),
+        );
+      }
+      await this.usersService.reactivateUser(user.id);
+      user = await this.usersService.findById(user.id);
+    }
+
     return this.generateTokens(user);
   }
 
