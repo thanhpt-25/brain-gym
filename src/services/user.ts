@@ -1,4 +1,5 @@
 import api from "./api";
+import { useAuthStore } from "@/stores/auth.store";
 
 export interface UserProfile {
   id: string;
@@ -52,11 +53,12 @@ export const uploadAvatar = async (
   // Local-dev path: multipart POST to backend disk endpoint
   const form = new FormData();
   form.append("file", file);
+  const token = useAuthStore.getState().accessToken;
   const localRes = await fetch(presign.uploadUrl, {
     method: "POST",
     body: form,
     headers: {
-      Authorization: api.defaults.headers.common["Authorization"] as string,
+      Authorization: `Bearer ${token}`,
     },
   });
   return localRes.json();
