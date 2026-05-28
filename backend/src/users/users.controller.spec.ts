@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { AuditService } from '../audit/audit.service';
+import { StorageService } from '../common/storage/storage.service';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -20,6 +21,13 @@ describe('UsersController', () => {
         {
           provide: AuditService,
           useValue: { log: jest.fn() },
+        },
+        {
+          provide: StorageService,
+          useValue: {
+            presignAvatarUpload: jest.fn(),
+            resolvePublicUrl: jest.fn(),
+          },
         },
       ],
     }).compile();
