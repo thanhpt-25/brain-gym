@@ -2,22 +2,30 @@ import {
   Controller,
   Get,
   Put,
+  Post,
   Body,
   Param,
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { StorageService } from '../common/storage/storage.service';
+import { AvatarUploadInterceptor } from '../common/storage/avatar-upload.interceptor';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateUserPlanDto } from './dto/update-user-plan.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { SuspendUserDto } from './dto/suspend-user.dto';
 import { BanUserDto } from './dto/ban-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -34,6 +42,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly auditService: AuditService,
+    private readonly storageService: StorageService,
   ) {}
 
   @Get('me')
@@ -52,6 +61,72 @@ export class UsersController {
   updateProfile(@Req() req: any, @Body() dto: UpdateProfileDto) {
     const userId = req.user.sub || req.user.id;
     return this.usersService.updateProfile(userId, dto);
+  }
+
+  @Post('me/avatar/presign')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get presigned PUT URL for avatar upload' })
+  @ApiBody({
+    schema: {
+      properties: { contentType: { type: 'string' } },
+      required: ['contentType'],
+    },
+  })
+  async presignAvatar(@Body('contentType') contentType: string) {
+    if (!contentType?.match(/^image\/(jpeg|png|gif|webp)$/)) {
+      throw new BadRequestException(
+        'contentType must be a valid image MIME type',
+      );
+    }
+    return this.storageService.presignAvatarUpload(contentType);
+  }
+
+  @Post('me/avatar/confirm')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Confirm avatar upload and save URL to profile' })
+  @ApiBody({
+    schema: { properties: { key: { type: 'string' } }, required: ['key'] },
+  })
+  async confirmAvatar(@Req() req: any, @Body('key') key: string) {
+    if (!key) throw new BadRequestException('key is required');
+    const userId = req.user.sub || req.user.id;
+    const avatarUrl = this.storageService.resolvePublicUrl(key);
+    const updated = await this.usersService.updateProfile(userId, {
+      avatarUrl,
+    });
+    return { avatarUrl: updated.avatarUrl };
+  }
+
+  @Post('me/avatar/upload-local')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Local-dev avatar upload (disk storage)' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(AvatarUploadInterceptor)
+  async uploadAvatarLocal(@Req() req: any) {
+    const file = req.file as Express.Multer.File;
+    if (!file) throw new BadRequestException('No file provided');
+    const userId = req.user.sub || req.user.id;
+    const avatarUrl = `/uploads/avatars/${file.filename}`;
+    const updated = await this.usersService.updateProfile(userId, {
+      avatarUrl,
+    });
+    return { avatarUrl: updated.avatarUrl };
+  }
+
+  @Put('me/password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change own password' })
+  changePassword(@Req() req: any, @Body() dto: ChangePasswordDto) {
+    const userId = req.user.sub || req.user.id;
+    return this.usersService.changePassword(
+      userId,
+      dto.currentPassword,
+      dto.newPassword,
+    );
   }
 
   @Get()
