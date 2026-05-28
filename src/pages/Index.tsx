@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { getCertifications } from "@/services/certifications";
 import { getMyPoints } from "@/services/gamification";
+import { getPlatformStats, type PlatformStats } from "@/services/analytics";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Brain,
@@ -18,6 +19,12 @@ import { CardSkeleton } from "@/components/PageSkeleton";
 import { useAuthStore } from "@/stores/auth.store";
 import { fallbackCertifications } from "@/data/fallbackCertifications";
 import Navbar from "@/components/Navbar";
+
+const formatStat = (value: number): string => {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M+`;
+  if (value >= 1000) return `${(value / 1000).toFixed(0)}K+`;
+  return value.toString();
+};
 
 const features = [
   {
@@ -52,11 +59,11 @@ const features = [
   },
 ];
 
-const stats = [
-  { value: "10K+", label: "Questions" },
-  { value: "5", label: "Certifications" },
-  { value: "50K+", label: "Exams Taken" },
-  { value: "89%", label: "Pass Rate" },
+const StatFallback = [
+  { value: "—", label: "Questions" },
+  { value: "—", label: "Certifications" },
+  { value: "—", label: "Exams Taken" },
+  { value: "—", label: "Pass Rate" },
 ];
 
 const Index = () => {
@@ -72,6 +79,28 @@ const Index = () => {
     queryFn: getMyPoints,
     enabled: isAuthenticated,
   });
+  const { data: platformStats } = useQuery<PlatformStats>({
+    queryKey: ["platform-stats"],
+    queryFn: getPlatformStats,
+  });
+
+  const stats = platformStats
+    ? [
+        { value: formatStat(platformStats.totalQuestions), label: "Questions" },
+        {
+          value: formatStat(platformStats.totalCertifications),
+          label: "Certifications",
+        },
+        {
+          value: formatStat(platformStats.totalExamAttempts),
+          label: "Exams Taken",
+        },
+        {
+          value: `${platformStats.averagePassRate}%`,
+          label: "Pass Rate",
+        },
+      ]
+    : StatFallback;
 
   return (
     <main id="main-content" className="min-h-screen bg-background">
@@ -109,10 +138,14 @@ const Index = () => {
               </span>
             </div>
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold font-mono tracking-tight leading-[1.1] mb-8">
-              <span className="block text-foreground">Master your certification</span>
+              <span className="block text-foreground">
+                Master your certification
+              </span>
               <span
                 className="block text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary"
-                style={{ filter: "drop-shadow(0 0 18px hsl(var(--primary) / 0.35))" }}
+                style={{
+                  filter: "drop-shadow(0 0 18px hsl(var(--primary) / 0.35))",
+                }}
               >
                 with the community
               </span>
@@ -228,7 +261,8 @@ const Index = () => {
             className="text-center mb-12"
           >
             <h2 className="text-3xl font-bold font-mono mb-3">
-              More than just <span className="text-gradient-cyan">practice tests</span>
+              More than just{" "}
+              <span className="text-gradient-cyan">practice tests</span>
             </h2>
             <p className="text-muted-foreground">
               A complete certification training ecosystem
