@@ -95,3 +95,15 @@ export const getMistakePatterns = async (
   );
   return response.data;
 };
+
+export interface PlatformStats {
+  totalQuestions: number;
+  totalCertifications: number;
+  totalExamAttempts: number;
+  averagePassRate: number;
+}
+
+export const getPlatformStats = async (): Promise<PlatformStats> => {
+  const response = await api.get<PlatformStats>("/analytics/platform/stats");
+  return response.data;
+};

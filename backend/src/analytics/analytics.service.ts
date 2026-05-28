@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AttemptStatus, MistakeType, Prisma } from '@prisma/client';
+import {
+  AttemptStatus,
+  MistakeType,
+  Prisma,
+  QuestionStatus,
+} from '@prisma/client';
 import { UpdateMistakeTypeDto } from './dto/update-mistake-type.dto';
 import {
   AnalyticsSummaryResponse,
@@ -430,5 +435,37 @@ export class AnalyticsService {
       .sort((a, b) => b.hesitationRatio - a.hesitationRatio);
 
     return { data: hesitating, total: hesitating.length };
+  }
+
+  async getPlatformStats() {
+    const [totalQuestions, totalCertifications, totalExamAttempts] =
+      await Promise.all([
+        this.prisma.question.count({
+          where: { status: QuestionStatus.APPROVED },
+        }),
+        this.prisma.certification.count(),
+        this.prisma.examAttempt.count({
+          where: { status: AttemptStatus.SUBMITTED },
+        }),
+      ]);
+
+    const passedAttempts = await this.prisma.examAttempt.count({
+      where: {
+        status: AttemptStatus.SUBMITTED,
+        score: { gte: 70 },
+      },
+    });
+
+    const averagePassRate =
+      totalExamAttempts > 0
+        ? Math.round((passedAttempts / totalExamAttempts) * 100)
+        : 0;
+
+    return {
+      totalQuestions,
+      totalCertifications,
+      totalExamAttempts,
+      averagePassRate,
+    };
   }
 }

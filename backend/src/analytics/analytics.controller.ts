@@ -117,6 +117,16 @@ export class AnalyticsController {
     );
   }
 
+  @Get('platform/stats')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Get platform-wide statistics (total questions, certifications, etc)',
+  })
+  getPlatformStats() {
+    return this.analyticsService.getPlatformStats();
+  }
+
   @Get('questions/:id/stats')
   @Public()
   @ApiOperation({
