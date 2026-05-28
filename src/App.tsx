@@ -73,6 +73,9 @@ const ScenarioResults = lazy(() => import("./pages/ScenarioResults"));
 // Knowledge Graph page
 const KnowledgeGraph = lazy(() => import("./pages/KnowledgeGraph"));
 
+// Profile page
+const ProfilePage = lazy(() => import("./pages/Profile"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -428,6 +431,17 @@ const AnimatedRoutes = () => {
                 <Suspense fallback={<LoadingFallback />}>
                   <KnowledgeGraph />
                 </Suspense>
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             </PageTransition>
           }

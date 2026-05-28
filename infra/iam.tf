@@ -62,6 +62,27 @@ resource "aws_iam_role" "ecs_task" {
   })
 }
 
+# Allow the ECS task to generate presigned PUT URLs and manage avatar objects.
+# No static access keys — the task inherits credentials from this role automatically.
+resource "aws_iam_role_policy" "ecs_task_avatars" {
+  name = "s3-avatars"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "AvatarsBucket"
+      Effect = "Allow"
+      Action = [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+      ]
+      Resource = "${aws_s3_bucket.avatars.arn}/*"
+    }]
+  })
+}
+
 # ─────────────────────────────────────────────
 # GitHub Actions Deploy Role (OIDC)
 # Assumed by GitHub Actions via OIDC — no static

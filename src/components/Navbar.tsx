@@ -7,25 +7,28 @@ import {
   Plus,
   Shield,
   Menu,
-  X,
   BookOpen,
   BarChart3,
   Trophy,
   Target,
   Dumbbell,
   Layers,
-  Library,
   AlertTriangle,
   Bot,
   Building2,
+  UserCircle,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetClose,
-} from "@/components/ui/sheet";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuthStore } from "@/stores/auth.store";
 import { useOrgStore } from "@/stores/org.store";
 import { getMyPoints } from "@/services/gamification";
@@ -55,16 +58,21 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
   const [open, setOpen] = useState(false);
 
   const orgMemberships = user?.orgMemberships ?? [];
-  const belongsToCurrentOrg = orgMemberships.some(m => m.slug === currentOrg?.slug);
+  const belongsToCurrentOrg = orgMemberships.some(
+    (m) => m.slug === currentOrg?.slug,
+  );
   const orgHref =
     orgMemberships.length === 1
       ? `/org/${orgMemberships[0].slug}`
-      : currentOrg && (belongsToCurrentOrg || user?.role === 'ADMIN')
+      : currentOrg && (belongsToCurrentOrg || user?.role === "ADMIN")
         ? `/org/${currentOrg.slug}`
         : "/org";
   const navLinks = [
     ...staticNavLinks.slice(0, 7), // before Leaderboard
-    ...(orgMemberships.length > 0 || user?.plan === "PREMIUM" || user?.plan === "ENTERPRISE" || user?.role === "ADMIN"
+    ...(orgMemberships.length > 0 ||
+    user?.plan === "PREMIUM" ||
+    user?.plan === "ENTERPRISE" ||
+    user?.role === "ADMIN"
       ? [{ label: "Organization", href: orgHref, icon: Building2 }]
       : []),
     ...staticNavLinks.slice(7), // Leaderboard
@@ -154,14 +162,47 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                   <Shield className="w-3.5 h-3.5 mr-1" /> Admin
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="hidden md:flex border-destructive/50 text-destructive hover:bg-destructive/10 h-8 text-xs"
-                onClick={() => logout()}
-              >
-                Logout
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="hidden md:flex items-center gap-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label="User menu"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.avatarUrl ?? undefined} />
+                      <AvatarFallback className="text-xs font-mono bg-primary/10 text-primary">
+                        {(user?.displayName ?? "U")
+                          .split(" ")
+                          .map((w) => w[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-2 py-1.5">
+                    <p className="text-xs font-mono font-medium truncate">
+                      {user?.displayName}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    <UserCircle className="h-4 w-4 mr-2" /> Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => logout()}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" /> Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <Button
@@ -248,6 +289,13 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                           points
                         </div>
                       )}
+                      <button
+                        onClick={() => handleNav("/profile")}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <UserCircle className="h-4 w-4" />
+                        Profile
+                      </button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -257,7 +305,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                           logout();
                         }}
                       >
-                        Logout
+                        <LogOut className="h-4 w-4 mr-2" /> Logout
                       </Button>
                     </div>
                   ) : (
