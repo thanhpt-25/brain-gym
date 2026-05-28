@@ -119,7 +119,7 @@ const QuestionsBrowser = () => {
                                                 {q.difficulty}
                                             </span>
                                             <span className="px-2.5 py-0.5 rounded-full bg-muted text-muted-foreground text-xs font-mono">
-                                                {q.certificationId}
+                                                {q.certification?.code || q.certificationId}
                                             </span>
                                             {q.isScenario && (
                                                 <span className="px-2.5 py-0.5 rounded-full bg-accent/20 text-accent text-xs font-mono flex items-center gap-1">

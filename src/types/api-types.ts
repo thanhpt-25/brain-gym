@@ -52,6 +52,12 @@ export interface Question {
   domainId?: string;
   domain?: Domain;
   certificationId: string;
+  certification?: {
+    id: string;
+    name: string;
+    code: string;
+    provider?: { id: string; name: string; slug: string };
+  };
 }
 
 export interface Certification {

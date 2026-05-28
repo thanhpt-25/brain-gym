@@ -34,7 +34,14 @@ export class AttemptsService {
     const exam = await this.prisma.exam.findUnique({
       where: { id: examId },
       include: {
-        certification: { include: { domains: true } },
+        certification: {
+          include: {
+            domains: true,
+            provider: {
+              select: { id: true, name: true, slug: true },
+            },
+          },
+        },
         examQuestions: {
           orderBy: { sortOrder: 'asc' },
           include: {
@@ -352,7 +359,13 @@ export class AttemptsService {
       include: {
         exam: {
           include: {
-            certification: true,
+            certification: {
+              include: {
+                provider: {
+                  select: { id: true, name: true, slug: true },
+                },
+              },
+            },
           },
         },
         answers: {
@@ -426,7 +439,11 @@ export class AttemptsService {
           exam: {
             include: {
               certification: {
-                select: { id: true, name: true, code: true, provider: true },
+                include: {
+                  provider: {
+                    select: { id: true, name: true, slug: true },
+                  },
+                },
               },
             },
           },

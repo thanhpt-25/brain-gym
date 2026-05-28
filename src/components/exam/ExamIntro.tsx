@@ -76,9 +76,9 @@ export function ExamIntro({
           className="glass-card p-8"
         >
           <div className="text-sm font-mono text-muted-foreground mb-1">
-            {typeof cert.provider === "object"
-              ? cert.provider?.name
-              : cert.provider}{" "}
+            {typeof cert.provider === "object" && cert.provider
+              ? cert.provider.name
+              : "Provider"}{" "}
             · {cert.code}
           </div>
           <h1 className="text-2xl font-mono font-bold mb-2">{cert.name}</h1>

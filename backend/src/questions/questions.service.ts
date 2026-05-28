@@ -55,6 +55,14 @@ export class QuestionsService {
           author: {
             select: { id: true, displayName: true, avatarUrl: true },
           },
+          certification: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              provider: { select: { id: true, name: true, slug: true } },
+            },
+          },
           domain: true,
           choices: { orderBy: { sortOrder: 'asc' } },
           tags: { include: { tag: true } },
