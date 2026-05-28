@@ -35,3 +35,11 @@ dist-ssr
 e2e/.auth/
 test-results/
 playwright-report/
+
+# Terraform
+tfplan
+*.tfplan
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
