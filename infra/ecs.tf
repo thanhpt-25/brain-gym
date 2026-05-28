@@ -57,7 +57,10 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "PORT", value = "3000" },
         { name = "REDIS_HOST", value = aws_elasticache_replication_group.redis.primary_endpoint_address },
         { name = "REDIS_PORT", value = tostring(aws_elasticache_replication_group.redis.port) },
-        { name = "CORS_ORIGINS", value = "https://${var.domain_name},https://www.${var.domain_name},https://${aws_cloudfront_distribution.main.domain_name}" }
+        { name = "CORS_ORIGINS", value = "https://${var.domain_name},https://www.${var.domain_name},https://${aws_cloudfront_distribution.main.domain_name}" },
+        { name = "AWS_REGION", value = var.aws_region },
+        { name = "AWS_S3_AVATARS_BUCKET", value = aws_s3_bucket.avatars.bucket },
+        { name = "AWS_AVATARS_CDN_BASE_URL", value = "https://${aws_cloudfront_distribution.main.domain_name}/avatars" },
       ]
 
       secrets = [
