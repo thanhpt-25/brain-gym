@@ -280,7 +280,7 @@ export class UsersService {
     ]);
 
     const avgScore = examAttempts.length
-      ? Math.round(avgScoreData._avg.score || 0)
+      ? Math.round(Number(avgScoreData._avg.score || 0))
       : 0;
 
     const dayStreak = this.computeStreak(examAttempts);
@@ -383,7 +383,7 @@ export class UsersService {
         select: {
           id: true,
           createdAt: true,
-          text: true,
+          title: true,
         },
         orderBy: { createdAt: 'desc' },
         take: 20,
@@ -392,7 +392,7 @@ export class UsersService {
         where: { userId, lastReviewedAt: { not: null } },
         select: {
           lastReviewedAt: true,
-          question: { select: { text: true } },
+          question: { select: { title: true } },
         },
         orderBy: { lastReviewedAt: 'desc' },
         take: 20,
@@ -403,7 +403,7 @@ export class UsersService {
       ...attempts.map((a) => ({
         type: 'exam_passed' as const,
         title: `Passed ${a.exam.title}`,
-        meta: `Score ${Math.round(a.score || 0)}%`,
+        meta: `Score ${Math.round(Number(a.score || 0))}%`,
         occurredAt: a.submittedAt || new Date(),
       })),
       ...awards.map((a) => ({
@@ -415,13 +415,13 @@ export class UsersService {
       ...questions.map((q) => ({
         type: 'question_created' as const,
         title: `Created a question`,
-        meta: q.text.slice(0, 50),
+        meta: q.title.slice(0, 50),
         occurredAt: q.createdAt,
       })),
       ...reviews.map((r) => ({
         type: 'flashcard_reviewed' as const,
         title: `Reviewed flashcard`,
-        meta: r.question.text.slice(0, 50),
+        meta: r.question.title.slice(0, 50),
         occurredAt: r.lastReviewedAt || new Date(),
       })),
     ];
