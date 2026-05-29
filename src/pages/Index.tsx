@@ -12,6 +12,14 @@ import {
   Target,
   BookOpen,
   Flame,
+  Sparkles,
+  Trophy,
+  TrendingUp,
+  CheckCircle2,
+  ArrowRight,
+  Quote,
+  Clock,
+  Rocket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import CertificationCard from "@/components/CertificationCard";
@@ -56,6 +64,60 @@ const features = [
     icon: Brain,
     title: "Adaptive Exam",
     desc: "Right questions → harder. Wrong → easier.",
+  },
+];
+
+const howItWorks = [
+  {
+    step: "01",
+    icon: Rocket,
+    title: "Pick your cert",
+    desc: "Choose from AWS, Azure, GCP, Kubernetes and dozens more community-curated tracks.",
+  },
+  {
+    step: "02",
+    icon: Brain,
+    title: "Train daily",
+    desc: "Adaptive mock exams, flashcards, and weakness mode — 15 minutes a day is enough.",
+  },
+  {
+    step: "03",
+    icon: Trophy,
+    title: "Pass with confidence",
+    desc: "Real-time pass probability and domain mastery shows when you're truly exam-ready.",
+  },
+];
+
+const benefits = [
+  "Realistic exam timer & lab-style scenarios",
+  "Spaced repetition that adapts to your weak spots",
+  "Detailed explanations written by the community",
+  "Pass-probability score updated after every session",
+  "AI-generated questions to drill any sub-topic",
+  "Free forever for core practice — no credit card",
+];
+
+const testimonials = [
+  {
+    quote:
+      "Went from 58% to 84% on practice exams in three weeks. The weakness mode is unreal.",
+    name: "Priya S.",
+    role: "Passed AWS SAA-C03",
+    accent: "primary",
+  },
+  {
+    quote:
+      "Finally a prep platform that feels like leveling up a character, not grinding flashcards.",
+    name: "Marcus T.",
+    role: "Passed AZ-104",
+    accent: "accent",
+  },
+  {
+    quote:
+      "The community explanations are better than the paid courses I bought. Saved me $300.",
+    name: "Linh N.",
+    role: "Passed CKA",
+    accent: "primary",
   },
 ];
 
