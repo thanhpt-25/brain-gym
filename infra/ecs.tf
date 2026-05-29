@@ -60,7 +60,7 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "CORS_ORIGINS", value = "https://${var.domain_name},https://www.${var.domain_name},https://${aws_cloudfront_distribution.main.domain_name}" },
         { name = "AWS_REGION", value = var.aws_region },
         { name = "AWS_S3_AVATARS_BUCKET", value = aws_s3_bucket.avatars.bucket },
-        { name = "AWS_AVATARS_CDN_BASE_URL", value = "https://${aws_cloudfront_distribution.main.domain_name}/avatars" },
+        { name = "AWS_AVATARS_CDN_BASE_URL", value = "https://${var.domain_name}" },
       ]
 
       secrets = [

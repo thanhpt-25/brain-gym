@@ -38,11 +38,14 @@ export const uploadAvatar = async (
 
   if (presign.mode === "s3") {
     // Step 2a: PUT directly to S3 (no auth header — URL is already signed)
-    await fetch(presign.uploadUrl, {
+    const s3Res = await fetch(presign.uploadUrl, {
       method: "PUT",
       body: file,
       headers: { "Content-Type": file.type },
     });
+    if (!s3Res.ok) {
+      throw new Error(`S3 upload failed: ${s3Res.status}`);
+    }
     // Step 2b: tell the backend which key was uploaded so it updates the DB
     const confirmRes = await api.post("/users/me/avatar/confirm", {
       key: presign.key,

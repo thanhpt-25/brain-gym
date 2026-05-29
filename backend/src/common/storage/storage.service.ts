@@ -62,7 +62,7 @@ export class StorageService {
     }
 
     const ext = contentType.split('/')[1] ?? 'jpg';
-    const key = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+    const key = `avatars/${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,

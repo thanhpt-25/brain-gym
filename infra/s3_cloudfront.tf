@@ -311,6 +311,6 @@ output "s3_avatars_bucket_name" {
 }
 
 output "avatars_cdn_base_url" {
-  value       = "https://${aws_cloudfront_distribution.main.domain_name}/avatars"
-  description = "CloudFront base URL for avatar files — use as AWS_AVATARS_CDN_BASE_URL in ECS env"
+  value       = "https://${var.domain_name}"
+  description = "CDN base URL using custom domain — use as AWS_AVATARS_CDN_BASE_URL in ECS env (keys include avatars/ prefix)"
 }

@@ -43,3 +43,4 @@ tfplan
 *.tfstate.backup
 .terraform/
 .terraform.lock.hcl
+.codegraph/*
