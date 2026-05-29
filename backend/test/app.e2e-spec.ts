@@ -23,7 +23,7 @@ describe('App (e2e)', () => {
 
   beforeEach(async () => {
     await cleanDb(prisma as any);
-  });
+  }, 10000);
 
   afterAll(async () => {
     if (app) {
