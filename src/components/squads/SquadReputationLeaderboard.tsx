@@ -35,7 +35,7 @@ export function SquadReputationLeaderboard({
   if (isLoading) {
     return (
       <div className="rep-board rep-board--loading" aria-busy="true">
-        <Loader2 size={18} className="rep-spin" />
+        <Loader2 size={18} className="rep-spin" aria-hidden="true" />
         <span>Loading leaderboard…</span>
       </div>
     );
@@ -52,7 +52,7 @@ export function SquadReputationLeaderboard({
   if (data.length === 0) {
     return (
       <div className="rep-board rep-board--empty">
-        <Trophy size={24} className="rep-empty-icon" />
+        <Trophy size={24} className="rep-empty-icon" aria-hidden="true" />
         <p>
           No reputation points yet. Earn points by writing great explanations!
         </p>
@@ -63,7 +63,7 @@ export function SquadReputationLeaderboard({
   return (
     <section className="rep-board" aria-label="Squad reputation leaderboard">
       <h3 className="rep-board-title">
-        <Trophy size={16} />
+        <Trophy size={16} aria-hidden="true" />
         Reputation Leaderboard
       </h3>
       <ol className="rep-list">
@@ -81,16 +81,19 @@ export function SquadReputationLeaderboard({
                   <Medal
                     size={16}
                     className="rep-rank-icon rep-rank-icon--gold"
+                    aria-hidden="true"
                   />
                 ) : idx === 1 ? (
                   <Medal
                     size={16}
                     className="rep-rank-icon rep-rank-icon--silver"
+                    aria-hidden="true"
                   />
                 ) : idx === 2 ? (
                   <Medal
                     size={16}
                     className="rep-rank-icon rep-rank-icon--bronze"
+                    aria-hidden="true"
                   />
                 ) : (
                   <span className="rep-rank-num">{idx + 1}</span>

@@ -485,7 +485,7 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText("🛡️ Armed")).toBeInTheDocument();
+        expect(screen.getByLabelText("Canary armed")).toBeInTheDocument();
         expect(screen.getByText(/Promoted:/)).toBeInTheDocument();
       });
     });
@@ -520,7 +520,7 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       renderComponent();
 
       await waitFor(() => {
-        const armedBadge = screen.getByText("🛡️ Armed");
+        const armedBadge = screen.getByLabelText("Canary armed");
         expect(armedBadge).toHaveClass("dds-canary-armed");
       });
     });
@@ -555,7 +555,7 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       renderComponent();
 
       await waitFor(() => {
-        const pausedBadge = screen.getByText("⏸️ Paused");
+        const pausedBadge = screen.getByLabelText("Canary paused");
         expect(pausedBadge).toHaveClass("dds-canary-paused");
       });
     });

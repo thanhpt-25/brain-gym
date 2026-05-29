@@ -434,30 +434,33 @@ export class KnowledgeGraphService {
       select: { id: true },
     });
 
-    let scheduled = 0;
-    let alreadyExisted = 0;
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    for (const q of questions) {
-      const existing = await this.prisma.reviewSchedule.findUnique({
-        where: { userId_questionId: { userId, questionId: q.id } },
-      });
-      if (existing) {
-        alreadyExisted++;
-        continue;
-      }
-      await this.prisma.reviewSchedule.create({
-        data: {
+    // Batch-check existing schedules in one query instead of one per question
+    const questionIds = questions.map((q) => q.id);
+    const existingSchedules = await this.prisma.reviewSchedule.findMany({
+      where: { userId, questionId: { in: questionIds } },
+      select: { questionId: true },
+    });
+    const existingIds = new Set(existingSchedules.map((s) => s.questionId));
+    const newQuestions = questions.filter((q) => !existingIds.has(q.id));
+
+    if (newQuestions.length > 0) {
+      await this.prisma.reviewSchedule.createMany({
+        data: newQuestions.map((q) => ({
           userId,
           questionId: q.id,
           nextReviewDate: tomorrow,
           intervalDays: 1,
           repetitions: 0,
-        },
+        })),
+        skipDuplicates: true,
       });
-      scheduled++;
     }
+
+    const scheduled = newQuestions.length;
+    const alreadyExisted = existingIds.size;
 
     this.logger.log(
       `study_plan_scheduled userId=${userId} planId=${studyPlanId} scheduled=${scheduled} existed=${alreadyExisted}`,

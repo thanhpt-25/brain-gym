@@ -1,0 +1,143 @@
+# Sprint 12 GA Alert Rules
+# Extends alert-rules-sprint11.yml with GA-readiness alerts and tuned thresholds.
+# Runbook: docs/oncall.md
+
+groups:
+  - name: sprint12_dds_ga
+    interval: 30s
+    rules:
+      # ========================================================================
+      # DDS Auto-Apply Latency SLO
+      # GA target: p95 < 200ms (docs/team-planning/sprint-12-ga-prep.md)
+      # ========================================================================
+      - alert: DDSApplyLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(dds_apply_duration_ms_bucket[5m])) by (le)) > 200
+        for: 5m
+        labels:
+          severity: warning
+          component: dds
+          team: backend
+        annotations:
+          summary: "DDS auto-apply p95 latency exceeds 200ms GA target"
+          description: |
+            DDS auto-apply p95 latency is {{ $value | humanize }}ms, above the 200ms GA target.
+
+            Check: LLM quota guard, DB connection pool utilization, slow queries.
+          runbook_url: "https://docs.example.com/oncall.md#dds-latency"
+          dashboard: "http://grafana.local/d/sprint12-ga?panelId=1"
+
+      # ========================================================================
+      # DDS Approval Rate Drop
+      # GA target: >80%. Sustained drop may indicate prompt regression.
+      # ========================================================================
+      - alert: DDSApprovalRateLow
+        expr: |
+          (rate(dds_variant_approved_total[1h]) / (rate(dds_variant_proposed_total[1h]) + 1e-6)) * 100 < 70
+        for: 15m
+        labels:
+          severity: warning
+          component: dds
+          team: ai
+        annotations:
+          summary: "DDS approval rate dropped below 70% (GA target >80%)"
+          description: |
+            DDS variant approval rate is {{ $value | humanize }}% over the last hour.
+            Sustained drops may indicate LLM prompt regression or data quality issues.
+
+            Action: Review recent DDS proposals in the admin panel.
+          runbook_url: "https://docs.example.com/oncall.md#dds-approval-rate"
+          dashboard: "http://grafana.local/d/sprint12-ga?panelId=2"
+
+      # ========================================================================
+      # DDS Rollback Rate (post-GA — threshold retained at 5% per ADR-026)
+      # Annotation updated to reflect canary auto-resume behaviour added in S12.
+      # ========================================================================
+      - alert: DDSRollbackRateHigh
+        expr: |
+          (rate(dds_variant_rolled_back_total[10m]) / (rate(dds_variant_approved_total[10m]) + 1e-6)) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: dds-canary
+          team: backend
+        annotations:
+          summary: "DDS rollback rate exceeds 5% — canary auto-pause triggered"
+          description: |
+            DDS rollback rate is {{ $value | humanize }}% in the last 10 minutes.
+            The canary auto-pause mechanism has engaged; auto-apply will resume
+            automatically after the cooldown window (DDS_CANARY_COOLDOWN_MS, default 30m).
+
+            If this alert persists after cooldown, investigate root cause before
+            manually re-promoting via POST /ai-question-bank/dds/auto-apply/promote.
+          runbook_url: "https://docs.example.com/oncall.md#dds-canary-rollback-alert"
+          dashboard: "http://grafana.local/d/sprint11-observability?panelId=2"
+
+  - name: sprint12_reputation_ga
+    interval: 60s
+    rules:
+      # ========================================================================
+      # Reputation False-Positive Rate
+      # High cleared-to-total ratio means thresholds are too sensitive.
+      # ========================================================================
+      - alert: ReputationFalsePositiveRateHigh
+        expr: |
+          (rate(reputation_flag_cleared_total[1h]) / (rate(reputation_flag_cleared_total[1h]) + rate(reputation_flag_confirmed_total[1h]) + 1e-6)) * 100 > 60
+        for: 30m
+        labels:
+          severity: warning
+          component: reputation-anti-gaming
+          team: backend
+        annotations:
+          summary: "Reputation FP rate above 60% — consider raising velocity/ring thresholds"
+          description: |
+            {{ $value | humanize }}% of resolved reputation flags are being cleared (false positives).
+            Consider raising REPUTATION_VELOCITY_BURST_THRESHOLD or REPUTATION_RING_THRESHOLD
+            to reduce noise without compromising detection.
+
+            Current defaults: burst=5/60s, ring=3 accounts/1h.
+          runbook_url: "https://docs.example.com/oncall.md#reputation-fp-tuning"
+          dashboard: "http://grafana.local/d/sprint12-ga?panelId=3"
+
+  - name: sprint12_db_ga
+    interval: 30s
+    rules:
+      # ========================================================================
+      # DB Connection Pool Saturation
+      # GA target: utilization < 80% under 10k concurrent sessions.
+      # ========================================================================
+      - alert: DBPoolUtilizationHigh
+        expr: |
+          (pg_pool_active_connections / pg_pool_max_connections) * 100 > 80
+        for: 5m
+        labels:
+          severity: critical
+          component: database
+          team: backend
+        annotations:
+          summary: "DB connection pool utilization exceeds 80% GA target"
+          description: |
+            PostgreSQL connection pool is at {{ $value | humanize }}% utilization.
+            This risks connection timeouts under GA load.
+
+            Immediate actions:
+            1. Check for connection leaks (long-running idle transactions)
+            2. Consider increasing pool size (DATABASE_POOL_MAX env)
+            3. Scale backend instances if load is legitimate
+          runbook_url: "https://docs.example.com/oncall.md#db-pool-saturation"
+          dashboard: "http://grafana.local/d/sprint12-ga?panelId=6"
+
+      - alert: DBPoolUtilizationWarning
+        expr: |
+          (pg_pool_active_connections / pg_pool_max_connections) * 100 > 60
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+          team: backend
+        annotations:
+          summary: "DB connection pool above 60% — approaching GA threshold"
+          description: |
+            Pool utilization is {{ $value | humanize }}%. Still within limits but trending toward
+            the 80% GA threshold. Monitor during peak traffic windows.
+          runbook_url: "https://docs.example.com/oncall.md#db-pool-saturation"
