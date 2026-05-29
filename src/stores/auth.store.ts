@@ -15,6 +15,7 @@ interface User {
   displayName: string;
   role: string;
   plan: string;
+  avatarUrl?: string;
   orgMemberships: OrgMembership[];
   featureFlags?: Record<string, boolean>;
 }

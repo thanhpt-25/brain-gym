@@ -1,15 +1,35 @@
 import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Camera, KeyRound, User } from "lucide-react";
+import {
+  Camera,
+  KeyRound,
+  User,
+  Trophy,
+  Flame,
+  Target,
+  Sparkles,
+  Award,
+  TrendingUp,
+  Calendar,
+  Mail,
+  Shield,
+  Zap,
+  CheckCircle2,
+  Clock,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/auth.store";
 import {
@@ -38,6 +58,36 @@ const passwordSchema = z
 
 type ProfileForm = z.infer<typeof profileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
+
+// Dummy data — backend not implemented yet
+const STATS = [
+  { label: "Total Points", value: "12,480", icon: Trophy, accent: "text-primary", glow: "shadow-[0_0_30px_-8px_hsl(var(--primary)/0.5)]" },
+  { label: "Day Streak", value: "27", icon: Flame, accent: "text-orange-400", glow: "shadow-[0_0_30px_-8px_hsl(25_95%_55%/0.4)]" },
+  { label: "Exams Passed", value: "14", icon: Target, accent: "text-accent", glow: "shadow-[0_0_30px_-8px_hsl(var(--accent)/0.4)]" },
+  { label: "Avg. Score", value: "89%", icon: TrendingUp, accent: "text-primary", glow: "shadow-[0_0_30px_-8px_hsl(var(--primary)/0.5)]" },
+];
+
+const BADGES = [
+  { name: "Early Bird", desc: "Studied before 7am", icon: "🌅", earned: true },
+  { name: "Marathon", desc: "30-day streak", icon: "🔥", earned: true },
+  { name: "Perfectionist", desc: "100% on an exam", icon: "💎", earned: true },
+  { name: "Mentor", desc: "Helped 10 peers", icon: "🧠", earned: true },
+  { name: "Speed Demon", desc: "Top 10% completion", icon: "⚡", earned: false },
+  { name: "Architect", desc: "Pass 5 AWS exams", icon: "🏛️", earned: false },
+];
+
+const ACTIVITY = [
+  { title: "Passed AWS SAA-C03 Mock Exam", meta: "Score 92% · 2h ago", icon: CheckCircle2, color: "text-accent" },
+  { title: "Reviewed 24 flashcards", meta: "VPC Networking · 5h ago", icon: Zap, color: "text-primary" },
+  { title: "Earned 'Marathon' badge", meta: "30-day streak · yesterday", icon: Award, color: "text-orange-400" },
+  { title: "Created 8 community questions", meta: "Azure AZ-900 · 2d ago", icon: Sparkles, color: "text-primary" },
+];
+
+const CERTS = [
+  { code: "AWS SAA-C03", progress: 78, mastery: "Review", icon: "☁️" },
+  { code: "Azure AZ-900", progress: 54, mastery: "Learning", icon: "🔷" },
+  { code: "GCP ACE", progress: 32, mastery: "Learning", icon: "🟢" },
+];
 
 export default function Profile() {
   const { toast } = useToast();
@@ -137,44 +187,53 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar title="Profile" />
-      <main id="main-content" className="container max-w-2xl px-4 pt-24 pb-20">
-        <Tabs defaultValue="info">
-          <TabsList className="w-full mb-8">
-            <TabsTrigger value="info" className="flex-1 gap-2">
-              <User className="h-4 w-4" /> Personal Info
-            </TabsTrigger>
-            <TabsTrigger value="security" className="flex-1 gap-2">
-              <KeyRound className="h-4 w-4" /> Security
-            </TabsTrigger>
-          </TabsList>
+      <main id="main-content" className="container max-w-6xl px-4 pt-24 pb-20">
+        {/* Hero header */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative mb-8 overflow-hidden rounded-2xl border border-border/60"
+        >
+          {/* Banner */}
+          <div className="relative h-40 sm:h-48 bg-gradient-to-br from-primary/20 via-background to-accent/20">
+            <div
+              className="absolute inset-0 opacity-40"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 20% 30%, hsl(var(--primary)/0.35), transparent 45%), radial-gradient(circle at 80% 70%, hsl(var(--accent)/0.25), transparent 45%)",
+              }}
+            />
+            <div
+              className="absolute inset-0 opacity-[0.08]"
+              style={{
+                backgroundImage:
+                  "linear-gradient(hsl(var(--primary)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)",
+                backgroundSize: "40px 40px",
+              }}
+            />
+          </div>
 
-          {/* Personal Info */}
-          <TabsContent value="info">
-            <div className="space-y-8">
-              {/* Avatar */}
-              <div className="flex flex-col items-center gap-3">
-                <div className="relative group">
-                  <Avatar className="h-24 w-24 ring-2 ring-border">
-                    <AvatarImage src={avatarSrc} />
-                    <AvatarFallback className="text-2xl font-mono bg-primary/10 text-primary">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadAvatarMutation.isPending}
-                    className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
-                    aria-label="Upload avatar"
-                  >
-                    <Camera className="h-6 w-6 text-white" />
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground font-mono">
-                  {uploadAvatarMutation.isPending
-                    ? "Uploading…"
-                    : "Click to change avatar · Max 2 MB"}
-                </p>
+          {/* Identity row */}
+          <div className="relative px-6 pb-6 pt-0 -mt-16 sm:-mt-20 sm:px-8">
+            <div className="flex flex-col sm:flex-row sm:items-end gap-5">
+              <div className="relative group shrink-0">
+                <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-primary to-accent blur opacity-70" />
+                <Avatar className="relative h-28 w-28 sm:h-32 sm:w-32 ring-4 ring-background">
+                  <AvatarImage src={avatarSrc} />
+                  <AvatarFallback className="text-3xl font-mono bg-card text-primary">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadAvatarMutation.isPending}
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Upload avatar"
+                >
+                  <Camera className="h-7 w-7 text-primary" />
+                </button>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -184,7 +243,86 @@ export default function Profile() {
                 />
               </div>
 
-              {/* Profile form */}
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="font-mono text-2xl sm:text-3xl font-bold tracking-tight truncate">
+                    {profile?.displayName ?? user?.displayName ?? "Athlete"}
+                  </h1>
+                  <Badge variant="outline" className="border-primary/40 text-primary bg-primary/5 capitalize">
+                    <Shield className="h-3 w-3 mr-1" /> {profile?.plan ?? "Free"}
+                  </Badge>
+                  <Badge variant="outline" className="border-accent/40 text-accent bg-accent/5 capitalize">
+                    {profile?.role ?? "Member"}
+                  </Badge>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground font-mono">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Mail className="h-3.5 w-3.5" /> {profile?.email}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5" /> Joined Apr 2025
+                  </span>
+                </div>
+              </div>
+
+              <div className="sm:self-end shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadAvatarMutation.isPending}
+                  className="gap-2"
+                >
+                  <Camera className="h-4 w-4" />
+                  {uploadAvatarMutation.isPending ? "Uploading…" : "Change Avatar"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {STATS.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.05 * i }}
+            >
+              <Card className={`p-5 bg-card/60 backdrop-blur border-border/60 hover:border-primary/40 transition-all ${s.glow}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <s.icon className={`h-5 w-5 ${s.accent}`} />
+                  <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Lifetime
+                  </span>
+                </div>
+                <div className="font-mono text-3xl font-bold">{s.value}</div>
+                <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Main grid */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left: settings */}
+          <div className="lg:col-span-2 space-y-6">
+        <Tabs defaultValue="info">
+          <TabsList className="w-full mb-6 bg-card/60 border border-border/60">
+            <TabsTrigger value="info" className="flex-1 gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <User className="h-4 w-4" /> Personal Info
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex-1 gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <KeyRound className="h-4 w-4" /> Security
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex-1 gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <Clock className="h-4 w-4" /> Activity
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Personal Info */}
+          <TabsContent value="info">
+            <Card className="p-6 bg-card/60 border-border/60">
               <form
                 onSubmit={profileForm.handleSubmit((data) =>
                   updateProfileMutation.mutate(data),
@@ -218,37 +356,39 @@ export default function Profile() {
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label>Role</Label>
-                  <Input
-                    value={profile?.role ?? ""}
-                    disabled
-                    className="bg-muted/40 font-mono text-sm capitalize"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label>Plan</Label>
-                  <Input
-                    value={profile?.plan ?? ""}
-                    disabled
-                    className="bg-muted/40 font-mono text-sm capitalize"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Role</Label>
+                    <Input
+                      value={profile?.role ?? ""}
+                      disabled
+                      className="bg-muted/40 font-mono text-sm capitalize"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Plan</Label>
+                    <Input
+                      value={profile?.plan ?? ""}
+                      disabled
+                      className="bg-muted/40 font-mono text-sm capitalize"
+                    />
+                  </div>
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full glow-cyan"
+                  className="w-full glow-cyan bg-primary hover:bg-primary/90 text-primary-foreground font-mono"
                   disabled={updateProfileMutation.isPending}
                 >
                   {updateProfileMutation.isPending ? "Saving…" : "Save Changes"}
                 </Button>
               </form>
-            </div>
+            </Card>
           </TabsContent>
 
           {/* Security */}
           <TabsContent value="security">
+            <Card className="p-6 bg-card/60 border-border/60">
             <form
               onSubmit={passwordForm.handleSubmit((data) =>
                 changePasswordMutation.mutate({
@@ -314,8 +454,96 @@ export default function Profile() {
                   : "Change Password"}
               </Button>
             </form>
+            </Card>
+          </TabsContent>
+
+          {/* Activity */}
+          <TabsContent value="activity">
+            <Card className="p-6 bg-card/60 border-border/60">
+              <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground mb-5">
+                Recent activity
+              </h3>
+              <div className="relative">
+                <div className="absolute left-[19px] top-2 bottom-2 w-px bg-border" />
+                <ul className="space-y-5">
+                  {ACTIVITY.map((a, i) => (
+                    <li key={i} className="relative flex gap-4">
+                      <div className="relative z-10 shrink-0 h-10 w-10 rounded-full bg-card border border-border/60 flex items-center justify-center">
+                        <a.icon className={`h-5 w-5 ${a.color}`} />
+                      </div>
+                      <div className="pt-1.5">
+                        <div className="font-medium">{a.title}</div>
+                        <div className="text-xs text-muted-foreground font-mono mt-0.5">{a.meta}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Card>
           </TabsContent>
         </Tabs>
+          </div>
+
+          {/* Right rail */}
+          <aside className="space-y-6">
+            {/* Certifications in progress */}
+            <Card className="p-6 bg-card/60 border-border/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+                  Certifications
+                </h3>
+                <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
+                  {CERTS.length} active
+                </Badge>
+              </div>
+              <ul className="space-y-4">
+                {CERTS.map((c) => (
+                  <li key={c.code}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="flex items-center gap-2 text-sm font-mono">
+                        <span>{c.icon}</span>
+                        {c.code}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{c.progress}%</span>
+                    </div>
+                    <Progress value={c.progress} className="h-1.5" />
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
+                      {c.mastery}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+
+            {/* Achievements */}
+            <Card className="p-6 bg-card/60 border-border/60">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+                  Achievements
+                </h3>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {BADGES.filter((b) => b.earned).length}/{BADGES.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {BADGES.map((b) => (
+                  <div
+                    key={b.name}
+                    className={`group relative aspect-square rounded-xl border flex flex-col items-center justify-center gap-1 p-2 text-center transition-all ${
+                      b.earned
+                        ? "border-primary/30 bg-primary/5 hover:border-primary/60 hover:shadow-[0_0_20px_-6px_hsl(var(--primary)/0.5)]"
+                        : "border-border/40 bg-muted/20 opacity-50 grayscale"
+                    }`}
+                    title={b.desc}
+                  >
+                    <div className="text-2xl">{b.icon}</div>
+                    <div className="text-[10px] font-mono leading-tight">{b.name}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </aside>
+        </div>
       </main>
     </div>
   );
