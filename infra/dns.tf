@@ -59,12 +59,8 @@ resource "aws_acm_certificate_validation" "cdn" {
 
 # ─────────────────────────────────────────────
 # Alias records pointing the domain at CloudFront.
-# Z2FDTNDATAQYW2 is CloudFront's fixed global hosted zone ID.
+# Uses the fixed CloudFront hosted zone ID from locals.tf
 # ─────────────────────────────────────────────
-locals {
-  cloudfront_hosted_zone_id = "Z2FDTNDATAQYW2"
-}
-
 resource "aws_route53_record" "apex_a" {
   zone_id = aws_route53_zone.main.zone_id
   name    = var.domain_name

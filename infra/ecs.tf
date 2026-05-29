@@ -152,16 +152,13 @@ resource "aws_ecs_task_definition" "migrate" {
 # ECS Service
 # ─────────────────────────────────────────────
 resource "aws_ecs_service" "backend" {
-  name            = "${var.app_name}-backend"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.backend.arn
-  desired_count   = var.ecs_desired_count
-  launch_type     = "FARGATE"
-
-  # Allow CI/CD to update the task definition without Terraform conflicts
-  lifecycle {
-    ignore_changes = [task_definition, desired_count]
-  }
+  name                               = "${var.app_name}-backend"
+  cluster                            = aws_ecs_cluster.main.id
+  task_definition                    = aws_ecs_task_definition.backend.arn
+  desired_count                      = var.ecs_desired_count
+  launch_type                        = "FARGATE"
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
 
   network_configuration {
     subnets          = aws_subnet.private[*].id
@@ -175,22 +172,24 @@ resource "aws_ecs_service" "backend" {
     container_port   = 3000
   }
 
-  deployment_minimum_healthy_percent = 50
-  deployment_maximum_percent         = 200
-
   deployment_circuit_breaker {
     enable   = true
     rollback = true
   }
+
+  tags = merge(var.common_tags, {
+    Name = "${var.app_name}-${var.environment}-backend-service"
+  })
 
   depends_on = [
     aws_lb_listener.http,
     aws_iam_role_policy_attachment.ecs_task_execution_managed
   ]
 
-  tags = merge(var.common_tags, {
-    Name = "${var.app_name}-${var.environment}-backend-service"
-  })
+  # Allow CI/CD to update the task definition without Terraform conflicts
+  lifecycle {
+    ignore_changes = [task_definition, desired_count]
+  }
 }
 
 output "ecs_cluster_name" {

@@ -73,11 +73,6 @@ resource "aws_secretsmanager_secret_version" "db_password" {
   secret_string = random_password.db_password.result
 }
 
-# Construct DATABASE_URL
-locals {
-  database_url = "postgresql://braingym:${random_password.db_password.result}@${aws_db_instance.postgres.endpoint}/${aws_db_instance.postgres.db_name}?schema=public"
-}
-
 resource "aws_secretsmanager_secret" "database_url" {
   name                    = "${var.app_name}/${var.environment}/database-url"
   recovery_window_in_days = 0
@@ -90,18 +85,6 @@ resource "aws_secretsmanager_secret" "database_url" {
 resource "aws_secretsmanager_secret_version" "database_url" {
   secret_id     = aws_secretsmanager_secret.database_url.id
   secret_string = local.database_url
-}
-
-# ─────────────────────────────────────────────
-# Application secrets (JWT, LLM encryption)
-# Passed in via terraform.tfvars — never hardcode
-# ─────────────────────────────────────────────
-locals {
-  app_secrets = {
-    "jwt-secret"            = var.jwt_secret
-    "jwt-refresh-secret"    = var.jwt_refresh_secret
-    "llm-encryption-secret" = var.llm_encryption_secret
-  }
 }
 
 resource "aws_secretsmanager_secret" "app_secrets" {
