@@ -35,21 +35,23 @@ This ADR defines the thresholds and policies for both gates.
 
 **Rollback Detection:**
 
-- Window: 5-minute tumbling window
-- Threshold: 10% rollback rate triggers canary pause
+- Window: 10-minute sliding window
+- Threshold: >5% rollback rate triggers canary pause (configurable in `dds.service.ts`)
+- Rollback Window: last 50 variants (configurable)
 - Rollback definition: `status = ROLLED_BACK` in variants table
 
 **Canary Pause Behavior:**
 
 - When threshold exceeded: set `DDS_SHADOW_MODE = true` for cohort
-- Effect: Stop executing; revert to logging mode
+- Effect: Stop executing; revert to logging mode (auto-pause)
 - Recovery: Manual decision to retry promotion after investigation
+- Alert: Emit `US-1106` alert via monitoring system
 
 **Alert Escalation:**
 
-- Critical: Rollback rate >15% → page on-call engineer
-- Warning: Rollback rate 10–15% → trigger Slack notification
-- Info: Rollback rate <10% → log for dashboard review
+- Critical: Rollback rate >10% → page on-call engineer
+- Warning: Rollback rate 5–10% → trigger Slack notification
+- Info: Rollback rate <5% → log for dashboard review
 
 ---
 
@@ -71,17 +73,19 @@ Rollback indicates a systematic issue:
 - Multiple rollbacks (>1) signal model degradation
 - Conservative threshold ensures operator confidence in auto-apply
 
-### Why 5-Minute Canary Window?
+### Why 10-Minute Canary Window?
 
 - **Too short** (<1 min): Noise from single bad requests
 - **Too long** (>30 min): Too much bad auto-apply before pause
-- **5 min:** Allows ~10–20 question variants to execute; detects systematic failure quickly
+- **10 min:** Allows ~20–40 question variants to execute; detects systematic failure quickly
+- **Last 50 variants:** Configurable window size for flexible canary strategies
 
-### Why 10% Rollback Rate Threshold?
+### Why >5% Rollback Rate Threshold?
 
-- **Below 10%:** Acceptable within normal variation; acceptable for learning system
-- **10% and above:** Indicates systematic problem requiring investigation
-- **15%+:** Critical failure; human intervention needed immediately
+- **Below 5%:** Acceptable within normal variation; expected for learning system
+- **5–10%:** Warning level; likely issue requiring investigation
+- **Above 10%:** Critical failure; immediate human intervention needed
+- **Configurable:** Threshold stored in `dds.service.ts` for runtime tuning without code deploy
 
 ---
 
