@@ -1,0 +1,516 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Prometheus --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "description": "Percentage of proposed variants that auto-apply (vs propose-only) and percentage of applied variants that rollback",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 101,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "min"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "(rate(dds_variant_auto_applied_total[1h]) / (rate(dds_variant_proposed_total[1h]) + 1e-6)) * 100",
+          "legendFormat": "Auto-Apply Rate %",
+          "refId": "A"
+        },
+        {
+          "expr": "(rate(dds_variant_rolled_back_total[1h]) / (rate(dds_variant_approved_total[1h]) + 1e-6)) * 100",
+          "legendFormat": "Rollback Rate %",
+          "refId": "B"
+        }
+      ],
+      "title": "US-1106.1: DDS Auto-Apply Rate + Rollback Rate (24h view)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "DDS Auto-Apply and Rollback rates over 7-day window",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 102,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "min"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "(rate(dds_variant_auto_applied_total[7d]) / (rate(dds_variant_proposed_total[7d]) + 1e-6)) * 100",
+          "legendFormat": "Auto-Apply Rate % (7d)",
+          "refId": "A"
+        },
+        {
+          "expr": "(rate(dds_variant_rolled_back_total[7d]) / (rate(dds_variant_approved_total[7d]) + 1e-6)) * 100",
+          "legendFormat": "Rollback Rate % (7d)",
+          "refId": "B"
+        }
+      ],
+      "title": "US-1106.1: DDS Auto-Apply + Rollback (7d view)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "DDS Auto-Apply and Rollback rates over 30-day window",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 103,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "min"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "(rate(dds_variant_auto_applied_total[30d]) / (rate(dds_variant_proposed_total[30d]) + 1e-6)) * 100",
+          "legendFormat": "Auto-Apply Rate % (30d)",
+          "refId": "A"
+        },
+        {
+          "expr": "(rate(dds_variant_rolled_back_total[30d]) / (rate(dds_variant_approved_total[30d]) + 1e-6)) * 100",
+          "legendFormat": "Rollback Rate % (30d)",
+          "refId": "B"
+        }
+      ],
+      "title": "US-1106.1: DDS Auto-Apply + Rollback (30d view)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Total reputation points accrued per squad (daily aggregation)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 104,
+      "options": {
+        "legend": {
+          "calcs": ["sum", "mean"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "increase(reputation_points_accrued_total[1d])",
+          "legendFormat": "Daily Reputation Accrual",
+          "refId": "A"
+        }
+      ],
+      "title": "US-1106.2: Reputation Accrual (daily)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Count of ReputationFlag records created daily; highlights if spike > historical mean + 2σ",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 105,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "min"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "increase(reputation_flag_created_total[1d])",
+          "legendFormat": "Daily Flag Count",
+          "refId": "A"
+        }
+      ],
+      "title": "US-1106.2: Reputation Anomaly Flags (daily)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "IVFFlat/Overlap query latency: p50/p95/p99 before and after IVFFlat index (if Gate 1 GO)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 106,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, rate(kg_overlap_query_duration_ms_bucket[5m]))",
+          "legendFormat": "p50 Latency (ms)",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(kg_overlap_query_duration_ms_bucket[5m]))",
+          "legendFormat": "p95 Latency (ms)",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(kg_overlap_query_duration_ms_bucket[5m]))",
+          "legendFormat": "p99 Latency (ms)",
+          "refId": "C"
+        }
+      ],
+      "title": "US-1106.3: IVFFlat Overlap Query Performance (p50/p95/p99)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "IVFFlat index build time if Gate 1 GO; tracks index creation overhead",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 107,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "min"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "kg_index_build_duration_ms",
+          "legendFormat": "Index Build Time (ms)",
+          "refId": "A"
+        }
+      ],
+      "title": "US-1106.3: IVFFlat Index Build Time (Gate 1 GO)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Total LLM tokens + cost for EMBEDDING, DDS, COACH features (daily aggregate)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 108,
+      "options": {
+        "legend": {
+          "calcs": ["sum", "mean"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "sum(increase(llm_tokens_total{feature=\"EMBEDDING\"}[1d])) by (feature)",
+          "legendFormat": "EMBEDDING tokens/day",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(llm_tokens_total{feature=\"DDS\"}[1d])) by (feature)",
+          "legendFormat": "DDS tokens/day",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(llm_tokens_total{feature=\"COACH\"}[1d])) by (feature)",
+          "legendFormat": "COACH tokens/day",
+          "refId": "C"
+        }
+      ],
+      "title": "US-1106.4: LLM Tokens by Feature (daily)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Daily LLM cost breakdown by feature; visualize cost trajectory",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 109,
+      "options": {
+        "legend": {
+          "calcs": ["sum", "mean"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "sum(increase(llm_cost_total{feature=\"EMBEDDING\"}[1d])) by (feature)",
+          "legendFormat": "EMBEDDING cost/day ($)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(llm_cost_total{feature=\"DDS\"}[1d])) by (feature)",
+          "legendFormat": "DDS cost/day ($)",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(llm_cost_total{feature=\"COACH\"}[1d])) by (feature)",
+          "legendFormat": "COACH cost/day ($)",
+          "refId": "C"
+        }
+      ],
+      "title": "US-1106.4: LLM Cost Breakdown by Feature (daily)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["sprint-11", "us-1106", "us-1109", "us-1111", "grafana-panels"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Sprint 11 Complete: US-1106 Grafana Panels (DDS, Reputation, Vector, LLM)",
+  "uid": "sprint11-complete",
+  "version": 1
+}

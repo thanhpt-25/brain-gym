@@ -8,19 +8,20 @@ groups:
       # ========================================================================
       # DDS Canary Rollback Rate Alert
       # ========================================================================
-      # This alert fires when the variant rollback rate exceeds 10% in a 5-minute
-      # window. The 10% threshold matches the DDS canary policy (ADR-026).
+      # This alert fires when the variant rollback rate exceeds 5% in a 10-minute
+      # window (US-1109). The 5% threshold is the policy limit before auto-pause.
       #
       # Context:
-      # - Rollback rate = (rolled_back_variants / total_proposed_variants) over 5m
-      # - 10% threshold is the policy limit before manual intervention
-      # - Alert severity: CRITICAL (blocks shadow→live promotion)
+      # - Rollback rate = (rolled_back_variants / approved_variants) over 10m
+      # - 5% threshold triggers immediate on-call page via canary auto-pause (ADR-026)
+      # - Alert severity: CRITICAL (pages on-call immediately)
+      # - Behavior: canary auto-pause already implemented in dds.service.ts (US-1101)
       #
-      # Runbook: docs/oncall.md#dds-canary-rollback-alert
+      # Runbook: docs/oncall.md#dds-canary-rollback-rate-alert
       # ========================================================================
       - alert: DDSCanaryRollbackRateHigh
         expr: |
-          (rate(dds_variant_rolled_back_total[5m]) / (rate(dds_variant_proposed_total[5m]) + 1e-6)) * 100 >= 10
+          (rate(dds_variant_rolled_back_total[10m]) / (rate(dds_variant_approved_total[10m]) + 1e-6)) * 100 > 5
         for: 2m
         labels:
           severity: critical
