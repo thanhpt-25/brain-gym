@@ -53,6 +53,11 @@ function getAutoApplyThreshold(): number {
   return parseInt(process.env.DDS_AUTO_APPLY_THRESHOLD ?? '30', 10);
 }
 
+/** US-S12: Canary cooldown before auto-resume after a pause. Default 30 minutes. */
+function getCanaryCooldownMs(): number {
+  return parseInt(process.env.DDS_CANARY_COOLDOWN_MS ?? '1800000', 10);
+}
+
 @Injectable()
 export class DdsService {
   private readonly logger = new Logger(DdsService.name);
@@ -320,6 +325,30 @@ export class DdsService {
     const config = await this.getOrInitCohortConfig(cohort);
     let shadowMode = config.shadowModeEnabled;
 
+    // S12: canary auto-resume — re-arm after cooldown if paused and the window has elapsed
+    if (shadowMode && config.canaryPausedAt && config.canaryAutoResumeAt) {
+      if (new Date() >= config.canaryAutoResumeAt) {
+        this.logger.log(
+          `dds_canary_resumed cohort=${cohort}: cooldown elapsed, re-arming canary`,
+        );
+        if (!config.id?.startsWith('fallback-')) {
+          await this.prisma.ddsConfig.update({
+            where: { cohortName: cohort },
+            data: {
+              shadowModeEnabled: false,
+              canaryArmed: true,
+              canaryPausedAt: null,
+              canaryAutoResumeAt: null,
+            },
+          });
+        }
+        shadowMode = false;
+        config.canaryArmed = true;
+        config.canaryPausedAt = null;
+        config.canaryAutoResumeAt = null;
+      }
+    }
+
     // US-1101: canary check — auto-pause if rollback-rate is too high
     if (!shadowMode && config.canaryArmed) {
       const canarySafe = await this.checkCanary();
@@ -327,19 +356,20 @@ export class DdsService {
         this.logger.warn(
           `dds_canary_paused cohort=${cohort}: rollback rate exceeded threshold, pausing canary`,
         );
-        // Update database if config is real (not in-memory fallback)
+        // Update database — DB config is the single source of truth for shadow state
+        const pausedAt = new Date();
+        const resumeAt = new Date(pausedAt.getTime() + getCanaryCooldownMs());
         if (!config.id?.startsWith('fallback-')) {
           await this.prisma.ddsConfig.update({
             where: { cohortName: cohort },
             data: {
               shadowModeEnabled: true,
               canaryArmed: false,
-              canaryPausedAt: new Date(),
+              canaryPausedAt: pausedAt,
+              canaryAutoResumeAt: resumeAt,
             },
           });
         }
-        // Update environment to reflect paused state
-        process.env.DDS_SHADOW_MODE = 'true';
         shadowMode = true;
         const decision = await this.evaluateAutoApply(variantId);
         return {
@@ -375,8 +405,10 @@ export class DdsService {
   // ─── US-1107: Gate 2 readiness ────────────────────────────────────────────
 
   /**
-   * Return production data to support the Gate 2 decision.
-   * "Clean approvals" = APPROVED variants not subsequently rolled back.
+   * Return production data to support the Gate 2 decision and the post-GA dashboard.
+   * Counts are scoped to "since last promotion" so they stay meaningful after GA —
+   * a rollback from before the last promotion no longer blocks the readiness display.
+   * Falls back to all-time counts when no cohort config / promotedAt exists.
    */
   async getAutoApplyReadiness(): Promise<{
     cleanApprovals: number;
@@ -384,18 +416,33 @@ export class DdsService {
     rollbackCount: number;
     lastRollbackAt: Date | null;
     readyToPromote: boolean;
+    since: Date | null;
   }> {
     const threshold = getAutoApplyThreshold();
+    const cohort = process.env.DDS_AUTO_APPLY_COHORT ?? 'default';
+
+    const cohortConfig = await this.getCohortConfig(cohort);
+    const since = cohortConfig?.promotedAt ?? null;
+    const sinceFilter = since ? { gte: since } : undefined;
 
     const [approvedCount, rolledBackCount, lastRollback] = await Promise.all([
       this.prisma.questionVariant.count({
-        where: { status: DdsVariantStatus.APPROVED },
+        where: {
+          status: DdsVariantStatus.APPROVED,
+          ...(sinceFilter && { reviewedAt: sinceFilter }),
+        },
       }),
       this.prisma.questionVariant.count({
-        where: { status: DdsVariantStatus.ROLLED_BACK },
+        where: {
+          status: DdsVariantStatus.ROLLED_BACK,
+          ...(sinceFilter && { reviewedAt: sinceFilter }),
+        },
       }),
       this.prisma.questionVariant.findFirst({
-        where: { status: DdsVariantStatus.ROLLED_BACK },
+        where: {
+          status: DdsVariantStatus.ROLLED_BACK,
+          ...(sinceFilter && { reviewedAt: sinceFilter }),
+        },
         orderBy: { reviewedAt: 'desc' },
         select: { reviewedAt: true },
       }),
@@ -407,6 +454,7 @@ export class DdsService {
       rollbackCount: rolledBackCount,
       lastRollbackAt: lastRollback?.reviewedAt ?? null,
       readyToPromote: approvedCount >= threshold && rolledBackCount === 0,
+      since,
     };
   }
 

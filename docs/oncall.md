@@ -68,12 +68,14 @@ docker-compose exec db psql -U postgres -d braingym
 
 ## Sprint 11+ Alerts
 
-### DDS Canary Rollback Rate High
+### DDS Canary Rollback Rate High (US-1109)
 
 **Alert:** `DDSCanaryRollbackRateHigh`  
 **Severity:** CRITICAL  
-**Threshold:** Rollback rate ≥ 10% (5-minute window)  
-**Reference:** ADR-026, `backend/monitoring/alert-rules-sprint11.yml`
+**Threshold:** Rollback rate > 5% (10-minute window)  
+**Grace Period:** 2 minutes (alert fires after sustained threshold breach)  
+**Reference:** US-1109, ADR-026, `backend/monitoring/alert-rules-sprint11.yml`  
+**Behavior:** Canary auto-pause already implemented in `backend/src/ai-question-bank/dds/dds.service.ts` (US-1101)
 
 #### Response (First 5 Minutes)
 

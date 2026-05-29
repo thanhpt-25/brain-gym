@@ -10,8 +10,8 @@ const mockPrisma = {
   domain: { findMany: jest.fn() },
   question: { findMany: jest.fn() },
   reviewSchedule: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
+    findMany: jest.fn(),
+    createMany: jest.fn(),
   },
   certOverlap: { findMany: jest.fn() },
   certification: { findUnique: jest.fn(), findMany: jest.fn() },
@@ -65,22 +65,26 @@ describe('KnowledgeGraphService — study-plan scheduling (US-1104)', () => {
         { id: 'q-2' },
         { id: 'q-3' },
       ]);
-      mockPrisma.reviewSchedule.findUnique.mockResolvedValue(null);
-      mockPrisma.reviewSchedule.create.mockResolvedValue({ id: 'rs-1' });
+      // No existing schedules
+      mockPrisma.reviewSchedule.findMany.mockResolvedValue([]);
+      mockPrisma.reviewSchedule.createMany.mockResolvedValue({ count: 3 });
 
       const result = await service.scheduleFromPlan('user-1', 'plan-1');
 
       expect(result.scheduled).toBe(3);
       expect(result.alreadyExisted).toBe(0);
-      expect(mockPrisma.reviewSchedule.create).toHaveBeenCalledTimes(3);
-      expect(mockPrisma.reviewSchedule.create).toHaveBeenCalledWith(
+      expect(mockPrisma.reviewSchedule.createMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.reviewSchedule.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({
-            userId: 'user-1',
-            questionId: 'q-1',
-            intervalDays: 1,
-            repetitions: 0,
-          }),
+          data: expect.arrayContaining([
+            expect.objectContaining({
+              userId: 'user-1',
+              questionId: 'q-1',
+              intervalDays: 1,
+              repetitions: 0,
+            }),
+          ]),
+          skipDuplicates: true,
         }),
       );
     });
@@ -92,17 +96,59 @@ describe('KnowledgeGraphService — study-plan scheduling (US-1104)', () => {
         { id: 'q-1' },
         { id: 'q-2' },
       ]);
-      mockPrisma.reviewSchedule.findUnique
-        .mockResolvedValueOnce({ id: 'existing-rs' }) // q-1 already scheduled
-        .mockResolvedValueOnce(null); // q-2 is new
-
-      mockPrisma.reviewSchedule.create.mockResolvedValue({ id: 'rs-new' });
+      // q-1 already scheduled, q-2 is new
+      mockPrisma.reviewSchedule.findMany.mockResolvedValue([
+        { questionId: 'q-1' },
+      ]);
+      mockPrisma.reviewSchedule.createMany.mockResolvedValue({ count: 1 });
 
       const result = await service.scheduleFromPlan('user-1', 'plan-1');
 
       expect(result.scheduled).toBe(1);
       expect(result.alreadyExisted).toBe(1);
-      expect(mockPrisma.reviewSchedule.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.reviewSchedule.createMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.reviewSchedule.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [expect.objectContaining({ questionId: 'q-2' })],
+        }),
+      );
+    });
+
+    it('does not issue per-question queries — N+1 regression (S12)', async () => {
+      mockPrisma.studyPlan.findUnique.mockResolvedValue(plan);
+      mockPrisma.domain.findMany.mockResolvedValue([{ id: 'dom-security' }]);
+      const questions = Array.from({ length: 50 }, (_, i) => ({
+        id: `q-${i}`,
+      }));
+      mockPrisma.question.findMany.mockResolvedValue(questions);
+      mockPrisma.reviewSchedule.findMany.mockResolvedValue([]);
+      mockPrisma.reviewSchedule.createMany.mockResolvedValue({ count: 50 });
+
+      await service.scheduleFromPlan('user-1', 'plan-1');
+
+      // Exactly one batch read and one batch write — never per-question
+      expect(mockPrisma.reviewSchedule.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.reviewSchedule.createMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('skips createMany entirely when all questions already exist', async () => {
+      mockPrisma.studyPlan.findUnique.mockResolvedValue(plan);
+      mockPrisma.domain.findMany.mockResolvedValue([{ id: 'dom-security' }]);
+      mockPrisma.question.findMany.mockResolvedValue([
+        { id: 'q-1' },
+        { id: 'q-2' },
+      ]);
+      // Both already scheduled
+      mockPrisma.reviewSchedule.findMany.mockResolvedValue([
+        { questionId: 'q-1' },
+        { questionId: 'q-2' },
+      ]);
+
+      const result = await service.scheduleFromPlan('user-1', 'plan-1');
+
+      expect(result.scheduled).toBe(0);
+      expect(result.alreadyExisted).toBe(2);
+      expect(mockPrisma.reviewSchedule.createMany).not.toHaveBeenCalled();
     });
   });
 

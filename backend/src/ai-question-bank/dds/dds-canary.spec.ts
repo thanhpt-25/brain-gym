@@ -55,6 +55,11 @@ describe('DdsService — canary auto-pause & Gate2 readiness (US-1101/US-1107)',
   // ─── getAutoApplyReadiness (US-1107) ──────────────────────────────────────
 
   describe('getAutoApplyReadiness (US-1107)', () => {
+    beforeEach(() => {
+      // No promotedAt yet → since=null → all-time counts (pre-GA behaviour)
+      mockPrisma.ddsConfig.findUnique.mockResolvedValue(null);
+    });
+
     it('returns readyToPromote=true when approvals meet threshold and zero rollbacks', async () => {
       process.env.DDS_AUTO_APPLY_THRESHOLD = '3';
       mockPrisma.questionVariant.count
@@ -129,6 +134,38 @@ describe('DdsService — canary auto-pause & Gate2 readiness (US-1101/US-1107)',
       expect(result.rollbackCount).toBe(0);
       expect(result.readyToPromote).toBe(false);
       expect(result.lastRollbackAt).toBeNull();
+      expect(result.since).toBeNull();
+    });
+
+    it('scopes counts to since-promotedAt when cohort has been promoted (S12)', async () => {
+      process.env.DDS_AUTO_APPLY_THRESHOLD = '3';
+      const promotedAt = new Date('2026-07-08T00:00:00Z');
+
+      // Override the beforeEach mock: cohort has a promotedAt
+      mockPrisma.ddsConfig.findUnique.mockResolvedValue({
+        cohortName: 'default',
+        shadowModeEnabled: false,
+        canaryArmed: true,
+        promotedAt,
+        canaryPausedAt: null,
+        canaryAutoResumeAt: null,
+      });
+
+      mockPrisma.questionVariant.count
+        .mockResolvedValueOnce(5) // approved since promotedAt
+        .mockResolvedValueOnce(0); // rolled back since promotedAt
+      mockPrisma.questionVariant.findFirst.mockResolvedValue(null);
+
+      const result = await service.getAutoApplyReadiness();
+
+      expect(result.since).toEqual(promotedAt);
+      expect(result.cleanApprovals).toBe(5);
+      expect(result.readyToPromote).toBe(true);
+
+      // Verify the queries used the since filter
+      const countCalls = mockPrisma.questionVariant.count.mock.calls;
+      expect(countCalls[0][0].where.reviewedAt).toEqual({ gte: promotedAt });
+      expect(countCalls[1][0].where.reviewedAt).toEqual({ gte: promotedAt });
     });
   });
 
@@ -164,7 +201,8 @@ describe('DdsService — canary auto-pause & Gate2 readiness (US-1101/US-1107)',
       expect(result.canaryPaused).toBe(true);
       expect(result.shadowMode).toBe(true);
       expect(result.applied).toBe(false);
-      expect(process.env.DDS_SHADOW_MODE).toBe('true');
+      // env var is no longer mutated to 'true' — shadow state lives in DB config only
+      expect(process.env.DDS_SHADOW_MODE).not.toBe('true');
     });
 
     it('does not pause when rollback rate is within threshold', async () => {
@@ -574,8 +612,151 @@ describe('DdsService — canary auto-pause & Gate2 readiness (US-1101/US-1107)',
           shadowModeEnabled: true,
           canaryArmed: false,
           canaryPausedAt: expect.any(Date),
+          canaryAutoResumeAt: expect.any(Date),
         }),
       });
+    });
+  });
+
+  // ─── canary auto-resume (S12) ────────────────────────────────────────────
+
+  describe('tryAutoApply — canary auto-resume (S12)', () => {
+    it('re-arms canary and exits shadow mode when cooldown has elapsed', async () => {
+      process.env.DDS_AUTO_APPLY_ENABLED = 'true';
+      process.env.DDS_AUTO_APPLY_THRESHOLD = '1';
+      process.env.DDS_CANARY_COOLDOWN_MS = '1800000';
+
+      const pausedAt = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
+      const resumeAt = new Date(Date.now() - 30 * 60 * 1000); // resume was 30 min ago
+
+      mockPrisma.ddsConfig.findUnique.mockResolvedValue({
+        id: 'real-config',
+        cohortName: 'default',
+        shadowModeEnabled: true,
+        canaryArmed: false,
+        promotedAt: new Date('2026-06-10'),
+        canaryPausedAt: pausedAt,
+        canaryAutoResumeAt: resumeAt,
+      });
+
+      // After re-arm, canary check passes (empty window) and variant applies
+      mockPrisma.ddsConfig.update.mockResolvedValue({});
+      mockPrisma.questionVariant.findMany
+        .mockResolvedValueOnce([]) // canary window empty
+        .mockResolvedValueOnce([{ id: 'approved' }]); // approved count for threshold
+
+      const variantWithDiff = {
+        id: 'var-resume',
+        questionId: 'q-1',
+        status: 'PENDING',
+        diff: {
+          revisedChoices: [{ label: 'A', content: 'x', isCorrect: true }],
+        },
+      };
+      mockPrisma.questionVariant.findUnique.mockResolvedValue(variantWithDiff);
+      mockPrisma.$transaction.mockImplementation((fn) => fn(mockPrisma));
+      mockPrisma.choice.deleteMany.mockResolvedValue({ count: 0 });
+      mockPrisma.choice.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.questionVariant.update.mockResolvedValue({
+        id: 'var-resume',
+        status: 'APPROVED',
+        reviewedBy: 'auto',
+      });
+      mockPrisma.questionVariant.findUniqueOrThrow.mockResolvedValue({
+        id: 'var-resume',
+        questionId: 'q-1',
+        reason: 'DDS_HARDEN',
+        status: 'APPROVED',
+        diff: {},
+        reviewedBy: 'auto',
+        reviewedAt: new Date(),
+        reviewNote: null,
+        createdAt: new Date(),
+      });
+      mockPrisma.question.update.mockResolvedValue({ id: 'q-1' });
+
+      const result = await service.tryAutoApply('var-resume');
+
+      // Should have re-armed in DB
+      expect(mockPrisma.ddsConfig.update).toHaveBeenCalledWith({
+        where: { cohortName: 'default' },
+        data: {
+          shadowModeEnabled: false,
+          canaryArmed: true,
+          canaryPausedAt: null,
+          canaryAutoResumeAt: null,
+        },
+      });
+      expect(result.shadowMode).toBe(false);
+      expect(result.applied).toBe(true);
+    });
+
+    it('stays in shadow mode when cooldown has NOT elapsed', async () => {
+      process.env.DDS_AUTO_APPLY_ENABLED = 'true';
+      process.env.DDS_AUTO_APPLY_THRESHOLD = '1';
+      process.env.DDS_CANARY_COOLDOWN_MS = '1800000';
+
+      const pausedAt = new Date(Date.now() - 5 * 60 * 1000); // 5 min ago
+      const resumeAt = new Date(Date.now() + 25 * 60 * 1000); // resume in 25 min (future)
+
+      mockPrisma.ddsConfig.findUnique.mockResolvedValue({
+        id: 'real-config',
+        cohortName: 'default',
+        shadowModeEnabled: true,
+        canaryArmed: false,
+        promotedAt: new Date('2026-06-10'),
+        canaryPausedAt: pausedAt,
+        canaryAutoResumeAt: resumeAt,
+      });
+
+      mockPrisma.questionVariant.findUnique.mockResolvedValue({
+        id: 'var-1',
+        questionId: 'q-1',
+        status: 'PENDING',
+      });
+      mockPrisma.questionVariant.findMany.mockResolvedValue([
+        { id: 'approved' },
+      ]);
+
+      const result = await service.tryAutoApply('var-1');
+
+      // DB update for re-arm should NOT have been called
+      const reArmCall = mockPrisma.ddsConfig.update.mock.calls.find(
+        (args) => args[0]?.data?.canaryArmed === true,
+      );
+      expect(reArmCall).toBeUndefined();
+      expect(result.shadowMode).toBe(true);
+      expect(result.applied).toBe(false);
+    });
+
+    it('skips auto-resume when canaryAutoResumeAt is null (manually paused)', async () => {
+      process.env.DDS_AUTO_APPLY_ENABLED = 'true';
+      process.env.DDS_AUTO_APPLY_THRESHOLD = '1';
+
+      mockPrisma.ddsConfig.findUnique.mockResolvedValue({
+        id: 'real-config',
+        cohortName: 'default',
+        shadowModeEnabled: true,
+        canaryArmed: false,
+        promotedAt: null,
+        canaryPausedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        canaryAutoResumeAt: null, // no auto-resume scheduled
+      });
+
+      mockPrisma.questionVariant.findUnique.mockResolvedValue({
+        id: 'var-1',
+        questionId: 'q-1',
+        status: 'PENDING',
+      });
+      mockPrisma.questionVariant.findMany.mockResolvedValue([
+        { id: 'approved' },
+      ]);
+
+      const result = await service.tryAutoApply('var-1');
+
+      expect(result.shadowMode).toBe(true);
+      expect(result.applied).toBe(false);
+      expect(mockPrisma.ddsConfig.update).not.toHaveBeenCalled();
     });
   });
 });

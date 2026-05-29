@@ -218,6 +218,42 @@ test.describe("US-1105: S10 Component Accessibility", () => {
     }
   });
 
+  // ─── SquadReputationLeaderboard ──────────────────────────────────────
+
+  test.describe("SquadReputationLeaderboard (S11 — S12 baseline)", () => {
+    for (const bp of BREAKPOINTS) {
+      test(`@ ${bp.name} (${bp.width}px) — axe ≥95`, async ({ page }) => {
+        await setViewport(page, bp);
+        await page.goto("/squads", { waitUntil: "networkidle" });
+        await waitForPageStable(page);
+
+        const results = await runAxe(page);
+        const criticalOrSerious = results.violations.filter(
+          (v) => v.impact === "critical" || v.impact === "serious",
+        );
+
+        if (criticalOrSerious.length > 0) {
+          // eslint-disable-next-line no-console
+          console.log(
+            `axe violations on /squads (SquadReputationLeaderboard) @ ${bp.name}:`,
+            JSON.stringify(
+              criticalOrSerious.map((v) => ({
+                id: v.id,
+                impact: v.impact,
+                help: v.help,
+                nodes: v.nodes.length,
+              })),
+              null,
+              2,
+            ),
+          );
+        }
+
+        expect(criticalOrSerious).toHaveLength(0);
+      });
+    }
+  });
+
   // ─── BenchmarkPanel ───────────────────────────────────────────────────
 
   test.describe("BenchmarkPanel (domain breakdown)", () => {

@@ -1,0 +1,284 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Prometheus --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Sprint 12 GA — DDS latency, reputation FP rate, KG recompute, LLM cost, DB pool",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "description": "DDS auto-apply end-to-end latency percentiles (p50/p95/p99). GA target: p95 < 200ms.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 150 },
+              { "color": "red", "value": 200 }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(dds_apply_duration_ms_bucket[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(dds_apply_duration_ms_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(dds_apply_duration_ms_bucket[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "DDS Auto-Apply Latency (p50 / p95 / p99)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "DDS approval rate — expect >80% at GA. Drops indicate prompt-quality or content issues.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "(rate(dds_variant_approved_total[1h]) / (rate(dds_variant_proposed_total[1h]) + 1e-6)) * 100",
+          "legendFormat": "Approval Rate %",
+          "refId": "A"
+        }
+      ],
+      "title": "DDS Approval Rate (GA target >80%)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "Reputation anti-gaming false-positive rate — flags cleared vs. confirmed. High cleared rate indicates over-sensitive thresholds.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "lastNotNull"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(reputation_flag_cleared_total[1h])",
+          "legendFormat": "Cleared (false positives) / hr",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(reputation_flag_confirmed_total[1h])",
+          "legendFormat": "Confirmed (true positives) / hr",
+          "refId": "B"
+        },
+        {
+          "expr": "(rate(reputation_flag_cleared_total[1h]) / (rate(reputation_flag_cleared_total[1h]) + rate(reputation_flag_confirmed_total[1h]) + 1e-6)) * 100",
+          "legendFormat": "False Positive Rate %",
+          "refId": "C"
+        }
+      ],
+      "title": "Reputation Anti-Gaming — False Positive Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "KG overlap recompute: frequency of triggered jobs and p95 duration. Excessive frequency may indicate noisy domain edits.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "p95 Duration (ms)" },
+            "properties": [{ "id": "unit", "value": "ms" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Recompute Jobs / hr" },
+            "properties": [{ "id": "unit", "value": "short" }]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(kg_overlap_recompute_completed_total[1h]) * 3600",
+          "legendFormat": "Recompute Jobs / hr",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(kg_overlap_recompute_duration_ms_bucket[5m])) by (le))",
+          "legendFormat": "p95 Duration (ms)",
+          "refId": "B"
+        }
+      ],
+      "title": "KG Overlap Recompute — Frequency & p95 Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "LLM token cost per certification (DDS + embedding). Helps identify certs with high rewrite churn or expensive question sets.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": ["sum", "mean"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "sum by (cert_id) (rate(llm_tokens_used_total{feature=\"DDS\"}[1h])) * 3600",
+          "legendFormat": "DDS tokens/hr — cert {{cert_id}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (cert_id) (rate(llm_tokens_used_total{feature=\"EMBEDDING\"}[1h])) * 3600",
+          "legendFormat": "Embedding tokens/hr — cert {{cert_id}}",
+          "refId": "B"
+        }
+      ],
+      "title": "LLM Token Cost per Cert (DDS + Embedding)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "description": "PostgreSQL connection pool: active vs. max connections. GA target: utilization < 80%.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 80 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 6,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "(pg_pool_active_connections / pg_pool_max_connections) * 100",
+          "legendFormat": "Pool Utilization %",
+          "refId": "A"
+        }
+      ],
+      "title": "DB Connection Pool Utilization (GA target <80%)",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["sprint12", "ga", "dds", "reputation", "kg", "llm", "db"],
+  "templating": { "list": [] },
+  "time": { "from": "now-3h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CertGym — Sprint 12 GA Dashboard",
+  "uid": "sprint12-ga",
+  "version": 1
+}

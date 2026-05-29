@@ -19,22 +19,23 @@ This ADR defines detection thresholds and response policies.
 
 ## Decision
 
-### Velocity-Burst Detection
+### Velocity-Burst Detection (Vote-Velocity Heuristic)
 
 **Anomaly Signature:**
 
-- **≥5 votes** on a single explanation
-- **Within 10-second window**
-- **By same or different reviewers**
+- **>10 votes** on same explanation or from same author
+- **Within 5-minute window**
+- **Indicates rapid coordinated voting**
 
 **Detection Logic:**
 
 ```sql
-SELECT vote_count, MIN(voted_at) as first_vote, MAX(voted_at) as last_vote
+SELECT explanation_id, author_id, COUNT(*) as vote_count,
+       MIN(voted_at) as first_vote, MAX(voted_at) as last_vote
 FROM explanation_votes
-WHERE explanation_id = ?
-GROUP BY explanation_id
-HAVING COUNT(*) >= 5 AND (MAX(voted_at) - MIN(voted_at)) <= INTERVAL 10 SECONDS
+WHERE voted_at > NOW() - INTERVAL 5 MINUTES
+GROUP BY explanation_id, author_id
+HAVING COUNT(*) > 10 AND (MAX(voted_at) - MIN(voted_at)) <= INTERVAL 5 MINUTES
 ```
 
 **Flag Action:**
@@ -48,26 +49,37 @@ HAVING COUNT(*) >= 5 AND (MAX(voted_at) - MIN(voted_at)) <= INTERVAL 10 SECONDS
 
 **Anomaly Signature:**
 
-- **3+ coordinated votes** within same squad
-- **On same explanation** in rapid succession (within 1 minute)
-- **All voting on behalf of same user** (or same question)
+- **≥3 coordinated accounts** within same squad
+- **Voting in round-robin pattern** (each voting for others' explanations)
+- **Within 1-hour window**
 
 **Detection Logic:**
 
 ```sql
-SELECT user_id, explanation_id, squad_id, COUNT(*) as vote_count
-FROM explanation_votes
-WHERE squad_id = ?
-  AND voted_at > NOW() - INTERVAL 1 MINUTE
-GROUP BY user_id, explanation_id, squad_id
+SELECT squad_id, user_id, COUNT(DISTINCT voted_for_user_id) as unique_targets
+FROM explanation_votes ev
+JOIN users u ON ev.reviewer_id = u.id
+WHERE ev.squad_id = ?
+  AND ev.voted_at > NOW() - INTERVAL 1 HOUR
+GROUP BY squad_id, user_id
 HAVING COUNT(*) >= 3
+  AND EXISTS (
+    SELECT 1 FROM (
+      SELECT reviewer_id, voted_for_user_id
+      FROM explanation_votes
+      WHERE squad_id = ?
+        AND voted_at > NOW() - INTERVAL 1 HOUR
+    ) AS votes_matrix
+    WHERE votes_matrix.reviewer_id IN (SELECT user_id FROM ...)
+      AND votes_matrix.voted_for_user_id IN (SELECT user_id FROM ...)
+  )
 ```
 
 **Flag Action:**
 
 - Mark all votes in ring with reason: `vote_ring`
 - Place points on **hold** (not credited to leaderboard)
-- Escalate to moderation queue (optional human review)
+- Escalate to moderation queue for human review
 - Idempotent: no duplicate flags
 
 ### Response & Recovery
@@ -75,36 +87,37 @@ HAVING COUNT(*) >= 3
 **Flagged Vote States:**
 
 - **Pending:** Awaiting admin review
-- **Cleared:** False positive; votes credited to leaderboard
+- **Cleared:** False positive; votes credited to leaderboard (FP tolerance <2%)
 - **Confirmed:** Genuine abuse; points held, user warned
 
 **Admin Actions:**
 
-- **Clear:** Restore points; add reviewer to whitelist (optional)
-- **Confirm:** Hold points permanently; restrict user voting (optional)
+- **Clear:** Restore points; add squad to whitelist (optional)
+- **Confirm:** Hold points permanently; restrict squad voting (optional)
 
 **Metrics:**
 
 - Track false-positive rate (cleared vs. confirmed)
-- Target: <5% false-positive rate (acceptable for learning system)
+- Target: <2% false-positive rate (strict for S11 launch)
 
 ---
 
 ## Rationale
 
-### Why 5 Votes in 10 Seconds?
+### Why >10 Votes in 5 Minutes (Vote-Velocity)?
 
-- **5 votes:** Statistical rarity for legitimate reviewing (normal: 1–2 votes per minute)
-- **10-second window:** Too fast for honest reviewers reading explanation; clear intent signal
+- **>10 votes:** Statistical rarity for legitimate reviewing (normal: 2–5 votes per 5 minutes per author)
+- **5-minute window:** Captures rapid coordinated voting; balances sensitivity vs. false positives
 - **Alternative thresholds considered:**
-  - 3 votes / 10s: Too aggressive, would flag edge cases (rejected)
-  - 10 votes / 30s: Too permissive, allows coordinated campaigns (rejected)
+  - 5 votes / 5m: Too aggressive, would flag high-velocity legitimate reviewers (rejected)
+  - 20 votes / 5m: Too permissive, allows coordinated campaigns (rejected)
 
-### Why 3+ Votes in Vote-Ring?
+### Why ≥3 Accounts in Vote-Ring?
 
 - **Squad size:** Typical CertGym squads: 5–20 members
-- **3+ votes:** Statistically unlikely accident; coordination signal
-- **1-minute window:** Fast enough to catch coordinated bursts; loose enough to avoid false positives
+- **≥3 accounts:** Statistically unlikely accident; clear coordination signal
+- **Configurable per squad size:** Smaller squads get higher thresholds to avoid false positives
+- **1-hour window:** Fast enough to catch coordinated campaigns; loose enough to avoid false positives on async voting
 
 ### Why Point Hold (Not Deletion)?
 

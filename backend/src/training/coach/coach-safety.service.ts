@@ -61,7 +61,7 @@ export class CoachSafetyService {
       name: 'Hypothetical unrestricted mode',
       pattern:
         /imagine\s+you\s+(are\s+)?an?\s+(unrestricted|jailbroken|unfiltered)/i,
-      severity: 'medium',
+      severity: 'high',
     },
     {
       name: 'Different approach / circumvention - imagine',

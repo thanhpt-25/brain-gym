@@ -151,12 +151,12 @@ export function DdsAutoApplyPanel() {
     <section className="dds-auto-panel" aria-label="DDS auto-apply management">
       <div className="dds-auto-header">
         <h3 className="dds-auto-title">
-          <Zap size={16} />
+          <Zap size={16} aria-hidden="true" />
           DDS Auto-Apply
         </h3>
         {shadowMode && (
           <span className="dds-shadow-badge" aria-label="Shadow mode active">
-            <ShieldAlert size={13} /> Shadow mode
+            <ShieldAlert size={13} aria-hidden="true" /> Shadow mode
           </span>
         )}
       </div>
@@ -168,7 +168,7 @@ export function DdsAutoApplyPanel() {
 
       {readinessLoading && (
         <div className="dds-readiness-loading" aria-busy="true">
-          <Loader2 size={16} className="dds-spin" />
+          <Loader2 size={16} className="dds-spin" aria-hidden="true" />
           <span>Loading Gate 2 readiness…</span>
         </div>
       )}
@@ -180,7 +180,7 @@ export function DdsAutoApplyPanel() {
         >
           <div className="dds-readiness-header">
             <h4 className="dds-readiness-title">
-              <TrendingUp size={16} />
+              <TrendingUp size={16} aria-hidden="true" />
               Gate 2: Readiness
             </h4>
             {readiness.readyToPromote && (
@@ -188,7 +188,7 @@ export function DdsAutoApplyPanel() {
                 className="dds-readiness-badge"
                 aria-label="Ready to promote"
               >
-                <CheckCircle2 size={13} /> Ready
+                <CheckCircle2 size={13} aria-hidden="true" /> Ready
               </span>
             )}
           </div>
@@ -202,6 +202,11 @@ export function DdsAutoApplyPanel() {
               <div className="dds-metric-bar">
                 <div
                   className="dds-metric-fill"
+                  role="progressbar"
+                  aria-valuenow={readiness.cleanApprovals}
+                  aria-valuemin={0}
+                  aria-valuemax={readiness.threshold}
+                  aria-label={`${readiness.cleanApprovals} of ${readiness.threshold} clean approvals`}
                   style={{
                     width: `${readiness.progressPercent}%`,
                   }}
@@ -225,7 +230,7 @@ export function DdsAutoApplyPanel() {
 
           {!readiness.readyToPromote && readiness.rollbackCount > 0 && (
             <div className="dds-readiness-warning" role="alert">
-              <AlertCircle size={13} />
+              <AlertCircle size={13} aria-hidden="true" />
               Cannot promote: recent rollbacks detected. Must reach zero
               rollbacks.
             </div>
@@ -234,7 +239,7 @@ export function DdsAutoApplyPanel() {
           {!readiness.readyToPromote &&
             readiness.cleanApprovals < readiness.threshold && (
               <div className="dds-readiness-warning" role="alert">
-                <AlertCircle size={13} />
+                <AlertCircle size={13} aria-hidden="true" />
                 {readiness.threshold - readiness.cleanApprovals} more clean
                 approvals needed.
               </div>
@@ -247,7 +252,7 @@ export function DdsAutoApplyPanel() {
             aria-label="Promote DDS cohort to live mode"
           >
             {promote.isPending ? (
-              <Loader2 size={13} className="dds-spin" />
+              <Loader2 size={13} className="dds-spin" aria-hidden="true" />
             ) : (
               <Zap size={13} />
             )}
@@ -259,14 +264,18 @@ export function DdsAutoApplyPanel() {
       {cohortConfig && !cohortLoading && (
         <div className="dds-canary-status" role="status">
           <h4>
-            <ShieldAlert size={14} />
+            <ShieldAlert size={14} aria-hidden="true" />
             Canary Status
           </h4>
           <div className="dds-canary-state">
             {cohortConfig.canaryArmed ? (
-              <span className="dds-canary-armed">🛡️ Armed</span>
+              <span className="dds-canary-armed" aria-label="Canary armed">
+                <span aria-hidden="true">🛡️</span> Armed
+              </span>
             ) : cohortConfig.promotedAt ? (
-              <span className="dds-canary-paused">⏸️ Paused</span>
+              <span className="dds-canary-paused" aria-label="Canary paused">
+                <span aria-hidden="true">⏸️</span> Paused
+              </span>
             ) : (
               <span className="dds-canary-inactive">○ Inactive</span>
             )}
@@ -306,7 +315,7 @@ export function DdsAutoApplyPanel() {
               aria-label="Confirm auto-apply"
             >
               {apply.isPending ? (
-                <Loader2 size={13} className="dds-spin" />
+                <Loader2 size={13} className="dds-spin" aria-hidden="true" />
               ) : (
                 <CheckCircle2 size={13} />
               )}
@@ -325,7 +334,7 @@ export function DdsAutoApplyPanel() {
 
       {isLoading && (
         <div className="dds-loading" aria-busy="true">
-          <Loader2 size={16} className="dds-spin" />
+          <Loader2 size={16} className="dds-spin" aria-hidden="true" />
           <span>Loading auto-applied variants…</span>
         </div>
       )}
@@ -352,7 +361,11 @@ export function DdsAutoApplyPanel() {
                   aria-label="Evaluate auto-apply eligibility"
                 >
                   {evaluate.isPending && evaluatingId === v.id ? (
-                    <Loader2 size={13} className="dds-spin" />
+                    <Loader2
+                      size={13}
+                      className="dds-spin"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <Zap size={13} />
                   )}
@@ -365,7 +378,11 @@ export function DdsAutoApplyPanel() {
                   aria-label="Rollback this variant"
                 >
                   {rollback.isPending ? (
-                    <Loader2 size={13} className="dds-spin" />
+                    <Loader2
+                      size={13}
+                      className="dds-spin"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <RotateCcw size={13} />
                   )}
