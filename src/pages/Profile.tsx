@@ -37,6 +37,7 @@ import {
   updateProfile,
   uploadAvatar,
   changePassword,
+  getMyOverview,
 } from "@/services/user";
 
 const profileSchema = z.object({
@@ -59,35 +60,44 @@ const passwordSchema = z
 type ProfileForm = z.infer<typeof profileSchema>;
 type PasswordForm = z.infer<typeof passwordSchema>;
 
-// Dummy data — backend not implemented yet
-const STATS = [
-  { label: "Total Points", value: "12,480", icon: Trophy, accent: "text-primary", glow: "shadow-[0_0_30px_-8px_hsl(var(--primary)/0.5)]" },
-  { label: "Day Streak", value: "27", icon: Flame, accent: "text-orange-400", glow: "shadow-[0_0_30px_-8px_hsl(25_95%_55%/0.4)]" },
-  { label: "Exams Passed", value: "14", icon: Target, accent: "text-accent", glow: "shadow-[0_0_30px_-8px_hsl(var(--accent)/0.4)]" },
-  { label: "Avg. Score", value: "89%", icon: TrendingUp, accent: "text-primary", glow: "shadow-[0_0_30px_-8px_hsl(var(--primary)/0.5)]" },
-];
+const BADGE_ICONS: Record<string, string> = {
+  "Early Bird": "🌅",
+  "Marathon": "🔥",
+  "Perfectionist": "💎",
+  "Mentor": "🧠",
+  "Speed Demon": "⚡",
+  "Architect": "🏛️",
+  "Exam Creator": "📝",
+  "Cloud Master": "☁️",
+  "Top Contributor": "🏆",
+  "First Steps": "👣",
+  "Dedicated Learner": "📚",
+};
 
-const BADGES = [
-  { name: "Early Bird", desc: "Studied before 7am", icon: "🌅", earned: true },
-  { name: "Marathon", desc: "30-day streak", icon: "🔥", earned: true },
-  { name: "Perfectionist", desc: "100% on an exam", icon: "💎", earned: true },
-  { name: "Mentor", desc: "Helped 10 peers", icon: "🧠", earned: true },
-  { name: "Speed Demon", desc: "Top 10% completion", icon: "⚡", earned: false },
-  { name: "Architect", desc: "Pass 5 AWS exams", icon: "🏛️", earned: false },
-];
+const CERT_ICONS: Record<string, string> = {
+  "AWS": "☁️",
+  "Azure": "🔷",
+  "GCP": "🟢",
+  "Kubernetes": "⚙️",
+  "CKA": "⚙️",
+};
 
-const ACTIVITY = [
-  { title: "Passed AWS SAA-C03 Mock Exam", meta: "Score 92% · 2h ago", icon: CheckCircle2, color: "text-accent" },
-  { title: "Reviewed 24 flashcards", meta: "VPC Networking · 5h ago", icon: Zap, color: "text-primary" },
-  { title: "Earned 'Marathon' badge", meta: "30-day streak · yesterday", icon: Award, color: "text-orange-400" },
-  { title: "Created 8 community questions", meta: "Azure AZ-900 · 2d ago", icon: Sparkles, color: "text-primary" },
-];
+const getActivityIcon = (type: string) => {
+  switch (type) {
+    case "exam_passed": return { icon: CheckCircle2, color: "text-accent" };
+    case "badge_earned": return { icon: Award, color: "text-orange-400" };
+    case "question_created": return { icon: Sparkles, color: "text-primary" };
+    case "flashcard_reviewed": return { icon: Zap, color: "text-primary" };
+    default: return { icon: Clock, color: "text-muted-foreground" };
+  }
+};
 
-const CERTS = [
-  { code: "AWS SAA-C03", progress: 78, mastery: "Review", icon: "☁️" },
-  { code: "Azure AZ-900", progress: 54, mastery: "Learning", icon: "🔷" },
-  { code: "GCP ACE", progress: 32, mastery: "Learning", icon: "🟢" },
-];
+const getCertIcon = (code: string) => {
+  for (const [key, icon] of Object.entries(CERT_ICONS)) {
+    if (code.includes(key)) return icon;
+  }
+  return "📋";
+};
 
 export default function Profile() {
   const { toast } = useToast();
@@ -99,6 +109,11 @@ export default function Profile() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ["my-profile"],
     queryFn: getMyProfile,
+  });
+
+  const { data: overview, isLoading: overviewLoading } = useQuery({
+    queryKey: ["my-overview"],
+    queryFn: getMyOverview,
   });
 
   const profileForm = useForm<ProfileForm>({
@@ -182,7 +197,23 @@ export default function Profile() {
 
   const avatarSrc = avatarPreview ?? profile?.avatarUrl ?? user?.avatarUrl;
 
-  if (isLoading) return null;
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  };
+
+  const stats = overview?.stats
+    ? [
+        { label: "Total Points", value: overview.stats.totalPoints.toLocaleString(), icon: Trophy, accent: "text-primary", glow: "shadow-[0_0_30px_-8px_hsl(var(--primary)/0.5)]" },
+        { label: "Day Streak", value: overview.stats.dayStreak.toString(), icon: Flame, accent: "text-orange-400", glow: "shadow-[0_0_30px_-8px_hsl(25_95%_55%/0.4)]" },
+        { label: "Exams Passed", value: overview.stats.examsPassed.toString(), icon: Target, accent: "text-accent", glow: "shadow-[0_0_30px_-8px_hsl(var(--accent)/0.4)]" },
+        { label: "Avg. Score", value: `${overview.stats.avgScore}%`, icon: TrendingUp, accent: "text-primary", glow: "shadow-[0_0_30px_-8px_hsl(var(--primary)/0.5)]" },
+      ]
+    : [];
+
+  const joinedDate = profile?.createdAt ? formatDate(profile.createdAt) : "Apr 2025";
+
+  if (isLoading || overviewLoading) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -260,7 +291,7 @@ export default function Profile() {
                     <Mail className="h-3.5 w-3.5" /> {profile?.email}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" /> Joined Apr 2025
+                    <Calendar className="h-3.5 w-3.5" /> Joined {joinedDate}
                   </span>
                 </div>
               </div>
@@ -466,17 +497,20 @@ export default function Profile() {
               <div className="relative">
                 <div className="absolute left-[19px] top-2 bottom-2 w-px bg-border" />
                 <ul className="space-y-5">
-                  {ACTIVITY.map((a, i) => (
-                    <li key={i} className="relative flex gap-4">
-                      <div className="relative z-10 shrink-0 h-10 w-10 rounded-full bg-card border border-border/60 flex items-center justify-center">
-                        <a.icon className={`h-5 w-5 ${a.color}`} />
-                      </div>
-                      <div className="pt-1.5">
-                        <div className="font-medium">{a.title}</div>
-                        <div className="text-xs text-muted-foreground font-mono mt-0.5">{a.meta}</div>
-                      </div>
-                    </li>
-                  ))}
+                  {(overview?.activity ?? []).map((a, i) => {
+                    const { icon: ActivityIcon, color } = getActivityIcon(a.type);
+                    return (
+                      <li key={i} className="relative flex gap-4">
+                        <div className="relative z-10 shrink-0 h-10 w-10 rounded-full bg-card border border-border/60 flex items-center justify-center">
+                          <ActivityIcon className={`h-5 w-5 ${color}`} />
+                        </div>
+                        <div className="pt-1.5">
+                          <div className="font-medium">{a.title}</div>
+                          <div className="text-xs text-muted-foreground font-mono mt-0.5">{a.meta}</div>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             </Card>
@@ -493,15 +527,15 @@ export default function Profile() {
                   Certifications
                 </h3>
                 <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
-                  {CERTS.length} active
+                  {overview?.certs.length ?? 0} active
                 </Badge>
               </div>
               <ul className="space-y-4">
-                {CERTS.map((c) => (
+                {(overview?.certs ?? []).map((c) => (
                   <li key={c.code}>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="flex items-center gap-2 text-sm font-mono">
-                        <span>{c.icon}</span>
+                        <span>{getCertIcon(c.code)}</span>
                         {c.code}
                       </span>
                       <span className="text-xs text-muted-foreground">{c.progress}%</span>
@@ -522,21 +556,21 @@ export default function Profile() {
                   Achievements
                 </h3>
                 <span className="text-xs text-muted-foreground font-mono">
-                  {BADGES.filter((b) => b.earned).length}/{BADGES.length}
+                  {overview?.badges.filter((b) => b.earned).length ?? 0}/{overview?.badges.length ?? 0}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                {BADGES.map((b) => (
+                {(overview?.badges ?? []).map((b) => (
                   <div
-                    key={b.name}
+                    key={b.id}
                     className={`group relative aspect-square rounded-xl border flex flex-col items-center justify-center gap-1 p-2 text-center transition-all ${
                       b.earned
                         ? "border-primary/30 bg-primary/5 hover:border-primary/60 hover:shadow-[0_0_20px_-6px_hsl(var(--primary)/0.5)]"
                         : "border-border/40 bg-muted/20 opacity-50 grayscale"
                     }`}
-                    title={b.desc}
+                    title={b.description}
                   >
-                    <div className="text-2xl">{b.icon}</div>
+                    <div className="text-2xl">{BADGE_ICONS[b.name] ?? "🏆"}</div>
                     <div className="text-[10px] font-mono leading-tight">{b.name}</div>
                   </div>
                 ))}

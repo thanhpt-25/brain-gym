@@ -74,3 +74,46 @@ export const changePassword = async (data: {
   const res = await api.put("/users/me/password", data);
   return res.data;
 };
+
+export interface ProfileStats {
+  totalPoints: number;
+  examsPassed: number;
+  avgScore: number;
+  dayStreak: number;
+}
+
+export interface ProfileBadge {
+  id: string;
+  name: string;
+  description?: string;
+  iconUrl?: string;
+  earned: boolean;
+  awardedAt?: string;
+}
+
+export interface ProfileActivity {
+  type: string;
+  title: string;
+  meta: string;
+  occurredAt: string;
+}
+
+export interface ProfileCert {
+  certificationId: string;
+  code: string;
+  name: string;
+  progress: number;
+  mastery: string;
+}
+
+export interface ProfileOverview {
+  stats: ProfileStats;
+  badges: ProfileBadge[];
+  activity: ProfileActivity[];
+  certs: ProfileCert[];
+}
+
+export const getMyOverview = async (): Promise<ProfileOverview> => {
+  const res = await api.get("/users/me/overview");
+  return res.data;
+};
