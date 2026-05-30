@@ -8,9 +8,15 @@ import {
   CheckCircle2,
   TrendingUp,
   AlertCircle,
+  Shield,
+  X,
 } from "lucide-react";
 import api from "../../services/api";
-import "./dds-auto-apply-panel.css";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 
 interface AutoApplyDecision {
   shouldApply: boolean;
@@ -48,9 +54,7 @@ interface CohortConfig {
 async function fetchAutoApplied(): Promise<QuestionVariant[]> {
   const res = await api.get<QuestionVariant[]>(
     "/ai-question-bank/dds/pending",
-    {
-      params: { limit: 50 },
-    },
+    { params: { limit: 50 } },
   );
   return res.data.filter((v) => v.status === "AUTO_APPLIED");
 }
@@ -148,251 +152,370 @@ export function DdsAutoApplyPanel() {
   const shadowMode = import.meta.env.VITE_DDS_SHADOW_MODE !== "false";
 
   return (
-    <section className="dds-auto-panel" aria-label="DDS auto-apply management">
-      <div className="dds-auto-header">
-        <h3 className="dds-auto-title">
-          <Zap size={16} aria-hidden="true" />
-          DDS Auto-Apply
-        </h3>
+    <div className="space-y-6" aria-label="DDS auto-apply management">
+      {/* ── Page header ── */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="flex items-center gap-2 text-xl font-semibold font-mono">
+            <Zap className="h-5 w-5 text-primary" aria-hidden="true" />
+            DDS Auto-Apply
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+            Variants that meet the cohort approval threshold are auto-applied.
+            In shadow mode, decisions are logged but not committed.
+          </p>
+        </div>
         {shadowMode && (
-          <span className="dds-shadow-badge" aria-label="Shadow mode active">
-            <ShieldAlert size={13} aria-hidden="true" /> Shadow mode
-          </span>
+          <Badge
+            variant="outline"
+            className="shrink-0 gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600"
+            aria-label="Shadow mode active"
+          >
+            <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+            Shadow mode
+          </Badge>
         )}
       </div>
 
-      <p className="dds-auto-description">
-        Variants that meet the cohort approval threshold are auto-applied. In
-        shadow mode, decisions are logged but not committed.
-      </p>
-
-      {readinessLoading && (
-        <div className="dds-readiness-loading" aria-busy="true">
-          <Loader2 size={16} className="dds-spin" aria-hidden="true" />
-          <span>Loading Gate 2 readiness…</span>
-        </div>
-      )}
-
-      {readiness && !readinessLoading && (
-        <div
-          className={`dds-readiness ${readiness.readyToPromote ? "dds-readiness--ready" : "dds-readiness--pending"}`}
-          role="status"
-        >
-          <div className="dds-readiness-header">
-            <h4 className="dds-readiness-title">
-              <TrendingUp size={16} aria-hidden="true" />
-              Gate 2: Readiness
-            </h4>
-            {readiness.readyToPromote && (
-              <span
-                className="dds-readiness-badge"
-                aria-label="Ready to promote"
-              >
-                <CheckCircle2 size={13} aria-hidden="true" /> Ready
-              </span>
-            )}
-          </div>
-
-          <div className="dds-readiness-metrics">
-            <div className="dds-metric">
-              <span className="dds-metric-label">Clean Approvals</span>
-              <span className="dds-metric-value">
-                {readiness.cleanApprovals}/{readiness.threshold}
-              </span>
-              <div className="dds-metric-bar">
-                <div
-                  className="dds-metric-fill"
-                  role="progressbar"
-                  aria-valuenow={readiness.cleanApprovals}
-                  aria-valuemin={0}
-                  aria-valuemax={readiness.threshold}
-                  aria-label={`${readiness.cleanApprovals} of ${readiness.threshold} clean approvals`}
-                  style={{
-                    width: `${readiness.progressPercent}%`,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="dds-metric">
-              <span className="dds-metric-label">Rollbacks</span>
-              <span className="dds-metric-value">
-                {readiness.rollbackCount}
-              </span>
-              {readiness.rollbackCount > 0 && readiness.lastRollbackAt && (
-                <span className="dds-metric-detail">
-                  Last:{" "}
-                  {new Date(readiness.lastRollbackAt).toLocaleDateString()}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {!readiness.readyToPromote && readiness.rollbackCount > 0 && (
-            <div className="dds-readiness-warning" role="alert">
-              <AlertCircle size={13} aria-hidden="true" />
-              Cannot promote: recent rollbacks detected. Must reach zero
-              rollbacks.
-            </div>
-          )}
-
-          {!readiness.readyToPromote &&
-            readiness.cleanApprovals < readiness.threshold && (
-              <div className="dds-readiness-warning" role="alert">
-                <AlertCircle size={13} aria-hidden="true" />
-                {readiness.threshold - readiness.cleanApprovals} more clean
-                approvals needed.
-              </div>
-            )}
-
-          <button
-            className="dds-promote-btn"
-            onClick={() => promote.mutate()}
-            disabled={!readiness.readyToPromote || promote.isPending}
-            aria-label="Promote DDS cohort to live mode"
-          >
-            {promote.isPending ? (
-              <Loader2 size={13} className="dds-spin" aria-hidden="true" />
-            ) : (
-              <Zap size={13} />
-            )}
-            {shadowMode ? "Simulate promote" : "Promote to live"}
-          </button>
-        </div>
-      )}
-
-      {cohortConfig && !cohortLoading && (
-        <div className="dds-canary-status" role="status">
-          <h4>
-            <ShieldAlert size={14} aria-hidden="true" />
-            Canary Status
-          </h4>
-          <div className="dds-canary-state">
-            {cohortConfig.canaryArmed ? (
-              <span className="dds-canary-armed" aria-label="Canary armed">
-                <span aria-hidden="true">🛡️</span> Armed
-              </span>
-            ) : cohortConfig.promotedAt ? (
-              <span className="dds-canary-paused" aria-label="Canary paused">
-                <span aria-hidden="true">⏸️</span> Paused
-              </span>
-            ) : (
-              <span className="dds-canary-inactive">○ Inactive</span>
-            )}
-          </div>
-          {cohortConfig.promotedAt && (
-            <span className="dds-canary-detail">
-              Promoted: {new Date(cohortConfig.promotedAt).toLocaleDateString()}
-            </span>
-          )}
-          {cohortConfig.canaryPausedAt && (
-            <span className="dds-canary-detail">
-              Paused:{" "}
-              {new Date(cohortConfig.canaryPausedAt).toLocaleDateString()}
-            </span>
-          )}
-        </div>
-      )}
-
+      {/* ── Decision result (appears after Evaluate) ── */}
       {decision && evaluatingId && (
-        <div
-          className={`dds-decision dds-decision--${decision.shouldApply ? "go" : "hold"}`}
+        <Alert
+          className={
+            decision.shouldApply
+              ? "border-emerald-500/30 bg-emerald-500/10 [&>svg]:text-emerald-600"
+              : "border-destructive/30 bg-destructive/10 [&>svg]:text-destructive"
+          }
           role="status"
         >
-          <strong>
-            {decision.shouldApply ? "Ready to apply" : "Not ready"}
-          </strong>
-          <span>{decision.reason}</span>
-          <span>
-            {decision.approvedCount}/{decision.threshold} approvals (cohort:{" "}
-            {decision.cohort})
-          </span>
-          {decision.shouldApply && (
-            <button
-              className="dds-apply-btn"
-              onClick={() => apply.mutate(evaluatingId)}
-              disabled={apply.isPending}
-              aria-label="Confirm auto-apply"
-            >
-              {apply.isPending ? (
-                <Loader2 size={13} className="dds-spin" aria-hidden="true" />
-              ) : (
-                <CheckCircle2 size={13} />
-              )}
-              {shadowMode ? "Simulate apply" : "Apply now"}
-            </button>
+          {decision.shouldApply ? (
+            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <AlertCircle className="h-4 w-4" aria-hidden="true" />
           )}
-          <button
-            className="dds-decision-dismiss"
-            onClick={() => setDecision(null)}
-            aria-label="Dismiss evaluation result"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {isLoading && (
-        <div className="dds-loading" aria-busy="true">
-          <Loader2 size={16} className="dds-spin" aria-hidden="true" />
-          <span>Loading auto-applied variants…</span>
-        </div>
-      )}
-
-      {!isLoading && (!variants || variants.length === 0) && (
-        <p className="dds-empty">No auto-applied variants yet.</p>
-      )}
-
-      {variants && variants.length > 0 && (
-        <ul className="dds-variant-list">
-          {variants.map((v) => (
-            <li key={v.id} className="dds-variant-item">
-              <div className="dds-variant-info">
-                <span className="dds-variant-reason">{v.reason}</span>
-                <span className="dds-variant-date">
-                  {new Date(v.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="dds-variant-actions">
-                <button
-                  className="dds-evaluate-btn"
-                  onClick={() => evaluate.mutate(v.id)}
-                  disabled={evaluate.isPending && evaluatingId === v.id}
-                  aria-label="Evaluate auto-apply eligibility"
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="font-semibold text-sm leading-none">
+                {decision.shouldApply ? "Ready to apply" : "Not ready"}
+              </p>
+              <AlertDescription className="text-muted-foreground">
+                {decision.reason}
+              </AlertDescription>
+              <p className="text-xs text-muted-foreground">
+                {decision.approvedCount}/{decision.threshold} approvals (cohort:{" "}
+                {decision.cohort})
+              </p>
+              {decision.shouldApply && (
+                <Button
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => apply.mutate(evaluatingId)}
+                  disabled={apply.isPending}
+                  aria-label="Confirm auto-apply"
                 >
-                  {evaluate.isPending && evaluatingId === v.id ? (
+                  {apply.isPending ? (
                     <Loader2
-                      size={13}
-                      className="dds-spin"
+                      className="h-3 w-3 mr-1.5 animate-spin"
                       aria-hidden="true"
                     />
                   ) : (
-                    <Zap size={13} />
+                    <CheckCircle2
+                      className="h-3 w-3 mr-1.5"
+                      aria-hidden="true"
+                    />
                   )}
-                  Evaluate
-                </button>
-                <button
-                  className="dds-rollback-btn"
-                  onClick={() => rollback.mutate(v.id)}
-                  disabled={rollback.isPending}
-                  aria-label="Rollback this variant"
+                  {shadowMode ? "Simulate apply" : "Apply now"}
+                </Button>
+              )}
+            </div>
+            <button
+              className="rounded-sm opacity-60 hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setDecision(null)}
+              aria-label="Dismiss evaluation result"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </Alert>
+      )}
+
+      {/* ── Gate 2 + Canary side-by-side grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Gate 2 Readiness */}
+        <Card role="status">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <h4 className="flex items-center gap-2 text-sm font-semibold">
+                <TrendingUp
+                  className="h-4 w-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                Gate 2: Readiness
+              </h4>
+              {readiness?.readyToPromote && (
+                <Badge
+                  className="gap-1 bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20"
+                  aria-label="Ready to promote"
                 >
-                  {rollback.isPending ? (
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                  Ready
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            {readinessLoading ? (
+              <div
+                className="flex items-center gap-2 py-6 text-sm text-muted-foreground"
+                aria-busy="true"
+              >
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading Gate 2 readiness…
+              </div>
+            ) : readiness ? (
+              <>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Clean Approvals
+                    </p>
+                    <p className="text-2xl font-bold tabular-nums leading-none">
+                      {readiness.cleanApprovals}/{readiness.threshold}
+                    </p>
+                    <div
+                      className="h-1.5 w-full rounded-full bg-secondary overflow-hidden"
+                      role="none"
+                    >
+                      <div
+                        className="dds-metric-fill h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 transition-[width] duration-300"
+                        role="progressbar"
+                        aria-valuenow={readiness.cleanApprovals}
+                        aria-valuemin={0}
+                        aria-valuemax={readiness.threshold}
+                        aria-label={`${readiness.cleanApprovals} of ${readiness.threshold} clean approvals`}
+                        style={{ width: `${readiness.progressPercent}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Rollbacks
+                    </p>
+                    <p className="text-2xl font-bold tabular-nums leading-none">
+                      {readiness.rollbackCount}
+                    </p>
+                    {readiness.rollbackCount > 0 &&
+                      readiness.lastRollbackAt && (
+                        <p className="text-xs text-muted-foreground">
+                          Last:{" "}
+                          {new Date(
+                            readiness.lastRollbackAt,
+                          ).toLocaleDateString()}
+                        </p>
+                      )}
+                  </div>
+                </div>
+
+                {!readiness.readyToPromote && readiness.rollbackCount > 0 && (
+                  <Alert
+                    variant="destructive"
+                    className="py-2 text-xs"
+                    role="alert"
+                  >
+                    <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    <AlertDescription>
+                      Cannot promote: recent rollbacks detected. Must reach zero
+                      rollbacks.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!readiness.readyToPromote &&
+                  readiness.cleanApprovals < readiness.threshold && (
+                    <Alert
+                      className="py-2 text-xs border-amber-500/30 bg-amber-500/10 [&>svg]:text-amber-600"
+                      role="alert"
+                    >
+                      <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                      <AlertDescription className="text-amber-700 dark:text-amber-400">
+                        {readiness.threshold - readiness.cleanApprovals} more
+                        clean approvals needed.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                <Separator />
+
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => promote.mutate()}
+                  disabled={!readiness.readyToPromote || promote.isPending}
+                  aria-label="Promote DDS cohort to live mode"
+                >
+                  {promote.isPending ? (
                     <Loader2
-                      size={13}
-                      className="dds-spin"
+                      className="h-3.5 w-3.5 mr-1.5 animate-spin"
                       aria-hidden="true"
                     />
                   ) : (
-                    <RotateCcw size={13} />
+                    <Zap className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
                   )}
-                  Rollback
-                </button>
+                  {shadowMode ? "Simulate promote" : "Promote to live"}
+                </Button>
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        {/* Canary Status — .dds-canary-status class kept for tests */}
+        {cohortConfig && !cohortLoading && (
+          <Card className="dds-canary-status" role="status">
+            <CardHeader className="pb-3">
+              <h4 className="flex items-center gap-2 text-sm font-semibold">
+                <Shield className="h-4 w-4 text-sky-500" aria-hidden="true" />
+                Canary Status
+              </h4>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                {cohortConfig.canaryArmed ? (
+                  <span
+                    className="dds-canary-armed inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold bg-emerald-500/15 text-emerald-600"
+                    aria-label="Canary armed"
+                  >
+                    <Shield className="h-3.5 w-3.5" aria-hidden="true" />
+                    Armed
+                  </span>
+                ) : cohortConfig.promotedAt ? (
+                  <span
+                    className="dds-canary-paused inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold bg-amber-500/15 text-amber-600"
+                    aria-label="Canary paused"
+                  >
+                    <Loader2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    Paused
+                  </span>
+                ) : (
+                  <span className="dds-canary-inactive inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold bg-secondary text-muted-foreground">
+                    ○ Inactive
+                  </span>
+                )}
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+
+              <div className="space-y-1">
+                {cohortConfig.promotedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Promoted:{" "}
+                    {new Date(cohortConfig.promotedAt).toLocaleDateString()}
+                  </p>
+                )}
+                {cohortConfig.canaryPausedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Paused:{" "}
+                    {new Date(cohortConfig.canaryPausedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* ── Auto-applied variants list ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <h4 className="flex items-center gap-2 text-sm font-semibold">
+              <Zap
+                className="h-4 w-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+              Auto-Applied Variants
+            </h4>
+            {variants && variants.length > 0 && (
+              <Badge variant="secondary" className="ml-auto text-xs">
+                {variants.length}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div
+              className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"
+              aria-busy="true"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Loading auto-applied variants…
+            </div>
+          ) : !variants || variants.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No auto-applied variants yet.
+            </p>
+          ) : (
+            <ul
+              className="divide-y divide-border"
+              aria-label="Auto-applied variants"
+            >
+              {variants.map((v) => (
+                <li
+                  key={v.id}
+                  className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/40 transition-colors"
+                >
+                  <div className="min-w-0 flex-1 space-y-0.5 pr-4">
+                    <p className="text-sm font-medium truncate">{v.reason}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(v.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => evaluate.mutate(v.id)}
+                      disabled={evaluate.isPending && evaluatingId === v.id}
+                      aria-label="Evaluate auto-apply eligibility"
+                    >
+                      {evaluate.isPending && evaluatingId === v.id ? (
+                        <Loader2
+                          className="h-3 w-3 mr-1.5 animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Zap className="h-3 w-3 mr-1.5" aria-hidden="true" />
+                      )}
+                      Evaluate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => rollback.mutate(v.id)}
+                      disabled={rollback.isPending}
+                      aria-label="Rollback this variant"
+                    >
+                      {rollback.isPending ? (
+                        <Loader2
+                          className="h-3 w-3 mr-1.5 animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <RotateCcw
+                          className="h-3 w-3 mr-1.5"
+                          aria-hidden="true"
+                        />
+                      )}
+                      Rollback
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
