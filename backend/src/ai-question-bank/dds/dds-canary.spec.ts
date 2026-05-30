@@ -645,6 +645,12 @@ describe('DdsService — canary auto-pause & Gate2 readiness (US-1101/US-1107)',
         .mockResolvedValueOnce([]) // canary window empty
         .mockResolvedValueOnce([{ id: 'approved' }]); // approved count for threshold
 
+      // Gate 2 guard at apply time: approvals >= threshold, zero rollbacks.
+      mockPrisma.questionVariant.count
+        .mockResolvedValueOnce(1) // APPROVED count
+        .mockResolvedValueOnce(0); // ROLLED_BACK count
+      mockPrisma.questionVariant.findFirst.mockResolvedValue(null);
+
       const variantWithDiff = {
         id: 'var-resume',
         questionId: 'q-1',
