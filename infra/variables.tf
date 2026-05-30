@@ -141,3 +141,9 @@ variable "llm_encryption_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "dds_shadow_mode" {
+  description = "DDS shadow mode flag. Set to 'false' to enable live mode and arm the canary."
+  type        = string
+  default     = "false"
+}

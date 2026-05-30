@@ -61,6 +61,7 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "AWS_REGION", value = var.aws_region },
         { name = "AWS_S3_AVATARS_BUCKET", value = aws_s3_bucket.avatars.bucket },
         { name = "AWS_AVATARS_CDN_BASE_URL", value = "https://${var.domain_name}" },
+        { name = "DDS_SHADOW_MODE", value = var.dds_shadow_mode },
       ]
 
       secrets = [

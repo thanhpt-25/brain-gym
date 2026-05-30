@@ -9,6 +9,8 @@ run_migrations() {
 
   # Resolve any previously failed migrations so deploy can proceed
   npx prisma migrate resolve --rolled-back "20260328000002_fix_schema_drift" 2>/dev/null || true
+  # Wrong-timestamp migration that failed with 42P01 (ran before dds_configs table was created)
+  npx prisma migrate resolve --rolled-back "20260530000001_dds_ensure_default_live" 2>/dev/null || true
 
   # Attempt migrate deploy; if P3005 (non-empty DB with no migration history), baseline first
   if ! deploy_output=$(npx prisma migrate deploy 2>&1); then

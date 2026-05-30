@@ -249,6 +249,8 @@ jobs:
           # Public OAuth client ID — baked into the bundle at build time.
           # Falls back to the known prod client ID if the secret is unset.
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID || '631928875808-ibtd0n72c183gmi4lc4pb622gltqr2v4.apps.googleusercontent.com' }}
+          # DDS feature flag: 'false' = live mode (canary armed), anything else = shadow mode.
+          VITE_DDS_SHADOW_MODE: ${{ vars.VITE_DDS_SHADOW_MODE || 'false' }}
 
       - name: Deploy to S3
         run: |
