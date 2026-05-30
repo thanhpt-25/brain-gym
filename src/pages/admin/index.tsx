@@ -35,6 +35,7 @@ import { AiGenerationTab } from "./AiGenerationTab";
 import { ExamsTab } from "./ExamsTab";
 import OrganizationsTab from "./OrganizationsTab";
 import { DdsAutoApplyPanel } from "@/components/admin/DdsAutoApplyPanel";
+import { DdsVariantReview } from "@/components/admin/DdsVariantReview";
 import { ReputationTab } from "./ReputationTab";
 
 const AdminPage = () => {
@@ -160,7 +161,10 @@ const AdminPage = () => {
             <AuditLogTab />
           </TabsContent>
           <TabsContent value="dds">
-            <DdsAutoApplyPanel />
+            <div className="space-y-6">
+              <DdsAutoApplyPanel />
+              <DdsVariantReview />
+            </div>
           </TabsContent>
           <TabsContent value="reputation">
             <ReputationTab />
