@@ -68,7 +68,9 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText("32/30")).toBeInTheDocument();
+        expect(
+          screen.getByRole("progressbar", { name: "32 of 30 clean approvals" }),
+        ).toBeInTheDocument();
       });
     });
 
@@ -375,7 +377,9 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       const { container } = renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText("32/30")).toBeInTheDocument();
+        expect(
+          screen.getByRole("progressbar", { name: "32 of 30 clean approvals" }),
+        ).toBeInTheDocument();
       });
 
       const results = await axe(container);
@@ -401,7 +405,11 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       const { container } = renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText("15/30")).toBeInTheDocument();
+        expect(
+          screen.getByRole("progressbar", {
+            name: "15 of 30 clean approvals",
+          }),
+        ).toBeInTheDocument();
       });
 
       const fill = container.querySelector(".dds-metric-fill");
@@ -444,7 +452,11 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText("32/30")).toBeInTheDocument();
+        expect(
+          screen.getByRole("progressbar", {
+            name: "32 of 30 clean approvals",
+          }),
+        ).toBeInTheDocument();
       });
 
       const section = screen.getByRole("status");
@@ -691,7 +703,11 @@ describe("DdsAutoApplyPanel - US-1107: Gate 2 Readiness", () => {
       const { container } = renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByText("32/30")).toBeInTheDocument();
+        expect(
+          screen.getByRole("progressbar", {
+            name: "32 of 30 clean approvals",
+          }),
+        ).toBeInTheDocument();
       });
 
       const canarySection = container.querySelector(".dds-canary-status");
