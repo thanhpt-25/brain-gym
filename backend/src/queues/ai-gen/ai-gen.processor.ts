@@ -165,11 +165,15 @@ export class AiGenProcessor extends WorkerHost {
     const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
     const raw = jsonMatch ? jsonMatch[1] : content;
     const parsed = JSON.parse(raw);
-    const scores: number[] = Array.isArray(parsed)
-      ? parsed.map((s: unknown) => Number(s))
-      : (parsed.scores ?? []).map((s: unknown) => Number(s));
-    while (scores.length < expectedCount) scores.push(0.7);
-    return scores.slice(0, expectedCount);
+    const scores: number[] = Array(expectedCount).fill(0.7);
+    if (parsed?.results && Array.isArray(parsed.results)) {
+      for (const r of parsed.results) {
+        if (typeof r.index === 'number' && typeof r.score === 'number') {
+          scores[r.index] = Math.max(0, Math.min(1, r.score));
+        }
+      }
+    }
+    return scores;
   }
 
   private mapToPreview(
