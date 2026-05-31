@@ -78,4 +78,14 @@ export class McpIntakeDto {
   @IsEnum(QuestionType)
   @IsOptional()
   questionType?: QuestionType;
+
+  @ApiPropertyOptional({ enum: ['MCP', 'LOCAL_LLM'] })
+  @IsString()
+  @IsOptional()
+  source?: 'MCP' | 'LOCAL_LLM';
+
+  @ApiPropertyOptional({ example: 'llama3.2:3b' })
+  @IsString()
+  @IsOptional()
+  localModelId?: string;
 }

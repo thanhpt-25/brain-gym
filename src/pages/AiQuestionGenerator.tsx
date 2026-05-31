@@ -22,6 +22,10 @@ import { JobStatusResult, GenerationJob } from "@/types/api-types";
 import LlmConfigPanel from "@/components/ai-questions/LlmConfigPanel";
 import GenerationForm from "@/components/ai-questions/GenerationForm";
 import GeneratedQuestionsReview from "@/components/ai-questions/GeneratedQuestionsReview";
+import {
+  localLlmConfigStorage,
+  submitLocalQuestionsToIntake,
+} from "@/services/local-llm";
 
 const STATUS_COLORS: Record<string, string> = {
   COMPLETED: "default",
@@ -35,6 +39,7 @@ export default function AiQuestionGenerator() {
     result: JobStatusResult;
     certificationId: string;
     domainId?: string;
+    isLocal?: boolean;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
   const [loadingJobId, setLoadingJobId] = useState<string | null>(null);
@@ -49,13 +54,16 @@ export default function AiQuestionGenerator() {
   });
 
   const hasKeys = configs.length > 0;
+  const hasLocalConfig = !!localLlmConfigStorage.get();
+  const hasAccess = hasKeys || hasLocalConfig;
 
   const handleResult = (
     result: JobStatusResult,
     certificationId: string,
     domainId?: string,
   ) => {
-    setGenerationResult({ result, certificationId, domainId });
+    const isLocal = result.jobId.startsWith("local-");
+    setGenerationResult({ result, certificationId, domainId, isLocal });
     setActiveTab("review");
   };
 
@@ -78,7 +86,7 @@ export default function AiQuestionGenerator() {
 
   const computedDefaultTab = generationResult
     ? "review"
-    : hasKeys
+    : hasAccess
       ? "generate"
       : "settings";
 
@@ -105,7 +113,7 @@ export default function AiQuestionGenerator() {
             <TabsTrigger value="settings">
               <Settings className="h-4 w-4 mr-1.5" />
               AI Settings
-              {!hasKeys && (
+              {!hasAccess && (
                 <Badge
                   variant="destructive"
                   className="ml-1.5 text-xs h-4 px-1"
@@ -149,14 +157,15 @@ export default function AiQuestionGenerator() {
 
           {/* Generate Tab */}
           <TabsContent value="generate">
-            {!hasKeys ? (
+            {!hasAccess ? (
               <Card className="border-dashed">
                 <CardContent className="py-8 text-center">
                   <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="font-medium">No AI provider configured</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Add an API key in the <strong>AI Settings</strong> tab to
-                    start generating questions.
+                    Add a cloud API key or configure a{" "}
+                    <strong>Local LLM</strong> in the{" "}
+                    <strong>AI Settings</strong> tab.
                   </p>
                 </CardContent>
               </Card>
@@ -167,9 +176,9 @@ export default function AiQuestionGenerator() {
                     Generate Questions
                   </CardTitle>
                   <CardDescription>
-                    Select your certification, optionally pick a source
-                    material, and generate exam-style questions. Questions are
-                    scored by a critic LLM and auto-routed based on quality.
+                    Select your certification and generate exam-style questions.
+                    Cloud providers score questions automatically. Local LLM
+                    questions go to Pending for admin review.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -190,6 +199,18 @@ export default function AiQuestionGenerator() {
                   setGenerationResult(null);
                   setActiveTab("generate");
                 }}
+                localSubmit={
+                  generationResult.isLocal
+                    ? (questions, certId, dId) => {
+                        const config = localLlmConfigStorage.get();
+                        return submitLocalQuestionsToIntake(questions, {
+                          certificationId: certId,
+                          domainId: dId,
+                          localModelId: config?.modelId,
+                        });
+                      }
+                    : undefined
+                }
               />
             </TabsContent>
           )}

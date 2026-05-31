@@ -111,6 +111,15 @@ interface Props {
   certificationId: string;
   domainId?: string;
   onReset: () => void;
+  /**
+   * When provided, overrides the default cloud save path and calls this
+   * function instead (used for the local LLM → mcp/intake flow).
+   */
+  localSubmit?: (
+    questions: GeneratedQuestionPreview[],
+    certificationId: string,
+    domainId?: string,
+  ) => Promise<{ saved: number; discarded: number }>;
 }
 
 export default function GeneratedQuestionsReview({
@@ -118,6 +127,7 @@ export default function GeneratedQuestionsReview({
   certificationId,
   domainId,
   onReset,
+  localSubmit,
 }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -135,11 +145,14 @@ export default function GeneratedQuestionsReview({
   >({});
 
   const saveMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const toSave = Array.from(included).map((i) => ({
         ...questions[i],
         ...edits[i],
       }));
+      if (localSubmit) {
+        return localSubmit(toSave, certificationId, domainId);
+      }
       return saveGeneratedQuestions({
         jobId: result.jobId,
         certificationId,
@@ -151,8 +164,12 @@ export default function GeneratedQuestionsReview({
       toast.success(
         `Saved ${data.saved} questions${data.discarded ? `, ${data.discarded} discarded (low quality)` : ""}`,
       );
-      queryClient.invalidateQueries({ queryKey: ["generation-history"] });
-      navigate("/questions?status=APPROVED&mine=true");
+      if (localSubmit) {
+        navigate("/questions?status=PENDING");
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["generation-history"] });
+        navigate("/questions?status=APPROVED&mine=true");
+      }
     },
     onError: () => toast.error("Failed to save questions"),
   });
