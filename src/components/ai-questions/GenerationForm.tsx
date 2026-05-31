@@ -80,8 +80,11 @@ export default function GenerationForm({ onResult }: Props) {
   });
 
   const localConfig = localLlmConfigStorage.get();
-  const selectedCert = (certs as any[]).find((c) => c.id === certificationId);
-  const domains: any[] = selectedCert?.domains || [];
+  const selectedCert = (certs as Array<{ id: string; domains?: any[] }>).find(
+    (c) => c.id === certificationId,
+  );
+  const domains: Array<{ id: string; name: string }> =
+    selectedCert?.domains || [];
 
   // Poll cloud job status
   const { data: jobStatusData } = useQuery({
@@ -101,7 +104,7 @@ export default function GenerationForm({ onResult }: Props) {
       setPendingJobId(null);
       onResult(jobStatusData, pendingCertId, pendingDomainId);
     }
-  }, [jobStatusData]);
+  }, [jobStatusData, onResult, pendingCertId, pendingDomainId]);
 
   // ─── Cloud generation ────────────────────────────────────────────────────────
 

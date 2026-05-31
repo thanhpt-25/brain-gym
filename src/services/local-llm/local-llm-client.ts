@@ -360,10 +360,11 @@ export async function generateLocalQuestions(
   const result = RawQuestionsResponseSchema.safeParse(parsed);
   if (!result.success) {
     // Salvage valid individual questions
-    const arr = Array.isArray((parsed as any)?.questions)
-      ? (parsed as any).questions
-      : Array.isArray(parsed)
-        ? parsed
+    const parsedObj = parsed as Record<string, unknown> | unknown[];
+    const arr = Array.isArray((parsedObj as Record<string, unknown>)?.questions)
+      ? ((parsedObj as Record<string, unknown>).questions as unknown[])
+      : Array.isArray(parsedObj)
+        ? (parsedObj as unknown[])
         : [];
 
     const previews: GeneratedQuestionPreview[] = [];

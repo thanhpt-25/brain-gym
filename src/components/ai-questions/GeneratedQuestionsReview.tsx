@@ -34,7 +34,9 @@ const TIER_LABEL: Record<QualityTier, string> = {
   LOW: "Low quality",
 };
 
-function normalizeQuestion(q: any): GeneratedQuestionPreview {
+function normalizeQuestion(
+  q: Record<string, unknown>,
+): GeneratedQuestionPreview {
   if (!q || typeof q !== "object") {
     return {
       title: "",
@@ -57,26 +59,29 @@ function normalizeQuestion(q: any): GeneratedQuestionPreview {
     : Array.isArray(q.options)
       ? q.options
       : [];
-  const choices = rawOptions.map((opt: any, idx: number) => {
-    if (typeof opt === "string") {
+  const choices = rawOptions.map(
+    (opt: Record<string, unknown> | string, idx: number) => {
+      if (typeof opt === "string") {
+        const label =
+          opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
+        const content = opt.replace(/^\s*[A-Z][.)]\s*/, "").trim();
+        return { label, content, isCorrect: correctLetters.includes(label) };
+      }
+      const o = opt ?? {};
       const label =
-        opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
-      const content = opt.replace(/^\s*[A-Z][.)]\s*/, "").trim();
-      return { label, content, isCorrect: correctLetters.includes(label) };
-    }
-    const o = opt ?? {};
-    const label =
-      (typeof o.label === "string" && o.label) || String.fromCharCode(65 + idx);
-    const content =
-      (typeof o.content === "string" && o.content) ||
-      (typeof o.text === "string" && o.text) ||
-      "";
-    const isCorrect =
-      typeof o.isCorrect === "boolean"
-        ? o.isCorrect
-        : correctLetters.includes(String(label).toUpperCase());
-    return { label: String(label).toUpperCase(), content, isCorrect };
-  });
+        (typeof o.label === "string" && o.label) ||
+        String.fromCharCode(65 + idx);
+      const content =
+        (typeof o.content === "string" && o.content) ||
+        (typeof o.text === "string" && o.text) ||
+        "";
+      const isCorrect =
+        typeof o.isCorrect === "boolean"
+          ? o.isCorrect
+          : correctLetters.includes(String(label).toUpperCase());
+      return { label: String(label).toUpperCase(), content, isCorrect };
+    },
+  );
   const rawType = String(q.questionType ?? q.question_type ?? "").toUpperCase();
   const questionType =
     rawType === "MULTIPLE" || rawType === "MULTIPLE_CHOICE"
