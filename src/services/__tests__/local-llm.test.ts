@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isAllowedLocalUrl } from "@/services/local-llm/local-llm-client";
 import { localLlmConfigStorage } from "@/services/local-llm/config-storage";
-import { LocalLlmConfig } from "@/types/api-types";
+import { LocalLlmConfig } from "@/services/local-llm/types";
 
 describe("Local LLM Feature", () => {
   describe("URL Validation", () => {
