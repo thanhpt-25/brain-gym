@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Zap, Loader2, Info } from "lucide-react";
+import { Zap, Loader2, Info, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -26,12 +26,20 @@ import {
   JobStatusResult,
 } from "@/types/api-types";
 import MaterialLibrary from "./MaterialLibrary";
+import {
+  localLlmConfigStorage,
+  generateLocalQuestions,
+} from "@/services/local-llm";
+import type { LocalGenerationParams } from "@/services/local-llm";
 
 const PROVIDER_LABELS: Record<LlmProvider, string> = {
   OPENAI: "OpenAI",
   ANTHROPIC: "Anthropic",
   GEMINI: "Google Gemini",
 };
+
+const LOCAL_PROVIDER = "LOCAL" as const;
+type ProviderValue = LlmProvider | typeof LOCAL_PROVIDER | "";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -44,7 +52,7 @@ interface Props {
 }
 
 export default function GenerationForm({ onResult }: Props) {
-  const [provider, setProvider] = useState<LlmProvider | "">("");
+  const [provider, setProvider] = useState<ProviderValue>("");
   const [certificationId, setCertificationId] = useState("");
   const [domainId, setDomainId] = useState("all");
   const [materialId, setMaterialId] = useState("");
@@ -59,6 +67,8 @@ export default function GenerationForm({ onResult }: Props) {
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const [pendingCertId, setPendingCertId] = useState("");
   const [pendingDomainId, setPendingDomainId] = useState<string | undefined>();
+  const [isGeneratingLocal, setIsGeneratingLocal] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const { data: configs = [] } = useQuery({
     queryKey: ["llm-configs"],
@@ -69,10 +79,14 @@ export default function GenerationForm({ onResult }: Props) {
     queryFn: getCertifications,
   });
 
-  const selectedCert = certs.find((c: any) => c.id === certificationId);
-  const domains: any[] = selectedCert?.domains || [];
+  const localConfig = localLlmConfigStorage.get();
+  const selectedCert = (certs as Array<{ id: string; domains?: any[] }>).find(
+    (c) => c.id === certificationId,
+  );
+  const domains: Array<{ id: string; name: string }> =
+    selectedCert?.domains || [];
 
-  // Poll job status until completed/failed
+  // Poll cloud job status
   const { data: jobStatusData } = useQuery({
     queryKey: ["ai-gen-job", pendingJobId],
     queryFn: () => getJobStatus(pendingJobId!),
@@ -90,7 +104,9 @@ export default function GenerationForm({ onResult }: Props) {
       setPendingJobId(null);
       onResult(jobStatusData, pendingCertId, pendingDomainId);
     }
-  }, [jobStatusData]);
+  }, [jobStatusData, onResult, pendingCertId, pendingDomainId]);
+
+  // ─── Cloud generation ────────────────────────────────────────────────────────
 
   const estimateMutation = useMutation({
     mutationFn: () =>
@@ -107,7 +123,7 @@ export default function GenerationForm({ onResult }: Props) {
     onSuccess: (data) => setEstimate(data),
   });
 
-  const generateMutation = useMutation({
+  const generateCloudMutation = useMutation({
     mutationFn: () =>
       generateQuestions({
         provider: provider as LlmProvider,
@@ -126,8 +142,70 @@ export default function GenerationForm({ onResult }: Props) {
     },
   });
 
-  const isGenerating = generateMutation.isPending || !!pendingJobId;
-  const canGenerate = provider && certificationId;
+  // ─── Local generation ────────────────────────────────────────────────────────
+
+  const handleLocalGenerate = async () => {
+    if (!localConfig) return;
+    setLocalError(null);
+    setIsGeneratingLocal(true);
+
+    try {
+      const cert = (certs as any[]).find((c) => c.id === certificationId);
+      const domain =
+        domainId !== "all" ? domains.find((d: any) => d.id === domainId) : null;
+
+      const params: LocalGenerationParams = {
+        certificationName: cert?.name ?? certificationId,
+        certificationCode: cert?.code ?? certificationId,
+        domainName: domain?.name,
+        difficulty,
+        questionCount,
+        questionType:
+          questionType === "MIXED" ? undefined : (questionType as QuestionType),
+      };
+
+      const result = await generateLocalQuestions(localConfig, params);
+
+      if (result.previews.length === 0) {
+        setLocalError(
+          `Model returned no valid questions (${result.discarded} discarded). Try again or choose a different model.`,
+        );
+        return;
+      }
+
+      if (result.discarded > 0) {
+        setLocalError(
+          `${result.previews.length} of ${result.previews.length + result.discarded} questions parsed successfully.`,
+        );
+      }
+
+      // Synthetic JobStatusResult — jobId starts with "local-" so the page
+      // can detect it and wire up the intake submit path.
+      const syntheticResult: JobStatusResult = {
+        jobId: `local-${Date.now()}`,
+        status: "COMPLETED",
+        questions: result.previews,
+      };
+
+      onResult(
+        syntheticResult,
+        certificationId,
+        domainId !== "all" ? domainId : undefined,
+      );
+    } catch (err: unknown) {
+      setLocalError(
+        err instanceof Error ? err.message : "Local generation failed.",
+      );
+    } finally {
+      setIsGeneratingLocal(false);
+    }
+  };
+
+  // ─── Derived ─────────────────────────────────────────────────────────────────
+
+  const isLocalSelected = provider === LOCAL_PROVIDER;
+  const isCloudGenerating = generateCloudMutation.isPending || !!pendingJobId;
+  const canGenerate = provider !== "" && certificationId !== "";
 
   return (
     <div className="space-y-5">
@@ -136,25 +214,55 @@ export default function GenerationForm({ onResult }: Props) {
         <label className="text-sm font-medium">AI Provider</label>
         <Select
           value={provider || undefined}
-          onValueChange={(v) => setProvider(v as LlmProvider)}
+          onValueChange={(v) => {
+            setProvider(v as ProviderValue);
+            setEstimate(null);
+            setLocalError(null);
+          }}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select provider..." />
           </SelectTrigger>
           <SelectContent>
-            {configs.length === 0 && (
+            {configs.length === 0 && !localConfig && (
               <SelectItem value="_none" disabled>
-                No keys configured
+                No providers configured
               </SelectItem>
             )}
-            {configs.map((c: any) => (
+            {(configs as any[]).map((c) => (
               <SelectItem key={c.provider} value={c.provider}>
                 {PROVIDER_LABELS[c.provider as LlmProvider]}{" "}
                 {c.modelId && `(${c.modelId})`}
               </SelectItem>
             ))}
+            {localConfig && (
+              <SelectItem value={LOCAL_PROVIDER}>
+                <span className="flex items-center gap-1.5">
+                  <Cpu className="h-3.5 w-3.5" />
+                  Local — {localConfig.modelId}
+                </span>
+              </SelectItem>
+            )}
           </SelectContent>
         </Select>
+
+        {configs.length === 0 && !localConfig && (
+          <p className="text-xs text-muted-foreground">
+            Add a cloud API key or configure a Local LLM in{" "}
+            <strong>AI Settings</strong>.
+          </p>
+        )}
+
+        {isLocalSelected && localConfig && (
+          <Card className="bg-muted/40">
+            <CardContent className="py-2 px-3 flex items-center gap-2 text-xs">
+              <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>
+                <strong>{localConfig.modelId}</strong> via {localConfig.baseUrl}
+              </span>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Certification */}
@@ -171,7 +279,7 @@ export default function GenerationForm({ onResult }: Props) {
             <SelectValue placeholder="Select certification..." />
           </SelectTrigger>
           <SelectContent>
-            {certs.map((c: any) => (
+            {(certs as any[]).map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name} ({c.code})
               </SelectItem>
@@ -253,15 +361,17 @@ export default function GenerationForm({ onResult }: Props) {
         />
       </div>
 
-      {/* Source Material */}
-      <MaterialLibrary
-        certificationId={certificationId || undefined}
-        selectedId={materialId}
-        onSelect={(id) => setMaterialId(materialId === id ? "" : id)}
-      />
+      {/* Source material — cloud only */}
+      {!isLocalSelected && (
+        <MaterialLibrary
+          certificationId={certificationId || undefined}
+          selectedId={materialId}
+          onSelect={(id) => setMaterialId(materialId === id ? "" : id)}
+        />
+      )}
 
-      {/* Estimate */}
-      {estimate && (
+      {/* Token estimate — cloud only */}
+      {estimate && !isLocalSelected && (
         <Card className="bg-muted/40">
           <CardContent className="py-2 px-3 flex items-center gap-2 text-xs">
             <Info className="h-3.5 w-3.5 text-muted-foreground" />
@@ -274,41 +384,84 @@ export default function GenerationForm({ onResult }: Props) {
         </Card>
       )}
 
+      {/* Local info banner */}
+      {isLocalSelected && (
+        <Card className="bg-muted/40">
+          <CardContent className="py-2 px-3 flex items-center gap-2 text-xs">
+            <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>
+              Generated in the browser — no cloud API calls, no quota usage.
+              Questions go to <strong>Pending</strong> for admin review.
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Local error / partial-parse warning */}
+      {localError && (
+        <p className="text-xs text-yellow-700 bg-yellow-50 rounded p-2">
+          {localError}
+        </p>
+      )}
+
       {/* Actions */}
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={!canGenerate || estimateMutation.isPending}
-          onClick={() => estimateMutation.mutate()}
-        >
-          {estimateMutation.isPending ? (
-            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-          ) : null}
-          Estimate Cost
-        </Button>
-        <Button
-          className="flex-1"
-          disabled={!canGenerate || isGenerating}
-          onClick={() => generateMutation.mutate()}
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              {pendingJobId ? "Processing…" : "Queuing…"}
-            </>
-          ) : (
-            <>
-              <Zap className="h-4 w-4 mr-2" />
-              Generate {questionCount} Questions
-            </>
-          )}
-        </Button>
+        {!isLocalSelected && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!canGenerate || estimateMutation.isPending}
+            onClick={() => estimateMutation.mutate()}
+          >
+            {estimateMutation.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+            ) : null}
+            Estimate Cost
+          </Button>
+        )}
+
+        {isLocalSelected ? (
+          <Button
+            className="flex-1"
+            disabled={!canGenerate || isGeneratingLocal}
+            onClick={handleLocalGenerate}
+          >
+            {isGeneratingLocal ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Generating locally…
+              </>
+            ) : (
+              <>
+                <Cpu className="h-4 w-4 mr-2" />
+                Generate {questionCount} Questions (Local)
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button
+            className="flex-1"
+            disabled={!canGenerate || isCloudGenerating}
+            onClick={() => generateCloudMutation.mutate()}
+          >
+            {isCloudGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                {pendingJobId ? "Processing…" : "Queuing…"}
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 mr-2" />
+                Generate {questionCount} Questions
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
-      {generateMutation.isError && (
+      {generateCloudMutation.isError && (
         <p className="text-xs text-destructive">
-          {(generateMutation.error as any)?.response?.data?.message ||
+          {(generateCloudMutation.error as any)?.response?.data?.message ||
             "Generation failed"}
         </p>
       )}

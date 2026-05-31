@@ -34,7 +34,9 @@ const TIER_LABEL: Record<QualityTier, string> = {
   LOW: "Low quality",
 };
 
-function normalizeQuestion(q: any): GeneratedQuestionPreview {
+function normalizeQuestion(
+  q: Record<string, unknown>,
+): GeneratedQuestionPreview {
   if (!q || typeof q !== "object") {
     return {
       title: "",
@@ -57,26 +59,29 @@ function normalizeQuestion(q: any): GeneratedQuestionPreview {
     : Array.isArray(q.options)
       ? q.options
       : [];
-  const choices = rawOptions.map((opt: any, idx: number) => {
-    if (typeof opt === "string") {
+  const choices = rawOptions.map(
+    (opt: Record<string, unknown> | string, idx: number) => {
+      if (typeof opt === "string") {
+        const label =
+          opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
+        const content = opt.replace(/^\s*[A-Z][.)]\s*/, "").trim();
+        return { label, content, isCorrect: correctLetters.includes(label) };
+      }
+      const o = opt ?? {};
       const label =
-        opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
-      const content = opt.replace(/^\s*[A-Z][.)]\s*/, "").trim();
-      return { label, content, isCorrect: correctLetters.includes(label) };
-    }
-    const o = opt ?? {};
-    const label =
-      (typeof o.label === "string" && o.label) || String.fromCharCode(65 + idx);
-    const content =
-      (typeof o.content === "string" && o.content) ||
-      (typeof o.text === "string" && o.text) ||
-      "";
-    const isCorrect =
-      typeof o.isCorrect === "boolean"
-        ? o.isCorrect
-        : correctLetters.includes(String(label).toUpperCase());
-    return { label: String(label).toUpperCase(), content, isCorrect };
-  });
+        (typeof o.label === "string" && o.label) ||
+        String.fromCharCode(65 + idx);
+      const content =
+        (typeof o.content === "string" && o.content) ||
+        (typeof o.text === "string" && o.text) ||
+        "";
+      const isCorrect =
+        typeof o.isCorrect === "boolean"
+          ? o.isCorrect
+          : correctLetters.includes(String(label).toUpperCase());
+      return { label: String(label).toUpperCase(), content, isCorrect };
+    },
+  );
   const rawType = String(q.questionType ?? q.question_type ?? "").toUpperCase();
   const questionType =
     rawType === "MULTIPLE" || rawType === "MULTIPLE_CHOICE"
@@ -111,6 +116,15 @@ interface Props {
   certificationId: string;
   domainId?: string;
   onReset: () => void;
+  /**
+   * When provided, overrides the default cloud save path and calls this
+   * function instead (used for the local LLM → mcp/intake flow).
+   */
+  localSubmit?: (
+    questions: GeneratedQuestionPreview[],
+    certificationId: string,
+    domainId?: string,
+  ) => Promise<{ saved: number; discarded: number }>;
 }
 
 export default function GeneratedQuestionsReview({
@@ -118,6 +132,7 @@ export default function GeneratedQuestionsReview({
   certificationId,
   domainId,
   onReset,
+  localSubmit,
 }: Props) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -135,11 +150,14 @@ export default function GeneratedQuestionsReview({
   >({});
 
   const saveMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const toSave = Array.from(included).map((i) => ({
         ...questions[i],
         ...edits[i],
       }));
+      if (localSubmit) {
+        return localSubmit(toSave, certificationId, domainId);
+      }
       return saveGeneratedQuestions({
         jobId: result.jobId,
         certificationId,
@@ -151,8 +169,12 @@ export default function GeneratedQuestionsReview({
       toast.success(
         `Saved ${data.saved} questions${data.discarded ? `, ${data.discarded} discarded (low quality)` : ""}`,
       );
-      queryClient.invalidateQueries({ queryKey: ["generation-history"] });
-      navigate("/questions?status=APPROVED&mine=true");
+      if (localSubmit) {
+        navigate("/questions?status=PENDING");
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["generation-history"] });
+        navigate("/questions?status=APPROVED&mine=true");
+      }
     },
     onError: () => toast.error("Failed to save questions"),
   });
