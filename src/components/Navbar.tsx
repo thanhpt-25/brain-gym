@@ -115,7 +115,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
         </div>
 
         {/* Center: Desktop nav links */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden lg:flex items-center gap-1">
           {navLinks.map((link) => (
             <Button
               key={link.href}
@@ -145,7 +145,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
               {canAddQuestion && (
                 <Button
                   size="sm"
-                  className="glow-cyan hidden md:flex h-8"
+                  className="glow-cyan hidden lg:flex h-8"
                   onClick={() => navigate("/questions/new")}
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
@@ -156,7 +156,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="hidden md:flex h-8 text-muted-foreground hover:text-foreground"
+                  className="hidden lg:flex h-8 text-muted-foreground hover:text-foreground"
                   onClick={() => navigate("/admin")}
                 >
                   <Shield className="w-3.5 h-3.5 mr-1" /> Admin
@@ -165,7 +165,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="hidden md:flex items-center gap-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="hidden lg:flex items-center gap-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     aria-label="User menu"
                   >
                     <Avatar className="h-8 w-8">
@@ -207,7 +207,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
           ) : (
             <Button
               size="sm"
-              className="glow-cyan hidden md:flex"
+              className="glow-cyan hidden lg:flex"
               onClick={() => navigate("/auth")}
             >
               Get Started
@@ -221,7 +221,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                 variant="ghost"
                 size="icon"
                 aria-label="Open navigation menu"
-                className="md:hidden"
+                className="lg:hidden"
               >
                 <Menu className="h-5 w-5" aria-hidden="true" />
               </Button>
