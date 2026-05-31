@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 interface AutoApplyDecision {
   shouldApply: boolean;
@@ -154,27 +155,44 @@ export function DdsAutoApplyPanel() {
   return (
     <div className="space-y-6" aria-label="DDS auto-apply management">
       {/* ── Page header ── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="flex items-center gap-2 text-xl font-semibold font-mono">
-            <Zap className="h-5 w-5 text-primary" aria-hidden="true" />
-            DDS Auto-Apply
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-            Variants that meet the cohort approval threshold are auto-applied.
-            In shadow mode, decisions are logged but not committed.
-          </p>
+      <div className="glass-card glow-cyan relative overflow-hidden p-6">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40 bg-grid"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, hsl(190 95% 50% / 0.25), transparent 70%)" }}
+          aria-hidden="true"
+        />
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              Auto-Apply Control
+            </div>
+            <h3 className="flex items-center gap-3 font-mono-display text-2xl font-semibold">
+              <span className="grid h-9 w-9 place-items-center rounded-lg border border-primary/30 bg-primary/10 text-primary">
+                <Zap className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="text-gradient-cyan">DDS Auto-Apply</span>
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xl leading-relaxed">
+              Variants meeting the cohort approval threshold are auto-applied.
+              In shadow mode, decisions are logged but not committed.
+            </p>
+          </div>
+          {shadowMode && (
+            <Badge
+              variant="outline"
+              className="shrink-0 gap-1.5 border-amber-500/40 bg-amber-500/10 text-amber-500 font-mono text-[10px] uppercase tracking-wider px-2.5 py-1"
+              aria-label="Shadow mode active"
+            >
+              <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+              Shadow Mode
+            </Badge>
+          )}
         </div>
-        {shadowMode && (
-          <Badge
-            variant="outline"
-            className="shrink-0 gap-1 border-amber-500/40 bg-amber-500/10 text-amber-600"
-            aria-label="Shadow mode active"
-          >
-            <ShieldAlert className="h-3 w-3" aria-hidden="true" />
-            Shadow mode
-          </Badge>
-        )}
       </div>
 
       {/* ── Decision result (appears after Evaluate) ── */}
@@ -241,15 +259,12 @@ export function DdsAutoApplyPanel() {
       {/* ── Gate 2 + Canary side-by-side grid ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Gate 2 Readiness */}
-        <Card role="status">
+        <Card role="status" className="glass-card border-border/60 hover:border-primary/40 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <h4 className="flex items-center gap-2 text-sm font-semibold">
-                <TrendingUp
-                  className="h-4 w-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                Gate 2: Readiness
+              <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <TrendingUp className="h-4 w-4 text-primary" aria-hidden="true" />
+                Gate 2 · Readiness
               </h4>
               {readiness?.readyToPromote && (
                 <Badge
@@ -274,16 +289,19 @@ export function DdsAutoApplyPanel() {
               </div>
             ) : readiness ? (
               <>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
+                    <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
                       Clean Approvals
                     </p>
-                    <p className="text-2xl font-bold tabular-nums leading-none">
-                      {readiness.cleanApprovals}/{readiness.threshold}
+                    <p className="font-mono-display text-3xl font-bold tabular-nums leading-none text-gradient-cyan">
+                      {readiness.cleanApprovals}
+                      <span className="text-muted-foreground/60 text-xl">
+                        /{readiness.threshold}
+                      </span>
                     </p>
                     <div
-                      className="h-1.5 w-full rounded-full bg-secondary overflow-hidden"
+                      className="h-1.5 w-full rounded-full bg-secondary/60 overflow-hidden"
                       role="none"
                     >
                       <div
@@ -298,11 +316,18 @@ export function DdsAutoApplyPanel() {
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <div className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
+                    <p className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
                       Rollbacks
                     </p>
-                    <p className="text-2xl font-bold tabular-nums leading-none">
+                    <p
+                      className={cn(
+                        "font-mono-display text-3xl font-bold tabular-nums leading-none",
+                        readiness.rollbackCount > 0
+                          ? "text-destructive"
+                          : "text-gradient-cyan",
+                      )}
+                    >
                       {readiness.rollbackCount}
                     </p>
                     {readiness.rollbackCount > 0 &&
@@ -349,7 +374,7 @@ export function DdsAutoApplyPanel() {
 
                 <Button
                   size="sm"
-                  className="w-full"
+                  className="w-full font-mono uppercase tracking-wider text-xs hover:glow-cyan transition-shadow"
                   onClick={() => promote.mutate()}
                   disabled={!readiness.readyToPromote || promote.isPending}
                   aria-label="Promote DDS cohort to live mode"
@@ -371,11 +396,14 @@ export function DdsAutoApplyPanel() {
 
         {/* Canary Status — .dds-canary-status class kept for tests */}
         {cohortConfig && !cohortLoading && (
-          <Card className="dds-canary-status" role="status">
+          <Card
+            className="dds-canary-status glass-card border-border/60 hover:border-sky-500/40 transition-colors"
+            role="status"
+          >
             <CardHeader className="pb-3">
-              <h4 className="flex items-center gap-2 text-sm font-semibold">
-                <Shield className="h-4 w-4 text-sky-500" aria-hidden="true" />
-                Canary Status
+              <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.16em] text-muted-foreground">
+                <Shield className="h-4 w-4 text-sky-400" aria-hidden="true" />
+                Canary · Status
               </h4>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -423,18 +451,18 @@ export function DdsAutoApplyPanel() {
       </div>
 
       {/* ── Auto-applied variants list ── */}
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="glass-card border-border/60">
+        <CardHeader className="pb-3 border-b border-border/60">
           <div className="flex items-center gap-2">
-            <h4 className="flex items-center gap-2 text-sm font-semibold">
-              <Zap
-                className="h-4 w-4 text-muted-foreground"
-                aria-hidden="true"
-              />
+            <h4 className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.16em] text-muted-foreground">
+              <Zap className="h-4 w-4 text-primary" aria-hidden="true" />
               Auto-Applied Variants
             </h4>
             {variants && variants.length > 0 && (
-              <Badge variant="secondary" className="ml-auto text-xs">
+              <Badge
+                variant="secondary"
+                className="ml-auto text-xs font-mono bg-primary/10 text-primary border border-primary/20"
+              >
                 {variants.length}
               </Badge>
             )}
@@ -456,17 +484,21 @@ export function DdsAutoApplyPanel() {
             </p>
           ) : (
             <ul
-              className="divide-y divide-border"
+              className="divide-y divide-border/60"
               aria-label="Auto-applied variants"
             >
               {variants.map((v) => (
                 <li
                   key={v.id}
-                  className="flex items-center justify-between px-6 py-3.5 hover:bg-muted/40 transition-colors"
+                  className="group flex items-center justify-between px-6 py-4 hover:bg-primary/5 transition-colors relative"
                 >
-                  <div className="min-w-0 flex-1 space-y-0.5 pr-4">
+                  <span
+                    className="absolute left-0 top-0 h-full w-[2px] bg-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1 space-y-1 pr-4">
                     <p className="text-sm font-medium truncate">{v.reason}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] font-mono text-muted-foreground">
                       {new Date(v.createdAt).toLocaleDateString()}
                     </p>
                   </div>
