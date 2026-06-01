@@ -103,6 +103,7 @@ function TestResultBadge({ result }: { result: ConnectionTestResult | null }) {
 
 export default function LlmConfigPanel() {
   const queryClient = useQueryClient();
+  const appOrigin = typeof window !== "undefined" ? window.location.origin : "";
 
   // Cloud state
   const [adding, setAdding] = useState(false);
@@ -191,7 +192,9 @@ export default function LlmConfigPanel() {
   const handleTestConnection = async () => {
     if (!localBaseUrl.trim()) return;
     if (!isAllowedLocalUrl(localBaseUrl)) {
-      toast.error("Base URL must point to localhost or a .local host.");
+      toast.error(
+        "Base URL must point to localhost, .local, or a private network address (10.x, 172.16-31.x, 192.168.x)"
+      );
       return;
     }
     setTestState("testing");
@@ -385,8 +388,9 @@ export default function LlmConfigPanel() {
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground">
-          Use Ollama, LM Studio, llama.cpp, or any OpenAI-compatible server
-          running on your machine. Questions are generated in the browser.
+          Use any self-hosted LLM: Ollama, LM Studio, llama.cpp, vLLM, Jan, or
+          any OpenAI/Anthropic-compatible server. Questions are generated in the
+          browser.
         </p>
 
         {savedLocalConfig && (
@@ -522,26 +526,36 @@ export default function LlmConfigPanel() {
           <Card className="bg-muted/40 border-dashed">
             <CardContent className="pt-3 pb-3 space-y-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">
-                Allow browser → local server requests:
+                Allow browser → self-hosted LLM requests:
+              </p>
+              <p className="text-muted-foreground italic">
+                Your app is running at: <code className="font-mono">{appOrigin}</code>
               </p>
               <div>
                 <p className="font-medium mb-1">Ollama:</p>
                 <code className="block bg-background rounded p-2 font-mono whitespace-pre-wrap">
-                  {`OLLAMA_ORIGINS=https://your-app-domain.com ollama serve`}
+                  {`OLLAMA_ORIGINS=${appOrigin} ollama serve`}
                 </code>
               </div>
               <div>
                 <p className="font-medium mb-1">LM Studio:</p>
                 <p>
-                  Settings → Local Server → CORS → enable and add this page's
-                  origin.
+                  Settings → Local Server → CORS → enable and add origin:{" "}
+                  <code className="font-mono">{appOrigin}</code>
                 </p>
               </div>
               <div>
                 <p className="font-medium mb-1">llama.cpp server:</p>
-                <code className="block bg-background rounded p-2 font-mono">
-                  {`./server --cors-allowed-origins "https://your-app-domain.com"`}
+                <code className="block bg-background rounded p-2 font-mono whitespace-pre-wrap">
+                  {`./server --cors-allowed-origins "${appOrigin}"`}
                 </code>
+              </div>
+              <div>
+                <p className="font-medium mb-1">Other self-hosted LLMs:</p>
+                <p>
+                  Refer to your server's documentation to enable CORS and add the
+                  following origin: <code className="font-mono">{appOrigin}</code>
+                </p>
               </div>
             </CardContent>
           </Card>
