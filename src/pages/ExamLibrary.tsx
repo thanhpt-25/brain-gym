@@ -112,12 +112,21 @@ const ExamLibrary = () => {
               </p>
             </div>
             {isAuthenticated && (
-              <Button
-                className="glow-cyan font-mono"
-                onClick={() => navigate("/exams/create")}
-              >
-                <Plus className="h-4 w-4 mr-1.5" /> Create Exam
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="font-mono"
+                  onClick={() => navigate("/exams/mine")}
+                >
+                  <FileText className="h-4 w-4 mr-1.5" /> My Exams
+                </Button>
+                <Button
+                  className="glow-cyan font-mono"
+                  onClick={() => navigate("/exams/create")}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" /> Create Exam
+                </Button>
+              </div>
             )}
           </div>
 
