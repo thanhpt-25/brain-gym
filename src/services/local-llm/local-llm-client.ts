@@ -361,7 +361,7 @@ function mapRawToPreview(
     explanation: raw.explanation ?? "",
     choices,
     tags: [],
-    sourcePassage: raw.source_passage,
+    sourcePassage: raw.source_passage ?? undefined,
     qualityScore: score,
     qualityTier: scoreToTier(score),
   };
