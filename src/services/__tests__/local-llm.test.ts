@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isAllowedLocalUrl } from "@/services/local-llm/local-llm-client";
+import { isAllowedLocalUrl, isCloudProviderUrl } from "@/services/local-llm/local-llm-client";
 import { localLlmConfigStorage } from "@/services/local-llm/config-storage";
 import { LocalLlmConfig } from "@/services/local-llm/types";
 
@@ -23,9 +23,19 @@ describe("Local LLM Feature", () => {
       expect(isAllowedLocalUrl("http://lm-studio.local:8000")).toBe(true);
     });
 
-    it("should reject external URLs", () => {
-      expect(isAllowedLocalUrl("http://example.com:11434")).toBe(false);
-      expect(isAllowedLocalUrl("https://api.openai.com")).toBe(false);
+    it("should accept any valid http/https URL (external endpoints now supported)", () => {
+      // isAllowedLocalUrl is now an alias for isValidLlmUrl — accepts any http/https URL
+      // including VPC endpoints, custom domain servers, etc.
+      expect(isAllowedLocalUrl("http://example.com:11434")).toBe(true);
+      expect(isAllowedLocalUrl("https://llm.mycompany.com/v1")).toBe(true);
+    });
+
+    it("should warn about official cloud provider URLs via isCloudProviderUrl", () => {
+      expect(isCloudProviderUrl("https://api.openai.com")).toBe(true);
+      expect(isCloudProviderUrl("https://api.anthropic.com")).toBe(true);
+      // Custom / self-hosted endpoints are not flagged
+      expect(isCloudProviderUrl("http://example.com:11434")).toBe(false);
+      expect(isCloudProviderUrl("http://localhost:11434")).toBe(false);
     });
 
     it("should handle invalid URLs gracefully", () => {

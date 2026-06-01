@@ -13,22 +13,54 @@ import type {
   LocalModelInfo,
 } from "./types";
 
-// ─── URL safety ──────────────────────────────────────────────────────────────
+// ─── URL validation ───────────────────────────────────────────────────────────
 
-export function isAllowedLocalUrl(rawUrl: string): boolean {
+/** Known official cloud API hostnames — warn user if they type these here. */
+const CLOUD_API_HOSTNAMES = [
+  "api.openai.com",
+  "api.anthropic.com",
+  "generativelanguage.googleapis.com",
+  "api.cohere.com",
+  "api.mistral.ai",
+];
+
+/**
+ * Return true if the URL looks like an official cloud provider endpoint.
+ * Used to surface a warning so the user doesn't confuse this section with
+ * the Cloud Providers (BYOK) section.
+ */
+export function isCloudProviderUrl(rawUrl: string): boolean {
   try {
     const { hostname } = new URL(rawUrl);
-    return (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1" ||
-      hostname === "[::1]" ||
-      hostname.endsWith(".local")
+    return CLOUD_API_HOSTNAMES.some(
+      (h) => hostname === h || hostname.endsWith("." + h),
     );
   } catch {
     return false;
   }
 }
+
+/**
+ * Validate that a URL is usable as a GenAI endpoint:
+ * - Must be a parseable URL with http:// or https:// scheme
+ * - Any host is allowed: localhost, LAN IP, .local, VPC hostname, public domain
+ *
+ * No host restriction is enforced — in-browser fetch is already subject to
+ * the browser's CORS policy. If the target server doesn't include the correct
+ * Access-Control-Allow-Origin header, the browser will block the response
+ * before any data is exposed.
+ */
+export function isValidLlmUrl(rawUrl: string): boolean {
+  try {
+    const { protocol } = new URL(rawUrl);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** @deprecated Use isValidLlmUrl — kept for backwards compatibility with imports. */
+export const isAllowedLocalUrl = isValidLlmUrl;
 
 // ─── Auth headers per dialect ─────────────────────────────────────────────────
 
@@ -121,11 +153,11 @@ async function testOllamaFallback(
 export async function testConnection(
   config: Omit<LocalLlmConfig, "modelId">,
 ): Promise<ConnectionTestResult> {
-  if (!isAllowedLocalUrl(config.baseUrl)) {
+  if (!isValidLlmUrl(config.baseUrl)) {
     return {
       ok: false,
       reason: "unreachable",
-      hint: "Base URL must point to localhost or a .local host.",
+      hint: "Base URL must be a valid http:// or https:// URL.",
     };
   }
 
@@ -329,7 +361,7 @@ function mapRawToPreview(
     explanation: raw.explanation ?? "",
     choices,
     tags: [],
-    sourcePassage: raw.source_passage,
+    sourcePassage: raw.source_passage ?? undefined,
     qualityScore: score,
     qualityTier: scoreToTier(score),
   };

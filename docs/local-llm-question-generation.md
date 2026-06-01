@@ -40,8 +40,8 @@ Luồng sinh câu hỏi hiện tại (`POST /ai-questions/generate`) gọi LLM t
 
 | #   | Mục tiêu                                                                                                   |
 | --- | ---------------------------------------------------------------------------------------------------------- |
-| M1  | Frontend có thể liệt kê model từ Ollama / LM Studio theo chuẩn OpenAI-compatible hoặc Anthropic-compatible |
-| M2  | Người dùng chọn model, nhập ngữ cảnh, sinh câu hỏi trực tiếp từ browser → local LLM                        |
+| M1  | Frontend có thể liệt kê model từ bất kỳ self-hosted LLM nào (Ollama, LM Studio, vLLM, Jan, v.v.) theo chuẩn OpenAI-compatible hoặc Anthropic-compatible |
+| M2  | Người dùng chọn model, nhập ngữ cảnh, sinh câu hỏi trực tiếp từ browser → self-hosted LLM                   |
 | M3  | Câu hỏi qua bước review rồi mới đẩy vào BrainGym Intake (`mcp/intake`)                                     |
 | M4  | Không tốn API fee, không đốt quota backend                                                                 |
 | M5  | Lỗi CORS / unreachable / dialect sai được chẩn đoán rõ ràng, có hướng dẫn khắc phục                        |
@@ -80,9 +80,23 @@ Luồng sinh câu hỏi hiện tại (`POST /ai-questions/generate`) gọi LLM t
 | `LlmConfigPanel`                  | `src/components/ai-questions/LlmConfigPanel.tsx` | Mở rộng thêm section "Local LLM"                                   |
 | `GenerationForm`                  | `src/components/ai-questions/GenerationForm.tsx` | Mở rộng chọn provider LOCAL                                        |
 
-### Lý do frontend gọi local, không phải backend
+### Lý do frontend gọi trực tiếp GenAI endpoint, không phải backend
 
-Backend chạy trên server/Docker — không thể kết nối tới `localhost` của máy người dùng. Đây là ràng buộc SaaS không thể thay đổi. Mọi lưu lượng local LLM **phải** xuất phát từ browser.
+Backend chạy trên server/Docker — không thể kết nối tới local network của người dùng. Đây là ràng buộc SaaS không thể thay đổi. Mọi request đến GenAI endpoint **phải** xuất phát từ browser.
+
+**Bất kỳ URL `http://` hoặc `https://` nào đều được chấp nhận:**
+
+| Loại               | Ví dụ                                  |
+| ------------------ | -------------------------------------- |
+| Localhost          | `http://localhost:11434/v1`            |
+| LAN / private IP   | `http://192.168.1.100:8080/v1`         |
+| mDNS               | `http://gpu-box.local:11434/v1`        |
+| VPC / hostname nội bộ | `https://inference.company.com/v1`  |
+| Docker/K8s service | `http://ollama-svc:11434/v1`           |
+
+Không có whitelist IP/hostname — giới hạn duy nhất là **browser CORS policy**: nếu server không set `Access-Control-Allow-Origin`, browser sẽ block response trước khi data được đọc.
+
+**Lưu ý:** Nếu URL trùng với hostname của cloud provider chính thức (`api.openai.com`, `api.anthropic.com`...), UI sẽ cảnh báo dùng section Cloud Providers (BYOK) thay thế.
 
 ---
 
@@ -383,8 +397,12 @@ LlmConfigPanel
         ├── Model dropdown (populate sau khi test OK)
         ├── [Save local config]
         └── [CORS setup guide ▾] (fold/unfold)
-              Ollama:  OLLAMA_ORIGINS=<domain> ollama serve
-              LM Studio: Settings → Local Server → CORS
+              Hiển thị dynamic app origin (từ window.location.origin)
+              Ollama:  OLLAMA_ORIGINS=<origin> ollama serve
+              LM Studio: Settings → Local Server → CORS → add origin
+              llama.cpp: ./server --cors-allowed-origins "<origin>"
+              vLLM: --allowed-origins '["<origin>"]'
+              Custom: Set Access-Control-Allow-Origin response header
 ```
 
 **Tại `GenerationForm`:**
@@ -430,7 +448,7 @@ try {
 
 | Vấn đề                                 | Giải pháp                                                                  |
 | -------------------------------------- | -------------------------------------------------------------------------- |
-| SSRF từ browser — user nhập URL tùy ý  | Whitelist chỉ `localhost`, `127.0.0.1`, `[::1]`, `*.local` trước khi fetch |
+| SSRF từ browser — user nhập URL tùy ý  | Không cần whitelist phía ứng dụng — browser tự enforce CORS. Ứng dụng chỉ validate URL hợp lệ (`http`/`https` scheme). Soft-warning nếu URL khớp cloud provider chính thức để tránh nhầm section. |
 | API key cloud vô tình lưu localStorage | Warning rõ trong UI; label field là "optional, for local auth only"        |
 | JSON injection từ model output         | Parse `JSON.parse()` (không `eval`), validate Zod trước khi render         |
 | Câu hỏi chất lượng thấp vào bank       | Human review bắt buộc + intake quality gate → `PENDING` mặc định           |
@@ -630,7 +648,7 @@ Task 1 và Task 5 có thể làm song song trong cùng sprint.
 
 | Rủi ro                                   | Mức            | Giảm thiểu                                                                                                   |
 | ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------ |
-| CORS blocked browser → localhost         | **Cao**        | UI hướng dẫn `OLLAMA_ORIGINS`; Test Connection chẩn đoán chính xác; docs inline                              |
+| CORS blocked browser → self-hosted LLM   | **Cao**        | UI hướng dẫn cấu hình CORS cho từng loại server; Test Connection chẩn đoán chính xác; docs inline           |
 | JSON output kém từ model nhỏ (7B/8B)     | **Cao**        | Pipeline repair 6 bước; Zod validate; human review bắt buộc; default `quality_score = 0.6` → PENDING         |
 | Mixed content HTTPS app → HTTP localhost | **Trung bình** | Chrome/Firefox/Edge OK với localhost (potentially trustworthy); Safari cần test và có thể cần hướng dẫn thêm |
 | LM Studio chỉ list model đang load       | **Thấp–TB**    | Ghi chú UI rõ ràng; hướng dẫn load model trước                                                               |
