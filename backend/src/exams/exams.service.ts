@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExamDto } from './dto/create-exam.dto';
@@ -133,6 +134,36 @@ export class ExamsService {
     });
   }
 
+  /**
+   * Strips answer-revealing fields (`choice.isCorrect`, `question.explanation`)
+   * from an exam before returning it over public, unauthenticated endpoints so
+   * that anyone with a link cannot read the answer key without taking the exam.
+   * The grading flow lives in AttemptsService and reads `isCorrect` directly, so
+   * it is unaffected by this sanitization.
+   */
+  private stripAnswerKey<
+    C extends { isCorrect: boolean },
+    Q extends { explanation: string | null; choices: C[] },
+    EQ extends { question: Q },
+    E extends { examQuestions: EQ[] },
+  >(exam: E) {
+    return {
+      ...exam,
+      examQuestions: exam.examQuestions.map((eq) => {
+        const { explanation: _explanation, choices, ...question } = eq.question;
+        return {
+          ...eq,
+          question: {
+            ...question,
+            choices: choices.map(
+              ({ isCorrect: _isCorrect, ...choice }) => choice,
+            ),
+          },
+        };
+      }),
+    };
+  }
+
   async findOne(id: string) {
     const exam = await this.prisma.exam.findUnique({
       where: { id },
@@ -154,7 +185,7 @@ export class ExamsService {
     });
 
     if (!exam) throw new NotFoundException(`Exam with ID ${id} not found`);
-    return exam;
+    return this.stripAnswerKey(exam);
   }
 
   async findByShareCode(shareCode: string) {
@@ -177,7 +208,7 @@ export class ExamsService {
     });
 
     if (!exam) throw new NotFoundException('Exam not found');
-    return exam;
+    return this.stripAnswerKey(exam);
   }
 
   async update(userId: string, id: string, dto: UpdateExamDto) {
@@ -186,10 +217,44 @@ export class ExamsService {
     if (exam.createdBy !== userId)
       throw new ForbiddenException('You can only update your own exams');
 
-    return this.prisma.exam.update({
-      where: { id },
-      data: dto,
-      include: { certification: true },
+    const { questionIds, ...scalarData } = dto;
+
+    // Metadata-only update: no question set change.
+    if (!questionIds) {
+      return this.prisma.exam.update({
+        where: { id },
+        data: scalarData,
+        include: { certification: true },
+      });
+    }
+
+    // Every question must exist and belong to this exam's certification so the
+    // exam cannot be stuffed with questions from an unrelated certification.
+    const validQuestions = await this.prisma.question.findMany({
+      where: { id: { in: questionIds }, certificationId: exam.certificationId },
+      select: { id: true },
+    });
+    if (validQuestions.length !== questionIds.length) {
+      throw new BadRequestException(
+        "One or more questions are invalid or do not belong to this exam's certification",
+      );
+    }
+
+    // Replace the full ordered question set and recompute questionCount.
+    return this.prisma.$transaction(async (tx) => {
+      await tx.examQuestion.deleteMany({ where: { examId: id } });
+      await tx.examQuestion.createMany({
+        data: questionIds.map((questionId, index) => ({
+          examId: id,
+          questionId,
+          sortOrder: index,
+        })),
+      });
+      return tx.exam.update({
+        where: { id },
+        data: { ...scalarData, questionCount: questionIds.length },
+        include: { certification: true },
+      });
     });
   }
 

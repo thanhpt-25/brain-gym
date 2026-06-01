@@ -8,6 +8,7 @@ import {
   Shield,
   Menu,
   BookOpen,
+  FileText,
   BarChart3,
   Trophy,
   Target,
@@ -191,6 +192,9 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                     </p>
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/exams/mine")}>
+                    <FileText className="h-4 w-4 mr-2" /> My Exams
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <UserCircle className="h-4 w-4 mr-2" /> Profile
                   </DropdownMenuItem>
@@ -289,6 +293,13 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                           points
                         </div>
                       )}
+                      <button
+                        onClick={() => handleNav("/exams/mine")}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <FileText className="h-4 w-4" />
+                        My Exams
+                      </button>
                       <button
                         onClick={() => handleNav("/profile")}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

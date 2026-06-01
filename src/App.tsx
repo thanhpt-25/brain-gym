@@ -29,6 +29,7 @@ const AdminPage = lazy(() => import("./pages/admin"));
 const ExamLibrary = lazy(() => import("./pages/ExamLibrary"));
 const ExamBuilder = lazy(() => import("./pages/ExamBuilder"));
 const ExamShare = lazy(() => import("./pages/ExamShare"));
+const MyExams = lazy(() => import("./pages/MyExams"));
 const TrainingHub = lazy(() => import("./pages/TrainingHub"));
 const FlashcardDecks = lazy(() => import("./pages/FlashcardDecks"));
 const DeckDetail = lazy(() => import("./pages/DeckDetail"));
@@ -164,7 +165,35 @@ const AnimatedRoutes = () => {
           }
         />
         <Route
+          path="/exams/mine"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <MyExams />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/exams/:id/edit"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <ExamBuilder />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
           path="/exams/share/:shareCode"
+          element={
+            <PageTransition>
+              <ExamShare />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/exams/:id"
           element={
             <PageTransition>
               <ExamShare />
