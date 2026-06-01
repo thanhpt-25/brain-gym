@@ -25,7 +25,7 @@ resource "aws_subnet" "public" {
   cidr_block        = "10.0.${count.index + 1}.0/24"
   availability_zone = var.availability_zones[count.index]
 
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
 
   tags = merge(var.common_tags, {
     Name = "${var.app_name}-${var.environment}-public-${count.index + 1}"

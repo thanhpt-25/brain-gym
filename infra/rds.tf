@@ -38,6 +38,8 @@ resource "aws_db_instance" "postgres" {
   final_snapshot_identifier = var.environment == "production" ? "${var.app_name}-${var.environment}-final-${random_id.snapshot_suffix.hex}" : null
   deletion_protection       = var.environment == "production"
 
+  enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
+
   tags = merge(var.common_tags, {
     Name = "${var.app_name}-${var.environment}-postgres"
   })
