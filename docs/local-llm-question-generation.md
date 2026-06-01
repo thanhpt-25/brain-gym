@@ -80,15 +80,23 @@ Luồng sinh câu hỏi hiện tại (`POST /ai-questions/generate`) gọi LLM t
 | `LlmConfigPanel`                  | `src/components/ai-questions/LlmConfigPanel.tsx` | Mở rộng thêm section "Local LLM"                                   |
 | `GenerationForm`                  | `src/components/ai-questions/GenerationForm.tsx` | Mở rộng chọn provider LOCAL                                        |
 
-### Lý do frontend gọi self-hosted LLM, không phải backend
+### Lý do frontend gọi trực tiếp GenAI endpoint, không phải backend
 
-Backend chạy trên server/Docker — không thể kết nối tới local network của người dùng. Đây là ràng buộc SaaS không thể thay đổi. Mọi lưu lượng self-hosted LLM (localhost, mDNS, hoặc private network) **phải** xuất phát từ browser.
+Backend chạy trên server/Docker — không thể kết nối tới local network của người dùng. Đây là ràng buộc SaaS không thể thay đổi. Mọi request đến GenAI endpoint **phải** xuất phát từ browser.
 
-Hỗ trợ cho phép URL pointing tới:
-- **Localhost**: `localhost`, `127.0.0.1`, `::1`
-- **mDNS (.local domains)**: `myserver.local`, `gpu-box.local`, v.v.
-- **Private RFC 1918 networks**: `10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`
-- **Link-local IPv6**: `fe80::`
+**Bất kỳ URL `http://` hoặc `https://` nào đều được chấp nhận:**
+
+| Loại               | Ví dụ                                  |
+| ------------------ | -------------------------------------- |
+| Localhost          | `http://localhost:11434/v1`            |
+| LAN / private IP   | `http://192.168.1.100:8080/v1`         |
+| mDNS               | `http://gpu-box.local:11434/v1`        |
+| VPC / hostname nội bộ | `https://inference.company.com/v1`  |
+| Docker/K8s service | `http://ollama-svc:11434/v1`           |
+
+Không có whitelist IP/hostname — giới hạn duy nhất là **browser CORS policy**: nếu server không set `Access-Control-Allow-Origin`, browser sẽ block response trước khi data được đọc.
+
+**Lưu ý:** Nếu URL trùng với hostname của cloud provider chính thức (`api.openai.com`, `api.anthropic.com`...), UI sẽ cảnh báo dùng section Cloud Providers (BYOK) thay thế.
 
 ---
 
@@ -393,7 +401,8 @@ LlmConfigPanel
               Ollama:  OLLAMA_ORIGINS=<origin> ollama serve
               LM Studio: Settings → Local Server → CORS → add origin
               llama.cpp: ./server --cors-allowed-origins "<origin>"
-              Other self-hosted: Refer to server docs for CORS config
+              vLLM: --allowed-origins '["<origin>"]'
+              Custom: Set Access-Control-Allow-Origin response header
 ```
 
 **Tại `GenerationForm`:**
@@ -439,7 +448,7 @@ try {
 
 | Vấn đề                                 | Giải pháp                                                                  |
 | -------------------------------------- | -------------------------------------------------------------------------- |
-| SSRF từ browser — user nhập URL tùy ý  | Whitelist: localhost, `127.0.0.1`, `::1`, `.local` domains, RFC 1918 ranges (10.x, 172.16-31.x, 192.168.x), link-local IPv6 (fe80::). Reject any other hostnames/IPs. |
+| SSRF từ browser — user nhập URL tùy ý  | Không cần whitelist phía ứng dụng — browser tự enforce CORS. Ứng dụng chỉ validate URL hợp lệ (`http`/`https` scheme). Soft-warning nếu URL khớp cloud provider chính thức để tránh nhầm section. |
 | API key cloud vô tình lưu localStorage | Warning rõ trong UI; label field là "optional, for local auth only"        |
 | JSON injection từ model output         | Parse `JSON.parse()` (không `eval`), validate Zod trước khi render         |
 | Câu hỏi chất lượng thấp vào bank       | Human review bắt buộc + intake quality gate → `PENDING` mặc định           |

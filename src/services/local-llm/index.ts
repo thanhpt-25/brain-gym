@@ -11,6 +11,8 @@ export {
   testConnection,
   listModels,
   generateLocalQuestions,
+  isValidLlmUrl,
+  isCloudProviderUrl,
   isAllowedLocalUrl,
 } from "./local-llm-client";
 export type { GenerateLocalResult } from "./local-llm-client";

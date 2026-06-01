@@ -35,7 +35,8 @@ import { toast } from "sonner";
 import {
   testConnection,
   localLlmConfigStorage,
-  isAllowedLocalUrl,
+  isValidLlmUrl,
+  isCloudProviderUrl,
 } from "@/services/local-llm";
 import type {
   ConnectionTestResult,
@@ -191,9 +192,14 @@ export default function LlmConfigPanel() {
 
   const handleTestConnection = async () => {
     if (!localBaseUrl.trim()) return;
-    if (!isAllowedLocalUrl(localBaseUrl)) {
-      toast.error(
-        "Base URL must point to localhost, .local, or a private network address (10.x, 172.16-31.x, 192.168.x)"
+    if (!isValidLlmUrl(localBaseUrl)) {
+      toast.error("Base URL must be a valid http:// or https:// URL.");
+      return;
+    }
+    if (isCloudProviderUrl(localBaseUrl)) {
+      toast.warning(
+        "This looks like an official cloud provider API. Use the Cloud Providers section above to add BYOK keys — this section is for custom / self-hosted endpoints.",
+        { duration: 6000 },
       );
       return;
     }
@@ -388,9 +394,10 @@ export default function LlmConfigPanel() {
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground">
-          Use any self-hosted LLM: Ollama, LM Studio, llama.cpp, vLLM, Jan, or
-          any OpenAI/Anthropic-compatible server. Questions are generated in the
-          browser.
+          Connect to any GenAI-compatible endpoint: Ollama, LM Studio,
+          llama.cpp, vLLM, Jan, a private VPC endpoint, or any custom server
+          that implements the OpenAI or Anthropic protocol. Questions are
+          generated directly in the browser.
         </p>
 
         {savedLocalConfig && (
@@ -439,7 +446,12 @@ export default function LlmConfigPanel() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium">Base URL</label>
+              <label className="text-xs font-medium">
+                Base URL
+                <span className="text-muted-foreground font-normal ml-1">
+                  (localhost, LAN, VPC, or any custom endpoint)
+                </span>
+              </label>
               <Input
                 placeholder={DIALECT_DEFAULTS[localDialect]}
                 value={localBaseUrl}
@@ -526,35 +538,45 @@ export default function LlmConfigPanel() {
           <Card className="bg-muted/40 border-dashed">
             <CardContent className="pt-3 pb-3 space-y-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">
-                Allow browser → self-hosted LLM requests:
+                Enable CORS on your GenAI server
               </p>
-              <p className="text-muted-foreground italic">
-                Your app is running at: <code className="font-mono">{appOrigin}</code>
+              <p>
+                Browsers block cross-origin requests unless the server explicitly
+                allows them. Add this app's origin to your server's CORS allowlist:
               </p>
+              <code className="block bg-background rounded p-2 font-mono">
+                {appOrigin}
+              </code>
               <div>
-                <p className="font-medium mb-1">Ollama:</p>
+                <p className="font-medium text-foreground mb-1">Ollama</p>
                 <code className="block bg-background rounded p-2 font-mono whitespace-pre-wrap">
                   {`OLLAMA_ORIGINS=${appOrigin} ollama serve`}
                 </code>
               </div>
               <div>
-                <p className="font-medium mb-1">LM Studio:</p>
-                <p>
-                  Settings → Local Server → CORS → enable and add origin:{" "}
-                  <code className="font-mono">{appOrigin}</code>
-                </p>
+                <p className="font-medium text-foreground mb-1">LM Studio</p>
+                <p>Settings → Local Server → CORS → enable and add the origin above.</p>
               </div>
               <div>
-                <p className="font-medium mb-1">llama.cpp server:</p>
+                <p className="font-medium text-foreground mb-1">llama.cpp server</p>
                 <code className="block bg-background rounded p-2 font-mono whitespace-pre-wrap">
                   {`./server --cors-allowed-origins "${appOrigin}"`}
                 </code>
               </div>
               <div>
-                <p className="font-medium mb-1">Other self-hosted LLMs:</p>
+                <p className="font-medium text-foreground mb-1">vLLM</p>
+                <code className="block bg-background rounded p-2 font-mono whitespace-pre-wrap">
+                  {`python -m vllm.entrypoints.openai.api_server \\\n  --allowed-origins '["${appOrigin}"]' ...`}
+                </code>
+              </div>
+              <div>
+                <p className="font-medium text-foreground mb-1">
+                  Custom / other servers
+                </p>
                 <p>
-                  Refer to your server's documentation to enable CORS and add the
-                  following origin: <code className="font-mono">{appOrigin}</code>
+                  Set the{" "}
+                  <code className="font-mono">Access-Control-Allow-Origin: {appOrigin}</code>{" "}
+                  response header, or consult your server's documentation.
                 </p>
               </div>
             </CardContent>

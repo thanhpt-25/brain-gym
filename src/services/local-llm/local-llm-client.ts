@@ -13,65 +13,54 @@ import type {
   LocalModelInfo,
 } from "./types";
 
-// ─── URL safety ──────────────────────────────────────────────────────────────
+// ─── URL validation ───────────────────────────────────────────────────────────
+
+/** Known official cloud API hostnames — warn user if they type these here. */
+const CLOUD_API_HOSTNAMES = [
+  "api.openai.com",
+  "api.anthropic.com",
+  "generativelanguage.googleapis.com",
+  "api.cohere.com",
+  "api.mistral.ai",
+];
 
 /**
- * Validate that a URL points to a safe local/private address:
- * - localhost / 127.x / ::1
- * - .local domain (mDNS)
- * - Private RFC 1918 ranges: 10.x, 172.16-31.x, 192.168.x
- * - Link-local IPv6: fe80::/10
- *
- * This allows self-hosted LLMs on any part of the local network,
- * not just the same machine.
+ * Return true if the URL looks like an official cloud provider endpoint.
+ * Used to surface a warning so the user doesn't confuse this section with
+ * the Cloud Providers (BYOK) section.
  */
-export function isAllowedLocalUrl(rawUrl: string): boolean {
+export function isCloudProviderUrl(rawUrl: string): boolean {
   try {
     const { hostname } = new URL(rawUrl);
-
-    // Localhost variants
-    if (hostname === "localhost" || hostname === "::1" || hostname === "[::1]") {
-      return true;
-    }
-
-    // .local mDNS domain
-    if (hostname.endsWith(".local")) {
-      return true;
-    }
-
-    // IPv4: check for private ranges (RFC 1918) and loopback
-    const ipv4Match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-    if (ipv4Match) {
-      const [, a, b] = ipv4Match;
-      const firstOctet = parseInt(a, 10);
-      const secondOctet = parseInt(b, 10);
-
-      // 127.0.0.0 – 127.255.255.255 (loopback)
-      if (firstOctet === 127) return true;
-      // 10.0.0.0 – 10.255.255.255
-      if (firstOctet === 10) return true;
-      // 172.16.0.0 – 172.31.255.255
-      if (firstOctet === 172 && secondOctet >= 16 && secondOctet <= 31) return true;
-      // 192.168.0.0 – 192.168.255.255
-      if (firstOctet === 192 && secondOctet === 168) return true;
-      return false;
-    }
-
-    // IPv6: check for link-local (fe80::/10), unique-local (fc00::/7), and loopback
-    // URL parser keeps brackets, so patterns like "[fe80::1]" or "[::1]"
-    if (
-      hostname.match(/^\[?fe80:/i) ||
-      hostname.match(/^\[?fc00:/i) ||
-      hostname.match(/^\[?fd00:/i)
-    ) {
-      return true;
-    }
-
-    return false;
+    return CLOUD_API_HOSTNAMES.some(
+      (h) => hostname === h || hostname.endsWith("." + h),
+    );
   } catch {
     return false;
   }
 }
+
+/**
+ * Validate that a URL is usable as a GenAI endpoint:
+ * - Must be a parseable URL with http:// or https:// scheme
+ * - Any host is allowed: localhost, LAN IP, .local, VPC hostname, public domain
+ *
+ * No host restriction is enforced — in-browser fetch is already subject to
+ * the browser's CORS policy. If the target server doesn't include the correct
+ * Access-Control-Allow-Origin header, the browser will block the response
+ * before any data is exposed.
+ */
+export function isValidLlmUrl(rawUrl: string): boolean {
+  try {
+    const { protocol } = new URL(rawUrl);
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** @deprecated Use isValidLlmUrl — kept for backwards compatibility with imports. */
+export const isAllowedLocalUrl = isValidLlmUrl;
 
 // ─── Auth headers per dialect ─────────────────────────────────────────────────
 
@@ -164,11 +153,11 @@ async function testOllamaFallback(
 export async function testConnection(
   config: Omit<LocalLlmConfig, "modelId">,
 ): Promise<ConnectionTestResult> {
-  if (!isAllowedLocalUrl(config.baseUrl)) {
+  if (!isValidLlmUrl(config.baseUrl)) {
     return {
       ok: false,
       reason: "unreachable",
-      hint: "Base URL must point to localhost or a .local host.",
+      hint: "Base URL must be a valid http:// or https:// URL.",
     };
   }
 
