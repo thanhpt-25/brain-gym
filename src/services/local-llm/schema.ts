@@ -7,7 +7,7 @@ export const RawQuestionSchema = z.object({
   options: z.array(z.string().min(1)).min(2).max(8),
   correct_answer: z.string().min(1),
   explanation: z.string().optional().default(""),
-  source_passage: z.string().optional(),
+  source_passage: z.string().nullish(), // local models often return null instead of omitting the field
   confidence_hint: z
     .enum(["high", "medium", "low"])
     .optional()
