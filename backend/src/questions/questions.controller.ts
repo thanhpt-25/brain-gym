@@ -77,6 +77,21 @@ export class QuestionsController {
     );
   }
 
+  /**
+   * Must be declared before GET :id so the literal path "stats" is not
+   * mistakenly matched as a question ID.
+   */
+  @Get('stats')
+  @Public()
+  @ApiOperation({
+    summary:
+      'Get APPROVED question counts by difficulty and domain for a certification',
+  })
+  @ApiQuery({ name: 'certificationId', required: true, type: String })
+  getStats(@Query('certificationId') certificationId: string) {
+    return this.questionsService.getStats(certificationId);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get a single question by ID' })

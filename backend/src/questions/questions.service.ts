@@ -468,6 +468,61 @@ export class QuestionsService {
     this.recomputeDebounce.set(certId, timer);
   }
 
+  /**
+   * Return a statistical summary of the APPROVED question pool for a given
+   * certification. Used by the frontend BlueprintEditor to show real-time
+   * availability counts while the user sets quotas.
+   */
+  async getStats(certificationId: string) {
+    const where = {
+      certificationId,
+      status: QuestionStatus.APPROVED,
+      deletedAt: null,
+    };
+
+    const [total, byDifficultyRaw, byDomainRaw] = await Promise.all([
+      this.prisma.question.count({ where }),
+      this.prisma.question.groupBy({
+        by: ['difficulty'],
+        where,
+        _count: { id: true },
+      }),
+      this.prisma.question.groupBy({
+        by: ['domainId'],
+        where,
+        _count: { id: true },
+      }),
+    ]);
+
+    const byDifficulty: Record<string, number> = { EASY: 0, MEDIUM: 0, HARD: 0 };
+    for (const row of byDifficultyRaw) {
+      byDifficulty[row.difficulty] = row._count.id;
+    }
+
+    // Fetch domain names for non-null domainIds.
+    const domainIds = byDomainRaw
+      .map((r) => r.domainId)
+      .filter((id): id is string => !!id);
+
+    const domains =
+      domainIds.length > 0
+        ? await this.prisma.domain.findMany({
+            where: { id: { in: domainIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+
+    const domainMap = new Map(domains.map((d) => [d.id, d.name]));
+
+    const byDomain = byDomainRaw.map((row) => ({
+      domainId: row.domainId,
+      name: row.domainId ? (domainMap.get(row.domainId) ?? 'Unknown') : null,
+      count: row._count.id,
+    }));
+
+    return { total, byDifficulty, byDomain };
+  }
+
   async adminDelete(questionId: string) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },

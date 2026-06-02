@@ -8,8 +8,11 @@ import {
   IsArray,
   ArrayNotEmpty,
   ArrayUnique,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ExamVisibility, TimerMode } from '@prisma/client';
+import { BlueprintDto } from './blueprint.dto';
 
 export class UpdateExamDto {
   @ApiPropertyOptional({ example: 'AWS SAA Mock Test #1 (Updated)' })
@@ -50,4 +53,21 @@ export class UpdateExamDto {
   @IsString({ each: true })
   @IsOptional()
   questionIds?: string[];
+
+  @ApiPropertyOptional({
+    enum: ['MANUAL', 'RANDOM', 'BLUEPRINT'],
+    description: 'How questions are selected when updating the question set.',
+  })
+  @IsEnum(['MANUAL', 'RANDOM', 'BLUEPRINT'])
+  @IsOptional()
+  selectionStrategy?: 'MANUAL' | 'RANDOM' | 'BLUEPRINT';
+
+  @ApiPropertyOptional({
+    type: () => BlueprintDto,
+    description: 'Blueprint quotas used when selectionStrategy=BLUEPRINT.',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BlueprintDto)
+  blueprint?: BlueprintDto;
 }

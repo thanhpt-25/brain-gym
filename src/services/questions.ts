@@ -3,6 +3,17 @@ import { Question, PaginatedResponse } from '@/types/api-types';
 
 export type PaginatedQuestions = PaginatedResponse<Question>;
 
+export interface QuestionStats {
+  total: number;
+  byDifficulty: { EASY: number; MEDIUM: number; HARD: number };
+  byDomain: { domainId: string | null; name: string | null; count: number }[];
+}
+
+export const getQuestionStats = async (certificationId: string): Promise<QuestionStats> => {
+  const response = await api.get<QuestionStats>(`/questions/stats?certificationId=${certificationId}`);
+  return response.data;
+};
+
 export const getQuestions = async (certificationId?: string, page = 1, limit = 10, isTrapQuestion?: boolean, status?: string): Promise<PaginatedQuestions> => {
     const params = new URLSearchParams();
     if (certificationId) params.append('certificationId', certificationId);

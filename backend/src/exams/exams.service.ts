@@ -3,21 +3,113 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
-import { ExamVisibility, QuestionStatus, UserRole } from '@prisma/client';
+import { BlueprintDto } from './dto/blueprint.dto';
+import { ExamVisibility, QuestionStatus, UserRole, Difficulty } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ExamsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, dto: CreateExamDto) {
-    let questionIds = dto.questionIds;
+  /**
+   * Resolve a blueprint into a concrete list of question IDs.
+   * Throws UnprocessableEntityException (422) with `shortages` detail if any
+   * bucket cannot be filled from the approved question pool.
+   */
+  private async resolveBlueprint(
+    certificationId: string,
+    blueprint: BlueprintDto,
+  ): Promise<string[]> {
+    const pickedIds: string[] = [];
+    const shortages: {
+      bucket: string;
+      required: number;
+      available: number;
+      missing: number;
+    }[] = [];
 
-    if (!questionIds || questionIds.length === 0) {
+    if (blueprint.byDifficulty) {
+      const entries = Object.entries(blueprint.byDifficulty) as [
+        Difficulty,
+        number | undefined,
+      ][];
+
+      for (const [difficulty, count] of entries) {
+        if (!count || count <= 0) continue;
+
+        // Exclude already-picked IDs to avoid cross-bucket duplicates.
+        const candidates = await this.prisma.question.findMany({
+          where: {
+            certificationId,
+            status: QuestionStatus.APPROVED,
+            deletedAt: null,
+            difficulty,
+            id: pickedIds.length > 0 ? { notIn: pickedIds } : undefined,
+          },
+          select: { id: true },
+        });
+
+        if (candidates.length < count) {
+          shortages.push({
+            bucket: difficulty,
+            required: count,
+            available: candidates.length,
+            missing: count - candidates.length,
+          });
+        } else {
+          // Fisher-Yates shuffle then slice.
+          for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+          }
+          pickedIds.push(...candidates.slice(0, count).map((q) => q.id));
+        }
+      }
+    }
+
+    if (shortages.length > 0) {
+      throw new UnprocessableEntityException({
+        error: 'BLUEPRINT_INSUFFICIENT_QUESTIONS',
+        message:
+          'Ngân hàng câu hỏi không đủ để tạo đề theo cấu trúc đã chọn',
+        shortages,
+      });
+    }
+
+    if (pickedIds.length === 0) {
+      throw new BadRequestException(
+        'Blueprint không có bucket nào hợp lệ (tất cả count = 0)',
+      );
+    }
+
+    // Final shuffle to mix buckets.
+    for (let i = pickedIds.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pickedIds[i], pickedIds[j]] = [pickedIds[j], pickedIds[i]];
+    }
+
+    return pickedIds;
+  }
+
+  async create(userId: string, dto: CreateExamDto) {
+    let questionIds: string[];
+
+    if (dto.selectionStrategy === 'BLUEPRINT' && dto.blueprint) {
+      // Blueprint mode: resolve quota → concrete IDs.
+      questionIds = await this.resolveBlueprint(
+        dto.certificationId,
+        dto.blueprint,
+      );
+    } else if (dto.questionIds && dto.questionIds.length > 0) {
+      // Manual (pick) mode: use the provided list as-is.
+      questionIds = dto.questionIds;
+    } else {
+      // Random mode: shuffle all approved questions and slice.
       const questions = await this.prisma.question.findMany({
         where: {
           certificationId: dto.certificationId,
@@ -217,7 +309,14 @@ export class ExamsService {
     if (exam.createdBy !== userId)
       throw new ForbiddenException('You can only update your own exams');
 
-    const { questionIds, ...scalarData } = dto;
+    const { questionIds: rawQuestionIds, selectionStrategy, blueprint, ...scalarData } = dto;
+
+    let questionIds = rawQuestionIds;
+
+    // Blueprint mode on update: resolve quota into IDs for this exam's cert.
+    if (selectionStrategy === 'BLUEPRINT' && blueprint) {
+      questionIds = await this.resolveBlueprint(exam.certificationId, blueprint);
+    }
 
     // Metadata-only update: no question set change.
     if (!questionIds) {
@@ -230,14 +329,18 @@ export class ExamsService {
 
     // Every question must exist and belong to this exam's certification so the
     // exam cannot be stuffed with questions from an unrelated certification.
-    const validQuestions = await this.prisma.question.findMany({
-      where: { id: { in: questionIds }, certificationId: exam.certificationId },
-      select: { id: true },
-    });
-    if (validQuestions.length !== questionIds.length) {
-      throw new BadRequestException(
-        "One or more questions are invalid or do not belong to this exam's certification",
-      );
+    // (Blueprint-resolved IDs are already scoped to certificationId, but we
+    //  still validate MANUAL/PICK questionIds for safety.)
+    if (selectionStrategy !== 'BLUEPRINT') {
+      const validQuestions = await this.prisma.question.findMany({
+        where: { id: { in: questionIds }, certificationId: exam.certificationId },
+        select: { id: true },
+      });
+      if (validQuestions.length !== questionIds.length) {
+        throw new BadRequestException(
+          "One or more questions are invalid or do not belong to this exam's certification",
+        );
+      }
     }
 
     // Replace the full ordered question set and recompute questionCount.
