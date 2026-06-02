@@ -4,6 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ExamsService } from './exams.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -226,6 +227,115 @@ describe('ExamsService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(mockPrismaService.examQuestion.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resolveBlueprint', () => {
+    // resolveBlueprint is private; cast to reach it directly so each axis can
+    // be exercised in isolation without the surrounding create/update plumbing.
+    const resolve = (blueprint: any) =>
+      (service as any).resolveBlueprint('cert-1', blueprint) as Promise<
+        string[]
+      >;
+
+    it('fills difficulty buckets from the approved pool (existing behaviour)', async () => {
+      mockPrismaService.question.findMany.mockImplementation(
+        ({ where }: any) => {
+          if (where.difficulty === 'EASY')
+            return Promise.resolve([{ id: 'e-1' }, { id: 'e-2' }, { id: 'e-3' }]);
+          if (where.difficulty === 'HARD')
+            return Promise.resolve([{ id: 'h-1' }, { id: 'h-2' }]);
+          return Promise.resolve([]);
+        },
+      );
+
+      const ids = await resolve({ byDifficulty: { EASY: 2, HARD: 1 } });
+
+      expect(ids).toHaveLength(3);
+      // Two EASY picks and one HARD pick, scoped to the requested buckets.
+      expect(ids.filter((id) => id.startsWith('e-'))).toHaveLength(2);
+      expect(ids.filter((id) => id.startsWith('h-'))).toHaveLength(1);
+    });
+
+    it('fills domain buckets, querying by domainId and APPROVED status', async () => {
+      mockPrismaService.question.findMany.mockImplementation(
+        ({ where }: any) => {
+          if (where.domainId === 'dom-a')
+            return Promise.resolve([{ id: 'a-1' }, { id: 'a-2' }, { id: 'a-3' }]);
+          if (where.domainId === 'dom-b')
+            return Promise.resolve([{ id: 'b-1' }, { id: 'b-2' }]);
+          return Promise.resolve([]);
+        },
+      );
+
+      const ids = await resolve({ byDomain: { 'dom-a': 2, 'dom-b': 1 } });
+
+      expect(ids).toHaveLength(3);
+      expect(ids.filter((id) => id.startsWith('a-'))).toHaveLength(2);
+      expect(ids.filter((id) => id.startsWith('b-'))).toHaveLength(1);
+
+      // Each domain bucket is scoped to certification + APPROVED + non-deleted.
+      const calls = mockPrismaService.question.findMany.mock.calls.map(
+        (c: any[]) => c[0].where,
+      );
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            certificationId: 'cert-1',
+            status: 'APPROVED',
+            deletedAt: null,
+            domainId: 'dom-a',
+          }),
+        ]),
+      );
+    });
+
+    it('throws 422 with shortage detail when a domain bucket is under-filled', async () => {
+      mockPrismaService.question.findMany.mockImplementation(
+        ({ where }: any) => {
+          if (where.domainId === 'dom-a') return Promise.resolve([{ id: 'a-1' }]);
+          return Promise.resolve([]);
+        },
+      );
+
+      await expect(
+        resolve({ byDomain: { 'dom-a': 5 } }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('rejects mixing difficulty and domain quotas in one blueprint', async () => {
+      await expect(
+        resolve({ byDifficulty: { EASY: 1 }, byDomain: { 'dom-a': 1 } }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects an empty blueprint (all counts zero / absent)', async () => {
+      await expect(
+        resolve({ byDifficulty: { EASY: 0 }, byDomain: {} }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects more domain buckets than the allowed maximum', async () => {
+      const byDomain: Record<string, number> = {};
+      for (let i = 0; i < 51; i++) byDomain[`dom-${i}`] = 1;
+
+      await expect(resolve({ byDomain })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      // Rejected before any query fan-out.
+      expect(mockPrismaService.question.findMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects a non-integer domain quota', async () => {
+      await expect(
+        resolve({ byDomain: { 'dom-a': 2.5 } }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a domain quota above the per-bucket maximum', async () => {
+      await expect(
+        resolve({ byDomain: { 'dom-a': 201 } }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 });
