@@ -61,6 +61,50 @@ describe('AnalyticsService', () => {
       expect(result.totalExams).toBe(0);
       expect(result.avgScore).toBe(0);
     });
+
+    it("honors each certification's own passing score", async () => {
+      // Cert requires 75% to pass: a 72% attempt should NOT count as passed,
+      // even though it clears the default 70% fallback.
+      const attempts = [
+        {
+          score: 80,
+          totalCorrect: 8,
+          totalQuestions: 10,
+          timeSpent: 600,
+          exam: { certification: { passingScore: 75 } },
+        },
+        {
+          score: 72,
+          totalCorrect: 7,
+          totalQuestions: 10,
+          timeSpent: 500,
+          exam: { certification: { passingScore: 75 } },
+        },
+      ];
+      mockPrismaService.examAttempt.findMany.mockResolvedValue(attempts);
+
+      const result = await service.getSummary('user-1');
+
+      expect(result.totalPassed).toBe(1);
+      expect(result.passRate).toBe(50);
+    });
+
+    it('falls back to 70 when a certification has no passing score', async () => {
+      const attempts = [
+        {
+          score: 70,
+          totalCorrect: 7,
+          totalQuestions: 10,
+          timeSpent: 600,
+          exam: { certification: { passingScore: null } },
+        },
+      ];
+      mockPrismaService.examAttempt.findMany.mockResolvedValue(attempts);
+
+      const result = await service.getSummary('user-1');
+
+      expect(result.totalPassed).toBe(1);
+    });
   });
 
   describe('getReadiness', () => {

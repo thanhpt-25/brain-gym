@@ -21,6 +21,12 @@ import {
   HistoryItemResponse,
 } from './dto/analytics-response.dto';
 
+/**
+ * Fallback pass threshold (percent) used when a certification has no
+ * explicit `passingScore` configured. Most certs sit around 70%.
+ */
+export const DEFAULT_PASSING_SCORE = 70;
+
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -45,6 +51,11 @@ export class AnalyticsService {
         totalQuestions: true,
         timeSpent: true,
         domainScores: true,
+        exam: {
+          select: {
+            certification: { select: { passingScore: true } },
+          },
+        },
       },
     });
 
@@ -61,7 +72,13 @@ export class AnalyticsService {
     }
 
     const scores = attempts.map((a) => Number(a.score ?? 0));
-    const totalPassed = scores.filter((s) => s >= 70).length;
+    // Each attempt is judged against its own certification's passing score,
+    // so an "All certifications" summary stays correct across mixed cutoffs.
+    const totalPassed = attempts.filter(
+      (a) =>
+        Number(a.score ?? 0) >=
+        (a.exam?.certification?.passingScore ?? DEFAULT_PASSING_SCORE),
+    ).length;
 
     return {
       totalExams: attempts.length,

@@ -297,6 +297,7 @@ model Certification {
   code        String   @unique
   description String?
   examFormat  Json?    @map("exam_format")
+  passingScore Int?    @map("passing_score")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
 
