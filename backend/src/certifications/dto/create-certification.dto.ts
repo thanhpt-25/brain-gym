@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsArray } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateCertificationDto {
   @ApiProperty({ example: 'Solutions Architect Associate' })
@@ -27,4 +36,16 @@ export class CreateCertificationDto {
   @IsString({ each: true })
   @IsOptional()
   domains?: string[];
+
+  @ApiPropertyOptional({
+    example: 72,
+    description:
+      'Passing score as a percentage (0-100). Falls back to 70 when unset.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  @IsOptional()
+  @Type(() => Number)
+  passingScore?: number;
 }

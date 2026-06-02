@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AttemptStatus } from '@prisma/client';
+import { DEFAULT_PASSING_SCORE } from '../analytics.service';
 
 export interface DomainBreakdownEntry {
   domainId: string;
@@ -43,7 +44,11 @@ export class BenchmarkService {
     userId: string,
     certificationId: string,
   ): Promise<BenchmarkDto> {
-    const passingScore = 70;
+    const cert = await this.prisma.certification.findUnique({
+      where: { id: certificationId },
+      select: { passingScore: true },
+    });
+    const passingScore = cert?.passingScore ?? DEFAULT_PASSING_SCORE;
 
     // Passers-only cohort: submitted + score >= passingScore, joined through Exam
     const attempts = await this.prisma.examAttempt.findMany({
@@ -74,8 +79,12 @@ export class BenchmarkService {
     ];
     if (!certIds.length) return [];
 
+    const certs = await this.prisma.certification.findMany({
+      where: { id: { in: certIds } },
+      select: { id: true, passingScore: true },
+    });
     const passingScoreMap = new Map(
-      certIds.map((id) => [id, 70]),
+      certs.map((c) => [c.id, c.passingScore ?? DEFAULT_PASSING_SCORE]),
     );
 
     // Single batch query for all attempts across relevant certs
@@ -105,7 +114,8 @@ export class BenchmarkService {
 
     return certIds.map((certificationId) => {
       const attempts = byCert.get(certificationId) ?? [];
-      const passingScore = passingScoreMap.get(certificationId) ?? 70;
+      const passingScore =
+        passingScoreMap.get(certificationId) ?? DEFAULT_PASSING_SCORE;
 
       const passers = attempts.filter(
         (a) => Number(a.score ?? 0) >= passingScore,

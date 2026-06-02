@@ -1,4 +1,10 @@
-import { PrismaClient, UserRole, QuestionType, Difficulty, QuestionStatus } from '@prisma/client';
+import {
+  PrismaClient,
+  UserRole,
+  QuestionType,
+  Difficulty,
+  QuestionStatus,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -35,11 +41,36 @@ async function main() {
 
   // 2. Create Providers
   const providersData = [
-    { name: 'AWS', slug: 'aws', website: 'https://aws.amazon.com', description: 'Amazon Web Services cloud platform' },
-    { name: 'Azure', slug: 'azure', website: 'https://azure.microsoft.com', description: 'Microsoft Azure cloud platform' },
-    { name: 'Google Cloud', slug: 'google-cloud', website: 'https://cloud.google.com', description: 'Google Cloud Platform' },
-    { name: 'CNCF', slug: 'cncf', website: 'https://www.cncf.io', description: 'Cloud Native Computing Foundation' },
-    { name: 'PMI', slug: 'pmi', website: 'https://www.pmi.org', description: 'Project Management Institute' },
+    {
+      name: 'AWS',
+      slug: 'aws',
+      website: 'https://aws.amazon.com',
+      description: 'Amazon Web Services cloud platform',
+    },
+    {
+      name: 'Azure',
+      slug: 'azure',
+      website: 'https://azure.microsoft.com',
+      description: 'Microsoft Azure cloud platform',
+    },
+    {
+      name: 'Google Cloud',
+      slug: 'google-cloud',
+      website: 'https://cloud.google.com',
+      description: 'Google Cloud Platform',
+    },
+    {
+      name: 'CNCF',
+      slug: 'cncf',
+      website: 'https://www.cncf.io',
+      description: 'Cloud Native Computing Foundation',
+    },
+    {
+      name: 'PMI',
+      slug: 'pmi',
+      website: 'https://www.pmi.org',
+      description: 'Project Management Institute',
+    },
   ];
 
   const providerMap = new Map<string, string>();
@@ -62,32 +93,61 @@ async function main() {
       providerName: 'AWS',
       name: 'Solutions Architect Associate',
       code: 'SAA-C03',
-      description: 'Design distributed systems on AWS with high availability and fault tolerance.',
-      domains: ['Design Resilient Architectures', 'Design High-Performing Architectures', 'Design Secure Applications', 'Design Cost-Optimized Architectures'],
+      description:
+        'Design distributed systems on AWS with high availability and fault tolerance.',
+      passingScore: 72, // AWS SAA-C03: 720/1000
+      domains: [
+        'Design Resilient Architectures',
+        'Design High-Performing Architectures',
+        'Design Secure Applications',
+        'Design Cost-Optimized Architectures',
+      ],
     },
     {
       id: 'az-900',
       providerName: 'Azure',
       name: 'Azure Fundamentals',
       code: 'AZ-900',
-      description: 'Foundational knowledge of cloud concepts and Azure services.',
-      domains: ['Cloud Concepts', 'Azure Architecture', 'Azure Services', 'Security & Compliance'],
+      description:
+        'Foundational knowledge of cloud concepts and Azure services.',
+      passingScore: 70, // AZ-900: 700/1000
+      domains: [
+        'Cloud Concepts',
+        'Azure Architecture',
+        'Azure Services',
+        'Security & Compliance',
+      ],
     },
     {
       id: 'gcp-pca',
       providerName: 'Google Cloud',
       name: 'Professional Cloud Architect',
       code: 'PCA',
-      description: 'Design and manage solutions using Google Cloud technologies.',
-      domains: ['Design & Plan', 'Manage & Provision', 'Security & Compliance', 'Analyzing Processes'],
+      description:
+        'Design and manage solutions using Google Cloud technologies.',
+      passingScore: 70, // GCP PCA: no official public cutoff; default 70
+      domains: [
+        'Design & Plan',
+        'Manage & Provision',
+        'Security & Compliance',
+        'Analyzing Processes',
+      ],
     },
     {
       id: 'cka',
       providerName: 'CNCF',
       name: 'Certified Kubernetes Administrator',
       code: 'CKA',
-      description: 'Demonstrate competence in Kubernetes cluster administration.',
-      domains: ['Cluster Architecture', 'Workloads & Scheduling', 'Services & Networking', 'Storage', 'Troubleshooting'],
+      description:
+        'Demonstrate competence in Kubernetes cluster administration.',
+      passingScore: 66, // CKA: 66%
+      domains: [
+        'Cluster Architecture',
+        'Workloads & Scheduling',
+        'Services & Networking',
+        'Storage',
+        'Troubleshooting',
+      ],
     },
     {
       id: 'pmp',
@@ -95,6 +155,7 @@ async function main() {
       name: 'Project Management Professional',
       code: 'PMP',
       description: 'Globally recognized project management certification.',
+      passingScore: 70, // PMP: proficiency-band scoring; default 70
       domains: ['People', 'Process', 'Business Environment'],
     },
   ];
@@ -106,13 +167,14 @@ async function main() {
 
     const createdCert = await prisma.certification.upsert({
       where: { code: cert.code },
-      update: { providerId },
+      update: { providerId, passingScore: cert.passingScore },
       create: {
         id: cert.id,
         providerId,
         name: cert.name,
         code: cert.code,
         description: cert.description,
+        passingScore: cert.passingScore,
       },
     });
 
@@ -140,7 +202,8 @@ async function main() {
   const questionsData = [
     {
       title: 'Which AWS service provides a managed relational database?',
-      explanation: 'Amazon RDS (Relational Database Service) is a managed service that makes it easy to set up, operate, and scale a relational database in the cloud.',
+      explanation:
+        'Amazon RDS (Relational Database Service) is a managed service that makes it easy to set up, operate, and scale a relational database in the cloud.',
       difficulty: Difficulty.EASY,
       domain: 'Design High-Performing Architectures',
       certificationId: 'aws-saa',
@@ -149,12 +212,15 @@ async function main() {
         { label: 'b', text: 'Amazon RDS', isCorrect: true },
         { label: 'c', text: 'Amazon SQS', isCorrect: false },
         { label: 'd', text: 'Amazon CloudFront', isCorrect: false },
-      ]
+      ],
     },
     {
-      title: 'A company needs to store infrequently accessed data with rapid retrieval. Which S3 storage class should they use?',
-      description: 'The company has regulatory requirements to retain data for 5 years but only accesses it once a quarter for audit purposes.',
-      explanation: 'S3 Standard-IA is designed for data that is accessed less frequently but requires rapid access when needed. It offers lower storage costs than S3 Standard while maintaining the same low latency.',
+      title:
+        'A company needs to store infrequently accessed data with rapid retrieval. Which S3 storage class should they use?',
+      description:
+        'The company has regulatory requirements to retain data for 5 years but only accesses it once a quarter for audit purposes.',
+      explanation:
+        'S3 Standard-IA is designed for data that is accessed less frequently but requires rapid access when needed. It offers lower storage costs than S3 Standard while maintaining the same low latency.',
       difficulty: Difficulty.MEDIUM,
       domain: 'Design Cost-Optimized Architectures',
       certificationId: 'aws-saa',
@@ -163,11 +229,13 @@ async function main() {
         { label: 'b', text: 'S3 Glacier Deep Archive', isCorrect: false },
         { label: 'c', text: 'S3 Standard-Infrequent Access', isCorrect: true },
         { label: 'd', text: 'S3 One Zone-IA', isCorrect: false },
-      ]
+      ],
     },
     {
-      title: 'Which service enables you to create a logically isolated section of the AWS Cloud?',
-      explanation: 'Amazon VPC (Virtual Private Cloud) lets you provision a logically isolated section of the AWS Cloud where you can launch AWS resources in a virtual network that you define.',
+      title:
+        'Which service enables you to create a logically isolated section of the AWS Cloud?',
+      explanation:
+        'Amazon VPC (Virtual Private Cloud) lets you provision a logically isolated section of the AWS Cloud where you can launch AWS resources in a virtual network that you define.',
       difficulty: Difficulty.EASY,
       domain: 'Design Secure Applications',
       certificationId: 'aws-saa',
@@ -176,8 +244,8 @@ async function main() {
         { label: 'b', text: 'Amazon VPC', isCorrect: true },
         { label: 'c', text: 'AWS CloudTrail', isCorrect: false },
         { label: 'd', text: 'Amazon Route 53', isCorrect: false },
-      ]
-    }
+      ],
+    },
   ];
 
   for (const q of questionsData) {
@@ -185,7 +253,7 @@ async function main() {
 
     // Check if question already exists by title
     const existingQ = await prisma.question.findFirst({
-      where: { title: q.title }
+      where: { title: q.title },
     });
 
     if (!existingQ) {
@@ -205,9 +273,9 @@ async function main() {
               content: c.text,
               isCorrect: c.isCorrect,
               sortOrder: index,
-            }))
-          }
-        }
+            })),
+          },
+        },
       });
     }
   }

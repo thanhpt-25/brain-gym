@@ -74,7 +74,11 @@ const Dashboard = () => {
     enabled: isAuthenticated,
   });
 
-  const { data: readinessData } = useQuery({
+  const {
+    data: readinessData,
+    isLoading: readinessLoading,
+    isError: readinessError,
+  } = useQuery({
     queryKey: ["readiness", certFilter],
     queryFn: () => getReadiness(certFilter),
     enabled: isAuthenticated && !!certFilter,
@@ -355,10 +359,10 @@ const Dashboard = () => {
         {/* Readiness + Mistake Patterns */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ReadinessScore
-            summary={summary}
-            domains={domains ?? undefined}
             weakTopics={weakTopics ?? undefined}
             readiness={readinessData}
+            isLoading={readinessLoading}
+            isError={readinessError}
             isCertSelected={!!certFilter}
           />
           <MistakePatternChart history={history} patterns={mistakePatterns} />
