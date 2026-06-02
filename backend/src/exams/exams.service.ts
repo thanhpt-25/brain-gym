@@ -25,7 +25,41 @@ export class ExamsService {
     certificationId: string,
     blueprint: BlueprintDto,
   ): Promise<string[]> {
-    const pickedIds: string[] = [];
+    // byDifficulty: each question has exactly one difficulty value, so buckets
+    // are mutually exclusive — no cross-bucket duplicates are possible.
+    // All bucket queries can therefore run in parallel.
+    if (!blueprint.byDifficulty) {
+      throw new BadRequestException(
+        'Blueprint không có bucket nào hợp lệ (tất cả count = 0)',
+      );
+    }
+
+    const entries = (
+      Object.entries(blueprint.byDifficulty) as [Difficulty, number | undefined][]
+    ).filter(([, count]) => count && count > 0);
+
+    if (entries.length === 0) {
+      throw new BadRequestException(
+        'Blueprint không có bucket nào hợp lệ (tất cả count = 0)',
+      );
+    }
+
+    // Fetch all buckets in parallel — safe because difficulty is mutually exclusive.
+    const bucketResults = await Promise.all(
+      entries.map(async ([difficulty, count]) => {
+        const candidates = await this.prisma.question.findMany({
+          where: {
+            certificationId,
+            status: QuestionStatus.APPROVED,
+            deletedAt: null,
+            difficulty,
+          },
+          select: { id: true },
+        });
+        return { difficulty, count: count!, candidates };
+      }),
+    );
+
     const shortages: {
       bucket: string;
       required: number;
@@ -33,42 +67,23 @@ export class ExamsService {
       missing: number;
     }[] = [];
 
-    if (blueprint.byDifficulty) {
-      const entries = Object.entries(blueprint.byDifficulty) as [
-        Difficulty,
-        number | undefined,
-      ][];
+    const pickedIds: string[] = [];
 
-      for (const [difficulty, count] of entries) {
-        if (!count || count <= 0) continue;
-
-        // Exclude already-picked IDs to avoid cross-bucket duplicates.
-        const candidates = await this.prisma.question.findMany({
-          where: {
-            certificationId,
-            status: QuestionStatus.APPROVED,
-            deletedAt: null,
-            difficulty,
-            id: pickedIds.length > 0 ? { notIn: pickedIds } : undefined,
-          },
-          select: { id: true },
+    for (const { difficulty, count, candidates } of bucketResults) {
+      if (candidates.length < count) {
+        shortages.push({
+          bucket: difficulty,
+          required: count,
+          available: candidates.length,
+          missing: count - candidates.length,
         });
-
-        if (candidates.length < count) {
-          shortages.push({
-            bucket: difficulty,
-            required: count,
-            available: candidates.length,
-            missing: count - candidates.length,
-          });
-        } else {
-          // Fisher-Yates shuffle then slice.
-          for (let i = candidates.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-          }
-          pickedIds.push(...candidates.slice(0, count).map((q) => q.id));
+      } else {
+        // Fisher-Yates shuffle then slice.
+        for (let i = candidates.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
         }
+        pickedIds.push(...candidates.slice(0, count).map((q) => q.id));
       }
     }
 
@@ -81,13 +96,7 @@ export class ExamsService {
       });
     }
 
-    if (pickedIds.length === 0) {
-      throw new BadRequestException(
-        'Blueprint không có bucket nào hợp lệ (tất cả count = 0)',
-      );
-    }
-
-    // Final shuffle to mix buckets.
+    // Final shuffle to mix buckets together.
     for (let i = pickedIds.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pickedIds[i], pickedIds[j]] = [pickedIds[j], pickedIds[i]];

@@ -135,24 +135,23 @@ const ExamBuilder = () => {
       );
 
     if (isEditMode) {
+      const base = {
+        title: title.trim(),
+        description: description.trim() || undefined,
+        timeLimit,
+        visibility,
+        timerMode,
+      };
       const payload: UpdateExamPayload =
         mode === "blueprint"
-          ? {
-              title: title.trim(),
-              description: description.trim() || undefined,
-              timeLimit,
-              visibility,
-              timerMode,
-              selectionStrategy: "BLUEPRINT",
-              blueprint: blueprint!,
-            }
+          ? { ...base, selectionStrategy: "BLUEPRINT", blueprint: blueprint! }
           : {
-              title: title.trim(),
-              description: description.trim() || undefined,
-              timeLimit,
-              visibility,
-              timerMode,
-              questionIds: selectedQuestionIds,
+              ...base,
+              // Only send questionIds when pick mode has an actual selection;
+              // sending an empty array fails the backend @ArrayNotEmpty guard.
+              ...(selectedQuestionIds.length > 0
+                ? { questionIds: selectedQuestionIds }
+                : {}),
             };
       mutation.mutate(payload);
       return;
@@ -164,10 +163,9 @@ const ExamBuilder = () => {
             title: title.trim(),
             description: description.trim() || undefined,
             certificationId: certId,
-            questionCount: Object.values(blueprint!.byDifficulty ?? {}).reduce(
-              (s: number, v) => s + (v ?? 0),
-              0,
-            ),
+            // BlueprintEditor.distributeByPercent guarantees sum(counts) === questionCount,
+            // so the state value is the source of truth — no need to re-derive.
+            questionCount,
             timeLimit,
             visibility,
             timerMode,
@@ -365,21 +363,26 @@ const ExamBuilder = () => {
                 </div>
               </div>
 
-              {/* Question Selection Mode */}
+              {/* Question Selection Mode
+                  Edit mode hides "Ngẫu nhiên": random on update would be a
+                  no-op (no questionIds → metadata-only path in backend).
+                  Users can re-roll via "Theo cấu trúc" or adjust via "Chọn tay". */}
               <div>
                 <label className="text-sm font-mono text-muted-foreground mb-2 block">
                   Question Selection
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => setMode("random")}
-                    className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "random" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
-                  >
-                    <div className="font-semibold mb-0.5">Ngẫu nhiên</div>
-                    <div className="text-xs opacity-70">
-                      Tự bốc từ ngân hàng câu đã duyệt
-                    </div>
-                  </button>
+                <div className={`grid gap-2 ${isEditMode ? "grid-cols-2" : "grid-cols-3"}`}>
+                  {!isEditMode && (
+                    <button
+                      onClick={() => setMode("random")}
+                      className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "random" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
+                    >
+                      <div className="font-semibold mb-0.5">Ngẫu nhiên</div>
+                      <div className="text-xs opacity-70">
+                        Tự bốc từ ngân hàng câu đã duyệt
+                      </div>
+                    </button>
+                  )}
                   <button
                     onClick={() => setMode("blueprint")}
                     className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "blueprint" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
