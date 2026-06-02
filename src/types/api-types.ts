@@ -285,6 +285,9 @@ export interface ExamBlueprint {
     MEDIUM?: number;
     HARD?: number;
   };
+  /** Quota per domain — keys are domainId, values are absolute question counts.
+   *  Mutually exclusive with byDifficulty. */
+  byDomain?: Record<string, number>;
 }
 
 export type ExamSelectionStrategy = "MANUAL" | "RANDOM" | "BLUEPRINT";

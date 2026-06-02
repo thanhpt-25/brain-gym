@@ -9,11 +9,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { BlueprintDto } from './dto/blueprint.dto';
-import { ExamVisibility, QuestionStatus, UserRole, Difficulty } from '@prisma/client';
+import {
+  ExamVisibility,
+  QuestionStatus,
+  UserRole,
+  Difficulty,
+  Prisma,
+} from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ExamsService {
+  /** Upper bound on distinct domain buckets in a single blueprint (limits query fan-out). */
+  private static readonly MAX_BLUEPRINT_BUCKETS = 50;
+  /** Upper bound on questions requested per bucket (matches the 200-question exam cap). */
+  private static readonly MAX_BLUEPRINT_BUCKET_COUNT = 200;
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -25,38 +36,102 @@ export class ExamsService {
     certificationId: string,
     blueprint: BlueprintDto,
   ): Promise<string[]> {
-    // byDifficulty: each question has exactly one difficulty value, so buckets
-    // are mutually exclusive — no cross-bucket duplicates are possible.
-    // All bucket queries can therefore run in parallel.
-    if (!blueprint.byDifficulty) {
-      throw new BadRequestException(
-        'Blueprint không có bucket nào hợp lệ (tất cả count = 0)',
-      );
-    }
-
-    const entries = (
-      Object.entries(blueprint.byDifficulty) as [Difficulty, number | undefined][]
+    // A blueprint declares quotas along exactly one axis:
+    //   - byDifficulty: each question has exactly one difficulty value.
+    //   - byDomain:     each question belongs to at most one domain.
+    // Either axis yields mutually-exclusive buckets, so bucket queries can run
+    // in parallel with no risk of cross-bucket duplicates.
+    const difficultyEntries = (
+      Object.entries(blueprint.byDifficulty ?? {}) as [
+        Difficulty,
+        number | undefined,
+      ][]
     ).filter(([, count]) => count && count > 0);
 
-    if (entries.length === 0) {
+    const domainEntries = Object.entries(blueprint.byDomain ?? {}).filter(
+      ([, count]) => typeof count === 'number' && count > 0,
+    );
+
+    const hasDifficulty = difficultyEntries.length > 0;
+    const hasDomain = domainEntries.length > 0;
+
+    if (hasDifficulty && hasDomain) {
       throw new BadRequestException(
-        'Blueprint không có bucket nào hợp lệ (tất cả count = 0)',
+        'Blueprint cannot mix difficulty and domain quotas — choose a single axis',
+      );
+    }
+    if (!hasDifficulty && !hasDomain) {
+      throw new BadRequestException(
+        'Blueprint has no valid buckets (all counts are 0)',
       );
     }
 
-    // Fetch all buckets in parallel — safe because difficulty is mutually exclusive.
+    let buckets: { label: string; count: number; where: Prisma.QuestionWhereInput }[];
+
+    if (hasDomain) {
+      // byDomain is a free-form Record, so it needs explicit bounds the typed
+      // byDifficulty axis gets for free. Cap the number of buckets to avoid
+      // firing an unbounded fan-out of parallel queries, and bound each count
+      // so a single quota can't request an absurd slice.
+      if (domainEntries.length > ExamsService.MAX_BLUEPRINT_BUCKETS) {
+        throw new BadRequestException(
+          `Blueprint cannot declare more than ${ExamsService.MAX_BLUEPRINT_BUCKETS} domains`,
+        );
+      }
+      for (const [, count] of domainEntries) {
+        if (!Number.isInteger(count) || count < 0) {
+          throw new BadRequestException(
+            'Blueprint domain quotas must be non-negative integers',
+          );
+        }
+        if (count > ExamsService.MAX_BLUEPRINT_BUCKET_COUNT) {
+          throw new BadRequestException(
+            `Blueprint domain quota cannot exceed ${ExamsService.MAX_BLUEPRINT_BUCKET_COUNT} questions`,
+          );
+        }
+      }
+      buckets = domainEntries.map(([domainId, count]) => ({
+        label: `domain:${domainId}`,
+        count,
+        where: {
+          certificationId,
+          status: QuestionStatus.APPROVED,
+          deletedAt: null,
+          domainId,
+        },
+      }));
+    } else {
+      buckets = difficultyEntries.map(([difficulty, count]) => ({
+        label: difficulty,
+        count: count!,
+        where: {
+          certificationId,
+          status: QuestionStatus.APPROVED,
+          deletedAt: null,
+          difficulty,
+        },
+      }));
+    }
+
+    return this.resolveBuckets(buckets);
+  }
+
+  /**
+   * Fill a set of mutually-exclusive buckets from the approved question pool.
+   * Each bucket is shuffled (Fisher-Yates) and sliced to its quota; picks are
+   * then re-shuffled together. Throws 422 with per-bucket `shortages` detail if
+   * any bucket cannot be filled.
+   */
+  private async resolveBuckets(
+    buckets: { label: string; count: number; where: Prisma.QuestionWhereInput }[],
+  ): Promise<string[]> {
     const bucketResults = await Promise.all(
-      entries.map(async ([difficulty, count]) => {
+      buckets.map(async (bucket) => {
         const candidates = await this.prisma.question.findMany({
-          where: {
-            certificationId,
-            status: QuestionStatus.APPROVED,
-            deletedAt: null,
-            difficulty,
-          },
+          where: bucket.where,
           select: { id: true },
         });
-        return { difficulty, count: count!, candidates };
+        return { ...bucket, candidates };
       }),
     );
 
@@ -69,10 +144,10 @@ export class ExamsService {
 
     const pickedIds: string[] = [];
 
-    for (const { difficulty, count, candidates } of bucketResults) {
+    for (const { label, count, candidates } of bucketResults) {
       if (candidates.length < count) {
         shortages.push({
-          bucket: difficulty,
+          bucket: label,
           required: count,
           available: candidates.length,
           missing: count - candidates.length,
@@ -91,7 +166,7 @@ export class ExamsService {
       throw new UnprocessableEntityException({
         error: 'BLUEPRINT_INSUFFICIENT_QUESTIONS',
         message:
-          'Ngân hàng câu hỏi không đủ để tạo đề theo cấu trúc đã chọn',
+          'The question bank does not have enough questions to build an exam with the selected blueprint',
         shortages,
       });
     }

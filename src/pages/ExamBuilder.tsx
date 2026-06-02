@@ -131,7 +131,7 @@ const ExamBuilder = () => {
       return toast.error("Please select at least one question");
     if (mode === "blueprint" && !blueprint)
       return toast.error(
-        "Cấu trúc đề chưa hợp lệ — kiểm tra tổng % và số câu sẵn có",
+        "Blueprint is not valid — check the total % and available question counts",
       );
 
     if (isEditMode) {
@@ -364,9 +364,9 @@ const ExamBuilder = () => {
               </div>
 
               {/* Question Selection Mode
-                  Edit mode hides "Ngẫu nhiên": random on update would be a
+                  Edit mode hides "Random": random on update would be a
                   no-op (no questionIds → metadata-only path in backend).
-                  Users can re-roll via "Theo cấu trúc" or adjust via "Chọn tay". */}
+                  Users can re-roll via "Blueprint" or adjust via "Manual pick". */}
               <div>
                 <label className="text-sm font-mono text-muted-foreground mb-2 block">
                   Question Selection
@@ -377,9 +377,9 @@ const ExamBuilder = () => {
                       onClick={() => setMode("random")}
                       className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "random" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
                     >
-                      <div className="font-semibold mb-0.5">Ngẫu nhiên</div>
+                      <div className="font-semibold mb-0.5">Random</div>
                       <div className="text-xs opacity-70">
-                        Tự bốc từ ngân hàng câu đã duyệt
+                        Auto-pick from the approved question bank
                       </div>
                     </button>
                   )}
@@ -389,19 +389,19 @@ const ExamBuilder = () => {
                   >
                     <div className="flex items-center gap-1.5 font-semibold mb-0.5">
                       <LayoutGrid className="h-3.5 w-3.5" />
-                      Theo cấu trúc
+                      Blueprint
                     </div>
                     <div className="text-xs opacity-70">
-                      Khai báo tỉ lệ độ khó
+                      Declare difficulty or domain percentages
                     </div>
                   </button>
                   <button
                     onClick={() => setMode("pick")}
                     className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "pick" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
                   >
-                    <div className="font-semibold mb-0.5">Chọn tay</div>
+                    <div className="font-semibold mb-0.5">Manual pick</div>
                     <div className="text-xs opacity-70">
-                      Tick từng câu hỏi cụ thể
+                      Select individual questions
                     </div>
                   </button>
                 </div>
@@ -431,7 +431,7 @@ const ExamBuilder = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm font-mono text-muted-foreground mb-1.5 block">
-                      Tổng số câu hỏi
+                      Total Questions
                     </label>
                     <Input
                       type="number"
@@ -454,7 +454,7 @@ const ExamBuilder = () => {
 
               {mode === "blueprint" && !certId && (
                 <p className="text-xs text-muted-foreground font-mono">
-                  Chọn chứng chỉ trước để cấu hình cấu trúc đề.
+                  Select a certification first to configure the blueprint.
                 </p>
               )}
 

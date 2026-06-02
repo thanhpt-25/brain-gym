@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsInt,
+  IsObject,
   IsOptional,
   Min,
   ValidateNested,
@@ -37,4 +38,17 @@ export class BlueprintDto {
   @ValidateNested()
   @Type(() => BlueprintDifficultyDto)
   byDifficulty?: BlueprintDifficultyDto;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'integer' },
+    example: { 'domain-uuid-a': 20, 'domain-uuid-b': 15 },
+    description:
+      'Quota per domain. Keys are domainId, values are absolute question counts (not %). ' +
+      'Questions within each domain are picked at random across all difficulties. ' +
+      'Mutually exclusive with byDifficulty — supply only one axis.',
+  })
+  @IsOptional()
+  @IsObject()
+  byDomain?: Record<string, number>;
 }
