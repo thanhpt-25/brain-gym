@@ -3,6 +3,8 @@ import {
   ExamSummary,
   CreateExamPayload,
   PaginatedResponse,
+  ExamBlueprint,
+  ExamSelectionStrategy,
 } from "@/types/api-types";
 
 export type { ExamSummary, CreateExamPayload };
@@ -56,6 +58,8 @@ export interface UpdateExamPayload {
   visibility?: string;
   timerMode?: string;
   questionIds?: string[];
+  selectionStrategy?: ExamSelectionStrategy;
+  blueprint?: ExamBlueprint;
 }
 
 export const updateExam = async (id: string, data: UpdateExamPayload) => {

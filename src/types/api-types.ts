@@ -279,6 +279,16 @@ export interface ExamSummary {
   };
 }
 
+export interface ExamBlueprint {
+  byDifficulty?: {
+    EASY?: number;
+    MEDIUM?: number;
+    HARD?: number;
+  };
+}
+
+export type ExamSelectionStrategy = "MANUAL" | "RANDOM" | "BLUEPRINT";
+
 export interface CreateExamPayload {
   title: string;
   description?: string;
@@ -289,6 +299,8 @@ export interface CreateExamPayload {
   timerMode?: TimerMode;
   examType?: ExamMode;
   questionIds?: string[];
+  selectionStrategy?: ExamSelectionStrategy;
+  blueprint?: ExamBlueprint;
 }
 
 // ─── AI Question Bank ────────────────────────────────────────────────────────

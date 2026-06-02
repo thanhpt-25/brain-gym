@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getCertifications } from "@/services/certifications";
@@ -23,17 +23,18 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ChevronLeft,
-  Loader2,
-  Plus,
-  Search,
   Clock,
   Coffee,
+  LayoutGrid,
+  Loader2,
+  Plus,
   Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
-import type { TimerMode } from "@/types/api-types";
+import BlueprintEditor from "@/components/exam/BlueprintEditor";
+import type { TimerMode, ExamBlueprint } from "@/types/api-types";
 
 const ExamBuilder = () => {
   const navigate = useNavigate();
@@ -49,10 +50,15 @@ const ExamBuilder = () => {
     "PUBLIC",
   );
   const [timerMode, setTimerMode] = useState<TimerMode>("STRICT");
-  const [mode, setMode] = useState<"random" | "pick">("random");
+  const [mode, setMode] = useState<"random" | "pick" | "blueprint">("random");
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [blueprint, setBlueprint] = useState<ExamBlueprint | null>(null);
   const [questionPage, setQuestionPage] = useState(1);
   const [searchCert, setSearchCert] = useState("");
+  const handleBlueprintChange = useCallback(
+    (bp: ExamBlueprint | null) => setBlueprint(bp),
+    [],
+  );
 
   const { data: certifications } = useQuery({
     queryKey: ["certifications"],
@@ -92,6 +98,11 @@ const ExamBuilder = () => {
     enabled: mode === "pick" && !!certId,
   });
 
+  // Reset blueprint state when mode changes away from blueprint.
+  useEffect(() => {
+    if (mode !== "blueprint") setBlueprint(null);
+  }, [mode]);
+
   const mutation = useMutation({
     mutationFn: (data: CreateExamPayload | UpdateExamPayload) =>
       isEditMode
@@ -118,31 +129,60 @@ const ExamBuilder = () => {
     if (!certId) return toast.error("Please select a certification");
     if (mode === "pick" && selectedQuestionIds.length === 0)
       return toast.error("Please select at least one question");
+    if (mode === "blueprint" && !blueprint)
+      return toast.error(
+        "Cấu trúc đề chưa hợp lệ — kiểm tra tổng % và số câu sẵn có",
+      );
 
     if (isEditMode) {
-      const payload: UpdateExamPayload = {
+      const base = {
         title: title.trim(),
         description: description.trim() || undefined,
         timeLimit,
         visibility,
         timerMode,
-        questionIds: selectedQuestionIds,
       };
+      const payload: UpdateExamPayload =
+        mode === "blueprint"
+          ? { ...base, selectionStrategy: "BLUEPRINT", blueprint: blueprint! }
+          : {
+              ...base,
+              // Only send questionIds when pick mode has an actual selection;
+              // sending an empty array fails the backend @ArrayNotEmpty guard.
+              ...(selectedQuestionIds.length > 0
+                ? { questionIds: selectedQuestionIds }
+                : {}),
+            };
       mutation.mutate(payload);
       return;
     }
 
-    const payload: CreateExamPayload = {
-      title: title.trim(),
-      description: description.trim() || undefined,
-      certificationId: certId,
-      questionCount:
-        mode === "pick" ? selectedQuestionIds.length : questionCount,
-      timeLimit,
-      visibility,
-      timerMode,
-      questionIds: mode === "pick" ? selectedQuestionIds : undefined,
-    };
+    const payload: CreateExamPayload =
+      mode === "blueprint"
+        ? {
+            title: title.trim(),
+            description: description.trim() || undefined,
+            certificationId: certId,
+            // BlueprintEditor.distributeByPercent guarantees sum(counts) === questionCount,
+            // so the state value is the source of truth — no need to re-derive.
+            questionCount,
+            timeLimit,
+            visibility,
+            timerMode,
+            selectionStrategy: "BLUEPRINT",
+            blueprint: blueprint!,
+          }
+        : {
+            title: title.trim(),
+            description: description.trim() || undefined,
+            certificationId: certId,
+            questionCount:
+              mode === "pick" ? selectedQuestionIds.length : questionCount,
+            timeLimit,
+            visibility,
+            timerMode,
+            questionIds: mode === "pick" ? selectedQuestionIds : undefined,
+          };
 
     mutation.mutate(payload);
   };
@@ -323,34 +363,49 @@ const ExamBuilder = () => {
                 </div>
               </div>
 
-              {/* Question Selection Mode (creation only — editing always picks) */}
-              {!isEditMode && (
-                <div>
-                  <label className="text-sm font-mono text-muted-foreground mb-2 block">
-                    Question Selection
-                  </label>
-                  <div className="flex gap-3">
+              {/* Question Selection Mode
+                  Edit mode hides "Ngẫu nhiên": random on update would be a
+                  no-op (no questionIds → metadata-only path in backend).
+                  Users can re-roll via "Theo cấu trúc" or adjust via "Chọn tay". */}
+              <div>
+                <label className="text-sm font-mono text-muted-foreground mb-2 block">
+                  Question Selection
+                </label>
+                <div className={`grid gap-2 ${isEditMode ? "grid-cols-2" : "grid-cols-3"}`}>
+                  {!isEditMode && (
                     <button
                       onClick={() => setMode("random")}
-                      className={`flex-1 p-3 rounded-lg border text-sm font-mono transition-all ${mode === "random" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
+                      className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "random" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
                     >
-                      Random Selection
-                      <div className="text-xs mt-1 opacity-70">
-                        Auto-pick from approved questions
+                      <div className="font-semibold mb-0.5">Ngẫu nhiên</div>
+                      <div className="text-xs opacity-70">
+                        Tự bốc từ ngân hàng câu đã duyệt
                       </div>
                     </button>
-                    <button
-                      onClick={() => setMode("pick")}
-                      className={`flex-1 p-3 rounded-lg border text-sm font-mono transition-all ${mode === "pick" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
-                    >
-                      Pick Questions
-                      <div className="text-xs mt-1 opacity-70">
-                        Choose specific questions
-                      </div>
-                    </button>
-                  </div>
+                  )}
+                  <button
+                    onClick={() => setMode("blueprint")}
+                    className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "blueprint" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
+                  >
+                    <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                      Theo cấu trúc
+                    </div>
+                    <div className="text-xs opacity-70">
+                      Khai báo tỉ lệ độ khó
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setMode("pick")}
+                    className={`p-3 rounded-lg border text-sm font-mono transition-all text-left ${mode === "pick" ? "border-primary bg-primary/10 text-primary" : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20"}`}
+                  >
+                    <div className="font-semibold mb-0.5">Chọn tay</div>
+                    <div className="text-xs opacity-70">
+                      Tick từng câu hỏi cụ thể
+                    </div>
+                  </button>
                 </div>
-              )}
+              </div>
 
               {/* Random mode: question count */}
               {mode === "random" && (
@@ -369,6 +424,38 @@ const ExamBuilder = () => {
                     className="bg-white/5 border-white/10 w-32"
                   />
                 </div>
+              )}
+
+              {/* Blueprint mode */}
+              {mode === "blueprint" && certId && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-mono text-muted-foreground mb-1.5 block">
+                      Tổng số câu hỏi
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={questionCount}
+                      onChange={(e) =>
+                        setQuestionCount(parseInt(e.target.value) || 1)
+                      }
+                      className="bg-white/5 border-white/10 w-32"
+                    />
+                  </div>
+                  <BlueprintEditor
+                    certificationId={certId}
+                    totalCount={questionCount}
+                    onChange={handleBlueprintChange}
+                  />
+                </div>
+              )}
+
+              {mode === "blueprint" && !certId && (
+                <p className="text-xs text-muted-foreground font-mono">
+                  Chọn chứng chỉ trước để cấu hình cấu trúc đề.
+                </p>
               )}
 
               {/* Pick mode: question browser */}
@@ -457,7 +544,10 @@ const ExamBuilder = () => {
                 className="w-full glow-cyan font-mono"
                 size="lg"
                 onClick={handleSubmit}
-                disabled={mutation.isPending}
+                disabled={
+                  mutation.isPending ||
+                  (mode === "blueprint" && !blueprint)
+                }
               >
                 {mutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />

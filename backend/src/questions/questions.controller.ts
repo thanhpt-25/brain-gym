@@ -11,6 +11,7 @@ import {
   Req,
   Request,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -75,6 +76,25 @@ export class QuestionsController {
       pagination?.page,
       pagination?.limit,
     );
+  }
+
+  /**
+   * Must be declared before GET :id so the literal path "stats" is not
+   * mistakenly matched as a question ID.
+   *
+   * Throttled at 30 req/min: called on every slider move in BlueprintEditor
+   * but results are cached client-side (staleTime 30 s), so 30 rpm is generous.
+   */
+  @Get('stats')
+  @Public()
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
+  @ApiOperation({
+    summary:
+      'Get APPROVED question counts by difficulty and domain for a certification',
+  })
+  @ApiQuery({ name: 'certificationId', required: true, type: String })
+  getStats(@Query('certificationId') certificationId: string) {
+    return this.questionsService.getStats(certificationId);
   }
 
   @Get(':id')
