@@ -13,10 +13,22 @@ import {
 import {
   Plus, Loader2, ClipboardList, Users, MoreHorizontal,
   Pencil, Eye, Play, Pause, Archive, ChevronLeft, ChevronRight, Clock,
-  FileText,
+  FileText, List, Layers, Database,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { Assessment, AssessmentStatus } from '@/types/assessment-types';
+import type { Assessment, AssessmentSelectionMode, AssessmentStatus } from '@/types/assessment-types';
+
+const modeIcons: Record<AssessmentSelectionMode, React.ReactNode> = {
+  MANUAL: <List className="h-3 w-3" />,
+  BLUEPRINT: <Layers className="h-3 w-3" />,
+  POOL: <Database className="h-3 w-3" />,
+};
+
+const modeLabels: Record<AssessmentSelectionMode, string> = {
+  MANUAL: 'Manual',
+  BLUEPRINT: 'Blueprint',
+  POOL: 'Pool',
+};
 
 const statusColors: Record<AssessmentStatus, string> = {
   DRAFT: 'bg-muted text-muted-foreground',
@@ -104,6 +116,12 @@ const OrgAssessments = () => {
                       <Badge className={`text-[10px] ${statusColors[item.status]}`}>
                         {item.status}
                       </Badge>
+                      {item.selectionMode && item.selectionMode !== 'MANUAL' && (
+                        <Badge variant="outline" className="text-[10px] flex items-center gap-1">
+                          {modeIcons[item.selectionMode]}
+                          {modeLabels[item.selectionMode]}
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono flex-wrap">
                       <span className="flex items-center gap-1">

@@ -11,6 +11,7 @@ import type {
   CandidateExamPayload,
   CandidateSubmitResult,
   CandidateAnswerPayload,
+  PoolConfig,
 } from '@/types/assessment-types';
 
 const base = (slug: string) => `/organizations/${slug}/assessments`;
@@ -83,6 +84,22 @@ export const exportAssessmentCsv = async (slug: string, aid: string): Promise<st
   const res = await api.get<string>(`${base(slug)}/${aid}/results/export`, {
     responseType: 'text',
   });
+  return res.data;
+};
+
+/** Preview: count APPROVED questions matching a pool config filter. */
+export const getPoolCount = async (
+  slug: string,
+  config: Partial<Pick<PoolConfig, 'difficulty' | 'certificationId' | 'categories' | 'tags'>>,
+): Promise<{ available: number }> => {
+  const params = new URLSearchParams();
+  if (config.difficulty) params.set('difficulty', config.difficulty);
+  if (config.certificationId) params.set('certificationId', config.certificationId);
+  if (config.categories?.length) params.set('categories', config.categories.join(','));
+  if (config.tags?.length) params.set('tags', config.tags.join(','));
+  const res = await api.get<{ available: number }>(
+    `${base(slug)}/pool-count?${params.toString()}`,
+  );
   return res.data;
 };
 
