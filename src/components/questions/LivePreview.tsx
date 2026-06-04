@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, Eye, BookOpen } from 'lucide-react';
 import { Certification, Difficulty, Domain, QuestionType } from '@/types/api-types';
 import { difficultyColor } from '@/lib/question-utils';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 interface ChoiceInput {
   label: string;
@@ -122,7 +123,9 @@ export function LivePreview({
           {explanation && (
             <div className="mt-5 p-3 rounded-lg bg-primary/5 border border-primary/20">
               <div className="text-xs font-mono font-semibold text-primary mb-1">Explanation</div>
-              <p className="text-xs text-muted-foreground">{explanation}</p>
+              <div className="text-muted-foreground">
+                <MarkdownContent size="text-xs">{explanation}</MarkdownContent>
+              </div>
               {referenceUrl && (
                 <a href={referenceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline mt-1 inline-block">
                   Reference →

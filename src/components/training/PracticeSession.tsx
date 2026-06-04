@@ -11,6 +11,7 @@ import { saveAnswer } from '@/services/attempts';
 import { recordActivity } from '@/stores/streak.store';
 import { Question } from '@/types/api-types';
 import { LucideIcon } from 'lucide-react';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -256,7 +257,9 @@ export function PracticeSession({ questions, attemptId, modeLabel, modeIcon: Mod
                       {isCorrect ? 'Correct!' : selected.length > 0 ? 'Incorrect' : 'Skipped'}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{question.explanation}</p>
+                  <div className="text-muted-foreground">
+                    <MarkdownContent>{question.explanation}</MarkdownContent>
+                  </div>
                 </Card>
               </motion.div>
             )}

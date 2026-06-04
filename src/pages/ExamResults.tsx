@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ExamResult, Question, Certification } from '@/types/exam';
 import { updateMistakeType } from '@/services/analytics';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 type FilterType = 'all' | 'correct' | 'wrong' | 'skipped';
 
@@ -349,7 +350,9 @@ const ExamResults = () => {
                           <div className="text-xs font-mono font-semibold text-primary mb-2">
                             💡 Explanation
                           </div>
-                          <p className="text-sm text-foreground leading-relaxed">{q.explanation}</p>
+                          <div className="text-foreground">
+                            <MarkdownContent>{q.explanation}</MarkdownContent>
+                          </div>
                           {q.referenceUrl && (
                             <a
                               href={q.referenceUrl}

@@ -15,6 +15,7 @@ import {
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import type { OrgQuestionStatus } from '@/types/org-question-types';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 const statusColors: Record<OrgQuestionStatus, string> = {
   DRAFT: 'bg-muted text-muted-foreground',
@@ -181,9 +182,11 @@ const OrgQuestionDetail = () => {
 
           {/* Explanation */}
           {question.explanation && (
-            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 text-sm mb-6">
-              <strong className="text-primary block mb-1">Explanation</strong>
-              <p className="whitespace-pre-wrap">{question.explanation}</p>
+            <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 mb-6">
+              <strong className="text-primary block mb-2 text-sm">Explanation</strong>
+              <div className="text-muted-foreground">
+                <MarkdownContent>{question.explanation}</MarkdownContent>
+              </div>
             </div>
           )}
 

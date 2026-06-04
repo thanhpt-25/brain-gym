@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, Eye, CheckCircle2, XCircle, SkipForward, RotateCcw, BookOpen, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -280,7 +281,9 @@ const StudyMode = () => {
                       {isCorrect ? 'Correct!' : selected.length > 0 ? 'Incorrect' : 'Skipped'}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{question.explanation}</p>
+                  <div className="text-muted-foreground">
+                    <MarkdownContent>{question.explanation}</MarkdownContent>
+                  </div>
                   {question.referenceUrl && (
                     <a href={question.referenceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline mt-2 inline-block">
                       Reference →
