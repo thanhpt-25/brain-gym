@@ -517,7 +517,8 @@ export default function LlmConfigPanel() {
               <label className="text-xs font-medium">
                 API Key{" "}
                 <span className="text-muted-foreground font-normal">
-                  (optional — usually not needed for local servers)
+                  (optional — usually not needed for local servers; kept for
+                  this session only, never saved to disk)
                 </span>
               </label>
               <Input

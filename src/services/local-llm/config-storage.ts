@@ -13,8 +13,14 @@ export interface StoredLocalLlmConfig {
   savedAt: string; // ISO 8601
 }
 
+/**
+ * Shape actually written to localStorage. The apiKey is deliberately NOT
+ * persisted (see `apiKeyCache`) to avoid storing a secret in clear text.
+ */
+type PersistedConfig = Omit<StoredLocalLlmConfig, "apiKey">;
+
 interface ConfigStore {
-  configs: StoredLocalLlmConfig[];
+  configs: PersistedConfig[];
   activeId: string | null;
 }
 
@@ -28,14 +34,48 @@ export type LocalLlmConfigInput = Omit<
 
 const EMPTY_STORE: ConfigStore = { configs: [], activeId: null };
 
+/**
+ * Session-scoped, in-memory store for API keys, keyed by config id. Keys are
+ * never written to localStorage, so they are cleared on reload — for endpoints
+ * that need a key the user re-enters it per session (most local servers need
+ * none). This is what keeps the secret out of clear-text persistent storage.
+ */
+const apiKeyCache = new Map<string, string>();
+
 function generateId(): string {
-  if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
-  ) {
-    return crypto.randomUUID();
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    if (typeof crypto.getRandomValues === "function") {
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      const hex = Array.from(bytes, (b) =>
+        b.toString(16).padStart(2, "0"),
+      ).join("");
+      return `cfg-${hex}`;
+    }
   }
-  return `cfg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  // Last-resort fallback: ids are local identifiers, not a security token.
+  return `cfg-${Date.now()}-${performance.now().toString(36).replace(".", "")}`;
+}
+
+/** Attach the session-cached apiKey (if any) to a persisted config. */
+function hydrate(config: PersistedConfig): StoredLocalLlmConfig {
+  const apiKey = apiKeyCache.get(config.id);
+  return apiKey ? { ...config, apiKey } : { ...config };
+}
+
+/**
+ * Drop the apiKey before persisting. If a key is present (e.g. legacy data or
+ * an upgraded store written by an earlier version) it is moved into the
+ * in-memory cache so it still works for the current session.
+ */
+function toPersisted(
+  config: PersistedConfig & { apiKey?: string },
+): PersistedConfig {
+  const { apiKey, ...rest } = config;
+  if (apiKey) apiKeyCache.set(rest.id, apiKey);
+  return rest;
 }
 
 /**
@@ -53,16 +93,18 @@ function migrateLegacy(): ConfigStore | null {
     >;
     if (!legacy?.modelId || !legacy?.baseUrl) return null;
 
-    const migrated: StoredLocalLlmConfig = {
-      id: generateId(),
+    const id = generateId();
+    if (legacy.apiKey) apiKeyCache.set(id, legacy.apiKey);
+
+    const migrated: PersistedConfig = {
+      id,
       dialect: legacy.dialect,
       baseUrl: legacy.baseUrl,
       modelId: legacy.modelId,
-      apiKey: legacy.apiKey,
       savedAt: legacy.savedAt ?? new Date().toISOString(),
     };
-    const store: ConfigStore = { configs: [migrated], activeId: migrated.id };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    const store: ConfigStore = { configs: [migrated], activeId: id };
+    write(store);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
     return store;
   } catch {
@@ -76,11 +118,16 @@ function read(): ConfigStore {
     if (!raw) {
       return migrateLegacy() ?? { ...EMPTY_STORE };
     }
-    const parsed = JSON.parse(raw) as ConfigStore;
+    const parsed = JSON.parse(raw) as {
+      configs?: (PersistedConfig & { apiKey?: string })[];
+      activeId?: string | null;
+    };
     if (!parsed || !Array.isArray(parsed.configs)) return { ...EMPTY_STORE };
+    // Defensively strip any persisted apiKey (and move it to the cache).
+    const configs = parsed.configs.map(toPersisted);
     return {
-      configs: parsed.configs,
-      activeId: parsed.activeId ?? parsed.configs[0]?.id ?? null,
+      configs,
+      activeId: parsed.activeId ?? configs[0]?.id ?? null,
     };
   } catch {
     return { ...EMPTY_STORE };
@@ -88,7 +135,12 @@ function read(): ConfigStore {
 }
 
 function write(store: ConfigStore): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  // Re-strip on the way out so a secret can never reach localStorage.
+  const safe: ConfigStore = {
+    configs: store.configs.map(toPersisted),
+    activeId: store.activeId,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
 }
 
 /**
@@ -110,26 +162,28 @@ function isSameProfile(
 export const localLlmConfigStorage = {
   /** All saved local LLM profiles, newest first. */
   list(): StoredLocalLlmConfig[] {
-    return read().configs;
+    return read().configs.map(hydrate);
   },
 
   /** The currently active profile, or null if none are saved. */
   getActive(): StoredLocalLlmConfig | null {
     const { configs, activeId } = read();
     if (configs.length === 0) return null;
-    return configs.find((c) => c.id === activeId) ?? configs[0];
+    const found = configs.find((c) => c.id === activeId) ?? configs[0];
+    return hydrate(found);
   },
 
   getById(id: string): StoredLocalLlmConfig | null {
-    return read().configs.find((c) => c.id === id) ?? null;
+    const found = read().configs.find((c) => c.id === id);
+    return found ? hydrate(found) : null;
   },
 
   /**
    * Add a new profile or update an existing one (matched by id, otherwise by
    * dialect + baseUrl + modelId). The saved profile becomes active.
-   * When updating, optional fields (`label`, `apiKey`) omitted from the input
-   * keep their existing values rather than being wiped. Returns the persisted
-   * profile.
+   * When updating, the optional `label` omitted from the input keeps its
+   * existing value. The apiKey is held in memory for the session only and is
+   * preserved across updates that omit it. Returns the saved profile.
    */
   save(input: LocalLlmConfigInput): StoredLocalLlmConfig {
     const store = read();
@@ -141,23 +195,31 @@ export const localLlmConfigStorage = {
     const existing =
       existingIndex >= 0 ? store.configs[existingIndex] : undefined;
 
-    const saved: StoredLocalLlmConfig = {
-      id: input.id ?? existing?.id ?? generateId(),
+    const id = input.id ?? existing?.id ?? generateId();
+
+    const saved: PersistedConfig = {
+      id,
       label: input.label ?? existing?.label,
       dialect: input.dialect,
       baseUrl: input.baseUrl,
       modelId: input.modelId,
-      apiKey: input.apiKey ?? existing?.apiKey,
       savedAt: now,
     };
+
+    // Update the in-memory key cache: a provided non-empty key replaces it, an
+    // explicit empty string clears it, and an omitted key is left untouched.
+    if (input.apiKey !== undefined) {
+      if (input.apiKey) apiKeyCache.set(id, input.apiKey);
+      else apiKeyCache.delete(id);
+    }
 
     const configs =
       existingIndex >= 0
         ? store.configs.map((c, i) => (i === existingIndex ? saved : c))
         : [saved, ...store.configs];
 
-    write({ configs, activeId: saved.id });
-    return saved;
+    write({ configs, activeId: id });
+    return hydrate(saved);
   },
 
   setActive(id: string): void {
@@ -172,11 +234,13 @@ export const localLlmConfigStorage = {
     const configs = store.configs.filter((c) => c.id !== id);
     const activeId =
       store.activeId === id ? (configs[0]?.id ?? null) : store.activeId;
+    apiKeyCache.delete(id);
     write({ configs, activeId });
   },
 
   /** Remove every saved profile. */
   clear(): void {
+    apiKeyCache.clear();
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
   },

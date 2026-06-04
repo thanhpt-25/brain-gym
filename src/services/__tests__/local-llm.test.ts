@@ -206,6 +206,25 @@ describe("Local LLM Feature", () => {
       expect(updated?.apiKey).toBe("secret");
     });
 
+    it("should never write the apiKey to localStorage in clear text", () => {
+      const saved = localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+        apiKey: "super-secret-key",
+      });
+
+      // The raw persisted blob must not contain the secret…
+      const raw = localStorage.getItem("braingym:local-llm-configs") ?? "";
+      expect(raw).not.toContain("super-secret-key");
+      expect(raw).not.toContain("apiKey");
+
+      // …but it remains usable in-session via the in-memory cache.
+      expect(localLlmConfigStorage.getById(saved.id)?.apiKey).toBe(
+        "super-secret-key",
+      );
+    });
+
     it("should mark the most recently saved profile active", () => {
       localLlmConfigStorage.save({
         dialect: "openai",
