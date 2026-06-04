@@ -33,9 +33,23 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getClass(),
     ]);
 
-    // For public routes, allow unauthenticated access but attach user if available
-    if (isPublic && !user) {
-      return null;
+    if (isPublic) {
+      if (user) {
+        return user;
+      }
+
+      // No credentials supplied at all → genuine anonymous visitor, allow through.
+      const request = context.switchToHttp().getRequest();
+      if (!request?.headers?.authorization) {
+        return null;
+      }
+
+      // A token WAS supplied but failed validation (expired / invalid). Do NOT
+      // silently downgrade an authenticated user to anonymous — surface a 401 so
+      // the client can refresh its token and retry. Otherwise authenticated
+      // users with an expired access token keep receiving anonymous-only content
+      // (e.g. the "Log in to view the explanation" placeholder).
+      throw err || new UnauthorizedException('Invalid or expired token');
     }
 
     if (err || !user) {
