@@ -54,7 +54,7 @@ export default function AiQuestionGenerator() {
   });
 
   const hasKeys = configs.length > 0;
-  const hasLocalConfig = !!localLlmConfigStorage.get();
+  const hasLocalConfig = localLlmConfigStorage.list().length > 0;
   const hasAccess = hasKeys || hasLocalConfig;
 
   const handleResult = (
@@ -202,7 +202,7 @@ export default function AiQuestionGenerator() {
                 localSubmit={
                   generationResult.isLocal
                     ? (questions, certId, dId) => {
-                        const config = localLlmConfigStorage.get();
+                        const config = localLlmConfigStorage.getActive();
                         return submitLocalQuestionsToIntake(questions, {
                           certificationId: certId,
                           domainId: dId,

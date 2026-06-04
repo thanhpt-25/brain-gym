@@ -42,6 +42,7 @@ import type {
   ConnectionTestResult,
   LocalLlmDialect,
   LocalModelInfo,
+  StoredLocalLlmConfig,
 } from "@/services/local-llm";
 
 // ─── Cloud providers ──────────────────────────────────────────────────────────
@@ -113,24 +114,26 @@ export default function LlmConfigPanel() {
   const [modelId, setModelId] = useState("");
   const [validating, setValidating] = useState<LlmProvider | null>(null);
 
-  // Local LLM state — initialised from localStorage
-  const [localDialect, setLocalDialect] = useState<LocalLlmDialect>(
-    () => localLlmConfigStorage.get()?.dialect ?? "openai",
-  );
+  // Local LLM state
+  const [localDialect, setLocalDialect] = useState<LocalLlmDialect>("openai");
   const [localBaseUrl, setLocalBaseUrl] = useState<string>(
-    () => localLlmConfigStorage.get()?.baseUrl ?? DIALECT_DEFAULTS["openai"],
+    DIALECT_DEFAULTS["openai"],
   );
-  const [localApiKey, setLocalApiKey] = useState<string>(
-    () => localLlmConfigStorage.get()?.apiKey ?? "",
-  );
+  const [localApiKey, setLocalApiKey] = useState<string>("");
+  const [localLabel, setLocalLabel] = useState<string>("");
   const [localModels, setLocalModels] = useState<LocalModelInfo[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>(
-    () => localLlmConfigStorage.get()?.modelId ?? "",
-  );
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const [testState, setTestState] = useState<
     "idle" | "testing" | ConnectionTestResult
   >("idle");
   const [showCorsGuide, setShowCorsGuide] = useState(false);
+
+  // Saved local profiles (multiple). Kept in state so the list re-renders on change.
+  const [savedConfigs, setSavedConfigs] = useState<StoredLocalLlmConfig[]>(() =>
+    localLlmConfigStorage.list(),
+  );
+  const activeConfig = localLlmConfigStorage.getActive();
+  const refreshConfigs = () => setSavedConfigs(localLlmConfigStorage.list());
 
   const { data: configs = [], isLoading } = useQuery({
     queryKey: ["llm-configs"],
@@ -227,24 +230,30 @@ export default function LlmConfigPanel() {
       toast.error("Select a model first.");
       return;
     }
-    localLlmConfigStorage.set({
+    const saved = localLlmConfigStorage.save({
+      label: localLabel.trim() || undefined,
       dialect: localDialect,
       baseUrl: localBaseUrl.trim(),
       modelId: selectedModel,
       apiKey: localApiKey || undefined,
     });
-    toast.success("Local LLM config saved.");
+    refreshConfigs();
+    setLocalLabel("");
+    toast.success(
+      `Saved "${saved.label || saved.modelId}". Add another model or switch tabs to generate.`,
+    );
   };
 
-  const handleClearLocal = () => {
-    localLlmConfigStorage.clear();
-    setLocalModels([]);
-    setSelectedModel("");
-    setTestState("idle");
-    toast.success("Local LLM config cleared.");
+  const handleRemoveConfig = (id: string) => {
+    localLlmConfigStorage.remove(id);
+    refreshConfigs();
+    toast.success("Local LLM profile removed.");
   };
 
-  const savedLocalConfig = localLlmConfigStorage.get();
+  const handleSetActive = (id: string) => {
+    localLlmConfigStorage.setActive(id);
+    refreshConfigs();
+  };
 
   if (isLoading)
     return (
@@ -400,26 +409,68 @@ export default function LlmConfigPanel() {
           generated directly in the browser.
         </p>
 
-        {savedLocalConfig && (
-          <Card className="bg-green-50 border-green-200">
-            <CardContent className="py-2 px-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-green-800">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>
-                  Active: <strong>{savedLocalConfig.modelId}</strong> via{" "}
-                  {savedLocalConfig.baseUrl}
-                </span>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 text-xs text-green-700"
-                onClick={handleClearLocal}
-              >
-                Clear
-              </Button>
-            </CardContent>
-          </Card>
+        {savedConfigs.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Saved models ({savedConfigs.length}) — the active one is used when
+              generating; click another to switch.
+            </p>
+            {savedConfigs.map((cfg) => {
+              const isActive = cfg.id === activeConfig?.id;
+              return (
+                <Card
+                  key={cfg.id}
+                  className={
+                    isActive ? "bg-green-50 border-green-200" : "border-muted"
+                  }
+                >
+                  <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 text-xs text-left min-w-0 flex-1"
+                      onClick={() => handleSetActive(cfg.id)}
+                      title={isActive ? "Active model" : "Set as active model"}
+                    >
+                      {isActive ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-700" />
+                      ) : (
+                        <Cpu className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="min-w-0">
+                        <span className="font-medium">
+                          {cfg.label || cfg.modelId}
+                        </span>
+                        {cfg.label && (
+                          <span className="text-muted-foreground ml-1">
+                            ({cfg.modelId})
+                          </span>
+                        )}
+                        <span className="block text-muted-foreground truncate">
+                          {cfg.baseUrl}
+                        </span>
+                      </span>
+                    </button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isActive && (
+                        <Badge variant="default" className="text-xs">
+                          Active
+                        </Badge>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={() => handleRemoveConfig(cfg.id)}
+                        title="Remove this model"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         )}
 
         <Card>
@@ -466,7 +517,8 @@ export default function LlmConfigPanel() {
               <label className="text-xs font-medium">
                 API Key{" "}
                 <span className="text-muted-foreground font-normal">
-                  (optional — usually not needed for local servers)
+                  (optional — usually not needed for local servers; kept for
+                  this session only, never saved to disk)
                 </span>
               </label>
               <Input
@@ -497,26 +549,51 @@ export default function LlmConfigPanel() {
             )}
 
             {localModels.length > 0 && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Select Model</label>
-                <Select value={selectedModel} onValueChange={setSelectedModel}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a model…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {localModels.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
+                    Model{" "}
+                    <span className="text-muted-foreground font-normal">
+                      ({localModels.length} available — add as many as you like)
+                    </span>
+                  </label>
+                  <Select
+                    value={selectedModel}
+                    onValueChange={setSelectedModel}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a model…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {localModels.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">
+                    Label{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optional — a friendly name to tell models apart)
+                    </span>
+                  </label>
+                  <Input
+                    placeholder="e.g. Ollama · Llama 3 8B"
+                    value={localLabel}
+                    onChange={(e) => setLocalLabel(e.target.value)}
+                  />
+                </div>
+              </>
             )}
 
             {selectedModel && (
               <Button size="sm" className="w-full" onClick={handleSaveLocal}>
-                Save Local Config
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Add Model
               </Button>
             )}
           </CardContent>
@@ -541,8 +618,9 @@ export default function LlmConfigPanel() {
                 Enable CORS on your GenAI server
               </p>
               <p>
-                Browsers block cross-origin requests unless the server explicitly
-                allows them. Add this app's origin to your server's CORS allowlist:
+                Browsers block cross-origin requests unless the server
+                explicitly allows them. Add this app's origin to your server's
+                CORS allowlist:
               </p>
               <code className="block bg-background rounded p-2 font-mono">
                 {appOrigin}
@@ -555,10 +633,15 @@ export default function LlmConfigPanel() {
               </div>
               <div>
                 <p className="font-medium text-foreground mb-1">LM Studio</p>
-                <p>Settings → Local Server → CORS → enable and add the origin above.</p>
+                <p>
+                  Settings → Local Server → CORS → enable and add the origin
+                  above.
+                </p>
               </div>
               <div>
-                <p className="font-medium text-foreground mb-1">llama.cpp server</p>
+                <p className="font-medium text-foreground mb-1">
+                  llama.cpp server
+                </p>
                 <code className="block bg-background rounded p-2 font-mono whitespace-pre-wrap">
                   {`./server --cors-allowed-origins "${appOrigin}"`}
                 </code>
@@ -575,7 +658,9 @@ export default function LlmConfigPanel() {
                 </p>
                 <p>
                   Set the{" "}
-                  <code className="font-mono">Access-Control-Allow-Origin: {appOrigin}</code>{" "}
+                  <code className="font-mono">
+                    Access-Control-Allow-Origin: {appOrigin}
+                  </code>{" "}
                   response header, or consult your server's documentation.
                 </p>
               </div>

@@ -6,7 +6,10 @@ export type {
   LocalGenerationParams,
 } from "./types";
 export { localLlmConfigStorage } from "./config-storage";
-export type { StoredLocalLlmConfig } from "./config-storage";
+export type {
+  StoredLocalLlmConfig,
+  LocalLlmConfigInput,
+} from "./config-storage";
 export {
   testConnection,
   listModels,
