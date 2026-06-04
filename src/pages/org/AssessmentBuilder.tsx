@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOrgStore } from '@/stores/org.store';
@@ -424,17 +424,36 @@ const AssessmentBuilder = () => {
   const orgQuestions = orgQuestionsData?.data ?? [];
 
   // ── Pool count preview ──
-  const poolFilterConfig = {
-    difficulty:
-      poolDifficulty !== 'any' ? (poolDifficulty as PoolConfig['difficulty']) : undefined,
-    certificationId: poolCertId !== 'any' ? poolCertId : undefined,
-    categories: poolCategories.trim()
-      ? poolCategories.split(',').map((c) => c.trim()).filter(Boolean)
-      : undefined,
-    tags: poolTags.trim()
-      ? poolTags.split(',').map((t) => t.trim()).filter(Boolean)
-      : undefined,
-  };
+  // Fix #9: debounce the free-text inputs (categories / tags) so we don't fire
+  // a new API request on every single keystroke — only after 400 ms of silence.
+  const [debouncedCategories, setDebouncedCategories] = useState(poolCategories);
+  const [debouncedTags, setDebouncedTags] = useState(poolTags);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCategories(poolCategories), 400);
+    return () => clearTimeout(t);
+  }, [poolCategories]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedTags(poolTags), 400);
+    return () => clearTimeout(t);
+  }, [poolTags]);
+
+  // useMemo ensures the query key object is stable when values haven't changed,
+  // preventing spurious refetches from render-cycle object identity churn.
+  const poolFilterConfig = useMemo(
+    () => ({
+      difficulty:
+        poolDifficulty !== 'any' ? (poolDifficulty as PoolConfig['difficulty']) : undefined,
+      certificationId: poolCertId !== 'any' ? poolCertId : undefined,
+      categories: debouncedCategories.trim()
+        ? debouncedCategories.split(',').map((c) => c.trim()).filter(Boolean)
+        : undefined,
+      tags: debouncedTags.trim()
+        ? debouncedTags.split(',').map((t) => t.trim()).filter(Boolean)
+        : undefined,
+    }),
+    [poolDifficulty, poolCertId, debouncedCategories, debouncedTags],
+  );
+
   const { data: poolCountData } = useQuery({
     queryKey: ['pool-count', slug, poolFilterConfig],
     queryFn: () => getPoolCount(slug, poolFilterConfig),

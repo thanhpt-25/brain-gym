@@ -232,6 +232,8 @@ export class CandidateService {
     }
 
     // MANUAL / BLUEPRINT
+    // Fix #6: removed dead `domain?.name` path — public Questions use a `domain`
+    // relation, OrgQuestions use `category`. POOL already handled above.
     const aqRows = await this.prisma.assessmentQuestion.findMany({
       where: { assessmentId },
       include: {
@@ -244,8 +246,8 @@ export class CandidateService {
       .map((aq) => {
         const q = aq.orgQuestion ?? aq.publicQuestion;
         if (!q) return null;
-        const domain =
-          (q as any).domain?.name ?? (q as any).category ?? 'General';
+        // OrgQuestion → category; public Question → domain.name (populated via join elsewhere)
+        const domain = (q as any).category ?? 'General';
         return { questionId: q.id, question: q, domain };
       })
       .filter(Boolean) as { questionId: string; question: any; domain: string }[];
@@ -307,6 +309,11 @@ export class CandidateService {
   /**
    * For POOL mode: draw random questions and snapshot IDs to CandidateInvite
    * so the same set is returned on resume/reload (idempotent).
+   *
+   * Fix #1 (Critical): atomic conditional UPDATE prevents the TOCTOU race where
+   * two concurrent startAttempt calls both see drawnQuestionIds = [] and write
+   * different sets. We only write when the column is still empty; if another
+   * request already wrote first (0 rows affected) we reload from DB.
    */
   private async buildPoolQuestions(
     assessment: any,
@@ -320,16 +327,32 @@ export class CandidateService {
     let ids: string[] = invite?.drawnQuestionIds ?? [];
 
     if (ids.length === 0) {
-      // First call — draw from pool and snapshot
+      // Draw a new set
       const config = assessment.selectionConfig as any;
-      ids = await this.assessmentsService.drawFromPool(
+      const drawn = await this.assessmentsService.drawFromPool(
         assessment.orgId,
         config,
       );
-      await this.prisma.candidateInvite.update({
-        where: { id: inviteId },
-        data: { drawnQuestionIds: ids },
-      });
+
+      // Atomic write: only update if the column is still empty (no concurrent winner)
+      const affected = await this.prisma.$executeRaw`
+        UPDATE candidate_invites
+        SET drawn_question_ids = ${drawn}::text[]
+        WHERE id = ${inviteId}::uuid
+          AND drawn_question_ids = '{}'::text[]
+      `;
+
+      if (affected > 0) {
+        // We won the race — use the set we drew
+        ids = drawn;
+      } else {
+        // Another concurrent request already snapshotted — reload the winner's set
+        const fresh = await this.prisma.candidateInvite.findUnique({
+          where: { id: inviteId },
+          select: { drawnQuestionIds: true },
+        });
+        ids = fresh?.drawnQuestionIds ?? drawn; // fallback to drawn if reload fails
+      }
     }
 
     const orgQuestions = await this.prisma.orgQuestion.findMany({

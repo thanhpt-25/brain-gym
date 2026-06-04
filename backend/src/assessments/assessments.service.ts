@@ -45,8 +45,33 @@ export class AssessmentsService {
   // ─── Private helpers ───────────────────────────────────────────────────────
 
   /**
+   * Shared Prisma `where` clause builder for pool/count queries.
+   * Fixes #7: eliminates four copies of identical filter logic.
+   * Fix #5: domain matching is case-insensitive via `{ equals: …, mode: 'insensitive' }`.
+   */
+  private buildPoolWhere(orgId: string, config: Partial<PoolConfig>): any {
+    const where: any = { orgId, status: 'APPROVED' };
+    if (config.difficulty) where.difficulty = config.difficulty;
+    if (config.certificationId) where.certificationId = config.certificationId;
+    if (config.categories && config.categories.length > 0) {
+      // case-insensitive match for each category
+      where.OR = [
+        ...(where.OR ?? []),
+        ...config.categories.map((c) => ({
+          category: { equals: c, mode: 'insensitive' },
+        })),
+      ];
+    }
+    if (config.tags && config.tags.length > 0) {
+      where.tags = { hasSome: config.tags };
+    }
+    return where;
+  }
+
+  /**
    * Build AssessmentQuestion rows for BLUEPRINT mode.
-   * Queries APPROVED OrgQuestions by category (= domain) and picks randomly.
+   * Fix #3: single batched query per unique (difficulty, certificationId) instead of N+1.
+   * Fix #5: domain (category) matching is case-insensitive.
    */
   private async buildBlueprintQuestions(
     orgId: string,
@@ -70,7 +95,7 @@ export class AssessmentsService {
       );
     }
 
-    // Compute per-domain quotas (handle rounding by adjusting last domain)
+    // Compute per-domain quotas; last domain absorbs rounding remainder
     const quotas: { domain: string; count: number }[] = [];
     let allocated = 0;
     for (let i = 0; i < domains.length; i++) {
@@ -82,81 +107,84 @@ export class AssessmentsService {
       allocated += count;
     }
 
+    // Fix #3: one batched query for all needed domains, then partition in memory
+    const domainNames = quotas.filter((q) => q.count > 0).map((q) => q.domain);
+    const batchWhere: any = {
+      orgId,
+      status: 'APPROVED',
+      // case-insensitive IN via OR
+      OR: domainNames.map((d) => ({
+        category: { equals: d, mode: 'insensitive' },
+      })),
+    };
+    if (difficulty) batchWhere.difficulty = difficulty;
+    if (certificationId) batchWhere.certificationId = certificationId;
+
+    const allRows = await this.prisma.orgQuestion.findMany({
+      where: batchWhere,
+      select: { id: true, category: true },
+    });
+
+    // Group by lowercased category for O(1) lookup
+    const byDomain = new Map<string, string[]>();
+    for (const row of allRows) {
+      const key = (row.category ?? '').toLowerCase();
+      if (!byDomain.has(key)) byDomain.set(key, []);
+      byDomain.get(key)!.push(row.id);
+    }
+
     const picked: { orgQuestionId: string; sortOrder: number }[] = [];
     let sortOrder = 0;
 
     for (const { domain, count } of quotas) {
       if (count <= 0) continue;
-
-      const where: any = { orgId, status: 'APPROVED', category: domain };
-      if (difficulty) where.difficulty = difficulty;
-      if (certificationId) where.certificationId = certificationId;
-
-      const available = await this.prisma.orgQuestion.findMany({
-        where,
-        select: { id: true },
-      });
-
+      const available = byDomain.get(domain.toLowerCase()) ?? [];
       if (available.length < count) {
         throw new BadRequestException(
           `Not enough approved questions in domain "${domain}": need ${count}, found ${available.length}`,
         );
       }
-
       const shuffled = [...available].sort(() => Math.random() - 0.5);
-      for (const q of shuffled.slice(0, count)) {
-        picked.push({ orgQuestionId: q.id, sortOrder: sortOrder++ });
+      for (const id of shuffled.slice(0, count)) {
+        picked.push({ orgQuestionId: id, sortOrder: sortOrder++ });
       }
     }
 
     return picked;
   }
 
-  /** Count APPROVED questions matching a pool filter config. */
+  /**
+   * Count APPROVED questions matching a pool filter config.
+   * Fix #2/#7: uses shared buildPoolWhere.
+   */
   async countPoolQuestions(
     orgId: string,
     config: Partial<PoolConfig>,
   ): Promise<number> {
-    const where: any = { orgId, status: 'APPROVED' };
-    if (config.difficulty) where.difficulty = config.difficulty;
-    if (config.certificationId) where.certificationId = config.certificationId;
-    if (config.categories && config.categories.length > 0) {
-      where.category = { in: config.categories };
-    }
-    if (config.tags && config.tags.length > 0) {
-      where.tags = { hasSome: config.tags };
-    }
-    return this.prisma.orgQuestion.count({ where });
+    return this.prisma.orgQuestion.count({
+      where: this.buildPoolWhere(orgId, config),
+    });
   }
 
-  /** Draw `drawCount` random OrgQuestion IDs from pool. Public — used by CandidateService too. */
+  /**
+   * Draw `drawCount` random OrgQuestion IDs from pool.
+   * Fix #2: single query — eliminates separate count + findMany round-trip.
+   * Fix #7: uses shared buildPoolWhere.
+   * Public — called by CandidateService.
+   */
   async drawFromPool(orgId: string, config: PoolConfig): Promise<string[]> {
-    const { drawCount } = config;
-    const available = await this.countPoolQuestions(orgId, config);
-    if (available < drawCount) {
-      throw new BadRequestException(
-        `Not enough approved questions for pool: need ${drawCount}, found ${available}`,
-      );
-    }
-
-    const where: any = { orgId, status: 'APPROVED' };
-    if (config.difficulty) where.difficulty = config.difficulty;
-    if (config.certificationId) where.certificationId = config.certificationId;
-    if (config.categories && config.categories.length > 0) {
-      where.category = { in: config.categories };
-    }
-    if (config.tags && config.tags.length > 0) {
-      where.tags = { hasSome: config.tags };
-    }
-
-    const questions = await this.prisma.orgQuestion.findMany({
-      where,
+    const allIds = await this.prisma.orgQuestion.findMany({
+      where: this.buildPoolWhere(orgId, config),
       select: { id: true },
     });
-
-    return [...questions]
+    if (allIds.length < config.drawCount) {
+      throw new BadRequestException(
+        `Not enough approved questions for pool: need ${config.drawCount}, found ${allIds.length}`,
+      );
+    }
+    return [...allIds]
       .sort(() => Math.random() - 0.5)
-      .slice(0, drawCount)
+      .slice(0, config.drawCount)
       .map((q) => q.id);
   }
 
@@ -357,9 +385,17 @@ export class AssessmentsService {
       throw new BadRequestException('Only DRAFT assessments can be edited');
     }
 
-    const mode =
-      (dto.selectionMode as AssessmentSelectionMode) ??
-      (assessment.selectionMode as AssessmentSelectionMode);
+    // Fix #4: prevent silently changing selection mode after creation
+    if (
+      dto.selectionMode !== undefined &&
+      dto.selectionMode !== assessment.selectionMode
+    ) {
+      throw new BadRequestException(
+        `Cannot change selectionMode from ${assessment.selectionMode} to ${dto.selectionMode} after creation`,
+      );
+    }
+
+    const mode = assessment.selectionMode as AssessmentSelectionMode;
 
     return this.prisma.$transaction(async (tx) => {
       // ── BLUEPRINT: rebuild question list ──
