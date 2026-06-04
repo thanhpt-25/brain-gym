@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { isAllowedLocalUrl, isCloudProviderUrl } from "@/services/local-llm/local-llm-client";
+import {
+  isAllowedLocalUrl,
+  isCloudProviderUrl,
+} from "@/services/local-llm/local-llm-client";
 import { localLlmConfigStorage } from "@/services/local-llm/config-storage";
 import { LocalLlmConfig } from "@/services/local-llm/types";
 
@@ -132,11 +135,144 @@ describe("Local LLM Feature", () => {
 
       localLlmConfigStorage.set(config);
 
-      // Check that localStorage was updated with the correct key
-      const stored = localStorage.getItem("braingym:local-llm-config");
-      expect(stored).toBeDefined();
+      // Check that localStorage was updated with the correct (multi-config) key
+      const stored = localStorage.getItem("braingym:local-llm-configs");
+      expect(stored).toBeTruthy();
       expect(stored).toContain("localhost:11434");
       expect(stored).toContain("test-model");
+    });
+  });
+
+  describe("Multi-Config Storage", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("should store multiple profiles and list them", () => {
+      localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+        label: "Llama 3",
+      });
+      localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "mistral",
+      });
+
+      const list = localLlmConfigStorage.list();
+      expect(list).toHaveLength(2);
+      expect(list.map((c) => c.modelId).sort()).toEqual(["llama3", "mistral"]);
+    });
+
+    it("should not duplicate the same dialect+baseUrl+modelId profile", () => {
+      localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+      });
+      localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+        label: "renamed",
+      });
+
+      const list = localLlmConfigStorage.list();
+      expect(list).toHaveLength(1);
+      expect(list[0].label).toBe("renamed");
+    });
+
+    it("should preserve label/apiKey when an id update omits them", () => {
+      const saved = localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+        label: "My Llama",
+        apiKey: "secret",
+      });
+
+      // Update by id without passing label/apiKey — they must not be wiped.
+      localLlmConfigStorage.save({
+        id: saved.id,
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+      });
+
+      const updated = localLlmConfigStorage.getById(saved.id);
+      expect(updated?.label).toBe("My Llama");
+      expect(updated?.apiKey).toBe("secret");
+    });
+
+    it("should mark the most recently saved profile active", () => {
+      localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+      });
+      const second = localLlmConfigStorage.save({
+        dialect: "ollama",
+        baseUrl: "http://localhost:11434",
+        modelId: "mistral",
+      });
+
+      expect(localLlmConfigStorage.getActive()?.id).toBe(second.id);
+    });
+
+    it("should switch the active profile via setActive", () => {
+      const first = localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+      });
+      localLlmConfigStorage.save({
+        dialect: "ollama",
+        baseUrl: "http://localhost:11434",
+        modelId: "mistral",
+      });
+
+      localLlmConfigStorage.setActive(first.id);
+      expect(localLlmConfigStorage.getActive()?.modelId).toBe("llama3");
+    });
+
+    it("should remove one profile and reassign active when needed", () => {
+      const first = localLlmConfigStorage.save({
+        dialect: "openai",
+        baseUrl: "http://localhost:11434/v1",
+        modelId: "llama3",
+      });
+      const second = localLlmConfigStorage.save({
+        dialect: "ollama",
+        baseUrl: "http://localhost:11434",
+        modelId: "mistral",
+      });
+
+      // `second` is active; removing it should fall back to `first`.
+      localLlmConfigStorage.remove(second.id);
+      expect(localLlmConfigStorage.list()).toHaveLength(1);
+      expect(localLlmConfigStorage.getActive()?.id).toBe(first.id);
+    });
+
+    it("should migrate a legacy single-config entry into the new store", () => {
+      localStorage.setItem(
+        "braingym:local-llm-config",
+        JSON.stringify({
+          dialect: "ollama",
+          baseUrl: "http://localhost:11434",
+          modelId: "legacy-model",
+          savedAt: "2026-01-01T00:00:00.000Z",
+        }),
+      );
+
+      const list = localLlmConfigStorage.list();
+      expect(list).toHaveLength(1);
+      expect(list[0].modelId).toBe("legacy-model");
+      expect(list[0].id).toBeTruthy();
+      // Legacy key is cleared after migration.
+      expect(localStorage.getItem("braingym:local-llm-config")).toBeNull();
+      expect(localLlmConfigStorage.getActive()?.modelId).toBe("legacy-model");
     });
   });
 

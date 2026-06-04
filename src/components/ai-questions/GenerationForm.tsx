@@ -38,8 +38,10 @@ const PROVIDER_LABELS: Record<LlmProvider, string> = {
   GEMINI: "Google Gemini",
 };
 
-const LOCAL_PROVIDER = "LOCAL" as const;
-type ProviderValue = LlmProvider | typeof LOCAL_PROVIDER | "";
+// Local profiles are selected with a value of `local:<configId>` so multiple
+// saved local models can each appear as their own provider option.
+const LOCAL_PREFIX = "local:";
+type ProviderValue = LlmProvider | string;
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -79,7 +81,10 @@ export default function GenerationForm({ onResult }: Props) {
     queryFn: getCertifications,
   });
 
-  const localConfig = localLlmConfigStorage.get();
+  const localConfigs = localLlmConfigStorage.list();
+  const selectedLocalConfig = provider.startsWith(LOCAL_PREFIX)
+    ? localConfigs.find((c) => `${LOCAL_PREFIX}${c.id}` === provider)
+    : undefined;
   const selectedCert = (certs as Array<{ id: string; domains?: any[] }>).find(
     (c) => c.id === certificationId,
   );
@@ -145,7 +150,10 @@ export default function GenerationForm({ onResult }: Props) {
   // ─── Local generation ────────────────────────────────────────────────────────
 
   const handleLocalGenerate = async () => {
-    if (!localConfig) return;
+    if (!selectedLocalConfig) return;
+    // Mark the chosen profile active so the intake submit path records the
+    // correct model for the generated questions.
+    localLlmConfigStorage.setActive(selectedLocalConfig.id);
     setLocalError(null);
     setIsGeneratingLocal(true);
 
@@ -164,7 +172,7 @@ export default function GenerationForm({ onResult }: Props) {
           questionType === "MIXED" ? undefined : (questionType as QuestionType),
       };
 
-      const result = await generateLocalQuestions(localConfig, params);
+      const result = await generateLocalQuestions(selectedLocalConfig, params);
 
       if (result.previews.length === 0) {
         setLocalError(
@@ -203,7 +211,8 @@ export default function GenerationForm({ onResult }: Props) {
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
-  const isLocalSelected = provider === LOCAL_PROVIDER;
+  const isLocalSelected = provider.startsWith(LOCAL_PREFIX);
+  const hasLocalConfigs = localConfigs.length > 0;
   const isCloudGenerating = generateCloudMutation.isPending || !!pendingJobId;
   const canGenerate = provider !== "" && certificationId !== "";
 
@@ -224,7 +233,7 @@ export default function GenerationForm({ onResult }: Props) {
             <SelectValue placeholder="Select provider..." />
           </SelectTrigger>
           <SelectContent>
-            {configs.length === 0 && !localConfig && (
+            {configs.length === 0 && !hasLocalConfigs && (
               <SelectItem value="_none" disabled>
                 No providers configured
               </SelectItem>
@@ -235,30 +244,31 @@ export default function GenerationForm({ onResult }: Props) {
                 {c.modelId && `(${c.modelId})`}
               </SelectItem>
             ))}
-            {localConfig && (
-              <SelectItem value={LOCAL_PROVIDER}>
+            {localConfigs.map((cfg) => (
+              <SelectItem key={cfg.id} value={`${LOCAL_PREFIX}${cfg.id}`}>
                 <span className="flex items-center gap-1.5">
                   <Cpu className="h-3.5 w-3.5" />
-                  Local — {localConfig.modelId}
+                  Local — {cfg.label || cfg.modelId}
                 </span>
               </SelectItem>
-            )}
+            ))}
           </SelectContent>
         </Select>
 
-        {configs.length === 0 && !localConfig && (
+        {configs.length === 0 && !hasLocalConfigs && (
           <p className="text-xs text-muted-foreground">
             Add a cloud API key or configure a Local LLM in{" "}
             <strong>AI Settings</strong>.
           </p>
         )}
 
-        {isLocalSelected && localConfig && (
+        {isLocalSelected && selectedLocalConfig && (
           <Card className="bg-muted/40">
             <CardContent className="py-2 px-3 flex items-center gap-2 text-xs">
               <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
               <span>
-                <strong>{localConfig.modelId}</strong> via {localConfig.baseUrl}
+                <strong>{selectedLocalConfig.modelId}</strong> via{" "}
+                {selectedLocalConfig.baseUrl}
               </span>
             </CardContent>
           </Card>
