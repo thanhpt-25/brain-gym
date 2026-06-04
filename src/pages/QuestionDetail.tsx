@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Brain, ChevronLeft, ThumbsUp, ThumbsDown, MessageSquare, Flag, Trash2, Reply, Loader2, Send, BookOpen, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 const REPORT_REASONS: { value: ReportReason; label: string }[] = [
   { value: 'WRONG_ANSWER', label: 'Wrong answer' },
@@ -282,9 +283,11 @@ const QuestionDetail = () => {
 
             {/* Explanation */}
             {q.explanation && (
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 text-sm mb-6">
-                <strong className="text-primary block mb-1">Explanation</strong>
-                {q.explanation}
+              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 mb-6">
+                <strong className="text-primary block mb-2 text-sm">Explanation</strong>
+                <div className="text-muted-foreground">
+                  <MarkdownContent>{q.explanation}</MarkdownContent>
+                </div>
               </div>
             )}
 

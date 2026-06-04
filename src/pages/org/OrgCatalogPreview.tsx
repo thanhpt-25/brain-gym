@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, ArrowRight, Eye, Clock, FileText, CheckCircle2, GraduationCap, Loader2,
 } from 'lucide-react';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 const OrgCatalogPreview = () => {
   const navigate = useNavigate();
@@ -140,8 +141,11 @@ const OrgCatalogPreview = () => {
               </div>
 
               {revealed && explanation && (
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs font-mono text-muted-foreground">
-                  <span className="text-primary font-semibold">Explanation: </span>{explanation}
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <span className="text-xs font-mono font-semibold text-primary block mb-1">Explanation</span>
+                  <div className="text-muted-foreground">
+                    <MarkdownContent size="text-xs">{explanation}</MarkdownContent>
+                  </div>
                 </div>
               )}
 

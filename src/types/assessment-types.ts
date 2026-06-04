@@ -2,6 +2,33 @@ import type { PaginatedResponse } from './api-types';
 
 export type AssessmentStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
 export type CandidateAttemptStatus = 'INVITED' | 'STARTED' | 'SUBMITTED' | 'EXPIRED';
+export type AssessmentSelectionMode = 'MANUAL' | 'BLUEPRINT' | 'POOL';
+
+// ─── Blueprint / Pool config shapes ──────────────────────────────────────────
+
+export interface BlueprintDomain {
+  domain: string;
+  percentage: number;
+}
+
+export interface BlueprintConfig {
+  totalQuestions: number;
+  domains: BlueprintDomain[];
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  certificationId?: string;
+}
+
+export interface PoolConfig {
+  drawCount: number;
+  certificationId?: string;
+  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  categories?: string[];
+  tags?: string[];
+}
+
+export type SelectionConfig = BlueprintConfig | PoolConfig;
+
+// ─── Core types ───────────────────────────────────────────────────────────────
 
 export interface AssessmentQuestionRef {
   id: string;
@@ -18,6 +45,8 @@ export interface Assessment {
   title: string;
   description: string | null;
   status: AssessmentStatus;
+  selectionMode: AssessmentSelectionMode;
+  selectionConfig: SelectionConfig | null;
   questionCount: number;
   timeLimit: number;
   passingScore: number | null;
@@ -52,6 +81,7 @@ export interface CandidateInvite {
   startedAt: string | null;
   submittedAt: string | null;
   expiresAt: string;
+  drawnQuestionIds: string[];
   createdAt: string;
 }
 
@@ -103,7 +133,7 @@ export interface CandidateSubmitResult {
   timeSpent: number | null;
 }
 
-// ─── Request payloads ─────────────────────────────────────────────���──────────
+// ─── Request payloads ─────────────────────────────────────────────────────────
 
 export interface AssessmentQuestionPayload {
   orgQuestionId?: string;
@@ -121,7 +151,11 @@ export interface CreateAssessmentPayload {
   detectTabSwitch?: boolean;
   blockCopyPaste?: boolean;
   linkExpiryHours?: number;
-  questions: AssessmentQuestionPayload[];
+  // Selection mode fields
+  selectionMode?: AssessmentSelectionMode;
+  selectionConfig?: SelectionConfig;
+  // Required for MANUAL; omitted for BLUEPRINT/POOL
+  questions?: AssessmentQuestionPayload[];
 }
 
 export type UpdateAssessmentPayload = Partial<CreateAssessmentPayload>;

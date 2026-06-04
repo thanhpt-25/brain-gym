@@ -37,6 +37,23 @@ export class AssessmentsController {
     return this.service.list(orgId, Number(page) || 1, Number(limit) || 20);
   }
 
+  /** Preview: count APPROVED questions available for a given pool filter config. */
+  @Get('pool-count')
+  getPoolCount(
+    @Param('orgId') orgId: string,
+    @Query('difficulty') difficulty?: string,
+    @Query('certificationId') certificationId?: string,
+    @Query('categories') categories?: string,
+    @Query('tags') tags?: string,
+  ) {
+    return this.service.getPoolCount(orgId, {
+      difficulty: difficulty || undefined,
+      certificationId: certificationId || undefined,
+      categories: categories ? categories.split(',').map((c) => c.trim()).filter(Boolean) : undefined,
+      tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+    });
+  }
+
   @Post()
   create(
     @Param('orgId') orgId: string,

@@ -6,11 +6,33 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { MailService } from '../mail/mail.service';
-import { AssessmentStatus } from '@prisma/client';
+import { AssessmentSelectionMode, AssessmentStatus, Prisma } from '@prisma/client';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
 import { randomUUID } from 'crypto';
+
+// ─── Blueprint / Pool config shapes ─────────────────────────────────────────
+
+interface BlueprintDomain {
+  domain: string;
+  percentage: number;
+}
+
+interface BlueprintConfig {
+  totalQuestions: number;
+  domains: BlueprintDomain[];
+  difficulty?: string;
+  certificationId?: string;
+}
+
+interface PoolConfig {
+  drawCount: number;
+  certificationId?: string;
+  difficulty?: string;
+  categories?: string[];
+  tags?: string[];
+}
 
 @Injectable()
 export class AssessmentsService {
@@ -19,6 +41,154 @@ export class AssessmentsService {
     private readonly orgsService: OrganizationsService,
     private readonly mailService: MailService,
   ) {}
+
+  // ─── Private helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Shared Prisma `where` clause builder for pool/count queries.
+   * Fixes #7: eliminates four copies of identical filter logic.
+   * Fix #5: domain matching is case-insensitive via `{ equals: …, mode: 'insensitive' }`.
+   */
+  private buildPoolWhere(orgId: string, config: Partial<PoolConfig>): any {
+    const where: any = { orgId, status: 'APPROVED' };
+    if (config.difficulty) where.difficulty = config.difficulty;
+    if (config.certificationId) where.certificationId = config.certificationId;
+    if (config.categories && config.categories.length > 0) {
+      // case-insensitive match for each category
+      where.OR = [
+        ...(where.OR ?? []),
+        ...config.categories.map((c) => ({
+          category: { equals: c, mode: 'insensitive' },
+        })),
+      ];
+    }
+    if (config.tags && config.tags.length > 0) {
+      where.tags = { hasSome: config.tags };
+    }
+    return where;
+  }
+
+  /**
+   * Build AssessmentQuestion rows for BLUEPRINT mode.
+   * Fix #3: single batched query per unique (difficulty, certificationId) instead of N+1.
+   * Fix #5: domain (category) matching is case-insensitive.
+   */
+  private async buildBlueprintQuestions(
+    orgId: string,
+    config: BlueprintConfig,
+  ): Promise<{ orgQuestionId: string; sortOrder: number }[]> {
+    const { totalQuestions, domains, difficulty, certificationId } = config;
+
+    if (!domains || domains.length === 0) {
+      throw new BadRequestException(
+        'Blueprint config must include at least one domain',
+      );
+    }
+    if (totalQuestions < 1) {
+      throw new BadRequestException('totalQuestions must be >= 1');
+    }
+
+    const totalPct = domains.reduce((s, d) => s + d.percentage, 0);
+    if (Math.abs(totalPct - 100) > 1) {
+      throw new BadRequestException(
+        `Domain percentages must sum to 100 (got ${totalPct})`,
+      );
+    }
+
+    // Compute per-domain quotas; last domain absorbs rounding remainder
+    const quotas: { domain: string; count: number }[] = [];
+    let allocated = 0;
+    for (let i = 0; i < domains.length; i++) {
+      const isLast = i === domains.length - 1;
+      const count = isLast
+        ? totalQuestions - allocated
+        : Math.round((domains[i].percentage / 100) * totalQuestions);
+      quotas.push({ domain: domains[i].domain, count });
+      allocated += count;
+    }
+
+    // Fix #3: one batched query for all needed domains, then partition in memory
+    const domainNames = quotas.filter((q) => q.count > 0).map((q) => q.domain);
+    const batchWhere: any = {
+      orgId,
+      status: 'APPROVED',
+      // case-insensitive IN via OR
+      OR: domainNames.map((d) => ({
+        category: { equals: d, mode: 'insensitive' },
+      })),
+    };
+    if (difficulty) batchWhere.difficulty = difficulty;
+    if (certificationId) batchWhere.certificationId = certificationId;
+
+    const allRows = await this.prisma.orgQuestion.findMany({
+      where: batchWhere,
+      select: { id: true, category: true },
+    });
+
+    // Group by lowercased category for O(1) lookup
+    const byDomain = new Map<string, string[]>();
+    for (const row of allRows) {
+      const key = (row.category ?? '').toLowerCase();
+      if (!byDomain.has(key)) byDomain.set(key, []);
+      byDomain.get(key)!.push(row.id);
+    }
+
+    const picked: { orgQuestionId: string; sortOrder: number }[] = [];
+    let sortOrder = 0;
+
+    for (const { domain, count } of quotas) {
+      if (count <= 0) continue;
+      const available = byDomain.get(domain.toLowerCase()) ?? [];
+      if (available.length < count) {
+        throw new BadRequestException(
+          `Not enough approved questions in domain "${domain}": need ${count}, found ${available.length}`,
+        );
+      }
+      const shuffled = [...available].sort(() => Math.random() - 0.5);
+      for (const id of shuffled.slice(0, count)) {
+        picked.push({ orgQuestionId: id, sortOrder: sortOrder++ });
+      }
+    }
+
+    return picked;
+  }
+
+  /**
+   * Count APPROVED questions matching a pool filter config.
+   * Fix #2/#7: uses shared buildPoolWhere.
+   */
+  async countPoolQuestions(
+    orgId: string,
+    config: Partial<PoolConfig>,
+  ): Promise<number> {
+    return this.prisma.orgQuestion.count({
+      where: this.buildPoolWhere(orgId, config),
+    });
+  }
+
+  /**
+   * Draw `drawCount` random OrgQuestion IDs from pool.
+   * Fix #2: single query — eliminates separate count + findMany round-trip.
+   * Fix #7: uses shared buildPoolWhere.
+   * Public — called by CandidateService.
+   */
+  async drawFromPool(orgId: string, config: PoolConfig): Promise<string[]> {
+    const allIds = await this.prisma.orgQuestion.findMany({
+      where: this.buildPoolWhere(orgId, config),
+      select: { id: true },
+    });
+    if (allIds.length < config.drawCount) {
+      throw new BadRequestException(
+        `Not enough approved questions for pool: need ${config.drawCount}, found ${allIds.length}`,
+      );
+    }
+    return [...allIds]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, config.drawCount)
+      .map((q) => q.id);
+  }
+
+  // ─── CRUD ──────────────────────────────────────────────────────────────────
 
   async list(slugOrId: string, page = 1, limit = 20) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
@@ -37,7 +207,6 @@ export class AssessmentsService {
       this.prisma.assessment.count({ where: { orgId } }),
     ]);
 
-    // Enrich with aggregated candidate stats
     const enriched = await Promise.all(
       data.map(async (a) => {
         const stats = await this.prisma.candidateInvite.aggregate({
@@ -61,14 +230,101 @@ export class AssessmentsService {
 
   async create(slugOrId: string, userId: string, dto: CreateAssessmentDto) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const mode = dto.selectionMode ?? AssessmentSelectionMode.MANUAL;
 
     return this.prisma.$transaction(async (tx) => {
-      const assessment = await tx.assessment.create({
+      // ── BLUEPRINT ──
+      if (mode === AssessmentSelectionMode.BLUEPRINT) {
+        if (!dto.selectionConfig) {
+          throw new BadRequestException(
+            'selectionConfig is required for BLUEPRINT mode',
+          );
+        }
+        const config = dto.selectionConfig as BlueprintConfig;
+        const questionRows = await this.buildBlueprintQuestions(orgId, config);
+
+        return tx.assessment.create({
+          data: {
+            orgId,
+            title: dto.title,
+            description: dto.description,
+            selectionMode: AssessmentSelectionMode.BLUEPRINT,
+            selectionConfig: dto.selectionConfig,
+            questionCount: questionRows.length,
+            timeLimit: dto.timeLimit,
+            passingScore: dto.passingScore,
+            randomizeQuestions: dto.randomizeQuestions ?? true,
+            randomizeChoices: dto.randomizeChoices ?? true,
+            detectTabSwitch: dto.detectTabSwitch ?? false,
+            blockCopyPaste: dto.blockCopyPaste ?? false,
+            linkExpiryHours: dto.linkExpiryHours ?? 72,
+            createdBy: userId,
+            questions: {
+              create: questionRows.map((q) => ({
+                orgQuestionId: q.orgQuestionId,
+                sortOrder: q.sortOrder,
+              })),
+            },
+          },
+          include: {
+            _count: { select: { questions: true, candidateInvites: true } },
+          },
+        });
+      }
+
+      // ── POOL ──
+      if (mode === AssessmentSelectionMode.POOL) {
+        if (!dto.selectionConfig) {
+          throw new BadRequestException(
+            'selectionConfig is required for POOL mode',
+          );
+        }
+        const config = dto.selectionConfig as PoolConfig;
+        if (!config.drawCount || config.drawCount < 1) {
+          throw new BadRequestException(
+            'selectionConfig.drawCount must be >= 1 for POOL mode',
+          );
+        }
+        const available = await this.countPoolQuestions(orgId, config);
+        if (available < config.drawCount) {
+          throw new BadRequestException(
+            `Not enough approved questions for pool: need ${config.drawCount}, found ${available}`,
+          );
+        }
+
+        return tx.assessment.create({
+          data: {
+            orgId,
+            title: dto.title,
+            description: dto.description,
+            selectionMode: AssessmentSelectionMode.POOL,
+            selectionConfig: dto.selectionConfig,
+            questionCount: config.drawCount,
+            timeLimit: dto.timeLimit,
+            passingScore: dto.passingScore,
+            randomizeQuestions: dto.randomizeQuestions ?? true,
+            randomizeChoices: dto.randomizeChoices ?? true,
+            detectTabSwitch: dto.detectTabSwitch ?? false,
+            blockCopyPaste: dto.blockCopyPaste ?? false,
+            linkExpiryHours: dto.linkExpiryHours ?? 72,
+            createdBy: userId,
+            // No AssessmentQuestion rows — drawn per-candidate at startAttempt
+          },
+          include: {
+            _count: { select: { questions: true, candidateInvites: true } },
+          },
+        });
+      }
+
+      // ── MANUAL ──
+      const questions = dto.questions ?? [];
+      return tx.assessment.create({
         data: {
           orgId,
           title: dto.title,
           description: dto.description,
-          questionCount: dto.questions.length,
+          selectionMode: AssessmentSelectionMode.MANUAL,
+          questionCount: questions.length,
           timeLimit: dto.timeLimit,
           passingScore: dto.passingScore,
           randomizeQuestions: dto.randomizeQuestions ?? true,
@@ -78,7 +334,7 @@ export class AssessmentsService {
           linkExpiryHours: dto.linkExpiryHours ?? 72,
           createdBy: userId,
           questions: {
-            create: dto.questions.map((q, i) => ({
+            create: questions.map((q, i) => ({
               orgQuestionId: q.orgQuestionId ?? null,
               publicQuestionId: q.publicQuestionId ?? null,
               sortOrder: q.sortOrder ?? i,
@@ -89,7 +345,6 @@ export class AssessmentsService {
           _count: { select: { questions: true, candidateInvites: true } },
         },
       });
-      return assessment;
     });
   }
 
@@ -130,7 +385,101 @@ export class AssessmentsService {
       throw new BadRequestException('Only DRAFT assessments can be edited');
     }
 
+    // Fix #4: prevent silently changing selection mode after creation
+    if (
+      dto.selectionMode !== undefined &&
+      dto.selectionMode !== assessment.selectionMode
+    ) {
+      throw new BadRequestException(
+        `Cannot change selectionMode from ${assessment.selectionMode} to ${dto.selectionMode} after creation`,
+      );
+    }
+
+    const mode = assessment.selectionMode as AssessmentSelectionMode;
+
     return this.prisma.$transaction(async (tx) => {
+      // ── BLUEPRINT: rebuild question list ──
+      if (mode === AssessmentSelectionMode.BLUEPRINT) {
+        const config = (dto.selectionConfig ??
+          assessment.selectionConfig) as BlueprintConfig;
+        if (!config) {
+          throw new BadRequestException(
+            'selectionConfig is required for BLUEPRINT mode',
+          );
+        }
+        const questionRows = await this.buildBlueprintQuestions(orgId, config);
+
+        await tx.assessmentQuestion.deleteMany({ where: { assessmentId } });
+        await tx.assessmentQuestion.createMany({
+          data: questionRows.map((q) => ({
+            assessmentId,
+            orgQuestionId: q.orgQuestionId,
+            sortOrder: q.sortOrder,
+          })),
+        });
+
+        return tx.assessment.update({
+          where: { id: assessmentId },
+          data: {
+            ...(dto.title !== undefined && { title: dto.title }),
+            ...(dto.description !== undefined && { description: dto.description }),
+            ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
+            ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
+            ...(dto.randomizeQuestions !== undefined && { randomizeQuestions: dto.randomizeQuestions }),
+            ...(dto.randomizeChoices !== undefined && { randomizeChoices: dto.randomizeChoices }),
+            ...(dto.detectTabSwitch !== undefined && { detectTabSwitch: dto.detectTabSwitch }),
+            ...(dto.blockCopyPaste !== undefined && { blockCopyPaste: dto.blockCopyPaste }),
+            ...(dto.linkExpiryHours !== undefined && { linkExpiryHours: dto.linkExpiryHours }),
+            selectionMode: AssessmentSelectionMode.BLUEPRINT,
+            selectionConfig: (dto.selectionConfig ?? assessment.selectionConfig) as any,
+            questionCount: questionRows.length,
+          },
+          include: {
+            _count: { select: { questions: true, candidateInvites: true } },
+          },
+        });
+      }
+
+      // ── POOL: update config ──
+      if (mode === AssessmentSelectionMode.POOL) {
+        const config = (dto.selectionConfig ??
+          assessment.selectionConfig) as PoolConfig;
+        if (!config?.drawCount) {
+          throw new BadRequestException(
+            'selectionConfig.drawCount is required for POOL mode',
+          );
+        }
+        const available = await this.countPoolQuestions(orgId, config);
+        if (available < config.drawCount) {
+          throw new BadRequestException(
+            `Not enough approved questions for pool: need ${config.drawCount}, found ${available}`,
+          );
+        }
+        await tx.assessmentQuestion.deleteMany({ where: { assessmentId } });
+
+        return tx.assessment.update({
+          where: { id: assessmentId },
+          data: {
+            ...(dto.title !== undefined && { title: dto.title }),
+            ...(dto.description !== undefined && { description: dto.description }),
+            ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
+            ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
+            ...(dto.randomizeQuestions !== undefined && { randomizeQuestions: dto.randomizeQuestions }),
+            ...(dto.randomizeChoices !== undefined && { randomizeChoices: dto.randomizeChoices }),
+            ...(dto.detectTabSwitch !== undefined && { detectTabSwitch: dto.detectTabSwitch }),
+            ...(dto.blockCopyPaste !== undefined && { blockCopyPaste: dto.blockCopyPaste }),
+            ...(dto.linkExpiryHours !== undefined && { linkExpiryHours: dto.linkExpiryHours }),
+            selectionMode: AssessmentSelectionMode.POOL,
+            selectionConfig: (dto.selectionConfig ?? assessment.selectionConfig) as any,
+            questionCount: config.drawCount,
+          },
+          include: {
+            _count: { select: { questions: true, candidateInvites: true } },
+          },
+        });
+      }
+
+      // ── MANUAL ──
       if (dto.questions !== undefined) {
         await tx.assessmentQuestion.deleteMany({ where: { assessmentId } });
         if (dto.questions.length > 0) {
@@ -149,31 +498,17 @@ export class AssessmentsService {
         where: { id: assessmentId },
         data: {
           ...(dto.title !== undefined && { title: dto.title }),
-          ...(dto.description !== undefined && {
-            description: dto.description,
-          }),
+          ...(dto.description !== undefined && { description: dto.description }),
           ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
-          ...(dto.passingScore !== undefined && {
-            passingScore: dto.passingScore,
-          }),
-          ...(dto.randomizeQuestions !== undefined && {
-            randomizeQuestions: dto.randomizeQuestions,
-          }),
-          ...(dto.randomizeChoices !== undefined && {
-            randomizeChoices: dto.randomizeChoices,
-          }),
-          ...(dto.detectTabSwitch !== undefined && {
-            detectTabSwitch: dto.detectTabSwitch,
-          }),
-          ...(dto.blockCopyPaste !== undefined && {
-            blockCopyPaste: dto.blockCopyPaste,
-          }),
-          ...(dto.linkExpiryHours !== undefined && {
-            linkExpiryHours: dto.linkExpiryHours,
-          }),
-          ...(dto.questions !== undefined && {
-            questionCount: dto.questions.length,
-          }),
+          ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
+          ...(dto.randomizeQuestions !== undefined && { randomizeQuestions: dto.randomizeQuestions }),
+          ...(dto.randomizeChoices !== undefined && { randomizeChoices: dto.randomizeChoices }),
+          ...(dto.detectTabSwitch !== undefined && { detectTabSwitch: dto.detectTabSwitch }),
+          ...(dto.blockCopyPaste !== undefined && { blockCopyPaste: dto.blockCopyPaste }),
+          ...(dto.linkExpiryHours !== undefined && { linkExpiryHours: dto.linkExpiryHours }),
+          selectionMode: AssessmentSelectionMode.MANUAL,
+          selectionConfig: Prisma.JsonNull,
+          ...(dto.questions !== undefined && { questionCount: dto.questions.length }),
         },
         include: {
           _count: { select: { questions: true, candidateInvites: true } },
@@ -194,13 +529,17 @@ export class AssessmentsService {
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
-    if (
-      status === AssessmentStatus.ACTIVE &&
-      assessment._count.questions === 0
-    ) {
-      throw new BadRequestException(
-        'Cannot activate assessment with no questions',
-      );
+    if (status === AssessmentStatus.ACTIVE) {
+      const isPool = assessment.selectionMode === AssessmentSelectionMode.POOL;
+      const hasQuestions = isPool
+        ? (assessment.selectionConfig as any)?.drawCount > 0
+        : assessment._count.questions > 0;
+
+      if (!hasQuestions) {
+        throw new BadRequestException(
+          'Cannot activate assessment with no questions',
+        );
+      }
     }
 
     return this.prisma.assessment.update({
@@ -230,7 +569,6 @@ export class AssessmentsService {
         const token = randomUUID();
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + assessment.linkExpiryHours);
-
         return this.prisma.candidateInvite.create({
           data: {
             assessmentId,
@@ -243,7 +581,6 @@ export class AssessmentsService {
       }),
     );
 
-    // Send emails (fire-and-forget)
     for (const invite of invites) {
       this.mailService.sendAssessmentInvite(
         invite.candidateEmail,
@@ -313,5 +650,16 @@ export class AssessmentsService {
     return this.prisma.assessment.delete({
       where: { id: assessmentId, orgId },
     });
+  }
+
+  // ─── Pool count (preview for UI) ───────────────────────────────────────────
+
+  async getPoolCount(
+    slugOrId: string,
+    config: Partial<PoolConfig>,
+  ): Promise<{ available: number }> {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const available = await this.countPoolQuestions(orgId, config);
+    return { available };
   }
 }

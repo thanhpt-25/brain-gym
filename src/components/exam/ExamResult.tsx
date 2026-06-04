@@ -4,6 +4,7 @@ import { CheckCircle2, XCircle, Check, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AttemptResult } from '@/types/api-types';
 import { toast } from 'sonner';
+import MarkdownContent from '@/components/ui/MarkdownContent';
 
 interface ExamResultProps {
   result: AttemptResult;
@@ -101,7 +102,9 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
                         })}
                       </div>
                       {qr.explanation && (
-                        <p className="text-xs text-muted-foreground mt-2 italic">{qr.explanation}</p>
+                        <div className="mt-2 text-muted-foreground">
+                          <MarkdownContent size="text-xs">{qr.explanation}</MarkdownContent>
+                        </div>
                       )}
                     </div>
                   </div>

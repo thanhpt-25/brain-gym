@@ -5,11 +5,16 @@ import {
   GoneException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AssessmentsService } from './assessments.service';
 import { CandidateSubmitDto } from './dto/candidate-submit.dto';
+import { AssessmentSelectionMode } from '@prisma/client';
 
 @Injectable()
 export class CandidateService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly assessmentsService: AssessmentsService,
+  ) {}
 
   async loadAssessment(token: string) {
     const invite = await this.findInviteByToken(token);
@@ -36,7 +41,7 @@ export class CandidateService {
     const invite = await this.findInviteByToken(token);
 
     if (invite.status === 'STARTED') {
-      // Resume: return questions again
+      // Resume — return same question payload
       return this.buildQuestionPayload(invite.assessmentId, invite.id);
     }
 
@@ -70,17 +75,15 @@ export class CandidateService {
       );
     }
 
-    // Check time limit
     const assessment = await this.prisma.assessment.findUnique({
       where: { id: invite.assessmentId },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
+    // Enforce time limit (+30s grace)
     if (invite.startedAt) {
       const elapsed = (Date.now() - invite.startedAt.getTime()) / 1000;
-      const timeLimitSec = assessment.timeLimit * 60;
-      // Allow 30s grace
-      if (elapsed > timeLimitSec + 30) {
+      if (elapsed > assessment.timeLimit * 60 + 30) {
         await this.prisma.candidateInvite.update({
           where: { id: invite.id },
           data: { status: 'EXPIRED' },
@@ -89,14 +92,12 @@ export class CandidateService {
       }
     }
 
-    // Load assessment questions with correct answers
-    const assessmentQuestions = await this.prisma.assessmentQuestion.findMany({
-      where: { assessmentId: invite.assessmentId },
-      include: {
-        orgQuestion: { include: { choices: true } },
-        publicQuestion: { include: { choices: true } },
-      },
-    });
+    // Load questions for scoring (mode-aware)
+    const scoringQuestions = await this.loadQuestionsForScoring(
+      assessment.selectionMode as AssessmentSelectionMode,
+      invite.assessmentId,
+      invite.id,
+    );
 
     // Evaluate answers
     const domainScores: Record<string, { correct: number; total: number }> = {};
@@ -108,32 +109,24 @@ export class CandidateService {
       isCorrect: boolean;
     }[] = [];
 
-    for (const aq of assessmentQuestions) {
-      const question = aq.orgQuestion ?? aq.publicQuestion;
+    for (const { questionId, question, domain } of scoringQuestions) {
       if (!question) continue;
 
-      const questionId = question.id;
       const submitted = dto.answers.find((a) => a.questionId === questionId);
       const selectedChoices = submitted?.selectedChoices ?? [];
-      const correctChoiceIds = question.choices
-        .filter((c) => c.isCorrect)
-        .map((c) => c.id);
+      const correctChoiceIds = (question.choices ?? [])
+        .filter((c: any) => c.isCorrect)
+        .map((c: any) => c.id);
 
       const isCorrect =
         correctChoiceIds.length === selectedChoices.length &&
-        correctChoiceIds.every((id) => selectedChoices.includes(id));
+        correctChoiceIds.every((id: string) => selectedChoices.includes(id));
 
       if (isCorrect) totalCorrect++;
 
-      // Domain scoring (use category from org questions or domain from public questions)
-      const domainName =
-        (question as any).domain?.name ??
-        (question as any).category ??
-        'General';
-      if (!domainScores[domainName])
-        domainScores[domainName] = { correct: 0, total: 0 };
-      domainScores[domainName].total++;
-      if (isCorrect) domainScores[domainName].correct++;
+      if (!domainScores[domain]) domainScores[domain] = { correct: 0, total: 0 };
+      domainScores[domain].total++;
+      if (isCorrect) domainScores[domain].correct++;
 
       answerRecords.push({
         inviteId: invite.id,
@@ -143,14 +136,12 @@ export class CandidateService {
       });
     }
 
-    const totalQuestions = assessmentQuestions.length;
-    const score =
-      totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+    const totalQuestions = scoringQuestions.length;
+    const score = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
     const timeSpent = invite.startedAt
       ? Math.round((Date.now() - invite.startedAt.getTime()) / 1000)
       : null;
 
-    // Save results in a transaction
     await this.prisma.$transaction([
       this.prisma.candidateAnswer.createMany({ data: answerRecords }),
       this.prisma.candidateInvite.update({
@@ -190,7 +181,7 @@ export class CandidateService {
     }
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // ─── Private helpers ───────────────────────────────────────────────────────
 
   private async findInviteByToken(token: string) {
     const invite = await this.prisma.candidateInvite.findUnique({
@@ -211,6 +202,61 @@ export class CandidateService {
     return invite;
   }
 
+  /**
+   * Load questions with correct-answer info for scoring.
+   * POOL  → load from CandidateInvite.drawnQuestionIds (snapshot)
+   * MANUAL/BLUEPRINT → load from AssessmentQuestion table
+   */
+  private async loadQuestionsForScoring(
+    mode: AssessmentSelectionMode,
+    assessmentId: string,
+    inviteId: string,
+  ): Promise<{ questionId: string; question: any; domain: string }[]> {
+    if (mode === AssessmentSelectionMode.POOL) {
+      const invite = await this.prisma.candidateInvite.findUnique({
+        where: { id: inviteId },
+        select: { drawnQuestionIds: true },
+      });
+      const ids = invite?.drawnQuestionIds ?? [];
+
+      const questions = await this.prisma.orgQuestion.findMany({
+        where: { id: { in: ids } },
+        include: { choices: true },
+      });
+
+      return questions.map((q) => ({
+        questionId: q.id,
+        question: q,
+        domain: q.category ?? 'General',
+      }));
+    }
+
+    // MANUAL / BLUEPRINT
+    // Fix #6: removed dead `domain?.name` path — public Questions use a `domain`
+    // relation, OrgQuestions use `category`. POOL already handled above.
+    const aqRows = await this.prisma.assessmentQuestion.findMany({
+      where: { assessmentId },
+      include: {
+        orgQuestion: { include: { choices: true } },
+        publicQuestion: { include: { choices: true } },
+      },
+    });
+
+    return aqRows
+      .map((aq) => {
+        const q = aq.orgQuestion ?? aq.publicQuestion;
+        if (!q) return null;
+        // OrgQuestion → category; public Question → domain.name (populated via join elsewhere)
+        const domain = (q as any).category ?? 'General';
+        return { questionId: q.id, question: q, domain };
+      })
+      .filter(Boolean) as { questionId: string; question: any; domain: string }[];
+  }
+
+  /**
+   * Build the question payload sent to the candidate browser.
+   * POOL mode: draws and snapshots question IDs on first call (idempotent on resume).
+   */
   private async buildQuestionPayload(assessmentId: string, inviteId: string) {
     const assessment = await this.prisma.assessment.findUnique({
       where: { id: assessmentId },
@@ -218,38 +264,30 @@ export class CandidateService {
         questions: {
           orderBy: { sortOrder: 'asc' },
           include: {
-            orgQuestion: {
-              include: { choices: { orderBy: { sortOrder: 'asc' } } },
-            },
-            publicQuestion: {
-              include: { choices: { orderBy: { sortOrder: 'asc' } } },
-            },
+            orgQuestion: { include: { choices: { orderBy: { sortOrder: 'asc' } } } },
+            publicQuestion: { include: { choices: { orderBy: { sortOrder: 'asc' } } } },
           },
         },
       },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
-    let questions = assessment.questions
-      .map((aq) => {
-        const q = aq.orgQuestion ?? aq.publicQuestion;
-        if (!q) return null;
-        return {
-          id: q.id,
-          title: q.title,
-          description: (q as any).description ?? null,
-          questionType: (q as any).questionType ?? 'SINGLE_CHOICE',
-          choices: q.choices.map((c) => ({
-            id: c.id,
-            label: c.label,
-            content: c.content,
-          })),
-        };
-      })
-      .filter(Boolean);
+    let questions: any[];
+
+    if (assessment.selectionMode === AssessmentSelectionMode.POOL) {
+      questions = await this.buildPoolQuestions(assessment, inviteId);
+    } else {
+      // MANUAL / BLUEPRINT
+      questions = assessment.questions
+        .map((aq) => {
+          const q = aq.orgQuestion ?? aq.publicQuestion;
+          return q ? this.toClientQuestion(q) : null;
+        })
+        .filter(Boolean);
+    }
 
     if (assessment.randomizeQuestions) {
-      questions = questions.sort(() => Math.random() - 0.5);
+      questions = [...questions].sort(() => Math.random() - 0.5);
     }
     if (assessment.randomizeChoices) {
       questions = questions.map((q: any) => ({
@@ -265,6 +303,83 @@ export class CandidateService {
       blockCopyPaste: assessment.blockCopyPaste,
       totalQuestions: questions.length,
       questions,
+    };
+  }
+
+  /**
+   * For POOL mode: draw random questions and snapshot IDs to CandidateInvite
+   * so the same set is returned on resume/reload (idempotent).
+   *
+   * Fix #1 (Critical): atomic conditional UPDATE prevents the TOCTOU race where
+   * two concurrent startAttempt calls both see drawnQuestionIds = [] and write
+   * different sets. We only write when the column is still empty; if another
+   * request already wrote first (0 rows affected) we reload from DB.
+   */
+  private async buildPoolQuestions(
+    assessment: any,
+    inviteId: string,
+  ): Promise<any[]> {
+    const invite = await this.prisma.candidateInvite.findUnique({
+      where: { id: inviteId },
+      select: { drawnQuestionIds: true },
+    });
+
+    let ids: string[] = invite?.drawnQuestionIds ?? [];
+
+    if (ids.length === 0) {
+      // Draw a new set
+      const config = assessment.selectionConfig as any;
+      const drawn = await this.assessmentsService.drawFromPool(
+        assessment.orgId,
+        config,
+      );
+
+      // Atomic write: only update if the column is still empty (no concurrent winner)
+      const affected = await this.prisma.$executeRaw`
+        UPDATE candidate_invites
+        SET drawn_question_ids = ${drawn}::text[]
+        WHERE id = ${inviteId}::uuid
+          AND drawn_question_ids = '{}'::text[]
+      `;
+
+      if (affected > 0) {
+        // We won the race — use the set we drew
+        ids = drawn;
+      } else {
+        // Another concurrent request already snapshotted — reload the winner's set
+        const fresh = await this.prisma.candidateInvite.findUnique({
+          where: { id: inviteId },
+          select: { drawnQuestionIds: true },
+        });
+        ids = fresh?.drawnQuestionIds ?? drawn; // fallback to drawn if reload fails
+      }
+    }
+
+    const orgQuestions = await this.prisma.orgQuestion.findMany({
+      where: { id: { in: ids } },
+      include: { choices: { orderBy: { sortOrder: 'asc' } } },
+    });
+
+    // Preserve draw order
+    const qMap = new Map(orgQuestions.map((q) => [q.id, q]));
+    return ids
+      .map((id) => qMap.get(id))
+      .filter(Boolean)
+      .map((q) => this.toClientQuestion(q));
+  }
+
+  /** Map a DB question row to the client-facing shape (strips isCorrect). */
+  private toClientQuestion(q: any) {
+    return {
+      id: q.id,
+      title: q.title,
+      description: q.description ?? null,
+      questionType: q.questionType ?? 'SINGLE',
+      choices: (q.choices ?? []).map((c: any) => ({
+        id: c.id,
+        label: c.label,
+        content: c.content,
+      })),
     };
   }
 }

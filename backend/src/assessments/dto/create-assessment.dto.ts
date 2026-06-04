@@ -9,8 +9,11 @@ import {
   MaxLength,
   Min,
   Max,
+  IsEnum,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { AssessmentSelectionMode } from '@prisma/client';
 
 export class AssessmentQuestionDto {
   @IsOptional()
@@ -69,8 +72,20 @@ export class CreateAssessmentDto {
   @Min(1)
   linkExpiryHours?: number;
 
+  @IsOptional()
+  @IsEnum(AssessmentSelectionMode)
+  selectionMode?: AssessmentSelectionMode;
+
+  // BLUEPRINT: {totalQuestions, domains:[{domain,percentage}], difficulty?, certificationId?}
+  // POOL:      {drawCount, certificationId?, difficulty?, categories?:[string], tags?:[string]}
+  @IsOptional()
+  @IsObject()
+  selectionConfig?: Record<string, any>;
+
+  // Required for MANUAL; optional/ignored for BLUEPRINT and POOL
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AssessmentQuestionDto)
-  questions: AssessmentQuestionDto[];
+  questions?: AssessmentQuestionDto[];
 }

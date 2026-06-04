@@ -181,6 +181,12 @@ enum AssessmentStatus {
   ARCHIVED
 }
 
+enum AssessmentSelectionMode {
+  MANUAL
+  BLUEPRINT
+  POOL
+}
+
 enum CandidateAttemptStatus {
   INVITED
   STARTED
@@ -1008,22 +1014,26 @@ model OrgExamAssignment {
 // ─── CANDIDATE ASSESSMENT (External Invitations) ───
 
 model Assessment {
-  id                 String           @id @default(uuid())
-  orgId              String           @map("org_id")
+  id                 String                   @id @default(uuid())
+  orgId              String                   @map("org_id")
   title              String
   description        String?
-  status             AssessmentStatus @default(DRAFT)
-  questionCount      Int              @map("question_count")
-  timeLimit          Int              @map("time_limit")
-  passingScore       Int?             @map("passing_score")
-  randomizeQuestions Boolean          @default(true) @map("randomize_questions")
-  randomizeChoices   Boolean          @default(true) @map("randomize_choices")
-  detectTabSwitch    Boolean          @default(false) @map("detect_tab_switch")
-  blockCopyPaste     Boolean          @default(false) @map("block_copy_paste")
-  linkExpiryHours    Int              @default(72) @map("link_expiry_hours")
-  createdBy          String           @map("created_by")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
+  status             AssessmentStatus         @default(DRAFT)
+  selectionMode      AssessmentSelectionMode  @default(MANUAL) @map("selection_mode")
+  /// BLUEPRINT: {totalQuestions, domains:[{domain,percentage}], difficulty?, certificationId?}
+  /// POOL:      {drawCount, certificationId?, difficulty?, categories?:[string], tags?:[string]}
+  selectionConfig    Json?                    @map("selection_config")
+  questionCount      Int                      @map("question_count")
+  timeLimit          Int                      @map("time_limit")
+  passingScore       Int?                     @map("passing_score")
+  randomizeQuestions Boolean                  @default(true) @map("randomize_questions")
+  randomizeChoices   Boolean                  @default(true) @map("randomize_choices")
+  detectTabSwitch    Boolean                  @default(false) @map("detect_tab_switch")
+  blockCopyPaste     Boolean                  @default(false) @map("block_copy_paste")
+  linkExpiryHours    Int                      @default(72) @map("link_expiry_hours")
+  createdBy          String                   @map("created_by")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
 
   organization     Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   candidateInvites CandidateInvite[]
@@ -1062,8 +1072,10 @@ model CandidateInvite {
   ipAddress      String?                @map("ip_address")
   startedAt      DateTime?              @map("started_at")
   submittedAt    DateTime?              @map("submitted_at")
-  expiresAt      DateTime               @map("expires_at")
-  createdAt      DateTime               @default(now()) @map("created_at")
+  expiresAt        DateTime               @map("expires_at")
+  /// POOL mode: snapshot of drawn OrgQuestion IDs for this invite (idempotent re-load)
+  drawnQuestionIds String[]               @default([]) @map("drawn_question_ids")
+  createdAt        DateTime               @default(now()) @map("created_at")
 
   assessment Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   answers    CandidateAnswer[]
