@@ -1,33 +1,65 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
-
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## CertGym Backend
+# CertGym Backend
 
 NestJS API server for the CertGym certification exam preparation platform.
 
-### Auth Endpoints
+## Stack
 
-`POST /api/v1/auth/login` and `POST /api/v1/auth/refresh` return:
+- **NestJS 11** — modular server framework
+- **Prisma ORM** — type-safe database access to PostgreSQL 16
+- **Passport.js** — JWT authentication with access + refresh token flow
+- **BullMQ** — async job queue backed by Redis (AI generation, score computation)
+- **Swagger** — auto-generated API docs at `/api/docs`
+
+---
+
+## Setup
+
+```bash
+npm install               # installs deps and runs prisma generate
+cp .env.example .env      # fill in DATABASE_URL, JWT secrets, etc.
+npx prisma migrate dev    # apply all migrations
+npx prisma db seed        # seed demo certifications and questions
+npm run start:dev         # hot-reload on :3000
+```
+
+> The `postinstall` hook runs `prisma generate` automatically. In git worktrees, always run `npm install` first to avoid enum/type errors.
+
+---
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run start:dev` | Start with hot reload |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm run test` | Jest unit tests |
+| `npm run test:e2e` | End-to-end tests |
+| `npm run test:cov` | Unit tests with coverage report |
+| `npx prisma migrate dev` | Run pending migrations |
+| `npx prisma migrate reset` | Reset DB and re-apply all migrations |
+| `npx prisma db seed` | Seed development data |
+| `npx prisma studio` | Open interactive database GUI |
+
+---
+
+## Module Overview
+
+| Module | Path | Description |
+|--------|------|-------------|
+| `auth` | `src/auth/` | JWT login, refresh token, Passport guards |
+| `users` | `src/users/` | User profiles, roles |
+| `exam` | `src/exam/` | Exam sessions, submissions, scoring, analytics |
+| `training` | `src/training/` | Flashcard SRS, AI coach, burnout detection, readiness scores |
+| `ai-question-bank` | `src/ai-question-bank/` | AI question generation, LLM usage tracking, DDS |
+| `organizations` | `src/organizations/` | Multi-tenant orgs, members, entrance exams |
+| `squads` | `src/squads/` | Peer groups, reputation, leaderboards |
+| `certifications` | `src/certifications/` | Cert catalog and domain management |
+
+---
+
+## Auth
+
+`POST /api/v1/auth/login` and `POST /api/v1/auth/refresh` both return:
 
 ```json
 {
@@ -37,7 +69,7 @@ NestJS API server for the CertGym certification exam preparation platform.
     "id": "...",
     "email": "...",
     "displayName": "...",
-    "role": "...",
+    "role": "USER",
     "orgMemberships": [
       { "orgId": "...", "slug": "acme", "name": "Acme Corp", "role": "MEMBER" }
     ]
@@ -45,82 +77,41 @@ NestJS API server for the CertGym certification exam preparation platform.
 }
 ```
 
-`orgMemberships` contains all active org memberships for the authenticated user, enabling the frontend to determine org context without additional API calls.
+`orgMemberships` lets the frontend determine org context without extra API calls. Access tokens expire in 15 minutes; refresh tokens in 7 days.
 
 ---
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Environment Variables
 
 ```bash
-$ npm install
+DATABASE_URL=postgresql://certgym:password@localhost:5432/certgym?schema=public
+REDIS_HOST=localhost
+REDIS_PORT=6379
+JWT_SECRET=your-secret
+JWT_REFRESH_SECRET=your-refresh-secret
+LLM_KEY_ENCRYPTION_SECRET=your-encryption-secret
+PORT=3000
+NODE_ENV=development
 ```
 
-## Compile and run the project
+In production, secrets are injected via AWS Secrets Manager — see [docs/deployment/aws-overview.md](../docs/deployment/aws-overview.md).
 
-```bash
-# development
-$ npm run start
+---
 
-# watch mode
-$ npm run start:dev
+## Database
 
-# production mode
-$ npm run start:prod
-```
+Schema is defined in `prisma/schema.prisma`. Key domains:
 
-## Run tests
+- **Users & Auth** — `User`, `RefreshToken`
+- **Questions** — `Question`, `QuestionOption`, `QuestionVariant` (DDS)
+- **Exams** — `ExamSession`, `ExamAttempt`, `ExamAnswer`
+- **Flashcards** — `Flashcard`, `FlashcardReview` (SM-2 SRS fields)
+- **Organizations** — `Organization`, `OrgMember`, `EntranceExam`
+- **Squads** — `Squad`, `SquadMember`, `ReputationEvent`
+- **AI & Training** — `CoachSession`, `CoachMessage`, `LlmUsageEvent`, `ReadinessScore`
 
-```bash
-# unit tests
-$ npm run test
+---
 
-# e2e tests
-$ npm run test:e2e
+## API Documentation
 
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Swagger UI is available at `/api/docs` when the server is running. All endpoints are decorated with `@ApiOperation` and `@ApiResponse`.
