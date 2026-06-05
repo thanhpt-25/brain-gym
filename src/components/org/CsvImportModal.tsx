@@ -26,11 +26,33 @@ interface Props {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** RFC-4180 compliant CSV column splitter — handles quoted fields with commas. */
+const splitCsvLine = (line: string): string[] => {
+  const cols: string[] = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; } // escaped quote
+      else inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      cols.push(cur.trim());
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  cols.push(cur.trim());
+  return cols;
+};
+
 const parseCsv = (text: string): CandidateRow[] => {
-  const lines = text.trim().split('\n');
+  // Normalise Windows \r\n line endings
+  const lines = text.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   if (lines.length === 0) return [];
 
-  // Detect header
+  // Detect header row
   const firstLine = lines[0].toLowerCase();
   const hasHeader =
     firstLine.includes('email') || firstLine.includes('name');
@@ -40,11 +62,7 @@ const parseCsv = (text: string): CandidateRow[] => {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      // Handle quoted CSV
-      const cols = line
-        .split(',')
-        .map((c) => c.trim().replace(/^"|"$/g, '').trim());
-
+      const cols = splitCsvLine(line);
       const email = cols[0] ?? '';
       const name = cols[1] || undefined;
 

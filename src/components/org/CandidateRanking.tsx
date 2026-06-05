@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -108,6 +108,12 @@ const CandidateDetailDrawer = ({
 }: DrawerProps) => {
   const [note, setNote] = useState(candidate?.recruiterNote ?? '');
   const [rating, setRating] = useState<number | null>(candidate?.rating ?? null);
+
+  // Sync state when a different candidate is opened
+  useEffect(() => {
+    setNote(candidate?.recruiterNote ?? '');
+    setRating(candidate?.rating ?? null);
+  }, [candidate?.id]);
 
   const mutation = useMutation({
     mutationFn: (data: Parameters<typeof updateCandidateDecision>[3]) =>
@@ -337,9 +343,8 @@ const CandidateRanking = ({
                   const StageCfg = stageConfig[stage];
 
                   return (
-                    <>
+                    <Fragment key={c.id}>
                       <tr
-                        key={c.id}
                         className="border-b border-border/50 hover:bg-muted/20 transition-colors"
                       >
                         {/* expand toggle */}
@@ -503,7 +508,7 @@ const CandidateRanking = ({
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

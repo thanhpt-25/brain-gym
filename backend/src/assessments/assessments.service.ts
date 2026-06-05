@@ -670,38 +670,43 @@ export class AssessmentsService {
       dto.stage === CandidateStage.REJECTED ||
       dto.stage === CandidateStage.SHORTLISTED;
 
+    const data = {
+      ...(dto.stage !== undefined && { stage: dto.stage }),
+      ...(dto.rating !== undefined && { rating: dto.rating }),
+      ...(dto.recruiterNote !== undefined && { recruiterNote: dto.recruiterNote }),
+      ...(isStageDecision && { decidedBy: decidedByUserId, decidedAt: new Date() }),
+    };
+
+    // No-op guard — avoid hitting the DB if nothing changed
+    if (Object.keys(data).length === 0) return invite;
+
     return this.prisma.candidateInvite.update({
       where: { id: inviteId },
-      data: {
-        ...(dto.stage !== undefined && { stage: dto.stage }),
-        ...(dto.rating !== undefined && { rating: dto.rating }),
-        ...(dto.recruiterNote !== undefined && {
-          recruiterNote: dto.recruiterNote,
-        }),
-        ...(isStageDecision && {
-          decidedBy: decidedByUserId,
-          decidedAt: new Date(),
-        }),
-      },
+      data,
     });
   }
 
   async exportCsv(slugOrId: string, assessmentId: string): Promise<string> {
     const results = await this.getResults(slugOrId, assessmentId);
     const header =
-      'Name,Email,Status,Score (%),Total Correct,Total Questions,Time Spent (s),Tab Switches,Started At,Submitted At';
+      'Name,Email,Attempt Status,Stage,Score (%),Percentile,Total Correct,Total Questions,Rating,Time Spent (s),Tab Switches,Started At,Submitted At,Recruiter Note';
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const rows = results.candidates.map((c) =>
       [
-        c.candidateName ?? '',
-        c.candidateEmail,
+        esc(c.candidateName ?? ''),
+        esc(c.candidateEmail),
         c.status,
+        c.stage ?? 'APPLIED',
         c.score != null ? Number(c.score).toFixed(2) : '',
+        c.percentile != null ? c.percentile : '',
         c.totalCorrect ?? '',
         c.totalQuestions ?? '',
+        c.rating ?? '',
         c.timeSpent ?? '',
         c.tabSwitchCount ?? 0,
         c.startedAt?.toISOString() ?? '',
         c.submittedAt?.toISOString() ?? '',
+        esc(c.recruiterNote ?? ''),
       ].join(','),
     );
     return [header, ...rows].join('\n');
