@@ -12,8 +12,10 @@ import { AssessmentSelectionMode } from '@prisma/client';
 import * as crypto from 'crypto';
 
 const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const CLIENT_TS_SKEW_MS = 60 * 60 * 1000; // allow ±1 hour skew
 
-// In-memory OTP store (Redis-ready interface — swap with Redis in production)
+// In-memory OTP store — works for single-process (dev/single-pod).
+// Replace otpStore.get/set/delete with Redis calls (SETEX + GET + DEL) for multi-process.
 const otpStore = new Map<string, { hash: string; expiresAt: number }>();
 
 @Injectable()
@@ -53,18 +55,23 @@ export class CandidateService {
     const invite = await this.findInviteByToken(token);
     const assessment = await this.prisma.assessment.findUnique({
       where: { id: invite.assessmentId },
-      select: { requireOtp: true, title: true },
+      select: { requireOtp: true },
     });
     if (!assessment?.requireOtp) {
       throw new BadRequestException('OTP is not required for this assessment');
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Fix #9: use cryptographically secure random integer
+    const code = crypto.randomInt(100_000, 1_000_000).toString();
     const hash = crypto.createHash('sha256').update(code).digest('hex');
     otpStore.set(invite.id, { hash, expiresAt: Date.now() + OTP_TTL_MS });
 
-    // TODO: integrate real email service; for now log in dev
-    console.log(`[OTP] ${invite.candidateEmail} → ${code} (assessment: ${assessment.title})`);
+    // Fix #3: never log the raw OTP code — only log masked email for traceability
+    const masked = invite.candidateEmail.replace(/(.{2}).+(@.+)/, '$1***$2');
+    console.log(`[OTP] code sent to ${masked}`);
+
+    // TODO: integrate real email service (Mailtrap dev → SES/SendGrid prod)
+    // emailService.sendOtp(invite.candidateEmail, code);
 
     return { message: `OTP sent to ${invite.candidateEmail}` };
   }
@@ -120,21 +127,22 @@ export class CandidateService {
       throw new ForbiddenException('OTP verification required before starting');
     }
 
-    // Guard: maxAttempts — count previous SUBMITTED invites for same email+assessment
-    if (assessment.maxAttempts > 1) {
-      const previousAttempts = await this.prisma.candidateInvite.count({
-        where: {
-          assessmentId: invite.assessmentId,
-          candidateEmail: invite.candidateEmail,
-          status: 'SUBMITTED',
-          id: { not: invite.id },
-        },
-      });
-      if (previousAttempts >= assessment.maxAttempts) {
-        throw new ForbiddenException(
-          `Maximum attempts (${assessment.maxAttempts}) reached for this assessment`,
-        );
-      }
+    // Fix #6: guard applies for all maxAttempts values (including default 1).
+    // Count all SUBMITTED invites for this email+assessment excluding this invite.
+    // (status !== 'INVITED' already blocks this specific invite re-entry,
+    //  but a second invite token for the same email would bypass that check.)
+    const previousAttempts = await this.prisma.candidateInvite.count({
+      where: {
+        assessmentId: invite.assessmentId,
+        candidateEmail: invite.candidateEmail,
+        status: 'SUBMITTED',
+        id: { not: invite.id },
+      },
+    });
+    if (previousAttempts >= assessment.maxAttempts) {
+      throw new ForbiddenException(
+        `Maximum attempts (${assessment.maxAttempts}) reached for this assessment`,
+      );
     }
 
     await this.prisma.candidateInvite.update({
@@ -228,11 +236,17 @@ export class CandidateService {
       ? Math.round((Date.now() - invite.startedAt.getTime()) / 1000)
       : null;
 
-    const integrityScore = await this.computeIntegrityScore(invite.id, invite.tabSwitchCount ?? 0);
+    // Fix #7: compute integrity score inside the transaction so the event snapshot
+    // is consistent with the final integrityScore written to the row.
+    const result = await this.prisma.$transaction(async (tx) => {
+      const events = await tx.candidateEvent.findMany({
+        where: { inviteId: invite.id },
+        select: { eventType: true },
+      });
+      const integrityScore = this.calcIntegrityScore(events, invite.tabSwitchCount ?? 0);
 
-    await this.prisma.$transaction([
-      this.prisma.candidateAnswer.createMany({ data: answerRecords }),
-      this.prisma.candidateInvite.update({
+      await tx.candidateAnswer.createMany({ data: answerRecords });
+      await tx.candidateInvite.update({
         where: { id: invite.id },
         data: {
           status: 'SUBMITTED',
@@ -244,8 +258,10 @@ export class CandidateService {
           integrityScore,
           submittedAt: new Date(),
         },
-      }),
-    ]);
+      });
+
+      return integrityScore;
+    });
 
     return {
       score: Number(score.toFixed(2)),
@@ -256,21 +272,24 @@ export class CandidateService {
           ? score >= assessment.passingScore
           : null,
       timeSpent,
-      integrityScore,
+      integrityScore: result,
     };
   }
 
   async reportEvent(token: string, eventType: string, clientTs?: string, payload?: any) {
     const invite = await this.findInviteByToken(token);
 
-    const ts = clientTs ? new Date(clientTs) : new Date();
+    // Fix #5: clamp client-supplied timestamp to ±1 hour of server time
+    const now = Date.now();
+    const rawTs = clientTs ? new Date(clientTs).getTime() : now;
+    const clampedTs = new Date(Math.max(now - CLIENT_TS_SKEW_MS, Math.min(now, rawTs)));
 
     await this.prisma.candidateEvent.create({
       data: {
         inviteId: invite.id,
         eventType: eventType.toUpperCase(),
         payload: payload ?? {},
-        clientTs: ts,
+        clientTs: clampedTs,
       },
     });
 
@@ -283,7 +302,14 @@ export class CandidateService {
     }
   }
 
-  async getEvents(inviteId: string) {
+  // Fix #4: verify inviteId belongs to the given assessmentId before returning events
+  async getEvents(inviteId: string, assessmentId: string) {
+    const invite = await this.prisma.candidateInvite.findFirst({
+      where: { id: inviteId, assessmentId },
+      select: { id: true },
+    });
+    if (!invite) throw new NotFoundException('Candidate not found for this assessment');
+
     return this.prisma.candidateEvent.findMany({
       where: { inviteId },
       orderBy: { clientTs: 'asc' },
@@ -292,12 +318,11 @@ export class CandidateService {
 
   // ─── Private helpers ───────────────────────────────────────────────────────
 
-  private async computeIntegrityScore(inviteId: string, tabSwitchCount: number): Promise<number> {
-    const events = await this.prisma.candidateEvent.findMany({
-      where: { inviteId },
-      select: { eventType: true },
-    });
-
+  // Fix #7: pure function — called inside $transaction with pre-fetched events
+  private calcIntegrityScore(
+    events: { eventType: string }[],
+    tabSwitchCount: number,
+  ): number {
     const countOf = (type: string) =>
       events.filter((e) => e.eventType === type).length;
 
@@ -434,6 +459,8 @@ export class CandidateService {
   /**
    * For POOL mode: draw random questions and snapshot IDs to CandidateInvite
    * so the same set is returned on resume/reload (idempotent).
+   * Atomic conditional UPDATE prevents the TOCTOU race where two concurrent
+   * startAttempt calls both see drawnQuestionIds = [] and write different sets.
    */
   private async buildPoolQuestions(
     assessment: any,

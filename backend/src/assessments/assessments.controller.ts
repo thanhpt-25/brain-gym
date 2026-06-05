@@ -123,9 +123,10 @@ export class AssessmentsController {
 
   @Get(':aid/candidates/:inviteId/events')
   getCandidateEvents(
+    @Param('aid') aid: string,
     @Param('inviteId') inviteId: string,
   ) {
-    return this.candidateService.getEvents(inviteId);
+    return this.candidateService.getEvents(inviteId, aid);
   }
 
   @Delete(':aid')

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
@@ -41,17 +41,6 @@ const CandidateExam = () => {
     queryFn: () => loadCandidateAssessment(token!),
     enabled: !!token,
   });
-
-  useEffect(() => {
-    if (!assessmentInfo) return;
-    if (assessmentInfo.status === 'STARTED') {
-      handleStart();
-    } else if (assessmentInfo.status === 'SUBMITTED') {
-      navigate(`/assess/${token}/result`, { replace: true });
-    } else {
-      setPhase('intro');
-    }
-  }, [assessmentInfo]);
 
   const startMutation = useMutation({
     mutationFn: () => startCandidateAttempt(token!),
@@ -104,14 +93,26 @@ const CandidateExam = () => {
     }, 1000);
   };
 
-  const handleStart = () => {
+  // Fix #10: useCallback so useEffect dep array is stable and doesn't stale-close
+  const handleStart = useCallback(() => {
     if (assessmentInfo?.requireOtp && !assessmentInfo.otpVerifiedAt) {
       setPhase('otp');
       if (!otpSent) requestOtpMutation.mutate();
     } else {
       startMutation.mutate();
     }
-  };
+  }, [assessmentInfo, otpSent, requestOtpMutation, startMutation]);
+
+  useEffect(() => {
+    if (!assessmentInfo) return;
+    if (assessmentInfo.status === 'STARTED') {
+      handleStart();
+    } else if (assessmentInfo.status === 'SUBMITTED') {
+      navigate(`/assess/${token}/result`, { replace: true });
+    } else {
+      setPhase('intro');
+    }
+  }, [assessmentInfo, handleStart, navigate, token]);
 
   // Timer
   useEffect(() => {

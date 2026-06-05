@@ -1,11 +1,8 @@
-import { Controller, Get, Post, Param, Body, Ip, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Ip } from '@nestjs/common';
 import { CandidateService } from './candidate.service';
 import { CandidateSubmitDto } from './dto/candidate-submit.dto';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
-import { OrgRoles } from '../organizations/decorators/org-roles.decorator';
 
 @Controller('assessments/take')
 @SkipThrottle()
@@ -18,14 +15,20 @@ export class CandidateController {
     return this.service.loadAssessment(token);
   }
 
+  // 5 requests per 10 minutes per IP — prevents OTP brute-force
   @Post(':token/otp/request')
   @Public()
+  @SkipThrottle({ default: false })
+  @Throttle({ default: { limit: 5, ttl: 600_000 } })
   requestOtp(@Param('token') token: string) {
     return this.service.requestOtp(token);
   }
 
+  // 10 attempts per 10 minutes per IP — 6-digit space is 10^6, this makes it infeasible
   @Post(':token/otp/verify')
   @Public()
+  @SkipThrottle({ default: false })
+  @Throttle({ default: { limit: 10, ttl: 600_000 } })
   verifyOtp(
     @Param('token') token: string,
     @Body('code') code: string,

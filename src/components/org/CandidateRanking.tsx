@@ -49,12 +49,13 @@ const formatDuration = (seconds: number | null): string => {
 const EventTimeline = ({
   orgSlug, assessmentId, inviteId,
 }: { orgSlug: string; assessmentId: string; inviteId: string }) => {
-  const { data: events = [], isLoading } = useQuery({
+  const { data: events = [], isLoading, isError } = useQuery({
     queryKey: ['candidate-events', inviteId],
     queryFn: () => getCandidateEvents(orgSlug, assessmentId, inviteId),
   });
 
   if (isLoading) return <p className="text-[10px] text-muted-foreground font-mono">Loading events...</p>;
+  if (isError) return <p className="text-[10px] text-red-400 font-mono">Failed to load event timeline</p>;
   if (events.length === 0) return <p className="text-[10px] text-muted-foreground font-mono">No integrity events recorded</p>;
 
   return (
