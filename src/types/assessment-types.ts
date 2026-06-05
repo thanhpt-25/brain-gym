@@ -3,6 +3,19 @@ import type { PaginatedResponse } from './api-types';
 export type AssessmentStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
 export type CandidateAttemptStatus = 'INVITED' | 'STARTED' | 'SUBMITTED' | 'EXPIRED';
 export type AssessmentSelectionMode = 'MANUAL' | 'BLUEPRINT' | 'POOL';
+export type CandidateStage = 'APPLIED' | 'SCREENING' | 'SHORTLISTED' | 'REJECTED' | 'HIRED';
+
+export interface JobRole {
+  id: string;
+  orgId: string;
+  title: string;
+  department: string | null;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { assessments: number };
+}
 
 // ─── Blueprint / Pool config shapes ──────────────────────────────────────────
 
@@ -55,6 +68,8 @@ export interface Assessment {
   detectTabSwitch: boolean;
   blockCopyPaste: boolean;
   linkExpiryHours: number;
+  jobRoleId: string | null;
+  jobRole?: { id: string; title: string; department: string | null } | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -82,7 +97,20 @@ export interface CandidateInvite {
   submittedAt: string | null;
   expiresAt: string;
   drawnQuestionIds: string[];
+  // P1: Recruiting pipeline
+  stage: CandidateStage;
+  rating: number | null;
+  recruiterNote: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  percentile: number | null;
   createdAt: string;
+}
+
+export interface UpdateCandidateDecisionPayload {
+  stage?: CandidateStage;
+  rating?: number;
+  recruiterNote?: string;
 }
 
 export interface AssessmentResults {
@@ -151,6 +179,7 @@ export interface CreateAssessmentPayload {
   detectTabSwitch?: boolean;
   blockCopyPaste?: boolean;
   linkExpiryHours?: number;
+  jobRoleId?: string;
   // Selection mode fields
   selectionMode?: AssessmentSelectionMode;
   selectionConfig?: SelectionConfig;

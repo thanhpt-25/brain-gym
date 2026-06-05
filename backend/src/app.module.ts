@@ -30,6 +30,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { OrgQuestionsModule } from './org-questions/org-questions.module';
 import { ExamCatalogModule } from './exam-catalog/exam-catalog.module';
 import { AssessmentsModule } from './assessments/assessments.module';
+import { JobRolesModule } from './job-roles/job-roles.module';
 import { OrgAnalyticsModule } from './org-analytics/org-analytics.module';
 import { QueuesModule } from './queues/queues.module';
 import { MasteryModule } from './mastery/mastery.module';
@@ -72,6 +73,7 @@ import { KnowledgeGraphModule } from './knowledge-graph/knowledge-graph.module';
     OrgQuestionsModule,
     ExamCatalogModule,
     AssessmentsModule,
+    JobRolesModule,
     OrgAnalyticsModule,
     QueuesModule,
     MasteryModule,

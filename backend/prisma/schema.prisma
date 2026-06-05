@@ -158,7 +158,16 @@ enum OrgRole {
   OWNER
   ADMIN
   MANAGER
+  RECRUITER
   MEMBER
+}
+
+enum CandidateStage {
+  APPLIED
+  SCREENING
+  SHORTLISTED
+  REJECTED
+  HIRED
 }
 
 /// RFC-011 / Decision D5: squads are Organization rows with kind = SQUAD.
@@ -816,6 +825,7 @@ model Organization {
   privateQuestions OrgQuestion[]
   catalogItems     ExamCatalogItem[]
   assessments      Assessment[]
+  jobRoles         JobRole[]
   joinLinks        OrgJoinLink[]
   learningTracks   LearningTrack[]
   generationJobs   QuestionGenerationJob[] // RFC-012: Track org-level LLM costs
@@ -1011,6 +1021,25 @@ model OrgExamAssignment {
   @@map("org_exam_assignments")
 }
 
+// ─── JOB ROLES (P1 Recruiting Workflow) ───
+
+model JobRole {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  title       String
+  department  String?
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assessments  Assessment[]
+
+  @@index([orgId])
+  @@map("job_roles")
+}
+
 // ─── CANDIDATE ASSESSMENT (External Invitations) ───
 
 model Assessment {
@@ -1031,11 +1060,13 @@ model Assessment {
   detectTabSwitch    Boolean                  @default(false) @map("detect_tab_switch")
   blockCopyPaste     Boolean                  @default(false) @map("block_copy_paste")
   linkExpiryHours    Int                      @default(72) @map("link_expiry_hours")
+  jobRoleId          String?                  @map("job_role_id")
   createdBy          String                   @map("created_by")
   createdAt          DateTime                 @default(now()) @map("created_at")
   updatedAt          DateTime                 @updatedAt @map("updated_at")
 
   organization     Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobRole          JobRole?              @relation(fields: [jobRoleId], references: [id])
   candidateInvites CandidateInvite[]
   questions        AssessmentQuestion[]
 
@@ -1075,6 +1106,15 @@ model CandidateInvite {
   expiresAt        DateTime               @map("expires_at")
   /// POOL mode: snapshot of drawn OrgQuestion IDs for this invite (idempotent re-load)
   drawnQuestionIds String[]               @default([]) @map("drawn_question_ids")
+  /// P1: Recruiting pipeline stage
+  stage            CandidateStage         @default(APPLIED) @map("stage")
+  /// P1: 1-5 star rating by recruiter
+  rating           Int?
+  /// P1: Internal recruiter note
+  recruiterNote    String?                @map("recruiter_note")
+  /// P1: Who made the final hire/reject decision
+  decidedBy        String?                @map("decided_by")
+  decidedAt        DateTime?              @map("decided_at")
   createdAt        DateTime               @default(now()) @map("created_at")
 
   assessment Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)

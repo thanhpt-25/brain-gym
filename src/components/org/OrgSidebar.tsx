@@ -2,13 +2,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useOrgStore } from '@/stores/org.store';
 import {
   LayoutDashboard, Users, Settings, Shield, BookOpen,
-  GraduationCap, Library, BookMarked, ClipboardList, BarChart3,
+  GraduationCap, Library, BookMarked, ClipboardList, BarChart3, Briefcase,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { OrgRole } from '@/types/org-types';
-
-const canManage = (role: OrgRole | undefined) =>
-  role === 'OWNER' || role === 'ADMIN' || role === 'MANAGER';
 
 const OrgSidebar = () => {
   const navigate = useNavigate();
@@ -19,17 +16,33 @@ const OrgSidebar = () => {
 
   if (!slug) return null;
 
+  // RECRUITER: only assessments + job-roles visible; no question bank / settings / catalog
   const links = [
-    { label: 'Dashboard', href: `/org/${slug}`, icon: LayoutDashboard, exact: true },
-    { label: 'Members', href: `/org/${slug}/members`, icon: Users },
-    { label: 'Groups', href: `/org/${slug}/groups`, icon: Shield },
-    { label: 'Questions', href: `/org/${slug}/questions`, icon: BookOpen },
-    { label: 'Exam Catalog', href: `/org/${slug}/catalog`, icon: GraduationCap },
-    { label: 'Manage Catalog', href: `/org/${slug}/catalog/manage`, icon: Library, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
-    { label: 'Tracks', href: `/org/${slug}/tracks`, icon: BookMarked, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
-    { label: 'Assessments', href: `/org/${slug}/assessments`, icon: ClipboardList, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
-    { label: 'Analytics', href: `/org/${slug}/analytics`, icon: BarChart3, roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
-    { label: 'Settings', href: `/org/${slug}/settings`, icon: Settings, roles: ['OWNER', 'ADMIN'] as OrgRole[] },
+    { label: 'Dashboard',      href: `/org/${slug}`,               icon: LayoutDashboard, exact: true,
+      hidden: role === 'RECRUITER' },
+    { label: 'Members',        href: `/org/${slug}/members`,        icon: Users,
+      hidden: role === 'RECRUITER' },
+    { label: 'Groups',         href: `/org/${slug}/groups`,         icon: Shield,
+      hidden: role === 'RECRUITER' },
+    { label: 'Questions',      href: `/org/${slug}/questions`,      icon: BookOpen,
+      hidden: role === 'RECRUITER' },
+    { label: 'Exam Catalog',   href: `/org/${slug}/catalog`,        icon: GraduationCap,
+      hidden: role === 'RECRUITER' },
+    { label: 'Manage Catalog', href: `/org/${slug}/catalog/manage`, icon: Library,
+      roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[],
+      hidden: role === 'RECRUITER' },
+    { label: 'Tracks',         href: `/org/${slug}/tracks`,         icon: BookMarked,
+      roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[],
+      hidden: role === 'RECRUITER' },
+    // P1: Recruiting — visible to OWNER/ADMIN/MANAGER/RECRUITER
+    { label: 'Assessments',    href: `/org/${slug}/assessments`,    icon: ClipboardList,
+      roles: ['OWNER', 'ADMIN', 'MANAGER', 'RECRUITER'] as OrgRole[] },
+    { label: 'Job Roles',      href: `/org/${slug}/job-roles`,      icon: Briefcase,
+      roles: ['OWNER', 'ADMIN', 'MANAGER', 'RECRUITER'] as OrgRole[] },
+    { label: 'Analytics',      href: `/org/${slug}/analytics`,      icon: BarChart3,
+      roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
+    { label: 'Settings',       href: `/org/${slug}/settings`,       icon: Settings,
+      roles: ['OWNER', 'ADMIN'] as OrgRole[] },
   ];
 
   const isActive = (href: string, exact?: boolean) =>
@@ -55,6 +68,7 @@ const OrgSidebar = () => {
         <span className="text-xs font-mono font-medium truncate">{currentOrg?.name}</span>
       </div>
       {links
+        .filter((link) => !link.hidden)
         .filter((link) => !link.roles || (role && link.roles.includes(role)))
         .map((link) => (
           <Button
