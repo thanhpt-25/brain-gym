@@ -12,6 +12,8 @@ import type {
   CandidateSubmitResult,
   CandidateAnswerPayload,
   CandidateEvent,
+  CandidateInvite,
+  UpdateCandidateDecisionPayload,
   PoolConfig,
 } from '@/types/assessment-types';
 
@@ -166,6 +168,31 @@ export const getCandidateEvents = async (
 ): Promise<CandidateEvent[]> => {
   const res = await api.get<CandidateEvent[]>(
     `${base(orgSlug)}/${assessmentId}/candidates/${inviteId}/events`,
+  );
+  return res.data;
+};
+
+export const updateCandidateDecision = async (
+  slug: string,
+  aid: string,
+  inviteId: string,
+  data: UpdateCandidateDecisionPayload,
+): Promise<CandidateInvite> => {
+  const res = await api.patch<CandidateInvite>(
+    `${base(slug)}/${aid}/candidates/${inviteId}`,
+    data,
+  );
+  return res.data;
+};
+
+export const bulkInviteCandidatesFromCsv = async (
+  slug: string,
+  aid: string,
+  candidates: { email: string; name?: string }[],
+): Promise<{ invited: number }> => {
+  const res = await api.post<{ invited: number }>(
+    `${base(slug)}/${aid}/invite`,
+    { candidates },
   );
   return res.data;
 };

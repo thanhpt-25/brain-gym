@@ -6,10 +6,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { MailService } from '../mail/mail.service';
-import { AssessmentSelectionMode, AssessmentStatus, Prisma } from '@prisma/client';
+import { AssessmentSelectionMode, AssessmentStatus, CandidateStage, Prisma } from '@prisma/client';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
+import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto';
 import { randomUUID } from 'crypto';
 
 // ─── Blueprint / Pool config shapes ─────────────────────────────────────────
@@ -202,6 +203,7 @@ export class AssessmentsService {
         orderBy: { createdAt: 'desc' },
         include: {
           _count: { select: { candidateInvites: true, questions: true } },
+          jobRole: { select: { id: true, title: true, department: true } },
         },
       }),
       this.prisma.assessment.count({ where: { orgId } }),
@@ -248,6 +250,7 @@ export class AssessmentsService {
             orgId,
             title: dto.title,
             description: dto.description,
+            jobRoleId: dto.jobRoleId ?? null,
             selectionMode: AssessmentSelectionMode.BLUEPRINT,
             selectionConfig: dto.selectionConfig,
             questionCount: questionRows.length,
@@ -300,6 +303,7 @@ export class AssessmentsService {
             orgId,
             title: dto.title,
             description: dto.description,
+            jobRoleId: dto.jobRoleId ?? null,
             selectionMode: AssessmentSelectionMode.POOL,
             selectionConfig: dto.selectionConfig,
             questionCount: config.drawCount,
@@ -329,6 +333,7 @@ export class AssessmentsService {
           orgId,
           title: dto.title,
           description: dto.description,
+          jobRoleId: dto.jobRoleId ?? null,
           selectionMode: AssessmentSelectionMode.MANUAL,
           questionCount: questions.length,
           timeLimit: dto.timeLimit,
@@ -610,6 +615,7 @@ export class AssessmentsService {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, orgId },
+      include: { jobRole: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
@@ -618,12 +624,29 @@ export class AssessmentsService {
       orderBy: [{ score: 'desc' }, { createdAt: 'asc' }],
     });
 
+    // Compute percentile rank for each submitted candidate
+    const submitted = invites.filter((i) => i.status === 'SUBMITTED');
+    const submittedCount = submitted.length;
+    const candidates = invites.map((invite) => {
+      if (invite.status !== 'SUBMITTED' || invite.score == null) {
+        return { ...invite, percentile: null };
+      }
+      const score = Number(invite.score);
+      const below = submitted.filter(
+        (s) => s.score != null && Number(s.score) < score,
+      ).length;
+      const percentile =
+        submittedCount > 1
+          ? Math.round((below / (submittedCount - 1)) * 100)
+          : 100;
+      return { ...invite, percentile };
+    });
+
     const total = invites.length;
     const started = invites.filter((i) => i.status !== 'INVITED').length;
-    const submitted = invites.filter((i) => i.status === 'SUBMITTED').length;
     const passed =
       assessment.passingScore != null
-        ? invites.filter(
+        ? submitted.filter(
             (i) =>
               i.score != null && Number(i.score) >= assessment.passingScore!,
           ).length
@@ -631,27 +654,71 @@ export class AssessmentsService {
 
     return {
       assessment,
-      funnel: { total, started, submitted, passed },
-      candidates: invites,
+      funnel: { total, started, submitted: submittedCount, passed },
+      candidates,
     };
+  }
+
+  async updateCandidateDecision(
+    slugOrId: string,
+    assessmentId: string,
+    inviteId: string,
+    dto: UpdateCandidateDecisionDto,
+    decidedByUserId: string,
+  ) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const assessment = await this.prisma.assessment.findFirst({
+      where: { id: assessmentId, orgId },
+    });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    const invite = await this.prisma.candidateInvite.findFirst({
+      where: { id: inviteId, assessmentId },
+    });
+    if (!invite) throw new NotFoundException('Candidate invite not found');
+
+    const isStageDecision =
+      dto.stage === CandidateStage.HIRED ||
+      dto.stage === CandidateStage.REJECTED ||
+      dto.stage === CandidateStage.SHORTLISTED;
+
+    const data = {
+      ...(dto.stage !== undefined && { stage: dto.stage }),
+      ...(dto.rating !== undefined && { rating: dto.rating }),
+      ...(dto.recruiterNote !== undefined && { recruiterNote: dto.recruiterNote }),
+      ...(isStageDecision && { decidedBy: decidedByUserId, decidedAt: new Date() }),
+    };
+
+    // No-op guard — avoid hitting the DB if nothing changed
+    if (Object.keys(data).length === 0) return invite;
+
+    return this.prisma.candidateInvite.update({
+      where: { id: inviteId },
+      data,
+    });
   }
 
   async exportCsv(slugOrId: string, assessmentId: string): Promise<string> {
     const results = await this.getResults(slugOrId, assessmentId);
     const header =
-      'Name,Email,Status,Score (%),Total Correct,Total Questions,Time Spent (s),Tab Switches,Started At,Submitted At';
+      'Name,Email,Attempt Status,Stage,Score (%),Percentile,Total Correct,Total Questions,Rating,Time Spent (s),Tab Switches,Started At,Submitted At,Recruiter Note';
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const rows = results.candidates.map((c) =>
       [
-        c.candidateName ?? '',
-        c.candidateEmail,
+        esc(c.candidateName ?? ''),
+        esc(c.candidateEmail),
         c.status,
+        c.stage ?? 'APPLIED',
         c.score != null ? Number(c.score).toFixed(2) : '',
+        c.percentile != null ? c.percentile : '',
         c.totalCorrect ?? '',
         c.totalQuestions ?? '',
+        c.rating ?? '',
         c.timeSpent ?? '',
         c.tabSwitchCount ?? 0,
         c.startedAt?.toISOString() ?? '',
         c.submittedAt?.toISOString() ?? '',
+        esc(c.recruiterNote ?? ''),
       ].join(','),
     );
     return [header, ...rows].join('\n');

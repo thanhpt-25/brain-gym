@@ -17,6 +17,7 @@ import { CandidateService } from './candidate.service';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
+import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,7 +26,7 @@ import { AssessmentStatus } from '@prisma/client';
 
 @Controller('organizations/:orgId/assessments')
 @UseGuards(JwtAuthGuard, OrgRoleGuard)
-@OrgRoles('OWNER', 'ADMIN', 'MANAGER')
+@OrgRoles('OWNER', 'ADMIN', 'MANAGER', 'RECRUITER')
 export class AssessmentsController {
   constructor(
     private readonly service: AssessmentsService,
@@ -119,6 +120,17 @@ export class AssessmentsController {
       'attachment; filename="assessment-results.csv"',
     );
     res.send(csv);
+  }
+
+  @Patch(':aid/candidates/:inviteId')
+  updateCandidateDecision(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Param('inviteId') inviteId: string,
+    @Body() dto: UpdateCandidateDecisionDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.service.updateCandidateDecision(orgId, aid, inviteId, dto, user.id);
   }
 
   @Get(':aid/candidates/:inviteId/events')

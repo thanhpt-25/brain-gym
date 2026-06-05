@@ -87,6 +87,10 @@ export class CreateAssessmentDto {
   linkExpiryHours?: number;
 
   @IsOptional()
+  @IsString()
+  jobRoleId?: string;
+
+  @IsOptional()
   @IsEnum(AssessmentSelectionMode)
   selectionMode?: AssessmentSelectionMode;
 
