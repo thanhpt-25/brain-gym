@@ -136,7 +136,7 @@ export const submitCandidateAttempt = async (
 export const reportCandidateEvent = async (
   token: string,
   eventType: string,
-  payload?: Record<string, any>,
+  payload?: Record<string, unknown>,
 ): Promise<void> => {
   await api.post(`/assessments/take/${token}/event`, {
     eventType,
