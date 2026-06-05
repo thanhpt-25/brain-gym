@@ -1,3 +1,7 @@
+// Mock OrganizationsService before any imports to prevent its transitive
+// dependency on uuid (ESM-only) from breaking Jest's CJS transform.
+jest.mock('../organizations/organizations.service');
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { JobRolesService } from './job-roles.service';
