@@ -16,9 +16,7 @@ module.exports = {
   testRegex: '.*\\.spec\\.ts$',
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
-  moduleNameMapper: {
-    '^uuid$': 'uuid',
-  },
+  moduleNameMapper: {},
   setupFiles: ['<rootDir>/../jest-setup.js'],
   transform: {
     '^.+\\.tsx?$': [
@@ -46,6 +44,7 @@ module.exports = {
     ],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(@nestjs|@prisma|class-transformer|class-validator)/)',
+    // Transform uuid (ESM-only in v9+) and other packages that ship as ESM
+    'node_modules/(?!(@nestjs|@prisma|class-transformer|class-validator|uuid)/)',
   ],
 };

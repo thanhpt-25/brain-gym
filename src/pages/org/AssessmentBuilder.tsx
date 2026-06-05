@@ -7,6 +7,7 @@ import {
 } from '@/services/assessments';
 import { getOrgQuestions } from '@/services/org-questions';
 import { getCertifications } from '@/services/certifications';
+import { getJobRoles } from '@/services/job-roles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -365,6 +366,7 @@ const AssessmentBuilder = () => {
   // ── Common settings ──
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [jobRoleId, setJobRoleId] = useState<string>('none');
   const [timeLimit, setTimeLimit] = useState(60);
   const [passingScore, setPassingScore] = useState<number | ''>('');
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
@@ -401,6 +403,13 @@ const AssessmentBuilder = () => {
   const { data: certifications = [] } = useQuery({
     queryKey: ['certifications'],
     queryFn: getCertifications,
+  });
+
+  // ── Job Roles ──
+  const { data: jobRoles = [] } = useQuery({
+    queryKey: ['job-roles', slug],
+    queryFn: () => getJobRoles(slug),
+    enabled: !!slug,
   });
 
   // ── Load existing assessment ──
@@ -466,6 +475,7 @@ const AssessmentBuilder = () => {
     if (!existingItem) return;
     setTitle(existingItem.title);
     setDescription(existingItem.description ?? '');
+    setJobRoleId(existingItem.jobRoleId ?? 'none');
     setTimeLimit(existingItem.timeLimit);
     setPassingScore(existingItem.passingScore ?? '');
     setRandomizeQuestions(existingItem.randomizeQuestions);
@@ -553,6 +563,7 @@ const AssessmentBuilder = () => {
       const base = {
         title,
         description: description || undefined,
+        jobRoleId: jobRoleId !== 'none' ? jobRoleId : undefined,
         timeLimit,
         passingScore: passingScore !== '' ? Number(passingScore) : undefined,
         randomizeQuestions,
@@ -661,6 +672,26 @@ const AssessmentBuilder = () => {
             placeholder="Brief description..."
           />
         </div>
+        {jobRoles.length > 0 && (
+          <div>
+            <Label className="text-xs font-mono">Job Role (optional)</Label>
+            <Select value={jobRoleId} onValueChange={setJobRoleId}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Link to a job role…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— No job role —</SelectItem>
+                {jobRoles
+                  .filter((r) => r.isActive)
+                  .map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.title}{r.department ? ` · ${r.department}` : ''}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Settings */}

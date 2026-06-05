@@ -1,6 +1,6 @@
 // Organization types — aligned with backend Prisma responses
 
-export type OrgRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'MEMBER';
+export type OrgRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'RECRUITER' | 'MEMBER';
 export type OrgInviteStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
 
 export interface Organization {
