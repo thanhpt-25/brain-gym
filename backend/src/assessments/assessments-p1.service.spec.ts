@@ -4,12 +4,6 @@
  *   - getResults with percentile calculation
  */
 
-// Mock OrganizationsService before any imports to prevent its transitive
-// dependency on uuid (ESM-only) from breaking Jest's CJS transform.
-jest.mock('../organizations/organizations.service');
-// Same for MailService — avoids any ESM deps it may pull in.
-jest.mock('../mail/mail.service');
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AssessmentsService } from './assessments.service';
