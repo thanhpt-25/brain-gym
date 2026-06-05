@@ -11,6 +11,7 @@ import type {
   CandidateExamPayload,
   CandidateSubmitResult,
   CandidateAnswerPayload,
+  CandidateEvent,
   CandidateInvite,
   UpdateCandidateDecisionPayload,
   PoolConfig,
@@ -135,8 +136,40 @@ export const submitCandidateAttempt = async (
 export const reportCandidateEvent = async (
   token: string,
   eventType: string,
+  payload?: Record<string, unknown>,
 ): Promise<void> => {
-  await api.post(`/assessments/take/${token}/event`, { eventType });
+  await api.post(`/assessments/take/${token}/event`, {
+    eventType,
+    clientTs: new Date().toISOString(),
+    payload: payload ?? {},
+  });
+};
+
+export const requestCandidateOtp = async (token: string): Promise<{ message: string }> => {
+  const res = await api.post<{ message: string }>(`/assessments/take/${token}/otp/request`);
+  return res.data;
+};
+
+export const verifyCandidateOtp = async (
+  token: string,
+  code: string,
+): Promise<{ verified: boolean }> => {
+  const res = await api.post<{ verified: boolean }>(
+    `/assessments/take/${token}/otp/verify`,
+    { code },
+  );
+  return res.data;
+};
+
+export const getCandidateEvents = async (
+  orgSlug: string,
+  assessmentId: string,
+  inviteId: string,
+): Promise<CandidateEvent[]> => {
+  const res = await api.get<CandidateEvent[]>(
+    `${base(orgSlug)}/${assessmentId}/candidates/${inviteId}/events`,
+  );
+  return res.data;
 };
 
 export const updateCandidateDecision = async (

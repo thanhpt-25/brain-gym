@@ -68,6 +68,20 @@ export class CreateAssessmentDto {
   blockCopyPaste?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  requireFullscreen?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requireOtp?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  maxAttempts?: number;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   linkExpiryHours?: number;

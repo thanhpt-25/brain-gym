@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,10 +31,18 @@ import {
   Eye,
   Search,
   ThumbsUp,
+  ShieldCheck,
+  ShieldAlert,
+  Shield,
+  Clock,
+  Monitor,
+  Copy,
+  EyeOff,
+  Maximize,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { updateCandidateDecision } from '@/services/assessments';
-import type { CandidateInvite, CandidateStage } from '@/types/assessment-types';
+import { updateCandidateDecision, getCandidateEvents } from '@/services/assessments';
+import type { CandidateInvite, CandidateStage, CandidateEvent } from '@/types/assessment-types';
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
 
@@ -61,6 +69,60 @@ const formatDuration = (seconds: number | null): string => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}m ${s}s`;
+};
+
+// ─── Integrity ────────────────────────────────────────────────────────────────
+
+const eventConfig: Record<string, { label: string; icon: any; color: string }> = {
+  TAB_SWITCH:      { label: 'Tab Switch',       icon: Monitor,  color: 'text-amber-400' },
+  FULLSCREEN_EXIT: { label: 'Fullscreen Exit',  icon: Maximize, color: 'text-red-400'   },
+  BLUR:            { label: 'Window Blur',       icon: EyeOff,   color: 'text-zinc-400'  },
+  COPY:            { label: 'Copy Detected',     icon: Copy,     color: 'text-red-400'   },
+  PASTE:           { label: 'Paste Detected',    icon: Copy,     color: 'text-red-400'   },
+};
+
+const IntegrityBadge = ({ score }: { score: number | null }) => {
+  if (score == null) return <span className="text-muted-foreground">-</span>;
+  const color = score >= 80 ? 'bg-emerald-500/15 text-emerald-400'
+    : score >= 60 ? 'bg-amber-500/15 text-amber-400'
+    : 'bg-red-500/15 text-red-400';
+  const Icon = score >= 80 ? ShieldCheck : score >= 60 ? Shield : ShieldAlert;
+  return (
+    <Badge className={`text-[10px] gap-1 ${color}`}>
+      <Icon className="h-3 w-3" /> {score}
+    </Badge>
+  );
+};
+
+const EventTimeline = ({
+  slug, aid, inviteId,
+}: { slug: string; aid: string; inviteId: string }) => {
+  const { data: events = [], isLoading, isError } = useQuery({
+    queryKey: ['candidate-events', inviteId],
+    queryFn: () => getCandidateEvents(slug, aid, inviteId),
+  });
+
+  if (isLoading) return <p className="text-[10px] text-muted-foreground font-mono">Loading events…</p>;
+  if (isError)   return <p className="text-[10px] text-red-400 font-mono">Failed to load event timeline</p>;
+  if (events.length === 0) return <p className="text-[10px] text-muted-foreground font-mono">No integrity events recorded</p>;
+
+  return (
+    <div className="space-y-1.5">
+      {events.map((e: CandidateEvent) => {
+        const cfg = eventConfig[e.eventType];
+        const Icon = cfg?.icon ?? AlertTriangle;
+        return (
+          <div key={e.id} className="flex items-center gap-2 text-[10px] font-mono">
+            <Icon className={`h-3 w-3 shrink-0 ${cfg?.color ?? 'text-muted-foreground'}`} />
+            <span className={cfg?.color ?? 'text-muted-foreground'}>{cfg?.label ?? e.eventType}</span>
+            <span className="text-muted-foreground ml-auto">
+              {new Date(e.clientTs).toLocaleTimeString()}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 // ─── StarRating ───────────────────────────────────────────────────────────────
@@ -285,6 +347,7 @@ const CandidateRanking = ({
 }: Props) => {
   const queryClient = useQueryClient();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [timelineId, setTimelineId] = useState<string | null>(null);
   const [drawerCandidate, setDrawerCandidate] = useState<CandidateInvite | null>(null);
 
   const stageMutation = useMutation({
@@ -323,6 +386,7 @@ const CandidateRanking = ({
                   <th className="text-right p-3 font-medium">%tile</th>
                   <th className="text-right p-3 font-medium">Time</th>
                   <th className="text-right p-3 font-medium">Switches</th>
+                  <th className="text-right p-3 font-medium">Integrity</th>
                   <th className="text-left p-3 font-medium">Result</th>
                   <th className="text-right p-3 font-medium">Rating</th>
                   <th className="text-right p-3 font-medium"></th>
@@ -399,6 +463,19 @@ const CandidateRanking = ({
                             <span className="text-muted-foreground">0</span>
                           )}
                         </td>
+                        <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                          {c.status === 'SUBMITTED' ? (
+                            <button
+                              className="flex items-center justify-end gap-1 hover:opacity-70 transition-opacity"
+                              onClick={() => setTimelineId(timelineId === c.id ? null : c.id)}
+                              title="View integrity timeline"
+                            >
+                              <IntegrityBadge score={c.integrityScore} />
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </td>
                         <td className="p-3">
                           {passed === true && (
                             <span className="flex items-center gap-1 text-emerald-400">
@@ -467,10 +544,22 @@ const CandidateRanking = ({
                         </td>
                       </tr>
 
+                      {/* Integrity timeline */}
+                      {timelineId === c.id && (
+                        <tr key={`${c.id}-timeline`} className="border-b border-border/50 bg-red-500/5">
+                          <td colSpan={13} className="px-5 py-3">
+                            <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-2 flex items-center gap-1">
+                              <Clock className="h-3 w-3" /> Integrity Event Timeline
+                            </p>
+                            <EventTimeline slug={slug} aid={aid} inviteId={c.id} />
+                          </td>
+                        </tr>
+                      )}
+
                       {/* Domain score expansion */}
                       {isExpanded && hasDomainScores && (
                         <tr key={`${c.id}-domain`} className="border-b border-border/50 bg-muted/20">
-                          <td colSpan={12} className="px-5 py-3">
+                          <td colSpan={13} className="px-5 py-3">
                             <div className="space-y-2">
                               <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-2">
                                 Domain Breakdown

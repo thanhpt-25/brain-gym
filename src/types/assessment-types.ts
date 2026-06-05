@@ -67,6 +67,9 @@ export interface Assessment {
   randomizeChoices: boolean;
   detectTabSwitch: boolean;
   blockCopyPaste: boolean;
+  requireFullscreen: boolean;
+  requireOtp: boolean;
+  maxAttempts: number;
   linkExpiryHours: number;
   jobRoleId: string | null;
   jobRole?: { id: string; title: string; department: string | null } | null;
@@ -93,6 +96,8 @@ export interface CandidateInvite {
   timeSpent: number | null;
   tabSwitchCount: number | null;
   ipAddress: string | null;
+  integrityScore: number | null;
+  otpVerifiedAt: string | null;
   startedAt: string | null;
   submittedAt: string | null;
   expiresAt: string;
@@ -104,6 +109,15 @@ export interface CandidateInvite {
   decidedBy: string | null;
   decidedAt: string | null;
   percentile: number | null;
+  createdAt: string;
+}
+
+export interface CandidateEvent {
+  id: string;
+  inviteId: string;
+  eventType: string;
+  payload: Record<string, any>;
+  clientTs: string;
   createdAt: string;
 }
 
@@ -131,9 +145,14 @@ export interface CandidateExamInfo {
   timeLimit: number;
   detectTabSwitch: boolean;
   blockCopyPaste: boolean;
+  requireFullscreen: boolean;
+  requireOtp: boolean;
+  maxAttempts: number;
   candidateName: string | null;
+  candidateEmail: string;
   status: CandidateAttemptStatus;
   startedAt: string | null;
+  otpVerifiedAt: string | null;
 }
 
 export interface CandidateQuestion {
@@ -149,6 +168,7 @@ export interface CandidateExamPayload {
   timeLimit: number;
   detectTabSwitch: boolean;
   blockCopyPaste: boolean;
+  requireFullscreen: boolean;
   totalQuestions: number;
   questions: CandidateQuestion[];
 }
@@ -159,6 +179,7 @@ export interface CandidateSubmitResult {
   totalQuestions: number;
   passed: boolean | null;
   timeSpent: number | null;
+  integrityScore: number | null;
 }
 
 // ─── Request payloads ─────────────────────────────────────────────────────────
@@ -178,6 +199,9 @@ export interface CreateAssessmentPayload {
   randomizeChoices?: boolean;
   detectTabSwitch?: boolean;
   blockCopyPaste?: boolean;
+  requireFullscreen?: boolean;
+  requireOtp?: boolean;
+  maxAttempts?: number;
   linkExpiryHours?: number;
   jobRoleId?: string;
   // Selection mode fields

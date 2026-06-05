@@ -2,49 +2,45 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
-  loadCandidateAssessment, startCandidateAttempt,
-  submitCandidateAttempt, reportCandidateEvent,
+  loadCandidateAssessment,
+  startCandidateAttempt,
+  submitCandidateAttempt,
+  reportCandidateEvent,
+  requestCandidateOtp,
+  verifyCandidateOtp,
 } from '@/services/assessments';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Loader2, Clock, AlertTriangle, ChevronLeft, ChevronRight,
-  Send, ClipboardList, CheckCircle2,
+  Send, ClipboardList, Maximize, Mail, ShieldAlert,
 } from 'lucide-react';
-import type { CandidateExamPayload, CandidateQuestion, CandidateSubmitResult } from '@/types/assessment-types';
+import type { CandidateExamPayload } from '@/types/assessment-types';
+
+type Phase = 'loading' | 'intro' | 'otp' | 'exam' | 'submitting';
 
 const CandidateExam = () => {
   const { token } = useParams();
   const navigate = useNavigate();
 
-  const [phase, setPhase] = useState<'loading' | 'intro' | 'exam' | 'submitting'>('loading');
+  const [phase, setPhase] = useState<Phase>('loading');
   const [examData, setExamData] = useState<CandidateExamPayload | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [timeLeft, setTimeLeft] = useState(0);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
+  const [fullscreenWarning, setFullscreenWarning] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const tabSwitchReported = useRef(false);
+  const cooldownRef = useRef<ReturnType<typeof setInterval>>();
 
-  // Load assessment info
   const { data: assessmentInfo, error: loadError, isLoading } = useQuery({
     queryKey: ['candidate-assessment', token],
     queryFn: () => loadCandidateAssessment(token!),
     enabled: !!token,
   });
-
-  useEffect(() => {
-    if (assessmentInfo) {
-      if (assessmentInfo.status === 'STARTED') {
-        // Resume
-        handleStart();
-      } else if (assessmentInfo.status === 'SUBMITTED') {
-        navigate(`/assess/${token}/result`, { replace: true });
-      } else {
-        setPhase('intro');
-      }
-    }
-  }, [assessmentInfo]);
 
   const startMutation = useMutation({
     mutationFn: () => startCandidateAttempt(token!),
@@ -52,6 +48,9 @@ const CandidateExam = () => {
       setExamData(data);
       setTimeLeft(data.timeLimit * 60);
       setPhase('exam');
+      if (data.requireFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
     },
     onError: () => setPhase('intro'),
   });
@@ -65,55 +64,121 @@ const CandidateExam = () => {
       return submitCandidateAttempt(token!, payload);
     },
     onSuccess: () => {
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       navigate(`/assess/${token}/result`, { replace: true });
     },
   });
 
-  const handleStart = () => {
-    startMutation.mutate();
+  const requestOtpMutation = useMutation({
+    mutationFn: () => requestCandidateOtp(token!),
+    onSuccess: () => {
+      setOtpSent(true);
+      startOtpCooldown();
+    },
+  });
+
+  const verifyOtpMutation = useMutation({
+    mutationFn: () => verifyCandidateOtp(token!, otpCode),
+    onSuccess: () => startMutation.mutate(),
+  });
+
+  const startOtpCooldown = () => {
+    setOtpResendCooldown(60);
+    clearInterval(cooldownRef.current);
+    cooldownRef.current = setInterval(() => {
+      setOtpResendCooldown((c) => {
+        if (c <= 1) { clearInterval(cooldownRef.current); return 0; }
+        return c - 1;
+      });
+    }, 1000);
   };
+
+  // Fix #10: useCallback so useEffect dep array is stable and doesn't stale-close
+  const handleStart = useCallback(() => {
+    if (assessmentInfo?.requireOtp && !assessmentInfo.otpVerifiedAt) {
+      setPhase('otp');
+      if (!otpSent) requestOtpMutation.mutate();
+    } else {
+      startMutation.mutate();
+    }
+  }, [assessmentInfo, otpSent, requestOtpMutation, startMutation]);
+
+  useEffect(() => {
+    if (!assessmentInfo) return;
+    if (assessmentInfo.status === 'STARTED') {
+      handleStart();
+    } else if (assessmentInfo.status === 'SUBMITTED') {
+      navigate(`/assess/${token}/result`, { replace: true });
+    } else {
+      setPhase('intro');
+    }
+  }, [assessmentInfo, handleStart, navigate, token]);
 
   // Timer
   useEffect(() => {
     if (phase !== 'exam' || timeLeft <= 0) return;
     timerRef.current = setInterval(() => {
       setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(timerRef.current);
-          submitMutation.mutate();
-          return 0;
-        }
+        if (t <= 1) { clearInterval(timerRef.current); submitMutation.mutate(); return 0; }
         return t - 1;
       });
     }, 1000);
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
-  // Anti-cheat: tab switch detection
+  // Fullscreen exit detection
+  useEffect(() => {
+    if (phase !== 'exam' || !examData?.requireFullscreen) return;
+    const handler = () => {
+      if (!document.fullscreenElement) {
+        setFullscreenWarning(true);
+        reportCandidateEvent(token!, 'FULLSCREEN_EXIT').catch(() => {});
+      } else {
+        setFullscreenWarning(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, [phase, examData?.requireFullscreen, token]);
+
+  // Window blur
+  useEffect(() => {
+    if (phase !== 'exam') return;
+    const handler = () => reportCandidateEvent(token!, 'BLUR').catch(() => {});
+    window.addEventListener('blur', handler);
+    return () => window.removeEventListener('blur', handler);
+  }, [phase, token]);
+
+  // Tab switch
   useEffect(() => {
     if (phase !== 'exam' || !examData?.detectTabSwitch) return;
     const handler = () => {
-      if (document.hidden) {
-        reportCandidateEvent(token!, 'tab_switch').catch(() => {});
-      }
+      if (document.hidden) reportCandidateEvent(token!, 'TAB_SWITCH').catch(() => {});
     };
     document.addEventListener('visibilitychange', handler);
     return () => document.removeEventListener('visibilitychange', handler);
   }, [phase, examData?.detectTabSwitch, token]);
 
-  // Anti-cheat: block copy/paste
+  // Block + report copy/paste
   useEffect(() => {
     if (phase !== 'exam' || !examData?.blockCopyPaste) return;
-    const block = (e: Event) => e.preventDefault();
-    document.addEventListener('copy', block);
-    document.addEventListener('paste', block);
-    document.addEventListener('cut', block);
+    const blockCopy = (e: Event) => { e.preventDefault(); reportCandidateEvent(token!, 'COPY').catch(() => {}); };
+    const blockPaste = (e: Event) => { e.preventDefault(); reportCandidateEvent(token!, 'PASTE').catch(() => {}); };
+    const blockCut = (e: Event) => e.preventDefault();
+    document.addEventListener('copy', blockCopy);
+    document.addEventListener('paste', blockPaste);
+    document.addEventListener('cut', blockCut);
     return () => {
-      document.removeEventListener('copy', block);
-      document.removeEventListener('paste', block);
-      document.removeEventListener('cut', block);
+      document.removeEventListener('copy', blockCopy);
+      document.removeEventListener('paste', blockPaste);
+      document.removeEventListener('cut', blockCut);
     };
-  }, [phase, examData?.blockCopyPaste]);
+  }, [phase, examData?.blockCopyPaste, token]);
+
+  useEffect(() => () => {
+    clearInterval(timerRef.current);
+    clearInterval(cooldownRef.current);
+  }, []);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -124,13 +189,11 @@ const CandidateExam = () => {
   const toggleChoice = (questionId: string, choiceId: string) => {
     setAnswers((prev) => {
       const current = prev[questionId] ?? [];
-      const exists = current.includes(choiceId);
-      // For now, treat all as single choice (toggle)
-      return { ...prev, [questionId]: exists ? [] : [choiceId] };
+      return { ...prev, [questionId]: current.includes(choiceId) ? [] : [choiceId] };
     });
   };
 
-  // Error state
+  // ─── Error ──────────────────────────────────────────────────────────────────
   if (loadError) {
     const msg = (loadError as any)?.response?.data?.message || 'This assessment link is invalid or has expired.';
     return (
@@ -146,7 +209,7 @@ const CandidateExam = () => {
     );
   }
 
-  // Loading
+  // ─── Loading ─────────────────────────────────────────────────────────────────
   if (isLoading || phase === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -155,7 +218,64 @@ const CandidateExam = () => {
     );
   }
 
-  // Intro
+  // ─── OTP ─────────────────────────────────────────────────────────────────────
+  if (phase === 'otp' && assessmentInfo) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full bg-card border-border">
+          <CardContent className="p-8">
+            <Mail className="h-10 w-10 text-primary mx-auto mb-4" />
+            <h1 className="text-xl font-mono font-bold text-center mb-2">Verify Your Email</h1>
+            <p className="text-sm text-muted-foreground text-center mb-6">
+              {otpSent ? (
+                <>A 6-digit code was sent to <span className="text-foreground font-mono">{assessmentInfo.candidateEmail}</span>.</>
+              ) : 'Sending verification code...'}
+            </p>
+
+            <div className="space-y-4">
+              <Input
+                placeholder="Enter 6-digit code"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="font-mono text-center text-lg tracking-widest"
+                maxLength={6}
+                onKeyDown={(e) => e.key === 'Enter' && otpCode.length === 6 && verifyOtpMutation.mutate()}
+              />
+
+              {verifyOtpMutation.isError && (
+                <p className="text-xs text-red-400 text-center">
+                  {(verifyOtpMutation.error as any)?.response?.data?.message ?? 'Invalid or expired code'}
+                </p>
+              )}
+
+              <Button
+                className="w-full glow-cyan"
+                onClick={() => verifyOtpMutation.mutate()}
+                disabled={otpCode.length !== 6 || verifyOtpMutation.isPending || startMutation.isPending}
+              >
+                {(verifyOtpMutation.isPending || startMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Verify & Start
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => requestOtpMutation.mutate()}
+                disabled={otpResendCooldown > 0 || requestOtpMutation.isPending}
+              >
+                {otpResendCooldown > 0 ? `Resend in ${otpResendCooldown}s` : 'Resend code'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // ─── Intro ────────────────────────────────────────────────────────────────────
   if (phase === 'intro' && assessmentInfo) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -188,16 +308,28 @@ const CandidateExam = () => {
                   Tab switching will be monitored
                 </div>
               )}
+              {assessmentInfo.requireFullscreen && (
+                <div className="flex items-center gap-2 text-amber-400 text-xs">
+                  <Maximize className="h-3.5 w-3.5" />
+                  Fullscreen mode is required
+                </div>
+              )}
+              {assessmentInfo.requireOtp && (
+                <div className="flex items-center gap-2 text-blue-400 text-xs">
+                  <Mail className="h-3.5 w-3.5" />
+                  Email verification required
+                </div>
+              )}
             </div>
             <Button
               className="w-full glow-cyan"
               size="lg"
               onClick={handleStart}
-              disabled={startMutation.isPending}
+              disabled={startMutation.isPending || requestOtpMutation.isPending}
             >
-              {startMutation.isPending ? (
+              {(startMutation.isPending || requestOtpMutation.isPending) && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : null}
+              )}
               Start Assessment
             </Button>
           </CardContent>
@@ -206,7 +338,7 @@ const CandidateExam = () => {
     );
   }
 
-  // Exam
+  // ─── Exam ─────────────────────────────────────────────────────────────────────
   if (phase === 'exam' && examData) {
     const questions = examData.questions;
     const current = questions[currentIndex];
@@ -214,7 +346,23 @@ const CandidateExam = () => {
 
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        {/* Top bar */}
+        {fullscreenWarning && (
+          <div className="bg-red-500/10 border-b border-red-500/30 px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-red-400 text-xs font-mono">
+              <ShieldAlert className="h-4 w-4" />
+              Fullscreen exited — this has been recorded.
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs border-red-500/40 text-red-400 h-7"
+              onClick={() => document.documentElement.requestFullscreen().catch(() => {})}
+            >
+              <Maximize className="h-3 w-3 mr-1" /> Restore
+            </Button>
+          </div>
+        )}
+
         <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
             <span className="text-sm font-mono text-muted-foreground">
@@ -230,7 +378,6 @@ const CandidateExam = () => {
           </div>
         </div>
 
-        {/* Question */}
         <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-6">
           {current && (
             <div className="space-y-6">
@@ -266,7 +413,6 @@ const CandidateExam = () => {
           )}
         </div>
 
-        {/* Bottom navigation */}
         <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t border-border px-4 py-3">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
             <Button
@@ -279,10 +425,7 @@ const CandidateExam = () => {
             </Button>
 
             {currentIndex < questions.length - 1 ? (
-              <Button
-                size="sm"
-                onClick={() => setCurrentIndex((i) => i + 1)}
-              >
+              <Button size="sm" onClick={() => setCurrentIndex((i) => i + 1)}>
                 Next <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : (
@@ -302,7 +445,6 @@ const CandidateExam = () => {
             )}
           </div>
 
-          {/* Question navigation dots */}
           <div className="flex gap-1 justify-center mt-2 flex-wrap">
             {questions.map((q, i) => {
               const hasAnswer = (answers[q.id] ?? []).length > 0;
@@ -328,7 +470,7 @@ const CandidateExam = () => {
     );
   }
 
-  // Submitting
+  // ─── Submitting ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
