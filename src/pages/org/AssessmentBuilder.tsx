@@ -371,6 +371,9 @@ const AssessmentBuilder = () => {
   const [randomizeChoices, setRandomizeChoices] = useState(true);
   const [detectTabSwitch, setDetectTabSwitch] = useState(false);
   const [blockCopyPaste, setBlockCopyPaste] = useState(false);
+  const [requireFullscreen, setRequireFullscreen] = useState(false);
+  const [requireOtp, setRequireOtp] = useState(false);
+  const [maxAttempts, setMaxAttempts] = useState(1);
   const [linkExpiryHours, setLinkExpiryHours] = useState(72);
 
   // ── Selection mode ──
@@ -472,6 +475,9 @@ const AssessmentBuilder = () => {
     setRandomizeChoices(existingItem.randomizeChoices);
     setDetectTabSwitch(existingItem.detectTabSwitch);
     setBlockCopyPaste(existingItem.blockCopyPaste);
+    setRequireFullscreen(existingItem.requireFullscreen ?? false);
+    setRequireOtp(existingItem.requireOtp ?? false);
+    setMaxAttempts(existingItem.maxAttempts ?? 1);
     setLinkExpiryHours(existingItem.linkExpiryHours);
     setMode(existingItem.selectionMode ?? 'MANUAL');
 
@@ -559,6 +565,9 @@ const AssessmentBuilder = () => {
         randomizeChoices,
         detectTabSwitch,
         blockCopyPaste,
+        requireFullscreen,
+        requireOtp,
+        maxAttempts,
         linkExpiryHours,
         selectionMode: mode,
       };
@@ -713,6 +722,35 @@ const AssessmentBuilder = () => {
             <Switch checked={value} onCheckedChange={set} />
           </div>
         ))}
+      </div>
+
+      {/* Proctoring & Integrity */}
+      <div className="space-y-3 pt-3 border-t border-border">
+        <p className="text-xs font-mono text-muted-foreground uppercase tracking-wider">Proctoring & Integrity</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-xs font-mono">Require Fullscreen</Label>
+            <p className="text-[10px] text-muted-foreground">Candidate must stay in fullscreen during exam</p>
+          </div>
+          <Switch checked={requireFullscreen} onCheckedChange={setRequireFullscreen} />
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-xs font-mono">Require OTP Verification</Label>
+            <p className="text-[10px] text-muted-foreground">Verify candidate email before start</p>
+          </div>
+          <Switch checked={requireOtp} onCheckedChange={setRequireOtp} />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs font-mono">Max Attempts</Label>
+          <Input
+            type="number"
+            value={maxAttempts}
+            onChange={(e) => setMaxAttempts(Math.max(1, Math.min(10, Number(e.target.value))))}
+            min={1}
+            max={10}
+          />
+        </div>
       </div>
 
       {/* Selection Mode */}

@@ -160,6 +160,8 @@ const AssessmentResults = () => {
         <CandidateRanking
           candidates={candidates}
           passingScore={assessment.passingScore}
+          assessmentId={assessment.id}
+          orgSlug={slug}
           onReinvite={assessment.status === 'ACTIVE' ? (email) => reinviteMutation.mutate(email) : undefined}
           isReinviting={reinviteMutation.isPending}
         />

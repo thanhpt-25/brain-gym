@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AssessmentsService } from './assessments.service';
+import { CandidateService } from './candidate.service';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
@@ -26,7 +27,10 @@ import { AssessmentStatus } from '@prisma/client';
 @UseGuards(JwtAuthGuard, OrgRoleGuard)
 @OrgRoles('OWNER', 'ADMIN', 'MANAGER')
 export class AssessmentsController {
-  constructor(private readonly service: AssessmentsService) {}
+  constructor(
+    private readonly service: AssessmentsService,
+    private readonly candidateService: CandidateService,
+  ) {}
 
   @Get()
   list(
@@ -115,6 +119,13 @@ export class AssessmentsController {
       'attachment; filename="assessment-results.csv"',
     );
     res.send(csv);
+  }
+
+  @Get(':aid/candidates/:inviteId/events')
+  getCandidateEvents(
+    @Param('inviteId') inviteId: string,
+  ) {
+    return this.candidateService.getEvents(inviteId);
   }
 
   @Delete(':aid')

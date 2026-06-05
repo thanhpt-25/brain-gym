@@ -1030,6 +1030,9 @@ model Assessment {
   randomizeChoices   Boolean                  @default(true) @map("randomize_choices")
   detectTabSwitch    Boolean                  @default(false) @map("detect_tab_switch")
   blockCopyPaste     Boolean                  @default(false) @map("block_copy_paste")
+  requireFullscreen  Boolean                  @default(false) @map("require_fullscreen")
+  requireOtp         Boolean                  @default(false) @map("require_otp")
+  maxAttempts        Int                      @default(1)     @map("max_attempts")
   linkExpiryHours    Int                      @default(72) @map("link_expiry_hours")
   createdBy          String                   @map("created_by")
   createdAt          DateTime                 @default(now()) @map("created_at")
@@ -1068,10 +1071,12 @@ model CandidateInvite {
   totalQuestions Int?                   @map("total_questions")
   domainScores   Json?                  @map("domain_scores")
   timeSpent      Int?                   @map("time_spent")
-  tabSwitchCount Int?                   @map("tab_switch_count")
-  ipAddress      String?                @map("ip_address")
-  startedAt      DateTime?              @map("started_at")
-  submittedAt    DateTime?              @map("submitted_at")
+  tabSwitchCount   Int?                   @map("tab_switch_count")
+  ipAddress        String?                @map("ip_address")
+  integrityScore   Int?                   @map("integrity_score")
+  otpVerifiedAt    DateTime?              @map("otp_verified_at")
+  startedAt        DateTime?              @map("started_at")
+  submittedAt      DateTime?              @map("submitted_at")
   expiresAt        DateTime               @map("expires_at")
   /// POOL mode: snapshot of drawn OrgQuestion IDs for this invite (idempotent re-load)
   drawnQuestionIds String[]               @default([]) @map("drawn_question_ids")
@@ -1079,6 +1084,7 @@ model CandidateInvite {
 
   assessment Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   answers    CandidateAnswer[]
+  events     CandidateEvent[]
 
   @@map("candidate_invites")
 }
@@ -1095,6 +1101,20 @@ model CandidateAnswer {
   invite CandidateInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
 
   @@map("candidate_answers")
+}
+
+model CandidateEvent {
+  id        String   @id @default(uuid())
+  inviteId  String   @map("invite_id")
+  eventType String   @map("event_type")
+  payload   Json     @default("{}")
+  clientTs  DateTime @map("client_ts")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  invite CandidateInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+
+  @@index([inviteId, clientTs])
+  @@map("candidate_events")
 }
 
 model AttemptEvent {

@@ -1,17 +1,42 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronRight, RefreshCw,
+  CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronRight,
+  RefreshCw, ShieldCheck, ShieldAlert, Shield, Clock,
+  Monitor, Copy, EyeOff, Maximize,
 } from 'lucide-react';
-import type { CandidateInvite } from '@/types/assessment-types';
+import type { CandidateInvite, CandidateEvent } from '@/types/assessment-types';
+import { getCandidateEvents } from '@/services/assessments';
 
 const statusConfig: Record<string, { color: string; label: string }> = {
   INVITED: { color: 'bg-blue-500/15 text-blue-400', label: 'Invited' },
   STARTED: { color: 'bg-amber-500/15 text-amber-400', label: 'In Progress' },
   SUBMITTED: { color: 'bg-emerald-500/15 text-emerald-400', label: 'Submitted' },
   EXPIRED: { color: 'bg-zinc-500/15 text-zinc-400', label: 'Expired' },
+};
+
+const eventConfig: Record<string, { label: string; icon: any; color: string }> = {
+  TAB_SWITCH: { label: 'Tab Switch', icon: Monitor, color: 'text-amber-400' },
+  FULLSCREEN_EXIT: { label: 'Fullscreen Exit', icon: Maximize, color: 'text-red-400' },
+  BLUR: { label: 'Window Blur', icon: EyeOff, color: 'text-zinc-400' },
+  COPY: { label: 'Copy Detected', icon: Copy, color: 'text-red-400' },
+  PASTE: { label: 'Paste Detected', icon: Copy, color: 'text-red-400' },
+};
+
+const IntegrityBadge = ({ score }: { score: number | null }) => {
+  if (score == null) return <span className="text-muted-foreground">-</span>;
+  const color = score >= 80 ? 'bg-emerald-500/15 text-emerald-400'
+    : score >= 60 ? 'bg-amber-500/15 text-amber-400'
+    : 'bg-red-500/15 text-red-400';
+  const Icon = score >= 80 ? ShieldCheck : score >= 60 ? Shield : ShieldAlert;
+  return (
+    <Badge className={`text-[10px] gap-1 ${color}`}>
+      <Icon className="h-3 w-3" /> {score}
+    </Badge>
+  );
 };
 
 const formatDuration = (seconds: number | null): string => {
@@ -21,15 +46,50 @@ const formatDuration = (seconds: number | null): string => {
   return `${m}m ${s}s`;
 };
 
+const EventTimeline = ({
+  orgSlug, assessmentId, inviteId,
+}: { orgSlug: string; assessmentId: string; inviteId: string }) => {
+  const { data: events = [], isLoading } = useQuery({
+    queryKey: ['candidate-events', inviteId],
+    queryFn: () => getCandidateEvents(orgSlug, assessmentId, inviteId),
+  });
+
+  if (isLoading) return <p className="text-[10px] text-muted-foreground font-mono">Loading events...</p>;
+  if (events.length === 0) return <p className="text-[10px] text-muted-foreground font-mono">No integrity events recorded</p>;
+
+  return (
+    <div className="space-y-1.5">
+      {events.map((e) => {
+        const cfg = eventConfig[e.eventType];
+        const Icon = cfg?.icon ?? AlertTriangle;
+        return (
+          <div key={e.id} className="flex items-center gap-2 text-[10px] font-mono">
+            <Icon className={`h-3 w-3 shrink-0 ${cfg?.color ?? 'text-muted-foreground'}`} />
+            <span className={cfg?.color ?? 'text-muted-foreground'}>{cfg?.label ?? e.eventType}</span>
+            <span className="text-muted-foreground ml-auto">
+              {new Date(e.clientTs).toLocaleTimeString()}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 interface Props {
   candidates: CandidateInvite[];
   passingScore: number | null;
+  assessmentId: string;
+  orgSlug: string;
   onReinvite?: (email: string) => void;
   isReinviting?: boolean;
 }
 
-const CandidateRanking = ({ candidates, passingScore, onReinvite, isReinviting }: Props) => {
+const CandidateRanking = ({
+  candidates, passingScore, assessmentId, orgSlug, onReinvite, isReinviting,
+}: Props) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [timelineId, setTimelineId] = useState<string | null>(null);
 
   return (
     <Card className="bg-card border-border">
@@ -46,6 +106,7 @@ const CandidateRanking = ({ candidates, passingScore, onReinvite, isReinviting }
                 <th className="text-right p-3 font-medium">Correct</th>
                 <th className="text-right p-3 font-medium">Time</th>
                 <th className="text-right p-3 font-medium">Switches</th>
+                <th className="text-right p-3 font-medium">Integrity</th>
                 <th className="text-left p-3 font-medium">Result</th>
                 <th className="text-right p-3 font-medium"></th>
               </tr>
@@ -57,7 +118,9 @@ const CandidateRanking = ({ candidates, passingScore, onReinvite, isReinviting }
                   : null;
                 const hasDomainScores = c.domainScores && Object.keys(c.domainScores).length > 0;
                 const isExpanded = expandedId === c.id;
+                const showTimeline = timelineId === c.id;
                 const canReinvite = (c.status === 'INVITED' || c.status === 'EXPIRED') && !!onReinvite;
+                const isSubmitted = c.status === 'SUBMITTED';
 
                 return (
                   <>
@@ -107,6 +170,19 @@ const CandidateRanking = ({ candidates, passingScore, onReinvite, isReinviting }
                           <span className="text-muted-foreground">0</span>
                         )}
                       </td>
+                      <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                        {isSubmitted ? (
+                          <button
+                            className="flex items-center justify-end gap-1 hover:opacity-70 transition-opacity"
+                            onClick={() => setTimelineId(showTimeline ? null : c.id)}
+                            title="View integrity timeline"
+                          >
+                            <IntegrityBadge score={c.integrityScore} />
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
                       <td className="p-3">
                         {passed === true && (
                           <span className="flex items-center gap-1 text-emerald-400">
@@ -134,10 +210,26 @@ const CandidateRanking = ({ candidates, passingScore, onReinvite, isReinviting }
                       </td>
                     </tr>
 
+                    {/* Integrity Timeline */}
+                    {showTimeline && (
+                      <tr key={`${c.id}-timeline`} className="border-b border-border/50 bg-red-500/5">
+                        <td colSpan={11} className="px-5 py-3">
+                          <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Integrity Event Timeline
+                          </p>
+                          <EventTimeline
+                            orgSlug={orgSlug}
+                            assessmentId={assessmentId}
+                            inviteId={c.id}
+                          />
+                        </td>
+                      </tr>
+                    )}
+
                     {/* Domain Score Expansion */}
                     {isExpanded && hasDomainScores && (
                       <tr key={`${c.id}-domain`} className="border-b border-border/50 bg-muted/20">
-                        <td colSpan={10} className="px-5 py-3">
+                        <td colSpan={11} className="px-5 py-3">
                           <div className="space-y-2">
                             <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider mb-2">
                               Domain Breakdown

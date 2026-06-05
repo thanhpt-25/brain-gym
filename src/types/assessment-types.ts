@@ -54,6 +54,9 @@ export interface Assessment {
   randomizeChoices: boolean;
   detectTabSwitch: boolean;
   blockCopyPaste: boolean;
+  requireFullscreen: boolean;
+  requireOtp: boolean;
+  maxAttempts: number;
   linkExpiryHours: number;
   createdBy: string;
   createdAt: string;
@@ -78,10 +81,21 @@ export interface CandidateInvite {
   timeSpent: number | null;
   tabSwitchCount: number | null;
   ipAddress: string | null;
+  integrityScore: number | null;
+  otpVerifiedAt: string | null;
   startedAt: string | null;
   submittedAt: string | null;
   expiresAt: string;
   drawnQuestionIds: string[];
+  createdAt: string;
+}
+
+export interface CandidateEvent {
+  id: string;
+  inviteId: string;
+  eventType: string;
+  payload: Record<string, any>;
+  clientTs: string;
   createdAt: string;
 }
 
@@ -103,9 +117,14 @@ export interface CandidateExamInfo {
   timeLimit: number;
   detectTabSwitch: boolean;
   blockCopyPaste: boolean;
+  requireFullscreen: boolean;
+  requireOtp: boolean;
+  maxAttempts: number;
   candidateName: string | null;
+  candidateEmail: string;
   status: CandidateAttemptStatus;
   startedAt: string | null;
+  otpVerifiedAt: string | null;
 }
 
 export interface CandidateQuestion {
@@ -121,6 +140,7 @@ export interface CandidateExamPayload {
   timeLimit: number;
   detectTabSwitch: boolean;
   blockCopyPaste: boolean;
+  requireFullscreen: boolean;
   totalQuestions: number;
   questions: CandidateQuestion[];
 }
@@ -131,6 +151,7 @@ export interface CandidateSubmitResult {
   totalQuestions: number;
   passed: boolean | null;
   timeSpent: number | null;
+  integrityScore: number | null;
 }
 
 // ─── Request payloads ─────────────────────────────────────────────────────────
@@ -150,6 +171,9 @@ export interface CreateAssessmentPayload {
   randomizeChoices?: boolean;
   detectTabSwitch?: boolean;
   blockCopyPaste?: boolean;
+  requireFullscreen?: boolean;
+  requireOtp?: boolean;
+  maxAttempts?: number;
   linkExpiryHours?: number;
   // Selection mode fields
   selectionMode?: AssessmentSelectionMode;
