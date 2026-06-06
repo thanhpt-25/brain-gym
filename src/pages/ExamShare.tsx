@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import SEO from "@/components/SEO";
 import { useQuery } from "@tanstack/react-query";
 import { getExamByShareCode, getExamById } from "@/services/exams";
 import { startAttempt } from "@/services/attempts";
@@ -73,6 +74,22 @@ const ExamShare = () => {
 
   return (
     <div className="min-h-screen bg-background bg-grid">
+      <SEO
+        title={`${exam.title} — Practice Exam`}
+        description={`${exam.title}: ${exam.questionCount ?? 0} questions, ${exam.timeLimit ?? 0} minutes. Community-created practice exam on CertGym.`}
+        canonical={shareCode ? `/exams/share/${shareCode}` : `/exams/${id}`}
+        jsonLd={{
+          "@type": "LearningResource",
+          name: exam.title,
+          description: `Practice exam with ${exam.questionCount ?? 0} questions`,
+          educationalLevel: "professional",
+          learningResourceType: "quiz",
+          provider: {
+            "@type": "Organization",
+            name: "CertGym",
+          },
+        }}
+      />
       <div className="container max-w-lg py-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

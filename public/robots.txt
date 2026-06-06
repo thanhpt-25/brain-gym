@@ -12,3 +12,17 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /exam-results
+Disallow: /ai-generate
+Disallow: /org/
+Disallow: /coach/
+Disallow: /decks/
+Disallow: /scenarios/
+Disallow: /knowledge-graph
+Disallow: /profile
+Disallow: /squads/
+Disallow: /assess/
+
+Sitemap: https://brain-gym.biz/sitemap.xml
