@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import SEO from "@/components/SEO";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { getCertifications } from "@/services/certifications";
 import { getExams, ExamSummary } from "@/services/exams";
@@ -96,6 +97,11 @@ const ExamLibrary = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title="Certification Practice Exams"
+        description="Browse hundreds of community-created practice exams for AWS, Azure, GCP, Kubernetes, PMP, and more. Free to attempt. Pass your cert on the first try."
+        canonical="/exams"
+      />
       <Navbar title="Exam Library" />
 
       <section className="pt-24 pb-20">

@@ -4,6 +4,8 @@ import { getCertifications } from "@/services/certifications";
 import { getMyPoints } from "@/services/gamification";
 import { getPlatformStats, type PlatformStats } from "@/services/analytics";
 import { useNavigate, Link } from "react-router-dom";
+import SEO from "@/components/SEO";
+import { SITE_URL } from "@/lib/constants";
 import {
   Brain,
   Zap,
@@ -166,6 +168,34 @@ const Index = () => {
 
   return (
     <main id="main-content" className="min-h-screen bg-background">
+      <SEO
+        title="Certification Exam Prep — Practice Tests & Flashcards"
+        description="Community-driven platform for AWS, Azure, GCP, and Kubernetes certification prep. Free practice exams, AI-powered flashcards, adaptive learning, and detailed analytics."
+        canonical="/"
+        jsonLd={[
+          {
+            "@type": "WebSite",
+            name: "CertGym",
+            url: SITE_URL,
+            potentialAction: {
+              "@type": "SearchAction",
+              target: {
+                "@type": "EntryPoint",
+                urlTemplate: `${SITE_URL}/questions?search={search_term_string}`,
+              },
+              "query-input": "required name=search_term_string",
+            },
+          },
+          {
+            "@type": "EducationalOrganization",
+            name: "CertGym",
+            url: SITE_URL,
+            description:
+              "Community-driven certification exam preparation platform with practice exams, flashcards, and AI-powered learning for cloud and IT certifications.",
+            sameAs: [`${SITE_URL}`],
+          },
+        ]}
+      />
       <Navbar />
 
       {/* Hero */}
@@ -243,13 +273,16 @@ const Index = () => {
             </div>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground font-mono">
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> Free forever
+                <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> Free
+                forever
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> No credit card
+                <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> No credit
+                card
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> 15 min / day
+                <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> 15 min /
+                day
               </span>
             </div>
           </motion.div>
@@ -346,7 +379,8 @@ const Index = () => {
               <span className="text-gradient-cyan">three steps</span>
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              A focused training loop that turns daily reps into a real exam pass.
+              A focused training loop that turns daily reps into a real exam
+              pass.
             </p>
           </motion.div>
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto relative">
