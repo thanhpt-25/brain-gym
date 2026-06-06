@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import DOMPurify from "dompurify";
 import SEO from "@/components/SEO";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getQuestionById, voteQuestion } from "@/services/questions";
@@ -245,11 +246,14 @@ const QuestionDetail = () => {
     </div>
   );
 
-  const questionTitle = question
-    ? `${question.content
-        .replace(/<[^>]+>/g, "")
-        .slice(0, 80)
-        .trim()}${question.content.length > 80 ? "…" : ""}`
+  const plainContent = question
+    ? DOMPurify.sanitize(question.content, {
+        ALLOWED_TAGS: [],
+        ALLOWED_ATTR: [],
+      })
+    : "";
+  const questionTitle = plainContent
+    ? `${plainContent.slice(0, 80).trim()}${plainContent.length > 80 ? "…" : ""}`
     : "Exam Question";
   const certName = (question as any)?.certification?.name ?? "Certification";
 
