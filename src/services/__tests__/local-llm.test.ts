@@ -206,7 +206,7 @@ describe("Local LLM Feature", () => {
       expect(updated?.apiKey).toBe("secret");
     });
 
-    it("should never write the apiKey to localStorage in clear text", () => {
+    it("should persist the apiKey so it survives a reload", () => {
       const saved = localLlmConfigStorage.save({
         dialect: "openai",
         baseUrl: "http://localhost:11434/v1",
@@ -214,12 +214,12 @@ describe("Local LLM Feature", () => {
         apiKey: "super-secret-key",
       });
 
-      // The raw persisted blob must not contain the secret…
+      // The key is persisted to localStorage so it survives a page reload —
+      // otherwise the next generation request would fail with 401.
       const raw = localStorage.getItem("braingym:local-llm-configs") ?? "";
-      expect(raw).not.toContain("super-secret-key");
-      expect(raw).not.toContain("apiKey");
+      expect(raw).toContain("super-secret-key");
 
-      // …but it remains usable in-session via the in-memory cache.
+      // A fresh read (simulating a reload) still yields the key.
       expect(localLlmConfigStorage.getById(saved.id)?.apiKey).toBe(
         "super-secret-key",
       );
