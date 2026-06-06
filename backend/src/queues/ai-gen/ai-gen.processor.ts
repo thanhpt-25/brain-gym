@@ -87,7 +87,7 @@ export class AiGenProcessor extends WorkerHost {
       let scores: number[];
       try {
         const criticResult = await llm.generateRaw(
-          buildCriticSystemPrompt(),
+          buildCriticSystemPrompt(difficulty),
           buildCriticUserPrompt(rawQuestions),
         );
         scores = this.parseCriticResponse(

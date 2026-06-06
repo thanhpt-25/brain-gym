@@ -20,10 +20,6 @@ import {
   buildGenerationSystemPrompt,
   buildGenerationUserPrompt,
 } from './prompts/question-generation.prompt';
-import {
-  buildCriticSystemPrompt,
-  buildCriticUserPrompt,
-} from './prompts/quality-critic.prompt';
 import { ConfigureLlmDto } from './dto/configure-llm.dto';
 import { GenerateQuestionsDto } from './dto/generate-questions.dto';
 import { SaveGeneratedQuestionsDto } from './dto/save-questions.dto';
