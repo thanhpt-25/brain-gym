@@ -26,10 +26,12 @@ ${DIFFICULTY_CRITERIA[difficulty]}
 
 ## Structural Checks (apply to ALL difficulties — deduct 0.10–0.20 per issue found)
 - Options are NOT grammatically parallel or vary wildly in length (correct answer noticeably longer)
-- The explanation does NOT address why each wrong answer is incorrect (missing per-distractor reasoning)
+- The explanation does NOT use the labelled distractor format: [Correct] X: ... [Wrong-Y: type] Y: ...
+- The explanation does NOT explain why EACH wrong answer specifically fails
 - The stem contains inadvertent clues that point to the correct answer (article/tense/length asymmetry)
 - "All of the above", "None of the above", or nested sub-lists appear in options
 - Two or more options are arguably correct for SINGLE-choice questions
+- scenario field is missing for questions that clearly open with a multi-sentence business context
 
 ## Instructions
 - Do NOT penalise a question for being simple if it matches the intended difficulty level.

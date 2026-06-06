@@ -8,6 +8,8 @@ export interface GenerationParams {
   questionCount: number;
   questionType?: QuestionType;
   sourceChunks?: string[];
+  certStyle?: string;
+  fewShotExample?: string;
 }
 
 export interface GeneratedChoice {
