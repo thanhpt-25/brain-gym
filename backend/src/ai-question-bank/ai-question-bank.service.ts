@@ -495,6 +495,8 @@ export class AiQuestionBankService {
       difficulty: dto.difficulty || Difficulty.MEDIUM,
       explanation: raw.explanation,
       choices,
+      tags: raw.tags ?? [],
+      isScenario: raw.is_scenario === true,
       sourcePassage: raw.source_passage,
       qualityScore: score,
       qualityTier: tier,

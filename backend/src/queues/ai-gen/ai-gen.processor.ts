@@ -95,13 +95,8 @@ export class AiGenProcessor extends WorkerHost {
           rawQuestions.length,
         );
       } catch {
-        scores = rawQuestions.map((q: Record<string, unknown>) =>
-          q.confidence_hint === 'high'
-            ? 0.87
-            : q.confidence_hint === 'medium'
-              ? 0.7
-              : 0.5,
-        );
+        // Critic failed — default all questions to MEDIUM tier (0.70) for human review
+        scores = Array(rawQuestions.length).fill(0.7);
       }
 
       const previews = rawQuestions.map(
@@ -241,6 +236,7 @@ export class AiGenProcessor extends WorkerHost {
       explanation: q.explanation ?? '',
       choices,
       tags: Array.isArray(q.tags) ? q.tags : [],
+      isScenario: q.is_scenario === true,
       sourcePassage: q.source_passage ?? null,
       qualityScore: score,
       qualityTier: tier,
