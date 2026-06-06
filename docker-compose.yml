@@ -60,7 +60,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        VITE_GOOGLE_CLIENT_ID: "${VITE_GOOGLE_CLIENT_ID:-631928875808-ibtd0n72c183gmi4lc4pb622gltqr2v4.apps.googleusercontent.com}"
+        VITE_GOOGLE_CLIENT_ID: "${VITE_GOOGLE_CLIENT_ID:?VITE_GOOGLE_CLIENT_ID is required — see backend/.env.example}"
     container_name: braingym-frontend
     expose:
       - "80"
