@@ -204,17 +204,23 @@ export class QuestionsController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Admin: Soft-delete a question' })
-  async adminDelete(@Req() req: any, @Param('id') id: string) {
-    const result = await this.questionsService.adminDelete(id);
+  @ApiOperation({ summary: 'Soft-delete a question (author or admin)' })
+  async remove(@Req() req: any, @Param('id') id: string) {
+    const userId = req.user.sub || req.user.id;
+    const userRole = req.user.role;
+    const result = await this.questionsService.removeByOwnerOrAdmin(
+      userId,
+      userRole,
+      id,
+    );
     await this.auditService.log({
-      userId: req.user.sub || req.user.id,
+      userId,
       action: 'QUESTION_DELETED',
       targetType: 'Question',
       targetId: id,
+      metadata: { deletedBy: userRole },
     });
     return result;
   }
