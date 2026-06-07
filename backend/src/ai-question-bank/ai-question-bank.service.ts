@@ -16,23 +16,11 @@ import {
   AiGenJobData,
 } from '../queues/ai-gen/ai-gen.job.interface';
 import { createLlmProvider } from './providers/llm-provider.factory';
-import {
-  buildGenerationSystemPrompt,
-  buildGenerationUserPrompt,
-} from './prompts/question-generation.prompt';
-import {
-  buildCriticSystemPrompt,
-  buildCriticUserPrompt,
-} from './prompts/quality-critic.prompt';
 import { ConfigureLlmDto } from './dto/configure-llm.dto';
 import { GenerateQuestionsDto } from './dto/generate-questions.dto';
 import { SaveGeneratedQuestionsDto } from './dto/save-questions.dto';
 import { McpIntakeDto } from './mcp/mcp-intake.dto';
 import { LlmQuotaService } from './llm-usage/llm-quota.service';
-import {
-  GeneratedQuestion,
-  RawGeneratedQuestion,
-} from './providers/llm-provider.interface';
 import {
   Difficulty,
   LlmProvider,
@@ -140,6 +128,7 @@ export class AiQuestionBankService {
 
     const cert = await this.prisma.certification.findFirst({
       where: { id: dto.certificationId },
+      select: { name: true, code: true, examStyle: true },
     });
     const domain = dto.domainId
       ? await this.prisma.domain.findUnique({ where: { id: dto.domainId } })
@@ -156,6 +145,7 @@ export class AiQuestionBankService {
       questionCount: dto.questionCount,
       questionType: dto.questionType,
       sourceChunks,
+      certStyle: cert?.examStyle ?? undefined,
     });
 
     return {
@@ -444,65 +434,6 @@ export class AiQuestionBankService {
       }
     }
     return undefined;
-  }
-
-  private parseGeneratorResponse(
-    content: string,
-    expectedCount: number,
-  ): RawGeneratedQuestion[] {
-    const parsed = this.extractJson(content);
-    if (!parsed?.questions || !Array.isArray(parsed.questions)) {
-      throw new Error(
-        'LLM returned an invalid response format (missing "questions" array)',
-      );
-    }
-    return parsed.questions.slice(0, expectedCount);
-  }
-
-  private parseCriticResponse(content: string, count: number): number[] {
-    const parsed = this.extractJson(content);
-    if (!parsed?.results || !Array.isArray(parsed.results)) {
-      return Array(count).fill(0.7);
-    }
-    const scores = Array(count).fill(0.7);
-    for (const r of parsed.results) {
-      if (typeof r.index === 'number' && typeof r.score === 'number') {
-        scores[r.index] = Math.max(0, Math.min(1, r.score));
-      }
-    }
-    return scores;
-  }
-
-  private mapToPreview(
-    raw: RawGeneratedQuestion,
-    score: number,
-    dto: GenerateQuestionsDto,
-  ): GeneratedQuestion & {
-    qualityScore: number;
-    qualityTier: QualityTier | null;
-  } {
-    const tier = this.scoreTotier(score);
-    const correctLetters = raw.correct_answer.split(',').map((s) => s.trim());
-    const qType =
-      dto.questionType ||
-      (correctLetters.length > 1 ? QuestionType.MULTIPLE : QuestionType.SINGLE);
-
-    const choices = raw.options.map((opt) => {
-      const label = opt.charAt(0).toUpperCase();
-      const content = opt.replace(/^[A-Z]\.\s*/, '').trim();
-      return { label, content, isCorrect: correctLetters.includes(label) };
-    });
-
-    return {
-      title: raw.question,
-      questionType: qType,
-      difficulty: dto.difficulty || Difficulty.MEDIUM,
-      explanation: raw.explanation,
-      choices,
-      sourcePassage: raw.source_passage,
-      qualityScore: score,
-      qualityTier: tier,
-    };
   }
 
   private scoreTotier(score: number): QualityTier | null {

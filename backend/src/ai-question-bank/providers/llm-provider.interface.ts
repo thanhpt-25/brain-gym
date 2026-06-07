@@ -8,6 +8,8 @@ export interface GenerationParams {
   questionCount: number;
   questionType?: QuestionType;
   sourceChunks?: string[];
+  certStyle?: string;
+  fewShotExample?: string;
 }
 
 export interface GeneratedChoice {
@@ -22,7 +24,8 @@ export interface RawGeneratedQuestion {
   correct_answer: string;
   explanation: string;
   source_passage?: string;
-  confidence_hint?: 'high' | 'medium' | 'low';
+  is_scenario?: boolean;
+  tags?: string[];
 }
 
 export interface GeneratedQuestion {

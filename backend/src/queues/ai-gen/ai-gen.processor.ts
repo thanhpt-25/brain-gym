@@ -50,9 +50,10 @@ export class AiGenProcessor extends WorkerHost {
       const apiKey = this.encryption.decrypt(encryptedApiKey);
       const llm = createLlmProvider(provider, apiKey, modelId);
 
-      const [cert, domain, sourceChunks] = await Promise.all([
+      const [cert, domain, sourceChunks, exampleQuestion] = await Promise.all([
         this.prisma.certification.findFirstOrThrow({
           where: { id: certificationId },
+          select: { name: true, code: true, examStyle: true },
         }),
         domainId
           ? this.prisma.domain.findUnique({ where: { id: domainId } })
@@ -60,7 +61,31 @@ export class AiGenProcessor extends WorkerHost {
         materialId
           ? this.ingestion.getChunksForMaterial(materialId)
           : Promise.resolve([]),
+        this.prisma.question.findFirst({
+          where: {
+            certificationId,
+            difficulty,
+            status: 'APPROVED',
+            qualityTier: 'HIGH',
+            deletedAt: null,
+          },
+          select: {
+            title: true,
+            description: true,
+            explanation: true,
+            isScenario: true,
+            choices: {
+              select: { label: true, content: true, isCorrect: true },
+              orderBy: { sortOrder: 'asc' },
+            },
+            tags: { select: { tag: { select: { name: true } } } },
+          },
+        }),
       ]);
+
+      const fewShotExample = exampleQuestion
+        ? buildFewShotExample(exampleQuestion)
+        : undefined;
 
       const params = {
         certificationName: cert.name,
@@ -70,6 +95,8 @@ export class AiGenProcessor extends WorkerHost {
         questionCount,
         questionType,
         sourceChunks: sourceChunks.slice(0, 5),
+        certStyle: cert.examStyle ?? undefined,
+        fewShotExample,
       };
 
       // Pass 1: Generate
@@ -87,7 +114,7 @@ export class AiGenProcessor extends WorkerHost {
       let scores: number[];
       try {
         const criticResult = await llm.generateRaw(
-          buildCriticSystemPrompt(),
+          buildCriticSystemPrompt(difficulty),
           buildCriticUserPrompt(rawQuestions),
         );
         scores = this.parseCriticResponse(
@@ -95,13 +122,8 @@ export class AiGenProcessor extends WorkerHost {
           rawQuestions.length,
         );
       } catch {
-        scores = rawQuestions.map((q: Record<string, unknown>) =>
-          q.confidence_hint === 'high'
-            ? 0.87
-            : q.confidence_hint === 'medium'
-              ? 0.7
-              : 0.5,
-        );
+        // Critic failed — default all questions to MEDIUM tier (0.70) for human review
+        scores = Array(rawQuestions.length).fill(0.7);
       }
 
       const previews = rawQuestions.map(
@@ -241,10 +263,44 @@ export class AiGenProcessor extends WorkerHost {
       explanation: q.explanation ?? '',
       choices,
       tags: Array.isArray(q.tags) ? q.tags : [],
+      isScenario: q.is_scenario === true,
       sourcePassage: q.source_passage ?? null,
       qualityScore: score,
       qualityTier: tier,
       sourceChunkId: q.source_chunk_id ?? null,
     };
   }
+}
+
+type ExampleQuestion = {
+  title: string;
+  description: string | null;
+  explanation: string | null;
+  isScenario: boolean;
+  choices: { label: string; content: string; isCorrect: boolean }[];
+  tags: { tag: { name: string } }[];
+};
+
+function buildFewShotExample(q: ExampleQuestion): string {
+  const correctLabels = q.choices
+    .filter((c) => c.isCorrect)
+    .map((c) => c.label.toUpperCase());
+  const correctAnswer = correctLabels.join(',');
+  const options = q.choices.map(
+    (c) => `${c.label.toUpperCase()}. ${c.content}`,
+  );
+  const tags = q.tags.map((t) => t.tag.name);
+
+  const example: Record<string, unknown> = {
+    question: q.title,
+    options,
+    correct_answer: correctAnswer,
+    explanation: q.explanation ?? '',
+    is_scenario: q.isScenario,
+    tags,
+  };
+  if (q.isScenario && q.description) {
+    example.scenario = q.description;
+  }
+  return JSON.stringify(example, null, 2);
 }
