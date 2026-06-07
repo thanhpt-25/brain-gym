@@ -37,6 +37,7 @@ import OrganizationsTab from "./OrganizationsTab";
 import { DdsAutoApplyPanel } from "@/components/admin/DdsAutoApplyPanel";
 import { DdsVariantReview } from "@/components/admin/DdsVariantReview";
 import { ReputationTab } from "./ReputationTab";
+import { QuestionsTab } from "./QuestionsTab";
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -104,6 +105,9 @@ const AdminPage = () => {
             <TabsTrigger value="ai" className="font-mono text-xs">
               <Sparkles className="h-3 w-3 mr-1" /> AI Generation
             </TabsTrigger>
+            <TabsTrigger value="questions" className="font-mono text-xs">
+              <FileText className="h-3 w-3 mr-1" /> Questions
+            </TabsTrigger>
             <TabsTrigger value="moderation" className="font-mono text-xs">
               <FileText className="h-3 w-3 mr-1" /> Moderation
             </TabsTrigger>
@@ -150,6 +154,9 @@ const AdminPage = () => {
           </TabsContent>
           <TabsContent value="ai">
             <AiGenerationTab />
+          </TabsContent>
+          <TabsContent value="questions">
+            <QuestionsTab />
           </TabsContent>
           <TabsContent value="moderation">
             <ModerationTab />

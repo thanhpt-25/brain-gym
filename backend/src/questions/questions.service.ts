@@ -8,7 +8,13 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { AdminUpdateQuestionDto } from './dto/admin-update-question.dto';
-import { QuestionStatus, VoteTargetType, UserRole } from '@prisma/client';
+import {
+  QuestionStatus,
+  VoteTargetType,
+  UserRole,
+  AttemptStatus,
+  ReportStatus,
+} from '@prisma/client';
 import {
   GamificationService,
   POINTS,
@@ -494,7 +500,11 @@ export class QuestionsService {
       }),
     ]);
 
-    const byDifficulty: Record<string, number> = { EASY: 0, MEDIUM: 0, HARD: 0 };
+    const byDifficulty: Record<string, number> = {
+      EASY: 0,
+      MEDIUM: 0,
+      HARD: 0,
+    };
     for (const row of byDifficultyRaw) {
       byDifficulty[row.difficulty] = row._count.id;
     }
@@ -523,16 +533,48 @@ export class QuestionsService {
     return { total, byDifficulty, byDomain };
   }
 
-  async adminDelete(questionId: string) {
+  async removeByOwnerOrAdmin(
+    userId: string,
+    userRole: UserRole,
+    questionId: string,
+  ) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
     });
-    if (!question) throw new NotFoundException('Question not found');
 
-    return this.prisma.question.update({
-      where: { id: questionId },
-      data: { deletedAt: new Date() },
+    if (!question || question.deletedAt) {
+      throw new NotFoundException('Question not found');
+    }
+
+    const isAdmin = userRole === UserRole.ADMIN;
+    const isOwner = question.createdBy === userId;
+
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException(
+        'Only the author or an admin can delete this question',
+      );
+    }
+
+    const examUsageCount = await this.prisma.examAttempt.count({
+      where: {
+        status: AttemptStatus.IN_PROGRESS,
+        exam: { examQuestions: { some: { questionId } } },
+      },
     });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.report.updateMany({
+        where: { questionId, status: ReportStatus.PENDING },
+        data: { status: ReportStatus.RESOLVED },
+      });
+
+      return tx.question.update({
+        where: { id: questionId },
+        data: { deletedAt: new Date(), status: QuestionStatus.REMOVED },
+      });
+    });
+
+    return { ...updated, examUsageCount };
   }
 
   async findAllAdmin(params: {

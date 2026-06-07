@@ -1,5 +1,5 @@
-import api from './api';
-import { Question, PaginatedResponse } from '@/types/api-types';
+import api from "./api";
+import { Question, PaginatedResponse } from "@/types/api-types";
 
 export type PaginatedQuestions = PaginatedResponse<Question>;
 
@@ -9,39 +9,73 @@ export interface QuestionStats {
   byDomain: { domainId: string | null; name: string | null; count: number }[];
 }
 
-export const getQuestionStats = async (certificationId: string): Promise<QuestionStats> => {
-  const response = await api.get<QuestionStats>(`/questions/stats?certificationId=${certificationId}`);
+export const getQuestionStats = async (
+  certificationId: string,
+): Promise<QuestionStats> => {
+  const response = await api.get<QuestionStats>(
+    `/questions/stats?certificationId=${certificationId}`,
+  );
   return response.data;
 };
 
-export const getQuestions = async (certificationId?: string, page = 1, limit = 10, isTrapQuestion?: boolean, status?: string): Promise<PaginatedQuestions> => {
-    const params = new URLSearchParams();
-    if (certificationId) params.append('certificationId', certificationId);
-    if (isTrapQuestion !== undefined) params.append('isTrapQuestion', isTrapQuestion.toString());
-    if (status) params.append('status', status);
-    params.append('page', page.toString());
-    params.append('limit', limit.toString());
+export const getQuestions = async (
+  certificationId?: string,
+  page = 1,
+  limit = 10,
+  isTrapQuestion?: boolean,
+  status?: string,
+): Promise<PaginatedQuestions> => {
+  const params = new URLSearchParams();
+  if (certificationId) params.append("certificationId", certificationId);
+  if (isTrapQuestion !== undefined)
+    params.append("isTrapQuestion", isTrapQuestion.toString());
+  if (status) params.append("status", status);
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
 
-    const response = await api.get<PaginatedQuestions>(`/questions?${params.toString()}`);
-    return response.data;
+  const response = await api.get<PaginatedQuestions>(
+    `/questions?${params.toString()}`,
+  );
+  return response.data;
 };
 
 export const getQuestionById = async (id: string): Promise<Question> => {
-    const response = await api.get<Question>(`/questions/${id}`);
-    return response.data;
+  const response = await api.get<Question>(`/questions/${id}`);
+  return response.data;
 };
 
-export const createQuestion = async (data: Partial<Question>): Promise<Question> => {
-    const response = await api.post<Question>('/questions', data);
-    return response.data;
+export const createQuestion = async (
+  data: Partial<Question>,
+): Promise<Question> => {
+  const response = await api.post<Question>("/questions", data);
+  return response.data;
 };
 
-export const voteQuestion = async (id: string, value: number): Promise<Question> => {
-    const response = await api.post<Question>(`/questions/${id}/vote?value=${value}`);
-    return response.data;
+export const voteQuestion = async (
+  id: string,
+  value: number,
+): Promise<Question> => {
+  const response = await api.post<Question>(
+    `/questions/${id}/vote?value=${value}`,
+  );
+  return response.data;
 };
 
-export const updateQuestionStatus = async (id: string, status: string): Promise<Question> => {
-    const response = await api.put<Question>(`/questions/${id}/status`, { status });
-    return response.data;
+export const updateQuestionStatus = async (
+  id: string,
+  status: string,
+): Promise<Question> => {
+  const response = await api.put<Question>(`/questions/${id}/status`, {
+    status,
+  });
+  return response.data;
+};
+
+export const deleteQuestion = async (
+  id: string,
+): Promise<{ examUsageCount: number }> => {
+  const response = await api.delete<{ examUsageCount: number }>(
+    `/questions/${id}`,
+  );
+  return response.data;
 };

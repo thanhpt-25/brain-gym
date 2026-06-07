@@ -3,7 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import SEO from "@/components/SEO";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getQuestionById, voteQuestion } from "@/services/questions";
+import {
+  getQuestionById,
+  voteQuestion,
+  deleteQuestion,
+} from "@/services/questions";
 import {
   getComments,
   createComment,
@@ -66,6 +70,7 @@ const QuestionDetail = () => {
   const [reportReason, setReportReason] =
     useState<ReportReason>("WRONG_ANSWER");
   const [reportDesc, setReportDesc] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data: question, isLoading } = useQuery({
     queryKey: ["question", id],
@@ -135,6 +140,22 @@ const QuestionDetail = () => {
     mutationFn: deleteComment,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["comments", id] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteQuestion(id!),
+    onSuccess: (data) => {
+      if (data.examUsageCount > 0) {
+        toast.warning(
+          `Question deleted. It was still used in ${data.examUsageCount} active exam session(s).`,
+        );
+      } else {
+        toast.success("Question deleted");
+      }
+      navigate("/questions");
+    },
+    onError: (err: any) =>
+      toast.error(err.response?.data?.message || "Failed to delete question"),
   });
 
   const reportMutation = useMutation({
@@ -514,6 +535,48 @@ const QuestionDetail = () => {
                 </DialogContent>
               </Dialog>
             )}
+
+            {isAuthenticated &&
+              (user?.id === q.author?.id || user?.role === "ADMIN") && (
+                <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                  <DialogTrigger asChild>
+                    <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive transition-colors ml-auto">
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="font-mono">
+                        Delete Question
+                      </DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                      Are you sure you want to delete this question? This action
+                      cannot be undone. The question will be removed from public
+                      listings and cannot be selected for future exams.
+                    </p>
+                    <div className="flex gap-2 justify-end mt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setDeleteOpen(false)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => deleteMutation.mutate()}
+                        disabled={deleteMutation.isPending}
+                      >
+                        {deleteMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : null}
+                        Delete
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
           </div>
 
           {/* Comments Section */}
