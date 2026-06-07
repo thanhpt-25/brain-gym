@@ -2,10 +2,10 @@ import { Difficulty } from '@prisma/client';
 import { RawGeneratedQuestion } from '../providers/llm-provider.interface';
 
 const DIFFICULTY_CRITERIA: Record<Difficulty, string> = {
-  [Difficulty.EASY]: `These are EASY difficulty questions — evaluate quality, not complexity.
-- 0.85–1.0 (HIGH): Clear recall question, factually accurate, unambiguous correct answer, distractors represent plausible misconceptions.
+  [Difficulty.EASY]: `These are EASY difficulty questions — they must still read like real exam items (a short, concrete situation testing ONE concept), just simpler than MEDIUM. Evaluate quality and exam realism, not complexity.
+- 0.85–1.0 (HIGH): Brief realistic situation testing a single concept, factually accurate, unambiguous correct answer, distractors are plausible adjacent options or common misconceptions.
 - 0.60–0.84 (MEDIUM): Minor clarity issues or slightly obvious distractors, but factually sound and well-structured.
-- 0.00–0.59 (LOW): Reject. Factually wrong, ambiguous correct answer, all distractors obviously wrong, or missing/shallow explanation.`,
+- 0.00–0.59 (LOW): Reject. A bare definition / one-line "What is X?" with no context, factually wrong, ambiguous correct answer, all distractors obviously wrong, or missing/shallow explanation.`,
   [Difficulty.MEDIUM]: `These are MEDIUM difficulty questions — evaluate applied reasoning and scenario quality.
 - 0.85–1.0 (HIGH): Realistic scenario with clear business/technical constraint, BEST-answer framing ("MOST cost-effective" etc.), plausible distractors that are valid solutions to a different problem.
 - 0.60–0.84 (MEDIUM): Scenario present but constraint is vague, or distractors are somewhat weak, but fundamentally sound.
@@ -26,12 +26,12 @@ ${DIFFICULTY_CRITERIA[difficulty]}
 
 ## Structural Checks (apply to ALL difficulties — deduct 0.10–0.20 per issue found)
 - Options are NOT grammatically parallel or vary wildly in length (correct answer noticeably longer)
-- The explanation does NOT use the labelled distractor format: [Correct] X: ... [Wrong-Y: type] Y: ...
+- The explanation is not in Markdown: it should bold the correct answer (e.g. **✅ Correct — X:** ...) and list each wrong option with its distractor-type label (e.g. - **Y** (near-miss): ...)
 - The explanation does NOT explain why EACH wrong answer specifically fails
 - The stem contains inadvertent clues that point to the correct answer (article/tense/length asymmetry)
 - "All of the above", "None of the above", or nested sub-lists appear in options
 - Two or more options are arguably correct for SINGLE-choice questions
-- scenario field is missing for questions that clearly open with a multi-sentence business context
+- The question is a bare one-liner that lacks the concrete context (numbers, named technologies, constraints) a candidate needs — situational context belongs inline in the question text, not necessarily in a separate scenario field
 
 ## Instructions
 - Do NOT penalise a question for being simple if it matches the intended difficulty level.

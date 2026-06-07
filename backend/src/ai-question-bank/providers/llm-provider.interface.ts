@@ -20,6 +20,7 @@ export interface GeneratedChoice {
 
 export interface RawGeneratedQuestion {
   question: string;
+  scenario?: string;
   options: string[];
   correct_answer: string;
   explanation: string;
