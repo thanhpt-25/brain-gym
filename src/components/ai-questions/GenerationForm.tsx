@@ -102,12 +102,23 @@ export default function GenerationForm({ onResult }: Props) {
         ? false
         : POLL_INTERVAL_MS;
     },
+    // Keep polling even when the tab is backgrounded — generation can take a
+    // minute or more and users often look away while waiting. Without this the
+    // poll pauses on blur and the button stays stuck on "Processing…" until a
+    // full page refresh.
+    refetchIntervalInBackground: true,
   });
 
   useEffect(() => {
-    if (jobStatusData?.status === "COMPLETED" && jobStatusData.questions) {
+    if (!jobStatusData) return;
+
+    if (jobStatusData.status === "COMPLETED" && jobStatusData.questions) {
       setPendingJobId(null);
       onResult(jobStatusData, pendingCertId, pendingDomainId);
+    } else if (jobStatusData.status === "FAILED") {
+      // Reset the button and surface the failure instead of spinning forever.
+      setPendingJobId(null);
+      setLocalError(jobStatusData.errorMessage || "Generation failed.");
     }
   }, [jobStatusData, onResult, pendingCertId, pendingDomainId]);
 
