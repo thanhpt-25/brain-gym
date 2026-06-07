@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 
 const STATUS_OPTIONS = [
-  { value: "", label: "All statuses" },
+  { value: "all", label: "All statuses" },
   { value: "DRAFT", label: "Draft" },
   { value: "PENDING", label: "Pending" },
   { value: "APPROVED", label: "Approved" },
@@ -49,16 +49,18 @@ export function QuestionsTab() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState("all");
   const [pendingSearch, setPendingSearch] = useState("");
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
+  const statusFilter = status === "all" ? undefined : status;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-questions", page, search, status],
+    queryKey: ["admin-questions", page, search, statusFilter],
     queryFn: () =>
       getAdminQuestions({
         search: search || undefined,
-        status: status || undefined,
+        status: statusFilter,
         page,
         limit: 20,
         includeDeleted: true,
