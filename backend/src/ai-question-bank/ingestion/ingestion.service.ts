@@ -139,7 +139,8 @@ export class IngestionService {
       normalized === '::' || // unspecified
       normalized.startsWith('fe80:') || // link-local
       normalized.startsWith('fc') || // unique local fc00::/7
-      normalized.startsWith('fd')
+      normalized.startsWith('fd') || // unique local fc00::/7
+      normalized.startsWith('::ffff:') // IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1)
     );
   }
 
@@ -169,7 +170,9 @@ export class IngestionService {
     }
 
     if (this.isPrivateOrLocalIp(hostname)) {
-      throw new BadRequestException('Private or local network URLs are not allowed');
+      throw new BadRequestException(
+        'Private or local network URLs are not allowed',
+      );
     }
 
     return parsed.toString();
@@ -180,6 +183,7 @@ export class IngestionService {
     const response = await fetch(safeUrl, {
       headers: { 'User-Agent': 'BrainGym/1.0 (study material fetcher)' },
       signal: AbortSignal.timeout(15000),
+      redirect: 'error', // prevent redirect chains bypassing SSRF validation
     });
     if (!response.ok)
       throw new BadRequestException(
