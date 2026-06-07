@@ -83,9 +83,13 @@ export class AiGenProcessor extends WorkerHost {
         }),
       ]);
 
-      const fewShotExample = exampleQuestion
-        ? buildFewShotExample(exampleQuestion)
-        : undefined;
+      // Only reuse a stored question as a few-shot example if it already follows
+      // the current format; otherwise fall back to the static (new-format)
+      // example so we never teach the generator the deprecated layout.
+      const fewShotExample =
+        exampleQuestion && isNewFormatExplanation(exampleQuestion.explanation)
+          ? buildFewShotExample(exampleQuestion)
+          : undefined;
 
       const params = {
         certificationName: cert.name,
@@ -204,72 +208,83 @@ export class AiGenProcessor extends WorkerHost {
     questionType: QuestionType | undefined,
     difficulty: Difficulty,
   ) {
-    const HIGH = 0.85;
-    const MEDIUM = 0.6;
-    const tier = score >= HIGH ? 'HIGH' : score >= MEDIUM ? 'MEDIUM' : null;
-
-    const correctRaw = String(
-      typeof q.correct_answer === 'string'
-        ? q.correct_answer
-        : typeof q.correctAnswer === 'string'
-          ? q.correctAnswer
-          : '',
-    );
-    const correctLetters = correctRaw
-      .split(',')
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean);
-
-    const rawOptions = Array.isArray(q.options)
-      ? (q.options as unknown[])
-      : Array.isArray(q.choices)
-        ? (q.choices as unknown[])
-        : [];
-
-    const choices = rawOptions.map((opt, idx) => {
-      if (typeof opt === 'string') {
-        const label =
-          opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
-        const content = opt.replace(/^\s*[A-Z][.)]\s*/, '').trim();
-        return {
-          label,
-          content,
-          isCorrect: correctLetters.includes(label),
-        };
-      }
-      const o = opt as Record<string, unknown>;
-      const label =
-        (typeof o.label === 'string' && o.label) ||
-        String.fromCharCode(65 + idx);
-      const content =
-        (typeof o.content === 'string' && o.content) ||
-        (typeof o.text === 'string' && o.text) ||
-        '';
-      const isCorrect =
-        typeof o.isCorrect === 'boolean'
-          ? o.isCorrect
-          : correctLetters.includes(String(label).toUpperCase());
-      return { label: String(label).toUpperCase(), content, isCorrect };
-    });
-
-    const qType: QuestionType =
-      questionType ??
-      (correctLetters.length > 1 ? QuestionType.MULTIPLE : QuestionType.SINGLE);
-
-    return {
-      title: q.question ?? q.title ?? '',
-      questionType: qType,
-      difficulty,
-      explanation: q.explanation ?? '',
-      choices,
-      tags: Array.isArray(q.tags) ? q.tags : [],
-      isScenario: q.is_scenario === true,
-      sourcePassage: q.source_passage ?? null,
-      qualityScore: score,
-      qualityTier: tier,
-      sourceChunkId: q.source_chunk_id ?? null,
-    };
+    return mapRawToPreview(q, score, questionType, difficulty);
   }
+}
+
+export function mapRawToPreview(
+  q: Record<string, unknown>,
+  score: number,
+  questionType: QuestionType | undefined,
+  difficulty: Difficulty,
+) {
+  const HIGH = 0.85;
+  const MEDIUM = 0.6;
+  const tier = score >= HIGH ? 'HIGH' : score >= MEDIUM ? 'MEDIUM' : null;
+
+  const correctRaw = String(
+    typeof q.correct_answer === 'string'
+      ? q.correct_answer
+      : typeof q.correctAnswer === 'string'
+        ? q.correctAnswer
+        : '',
+  );
+  const correctLetters = correctRaw
+    .split(',')
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+
+  const rawOptions = Array.isArray(q.options)
+    ? (q.options as unknown[])
+    : Array.isArray(q.choices)
+      ? (q.choices as unknown[])
+      : [];
+
+  const choices = rawOptions.map((opt, idx) => {
+    if (typeof opt === 'string') {
+      const label =
+        opt.match(/^\s*([A-Z])\b/)?.[1] ?? String.fromCharCode(65 + idx);
+      const content = opt.replace(/^\s*[A-Z][.)]\s*/, '').trim();
+      return {
+        label,
+        content,
+        isCorrect: correctLetters.includes(label),
+      };
+    }
+    const o = opt as Record<string, unknown>;
+    const label =
+      (typeof o.label === 'string' && o.label) || String.fromCharCode(65 + idx);
+    const content =
+      (typeof o.content === 'string' && o.content) ||
+      (typeof o.text === 'string' && o.text) ||
+      '';
+    const isCorrect =
+      typeof o.isCorrect === 'boolean'
+        ? o.isCorrect
+        : correctLetters.includes(String(label).toUpperCase());
+    return { label: String(label).toUpperCase(), content, isCorrect };
+  });
+
+  const qType: QuestionType =
+    questionType ??
+    (correctLetters.length > 1 ? QuestionType.MULTIPLE : QuestionType.SINGLE);
+
+  const scenarioText = typeof q.scenario === 'string' ? q.scenario.trim() : '';
+
+  return {
+    title: q.question ?? q.title ?? '',
+    description: scenarioText || null,
+    questionType: qType,
+    difficulty,
+    explanation: q.explanation ?? '',
+    choices,
+    tags: Array.isArray(q.tags) ? q.tags : [],
+    isScenario: q.is_scenario === true || scenarioText.length > 0,
+    sourcePassage: q.source_passage ?? null,
+    qualityScore: score,
+    qualityTier: tier,
+    sourceChunkId: q.source_chunk_id ?? null,
+  };
 }
 
 type ExampleQuestion = {
@@ -281,7 +296,20 @@ type ExampleQuestion = {
   tags: { tag: { name: string } }[];
 };
 
-function buildFewShotExample(q: ExampleQuestion): string {
+/**
+ * True only when an explanation already follows the current Markdown format
+ * (bold lead-in, no legacy [Correct]/[Wrong-X] brackets). Used to avoid feeding
+ * the generator a few-shot example written in the deprecated format, which would
+ * pull it back toward short stems and bracket explanations.
+ */
+export function isNewFormatExplanation(explanation: string | null): boolean {
+  if (!explanation) return false;
+  const hasLegacyBrackets = /\[Correct\]|\[Wrong-/.test(explanation);
+  const hasMarkdownBold = explanation.includes('**');
+  return hasMarkdownBold && !hasLegacyBrackets;
+}
+
+export function buildFewShotExample(q: ExampleQuestion): string {
   const correctLabels = q.choices
     .filter((c) => c.isCorrect)
     .map((c) => c.label.toUpperCase());
