@@ -181,10 +181,9 @@ export class IngestionService {
   private async fetchUrl(url: string): Promise<string> {
     // validateAndNormalizeExternalUrl enforces: https/http only, no private/loopback
     // IPs (IPv4 + IPv4-mapped IPv6), no internal hostnames, and redirect:'error'
-    // prevents redirect-chain bypass. CodeQL cannot model the custom sanitizer,
-    // so the alert is suppressed here after manual review.
-    // lgtm[js/server-side-request-forgery]
+    // prevents redirect-chain bypass. CodeQL cannot model the custom sanitizer.
     const safeUrl = this.validateAndNormalizeExternalUrl(url);
+    // lgtm[js/server-side-request-forgery]
     const response = await fetch(safeUrl, {
       headers: { 'User-Agent': 'BrainGym/1.0 (study material fetcher)' },
       signal: AbortSignal.timeout(15000),
