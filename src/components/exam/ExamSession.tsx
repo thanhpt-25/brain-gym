@@ -203,11 +203,11 @@ export function ExamSession({
                 {currentQuestion.isScenario && currentQuestion.description ? (
                   <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 mb-4 relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-3 opacity-10">
-                      <BookOpen className="h-12 w-12" />
+                      <BookOpen className="h-12 w-12" aria-hidden="true" />
                     </div>
                     <div className="flex items-center gap-2 text-accent font-mono text-[10px] uppercase tracking-widest mb-2">
-                      <BookOpen className="h-3 w-3" /> Technical Context /
-                      Scenario
+                      <BookOpen className="h-3 w-3" aria-hidden="true" />{" "}
+                      Technical Context / Scenario
                     </div>
                     <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed relative z-10">
                       {currentQuestion.description}
