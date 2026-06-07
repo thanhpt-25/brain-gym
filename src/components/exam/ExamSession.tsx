@@ -1,8 +1,19 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Flag, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { AttemptQuestion, StartAttemptResponse, TimerMode } from '@/types/api-types';
-import { formatTime } from '@/lib/time';
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Clock,
+  Flag,
+  ChevronLeft,
+  ChevronRight,
+  Zap,
+  BookOpen,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  AttemptQuestion,
+  StartAttemptResponse,
+  TimerMode,
+} from "@/types/api-types";
+import { formatTime } from "@/lib/time";
 
 interface ExamSessionProps {
   attemptData: StartAttemptResponse;
@@ -18,28 +29,35 @@ interface ExamSessionProps {
   onSubmit: () => void;
 }
 
-function getTimerClass(timeLeft: number, totalSeconds: number, timerMode?: TimerMode): string {
-  if (timerMode === 'RELAXED') return 'text-muted-foreground';
-  
+function getTimerClass(
+  timeLeft: number,
+  totalSeconds: number,
+  timerMode?: TimerMode,
+): string {
+  if (timerMode === "RELAXED") return "text-muted-foreground";
+
   const ratio = totalSeconds > 0 ? timeLeft / totalSeconds : 1;
 
-  if (timerMode === 'TIME_PRESSURE') {
-    if (ratio <= 0.05) return 'text-destructive motion-safe:animate-pulse font-bold';
-    if (ratio <= 0.10) return 'text-destructive font-semibold';
-    if (ratio <= 0.25) return 'text-orange-500 font-semibold';
-    return 'text-foreground';
+  if (timerMode === "TIME_PRESSURE") {
+    if (ratio <= 0.05)
+      return "text-destructive motion-safe:animate-pulse font-bold";
+    if (ratio <= 0.1) return "text-destructive font-semibold";
+    if (ratio <= 0.25) return "text-orange-500 font-semibold";
+    return "text-foreground";
   }
 
-  if (timerMode === 'ACCELERATED') {
-    if (ratio <= 0.25) return 'text-destructive motion-safe:animate-pulse';
-    if (ratio <= 0.5) return 'text-orange-400';
-    return 'text-foreground';
+  if (timerMode === "ACCELERATED") {
+    if (ratio <= 0.25) return "text-destructive motion-safe:animate-pulse";
+    if (ratio <= 0.5) return "text-orange-400";
+    return "text-foreground";
   }
   // STRICT (default)
-  return timeLeft < 300 ? 'text-destructive motion-safe:animate-pulse' : 'text-foreground';
+  return timeLeft < 300
+    ? "text-destructive motion-safe:animate-pulse"
+    : "text-foreground";
 }
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export function ExamSession({
   attemptData,
@@ -52,22 +70,23 @@ export function ExamSession({
   toggleMark,
   timeLeft,
   totalSeconds,
-  onSubmit
+  onSubmit,
 }: ExamSessionProps) {
   const currentQuestion = questions[currentIndex];
   const timerMode = attemptData?.timerMode;
-  
-  const [announcement, setAnnouncement] = useState('');
+
+  const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => {
-    if (timerMode !== 'TIME_PRESSURE' || totalSeconds <= 0) return;
+    if (timerMode !== "TIME_PRESSURE" || totalSeconds <= 0) return;
     const ratio = timeLeft / totalSeconds;
-    
+
     // Determine the current threshold bracket
-    let bracket = '';
-    if (ratio <= 0.05) bracket = '5% time remaining. Please finalize your answers.';
-    else if (ratio <= 0.10) bracket = '10% time remaining.';
-    else if (ratio <= 0.25) bracket = '25% time remaining.';
+    let bracket = "";
+    if (ratio <= 0.05)
+      bracket = "5% time remaining. Please finalize your answers.";
+    else if (ratio <= 0.1) bracket = "10% time remaining.";
+    else if (ratio <= 0.25) bracket = "25% time remaining.";
 
     if (bracket && bracket !== announcement) {
       setAnnouncement(bracket);
@@ -77,8 +96,12 @@ export function ExamSession({
   if (!currentQuestion) return null;
 
   const timerClass = getTimerClass(timeLeft, totalSeconds, timerMode);
-  const isAccelerated = timerMode === 'ACCELERATED';
-  const showOrangeWarning = isAccelerated && totalSeconds > 0 && timeLeft / totalSeconds <= 0.5 && timeLeft / totalSeconds > 0.25;
+  const isAccelerated = timerMode === "ACCELERATED";
+  const showOrangeWarning =
+    isAccelerated &&
+    totalSeconds > 0 &&
+    timeLeft / totalSeconds <= 0.5 &&
+    timeLeft / totalSeconds > 0.25;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -92,7 +115,11 @@ export function ExamSession({
         <div className="bg-orange-500/10 border-b border-orange-500/30 px-4 py-1.5 flex items-center justify-center gap-2 text-xs font-mono text-orange-400">
           <Zap className="h-3 w-3" />
           Accelerated Mode — Time pressure active
-          {showOrangeWarning && <span className="ml-2 text-orange-300 font-semibold">· Halfway through your time!</span>}
+          {showOrangeWarning && (
+            <span className="ml-2 text-orange-300 font-semibold">
+              · Halfway through your time!
+            </span>
+          )}
         </div>
       )}
 
@@ -100,16 +127,27 @@ export function ExamSession({
       <div className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-xl">
         <div className="container flex items-center justify-between h-14">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-mono text-muted-foreground">{attemptData?.certification?.code}</span>
+            <span className="text-sm font-mono text-muted-foreground">
+              {attemptData?.certification?.code}
+            </span>
             <span className="text-sm text-muted-foreground">·</span>
-            <span className="text-sm font-mono text-foreground">Q{currentIndex + 1}/{questions.length}</span>
+            <span className="text-sm font-mono text-foreground">
+              Q{currentIndex + 1}/{questions.length}
+            </span>
           </div>
           <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-1.5 font-mono text-sm ${timerClass}`}>
+            <div
+              className={`flex items-center gap-1.5 font-mono text-sm ${timerClass}`}
+            >
               <Clock className="h-4 w-4" />
               {formatTime(timeLeft)}
             </div>
-            <Button size="sm" variant="destructive" onClick={onSubmit} className="font-mono">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={onSubmit}
+              className="font-mono"
+            >
               Submit
             </Button>
           </div>
@@ -130,40 +168,77 @@ export function ExamSession({
               <div className="glass-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${currentQuestion.difficulty === 'EASY' ? 'bg-accent/10 text-accent' :
-                      currentQuestion.difficulty === 'MEDIUM' ? 'bg-warning/10 text-warning' :
-                        'bg-destructive/10 text-destructive'
-                      }`}>{currentQuestion.difficulty}</span>
-                    <span className="text-xs text-muted-foreground">{currentQuestion.domain?.name || 'Unknown'}</span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-mono ${
+                        currentQuestion.difficulty === "EASY"
+                          ? "bg-accent/10 text-accent"
+                          : currentQuestion.difficulty === "MEDIUM"
+                            ? "bg-warning/10 text-warning"
+                            : "bg-destructive/10 text-destructive"
+                      }`}
+                    >
+                      {currentQuestion.difficulty}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {currentQuestion.domain?.name || "Unknown"}
+                    </span>
                   </div>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => toggleMark(currentQuestion.id)}
-                    className={marked.has(currentQuestion.id) ? 'text-warning' : 'text-muted-foreground'}
+                    className={
+                      marked.has(currentQuestion.id)
+                        ? "text-warning"
+                        : "text-muted-foreground"
+                    }
                   >
                     <Flag className="h-4 w-4" />
                   </Button>
                 </div>
 
-                <h2 className="text-lg font-medium mb-2">{currentQuestion.title}</h2>
-                {currentQuestion.description && (
-                  <p className="text-sm text-muted-foreground mb-4">{currentQuestion.description}</p>
-                )}
+                <h2 className="text-lg font-medium mb-2">
+                  {currentQuestion.title}
+                </h2>
+                {currentQuestion.isScenario && currentQuestion.description ? (
+                  <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 mb-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-10">
+                      <BookOpen className="h-12 w-12" />
+                    </div>
+                    <div className="flex items-center gap-2 text-accent font-mono text-[10px] uppercase tracking-widest mb-2">
+                      <BookOpen className="h-3 w-3" /> Technical Context /
+                      Scenario
+                    </div>
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed relative z-10">
+                      {currentQuestion.description}
+                    </p>
+                  </div>
+                ) : currentQuestion.description ? (
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {currentQuestion.description}
+                  </p>
+                ) : null}
 
                 <div className="space-y-3 mt-6">
-                  {currentQuestion.choices.map(choice => {
-                    const isSelected = (answers[currentQuestion.id] || []).includes(choice.id);
+                  {currentQuestion.choices.map((choice) => {
+                    const isSelected = (
+                      answers[currentQuestion.id] || []
+                    ).includes(choice.id);
                     return (
                       <button
                         key={choice.id}
-                        onClick={() => selectAnswer(currentQuestion.id, choice.id)}
-                        className={`w-full text-left p-4 rounded-lg border transition-all text-sm ${isSelected
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-border bg-secondary/50 text-foreground hover:border-primary/30'
-                          }`}
+                        onClick={() =>
+                          selectAnswer(currentQuestion.id, choice.id)
+                        }
+                        className={`w-full text-left p-4 rounded-lg border transition-all text-sm ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-foreground"
+                            : "border-border bg-secondary/50 text-foreground hover:border-primary/30"
+                        }`}
                       >
-                        <span className="font-mono font-semibold mr-3 text-muted-foreground">{choice.label.toUpperCase()}</span>
+                        <span className="font-mono font-semibold mr-3 text-muted-foreground">
+                          {choice.label.toUpperCase()}
+                        </span>
                         {choice.content}
                       </button>
                     );
@@ -172,8 +247,13 @@ export function ExamSession({
 
                 {currentQuestion.tags && currentQuestion.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-6">
-                    {currentQuestion.tags.map(tag => (
-                      <span key={tag} className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground">{tag}</span>
+                    {currentQuestion.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground"
+                      >
+                        {tag}
+                      </span>
                     ))}
                   </div>
                 )}
@@ -184,7 +264,7 @@ export function ExamSession({
                 <Button
                   variant="outline"
                   disabled={currentIndex === 0}
-                  onClick={() => setCurrentIndex(i => i - 1)}
+                  onClick={() => setCurrentIndex((i) => i - 1)}
                   className="font-mono"
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" /> Prev
@@ -192,7 +272,7 @@ export function ExamSession({
                 <Button
                   variant="outline"
                   disabled={currentIndex === questions.length - 1}
-                  onClick={() => setCurrentIndex(i => i + 1)}
+                  onClick={() => setCurrentIndex((i) => i + 1)}
                   className="font-mono"
                 >
                   Next <ChevronRight className="h-4 w-4 ml-1" />
@@ -205,7 +285,9 @@ export function ExamSession({
         {/* Question Navigator */}
         <div className="hidden lg:block w-56 shrink-0">
           <div className="glass-card p-4 sticky top-20">
-            <div className="text-sm font-mono font-semibold mb-3">Questions</div>
+            <div className="text-sm font-mono font-semibold mb-3">
+              Questions
+            </div>
             <div className="grid grid-cols-5 gap-2">
               {questions.map((q, i) => {
                 const isAnswered = !!answers[q.id]?.length;
@@ -215,11 +297,15 @@ export function ExamSession({
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(i)}
-                    className={`w-8 h-8 rounded text-xs font-mono font-semibold transition-all ${isCurrent ? 'bg-primary text-primary-foreground' :
-                      isMarkedQ ? 'bg-warning/20 text-warning border border-warning/30' :
-                        isAnswered ? 'bg-accent/20 text-accent' :
-                          'bg-secondary text-muted-foreground hover:bg-secondary/80'
-                      }`}
+                    className={`w-8 h-8 rounded text-xs font-mono font-semibold transition-all ${
+                      isCurrent
+                        ? "bg-primary text-primary-foreground"
+                        : isMarkedQ
+                          ? "bg-warning/20 text-warning border border-warning/30"
+                          : isAnswered
+                            ? "bg-accent/20 text-accent"
+                            : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    }`}
                   >
                     {i + 1}
                   </button>
@@ -227,9 +313,16 @@ export function ExamSession({
               })}
             </div>
             <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-accent/20" /> Answered</div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-warning/20 border border-warning/30" /> Flagged</div>
-              <div className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-secondary" /> Unanswered</div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-accent/20" /> Answered
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-warning/20 border border-warning/30" />{" "}
+                Flagged
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-secondary" /> Unanswered
+              </div>
             </div>
           </div>
         </div>
