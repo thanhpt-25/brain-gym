@@ -47,11 +47,14 @@ services:
       PORT: ${PORT:-3000}
       NODE_ENV: ${NODE_ENV:-production}
       LLM_KEY_ENCRYPTION_SECRET: "${LLM_KEY_ENCRYPTION_SECRET:-braingym-llm-encryption-secret-change-in-production}"
+      MARKITDOWN_LOCAL_URL: "http://markitdown:8001"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      markitdown:
+        condition: service_started
     expose:
       - "3000"
 
@@ -64,6 +67,14 @@ services:
     container_name: braingym-frontend
     expose:
       - "80"
+
+  markitdown:
+    build:
+      context: ./lambda/markitdown
+      dockerfile: Dockerfile.local
+    container_name: braingym-markitdown
+    expose:
+      - "8001"
 
   nginx:
     image: nginx:stable-alpine

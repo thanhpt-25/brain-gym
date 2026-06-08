@@ -65,26 +65,32 @@ export const uploadTextMaterial = async (payload: {
   return res.data;
 };
 
-export const uploadPdfMaterial = async (
+export const uploadFileMaterial = async (
   file: File,
   title: string,
+  contentType: "PDF" | "DOCX" | "PPTX" | "XLSX",
   certificationId?: string,
 ): Promise<SourceMaterial> => {
   const form = new FormData();
   form.append("file", file);
   form.append("title", title);
-  form.append("contentType", "PDF");
+  form.append("contentType", contentType);
   if (certificationId) form.append("certificationId", certificationId);
 
   const res = await api.post<SourceMaterial>(
-    "/ai-questions/materials/pdf",
+    "/ai-questions/materials/file",
     form,
-    {
-      headers: { "Content-Type": "multipart/form-data" },
-    },
+    { headers: { "Content-Type": "multipart/form-data" } },
   );
   return res.data;
 };
+
+/** @deprecated Use uploadFileMaterial instead */
+export const uploadPdfMaterial = async (
+  file: File,
+  title: string,
+  certificationId?: string,
+): Promise<SourceMaterial> => uploadFileMaterial(file, title, "PDF", certificationId);
 
 export const deleteMaterial = async (id: string): Promise<void> => {
   await api.delete(`/ai-questions/materials/${id}`);

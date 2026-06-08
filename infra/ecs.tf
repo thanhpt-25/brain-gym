@@ -61,6 +61,8 @@ resource "aws_ecs_task_definition" "backend" {
         { name = "AWS_REGION", value = var.aws_region },
         { name = "AWS_S3_AVATARS_BUCKET", value = aws_s3_bucket.avatars.bucket },
         { name = "AWS_AVATARS_CDN_BASE_URL", value = "https://${var.domain_name}" },
+        { name = "AWS_S3_MATERIALS_TMP_BUCKET", value = aws_s3_bucket.materials_tmp.bucket },
+        { name = "AWS_MARKITDOWN_LAMBDA_ARN", value = aws_lambda_function.markitdown.arn },
         { name = "DDS_SHADOW_MODE", value = var.dds_shadow_mode },
       ]
 

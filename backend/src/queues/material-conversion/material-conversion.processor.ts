@@ -1,0 +1,185 @@
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
+import { Job } from 'bullmq';
+import {
+  LambdaClient,
+  InvokeCommand,
+  InvocationType,
+} from '@aws-sdk/client-lambda';
+import { PrismaService } from '../../prisma/prisma.service';
+import { S3UploadService } from '../../ai-question-bank/ingestion/s3-upload.service';
+import { chunkText } from '../../ai-question-bank/ingestion/chunker';
+import {
+  MATERIAL_CONVERSION_QUEUE,
+  MaterialConversionJobData,
+} from './material-conversion.job.interface';
+
+@Processor(MATERIAL_CONVERSION_QUEUE, { concurrency: 2 })
+export class MaterialConversionProcessor extends WorkerHost {
+  private readonly logger = new Logger(MaterialConversionProcessor.name);
+  private readonly lambdaClient = new LambdaClient({
+    region: process.env.AWS_REGION ?? 'us-east-1',
+  });
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Upload: S3UploadService,
+  ) {
+    super();
+  }
+
+  async process(job: Job<MaterialConversionJobData>): Promise<void> {
+    const { materialId, filename, s3Bucket, s3Key, bufferBase64 } = job.data;
+    this.logger.log(`Converting material ${materialId} (${filename})`);
+
+    try {
+      const markdown = await this.convertToMarkdown(
+        filename,
+        s3Bucket,
+        s3Key,
+        bufferBase64,
+      );
+
+      // Fix #5: Treat empty markdown as a conversion failure rather than
+      // creating a ready material with 0 chunks that produces no AI context.
+      if (!markdown || markdown.trim().length === 0) {
+        throw new Error(
+          `Markitdown returned empty content for "${filename}". ` +
+            'The file may be corrupt, password-protected, or an unsupported format.',
+        );
+      }
+
+      const chunks = chunkText(markdown);
+      await this.prisma.sourceChunk.createMany({
+        data: chunks.map((c) => ({
+          materialId,
+          content: c.content,
+          chunkIndex: c.chunkIndex,
+          pageNumber: c.pageNumber ?? null,
+          sectionTitle: c.sectionTitle ?? null,
+          tokenCount: c.tokenCount,
+        })),
+      });
+
+      await this.prisma.sourceMaterial.update({
+        where: { id: materialId },
+        data: { status: 'ready', chunkCount: chunks.length },
+      });
+
+      this.logger.log(
+        `Material ${materialId} ready — ${chunks.length} chunks`,
+      );
+    } catch (err) {
+      this.logger.error(`Failed to convert material ${materialId}: ${err}`);
+      await this.prisma.sourceMaterial.update({
+        where: { id: materialId },
+        data: { status: 'failed' },
+      });
+      throw err;
+    } finally {
+      // Fix #3: Always clean up the S3 temp object, even on conversion failure.
+      // The 24h lifecycle rule is a safety net, but eager cleanup avoids leaked
+      // objects accumulating across BullMQ retries (default: 3 attempts).
+      if (s3Bucket && s3Key) {
+        await this.s3Upload.deleteTemp(s3Bucket, s3Key);
+      }
+    }
+  }
+
+  private async convertToMarkdown(
+    filename: string,
+    s3Bucket?: string,
+    s3Key?: string,
+    bufferBase64?: string,
+  ): Promise<string> {
+    const localUrl = process.env.MARKITDOWN_LOCAL_URL;
+
+    if (localUrl) {
+      return this.convertViaLocalServer(
+        localUrl,
+        filename,
+        s3Bucket,
+        s3Key,
+        bufferBase64,
+      );
+    }
+
+    const lambdaArn = process.env.AWS_MARKITDOWN_LAMBDA_ARN;
+    if (!lambdaArn) {
+      throw new Error(
+        'MARKITDOWN_LOCAL_URL or AWS_MARKITDOWN_LAMBDA_ARN must be set',
+      );
+    }
+
+    // Fix #2: Validate S3 coords are present before invoking Lambda.
+    // In production the job is always populated with s3Bucket/s3Key, but guard
+    // explicitly to surface misconfiguration as a clear error rather than a
+    // runtime crash on the non-null assertion.
+    if (!s3Bucket || !s3Key) {
+      throw new Error(
+        `Lambda conversion requires s3Bucket and s3Key in job data, ` +
+          `but got s3Bucket=${s3Bucket}, s3Key=${s3Key}. ` +
+          'Ensure AWS_S3_MATERIALS_TMP_BUCKET is set.',
+      );
+    }
+
+    return this.convertViaLambda(lambdaArn, s3Bucket, s3Key, filename);
+  }
+
+  private async convertViaLambda(
+    lambdaArn: string,
+    bucket: string,
+    key: string,
+    filename: string,
+  ): Promise<string> {
+    const payload = JSON.stringify({ bucket, key, filename });
+    const response = await this.lambdaClient.send(
+      new InvokeCommand({
+        FunctionName: lambdaArn,
+        InvocationType: InvocationType.RequestResponse,
+        Payload: Buffer.from(payload),
+      }),
+    );
+
+    if (response.FunctionError) {
+      const errorBody = Buffer.from(response.Payload!).toString('utf-8');
+      throw new Error(`Lambda error: ${errorBody}`);
+    }
+
+    const result = JSON.parse(Buffer.from(response.Payload!).toString('utf-8'));
+    return result.markdown as string;
+  }
+
+  private async convertViaLocalServer(
+    baseUrl: string,
+    filename: string,
+    s3Bucket?: string,
+    s3Key?: string,
+    bufferBase64?: string,
+  ): Promise<string> {
+    let fileBuffer: Buffer;
+
+    if (bufferBase64) {
+      fileBuffer = Buffer.from(bufferBase64, 'base64');
+    } else if (s3Bucket && s3Key) {
+      const { GetObjectCommand, S3Client } = await import('@aws-sdk/client-s3');
+      const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
+      const obj = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: s3Key }));
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of obj.Body as any) chunks.push(chunk);
+      fileBuffer = Buffer.concat(chunks);
+    } else {
+      throw new Error('No file source for local conversion');
+    }
+
+    // Use Node 18+ built-in FormData + Blob
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(fileBuffer)]), filename);
+    form.append('filename', filename);
+
+    const res = await fetch(`${baseUrl}/convert`, { method: 'POST', body: form });
+    if (!res.ok) throw new Error(`Markitdown local server error: ${res.statusText}`);
+    const json = (await res.json()) as { markdown: string };
+    return json.markdown;
+  }
+}

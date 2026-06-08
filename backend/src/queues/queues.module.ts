@@ -10,7 +10,10 @@ import { AI_GEN_QUEUE } from './ai-gen/ai-gen.job.interface';
 import { SCENARIO_GENERATION_QUEUE } from './scenario-generation/scenario-generation.job.interface';
 import { DIGEST_GENERATION_QUEUE } from './digest-generation/digest-generation.job.interface';
 import { COACH_SESSION_MONITORING_QUEUE } from './coach-session-monitoring/coach-session-monitoring.job.interface';
+import { MATERIAL_CONVERSION_QUEUE } from './material-conversion/material-conversion.job.interface';
+import { MaterialConversionProcessor } from './material-conversion/material-conversion.processor';
 import { IngestionService } from '../ai-question-bank/ingestion/ingestion.service';
+import { S3UploadService } from '../ai-question-bank/ingestion/s3-upload.service';
 import { EncryptionService } from '../ai-question-bank/crypto/encryption.service';
 import { DigestGenerationProcessor } from '../mail/digest/digest-generation.processor';
 import { DigestModule } from '../mail/digest/digest.module';
@@ -37,6 +40,7 @@ import { TrainingModule } from '../training/training.module';
     BullModule.registerQueue({ name: SCENARIO_GENERATION_QUEUE }),
     BullModule.registerQueue({ name: DIGEST_GENERATION_QUEUE }),
     BullModule.registerQueue({ name: COACH_SESSION_MONITORING_QUEUE }),
+    BullModule.registerQueue({ name: MATERIAL_CONVERSION_QUEUE }),
     BullModule.registerQueue({ name: 'burnout-detection' }),
     BullBoardModule.forRoot({
       route: '/admin/queues',
@@ -59,6 +63,10 @@ import { TrainingModule } from '../training/training.module';
       adapter: BullMQAdapter,
     }),
     BullBoardModule.forFeature({
+      name: MATERIAL_CONVERSION_QUEUE,
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
       name: 'burnout-detection',
       adapter: BullMQAdapter,
     }),
@@ -71,7 +79,9 @@ import { TrainingModule } from '../training/training.module';
     AiGenProcessor,
     DigestGenerationProcessor,
     BurnoutProcessor,
+    MaterialConversionProcessor,
     IngestionService,
+    S3UploadService,
     EncryptionService,
   ],
   exports: [BullModule],

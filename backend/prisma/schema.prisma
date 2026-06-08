@@ -151,6 +151,9 @@ enum MaterialContentType {
   PDF
   URL
   TEXT
+  DOCX
+  PPTX
+  XLSX
 }
 
 // ==================== ENTERPRISE ENUMS ====================

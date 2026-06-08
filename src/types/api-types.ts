@@ -315,7 +315,7 @@ export type GenerationJobStatus =
   | "PROCESSING"
   | "COMPLETED"
   | "FAILED";
-export type MaterialContentType = "PDF" | "URL" | "TEXT";
+export type MaterialContentType = "PDF" | "URL" | "TEXT" | "DOCX" | "PPTX" | "XLSX";
 
 export interface LlmConfig {
   id: string;

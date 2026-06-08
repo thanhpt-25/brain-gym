@@ -58,6 +58,7 @@ export default function GenerationForm({ onResult }: Props) {
   const [certificationId, setCertificationId] = useState("");
   const [domainId, setDomainId] = useState("all");
   const [materialId, setMaterialId] = useState("");
+  const [materialProcessing, setMaterialProcessing] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.MEDIUM);
   const [questionType, setQuestionType] = useState<QuestionType | "MIXED">(
     "MIXED",
@@ -225,7 +226,7 @@ export default function GenerationForm({ onResult }: Props) {
   const isLocalSelected = provider.startsWith(LOCAL_PREFIX);
   const hasLocalConfigs = localConfigs.length > 0;
   const isCloudGenerating = generateCloudMutation.isPending || !!pendingJobId;
-  const canGenerate = provider !== "" && certificationId !== "";
+  const canGenerate = provider !== "" && certificationId !== "" && !materialProcessing;
 
   return (
     <div className="space-y-5">
@@ -387,7 +388,8 @@ export default function GenerationForm({ onResult }: Props) {
         <MaterialLibrary
           certificationId={certificationId || undefined}
           selectedId={materialId}
-          onSelect={(id) => setMaterialId(materialId === id ? "" : id)}
+          onSelect={(id) => setMaterialId(id ?? '')}
+          onSelectedProcessing={setMaterialProcessing}
         />
       )}
 
