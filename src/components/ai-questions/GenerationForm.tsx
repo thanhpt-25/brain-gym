@@ -18,6 +18,7 @@ import {
   estimateTokens,
   generateQuestions,
   getJobStatus,
+  getMaterialChunks,
 } from "@/services/ai-questions";
 import {
   LlmProvider,
@@ -174,6 +175,17 @@ export default function GenerationForm({ onResult }: Props) {
       const domain =
         domainId !== "all" ? domains.find((d: any) => d.id === domainId) : null;
 
+      // If a study material is selected, fetch its chunks and inject as context.
+      let materialContext: string | undefined;
+      if (materialId) {
+        try {
+          const chunks = await getMaterialChunks(materialId);
+          if (chunks.length > 0) materialContext = chunks.join("\n\n");
+        } catch {
+          // Non-fatal: generate without material context if fetch fails.
+        }
+      }
+
       const params: LocalGenerationParams = {
         certificationName: cert?.name ?? certificationId,
         certificationCode: cert?.code ?? certificationId,
@@ -182,6 +194,7 @@ export default function GenerationForm({ onResult }: Props) {
         questionCount,
         questionType:
           questionType === "MIXED" ? undefined : (questionType as QuestionType),
+        materialContext,
       };
 
       const result = await generateLocalQuestions(selectedLocalConfig, params);
@@ -295,6 +308,7 @@ export default function GenerationForm({ onResult }: Props) {
           onValueChange={(v) => {
             setCertificationId(v);
             setDomainId("all");
+            setMaterialId(""); // clear stale selection — materials don't disappear but selection resets for the new cert
           }}
         >
           <SelectTrigger>
@@ -383,15 +397,13 @@ export default function GenerationForm({ onResult }: Props) {
         />
       </div>
 
-      {/* Source material — cloud only */}
-      {!isLocalSelected && (
-        <MaterialLibrary
-          certificationId={certificationId || undefined}
-          selectedId={materialId}
-          onSelect={(id) => setMaterialId(id ?? '')}
-          onSelectedProcessing={setMaterialProcessing}
-        />
-      )}
+      {/* Source material */}
+      <MaterialLibrary
+        certificationId={certificationId || undefined}
+        selectedId={materialId}
+        onSelect={(id) => setMaterialId(id ?? '')}
+        onSelectedProcessing={setMaterialProcessing}
+      />
 
       {/* Token estimate — cloud only */}
       {estimate && !isLocalSelected && (
@@ -415,6 +427,7 @@ export default function GenerationForm({ onResult }: Props) {
             <span>
               Generated in the browser — no cloud API calls, no quota usage.
               Questions go to <strong>Pending</strong> for admin review.
+              {materialId ? " Selected material will be injected as context." : ""}
             </span>
           </CardContent>
         </Card>

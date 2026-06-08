@@ -96,6 +96,12 @@ export const deleteMaterial = async (id: string): Promise<void> => {
   await api.delete(`/ai-questions/materials/${id}`);
 };
 
+/** Fetch ordered text chunks for a material — used by local LLM to build context. */
+export const getMaterialChunks = async (id: string): Promise<string[]> => {
+  const res = await api.get<{ chunks: string[] }>(`/ai-questions/materials/${id}/chunks`);
+  return res.data.chunks;
+};
+
 // ─── Generation ──────────────────────────────────────────────────────────────
 
 export const estimateTokens = async (payload: {

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileText, Link, Type, Trash2, Loader2, Plus, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileText, Link, Type, Trash2, Loader2, Upload, Plus, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,14 +43,21 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [adding, setAdding] = useState(false);
+  // 'file' mode pre-selects PDF and opens the form immediately with the file input visible.
+  const [addMode, setAddMode] = useState<'file' | 'text'>('text');
   const [contentType, setContentType] = useState<MaterialContentType>('TEXT');
   const [title, setTitle] = useState('');
   const [textContent, setTextContent] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
 
+  // Fetch ALL user materials regardless of selected cert — filtering by cert
+  // caused materials to vanish whenever the cert dropdown changed, which was
+  // confusing. certificationId is still passed at upload time for association,
+  // but the list is never filtered by it. A cert badge on each card shows which
+  // cert the material is tagged to.
   const { data: materials = [], isLoading } = useQuery({
-    queryKey: ['materials', certificationId],
-    queryFn: () => getMaterials(certificationId),
+    queryKey: ['materials'],
+    queryFn: () => getMaterials(undefined),
     // Poll every 4s when any material is still processing
     refetchInterval: (query) => {
       const list = query.state.data ?? [];
@@ -70,6 +77,7 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
     onSuccess: (material) => {
       queryClient.invalidateQueries({ queryKey: ['materials'] });
       setAdding(false);
+      setAddMode('text');
       setTitle(''); setTextContent(''); setSourceUrl('');
       if (material.status === 'processing') {
         toast.info('File uploaded — converting to markdown in background…');
@@ -109,9 +117,29 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">Source Materials</span>
         {!adding && (
-          <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-            <Plus className="h-3 w-3 mr-1" /> Add
-          </Button>
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => {
+                setAddMode('file');
+                setContentType('PDF');
+                setAdding(true);
+              }}
+            >
+              <Upload className="h-3 w-3 mr-1" /> Upload File
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAddMode('text');
+                setContentType('TEXT');
+                setAdding(true);
+              }}
+            >
+              <Plus className="h-3 w-3 mr-1" /> Text / URL
+            </Button>
+          </div>
         )}
       </div>
 
@@ -119,48 +147,66 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
         <Card className="border-dashed">
           <CardContent className="pt-4 space-y-3">
             <Input placeholder="Material title" value={title} onChange={e => setTitle(e.target.value)} />
-            <Select value={contentType} onValueChange={v => { setContentType(v as MaterialContentType); if (fileRef.current) fileRef.current.value = ''; }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TEXT">Plain Text</SelectItem>
-                <SelectItem value="URL">Web URL</SelectItem>
-                <SelectItem value="PDF">PDF File</SelectItem>
-                <SelectItem value="DOCX">Word Document (.docx)</SelectItem>
-                <SelectItem value="PPTX">PowerPoint (.pptx)</SelectItem>
-                <SelectItem value="XLSX">Excel (.xlsx)</SelectItem>
-              </SelectContent>
-            </Select>
-            {contentType === 'TEXT' && (
-              <Textarea
-                placeholder="Paste your study notes here (max 100,000 chars)"
-                className="min-h-[120px] text-xs"
-                value={textContent}
-                maxLength={100000}
-                onChange={e => setTextContent(e.target.value)}
-              />
+
+            {/* File upload mode: show file-type selector + file picker immediately */}
+            {addMode === 'file' && (
+              <>
+                <Select value={contentType} onValueChange={v => { setContentType(v as MaterialContentType); if (fileRef.current) fileRef.current.value = ''; }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PDF">PDF (.pdf)</SelectItem>
+                    <SelectItem value="DOCX">Word Document (.docx)</SelectItem>
+                    <SelectItem value="PPTX">PowerPoint (.pptx)</SelectItem>
+                    <SelectItem value="XLSX">Excel (.xlsx)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="space-y-1">
+                  <input ref={fileRef} type="file" accept={getAcceptedExtensions(contentType)} className="text-sm w-full" />
+                  <p className="text-xs text-muted-foreground">File will be converted to Markdown automatically (may take up to 30 s for large files)</p>
+                </div>
+              </>
             )}
-            {contentType === 'URL' && (
-              <Input placeholder="https://docs.aws.amazon.com/..." value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} />
+
+            {/* Text / URL mode: show type selector + relevant input */}
+            {addMode === 'text' && (
+              <>
+                <Select value={contentType} onValueChange={v => setContentType(v as MaterialContentType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TEXT">Plain Text</SelectItem>
+                    <SelectItem value="URL">Web URL</SelectItem>
+                  </SelectContent>
+                </Select>
+                {contentType === 'TEXT' && (
+                  <Textarea
+                    placeholder="Paste your study notes here (max 100,000 chars)"
+                    className="min-h-[120px] text-xs"
+                    value={textContent}
+                    maxLength={100000}
+                    onChange={e => setTextContent(e.target.value)}
+                  />
+                )}
+                {contentType === 'URL' && (
+                  <Input placeholder="https://docs.aws.amazon.com/..." value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} />
+                )}
+              </>
             )}
-            {FILE_TYPES.includes(contentType) && (
-              <div className="space-y-1">
-                <input ref={fileRef} type="file" accept={getAcceptedExtensions(contentType)} className="text-sm" />
-                <p className="text-xs text-muted-foreground">File will be converted to Markdown automatically (may take a few seconds)</p>
-              </div>
-            )}
+
             <div className="flex gap-2">
               <Button size="sm" onClick={() => uploadMutation.mutate()} disabled={!title || uploadMutation.isPending}>
                 {uploadMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                Upload
+                {addMode === 'file' ? 'Upload' : 'Save'}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setAdding(false)}>Cancel</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setAddMode('text'); }}>Cancel</Button>
             </div>
           </CardContent>
         </Card>
       )}
 
       {materials.length === 0 && !adding && (
-        <p className="text-xs text-muted-foreground text-center py-4">No materials yet. Add study notes, PDFs, Word docs, or URLs.</p>
+        <p className="text-xs text-muted-foreground text-center py-4">
+          No materials yet. Click <strong>Upload File</strong> to add a PDF, Word doc, PowerPoint, or Excel sheet, or <strong>Text / URL</strong> for pasted notes and links.
+        </p>
       )}
 
       {materials.map((m: any) => {
@@ -168,6 +214,9 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
         const isSelected = m.id === selectedId;
         const isProcessing = m.status === 'processing';
         const isFailed = m.status === 'failed';
+        // Cert mismatch: material was tagged to a different cert than currently selected.
+        // We still allow selection (material context is still useful) but show a hint.
+        const certMismatch = certificationId && m.certificationId && m.certificationId !== certificationId;
         return (
           <Card
             key={m.id}
@@ -181,6 +230,7 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
                   <p className="text-sm font-medium truncate">{m.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {isProcessing ? 'Converting…' : isFailed ? 'Conversion failed' : `${m._count.chunks} chunks`}
+                    {certMismatch && <span className="ml-1 text-yellow-600" title={`Tagged to ${m.certification?.code ?? 'another cert'}`}>· {m.certification?.code ?? 'other cert'}</span>}
                   </p>
                 </div>
               </div>

@@ -331,6 +331,7 @@ export interface SourceMaterial {
   title: string;
   contentType: MaterialContentType;
   certificationId?: string;
+  certification?: { code: string };
   sourceUrl?: string;
   chunkCount: number;
   status: string;

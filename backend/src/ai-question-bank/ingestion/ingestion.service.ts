@@ -183,7 +183,14 @@ export class IngestionService {
         jobData.bufferBase64 = fileBuffer.toString('base64');
       }
 
-      await this.conversionQueue.add('convert', jobData);
+      // removeOnComplete: true — the job payload may contain a large base64
+      // buffer (local dev) or S3 coords (production). Once the processor has
+      // finished there is no reason to keep the job in Redis; the result is
+      // persisted as SourceChunk rows in Postgres.
+      await this.conversionQueue.add('convert', jobData, {
+        removeOnComplete: true,
+        removeOnFail: { count: 10 }, // keep a small window of failures for debugging
+      });
     } catch (err) {
       this.logger.error(
         `Failed to stage/queue material ${material.id}: ${err}`,
@@ -205,7 +212,10 @@ export class IngestionService {
         ...(certificationId ? { certificationId } : {}),
       },
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { chunks: true } } },
+      include: {
+        _count: { select: { chunks: true } },
+        certification: { select: { code: true } },
+      },
     });
   }
 

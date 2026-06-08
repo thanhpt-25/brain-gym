@@ -137,6 +137,15 @@ export class AiQuestionBankController {
     return this.ingestion.getMaterial(req.user.id, id);
   }
 
+  @Get('materials/:id/chunks')
+  @ApiOperation({ summary: 'Return ordered text chunks for a material (used by local LLM generation)' })
+  async getMaterialChunks(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    // Ownership check via getMaterial — throws 403/404 if not allowed.
+    await this.ingestion.getMaterial(req.user.id, id);
+    const chunks = await this.ingestion.getChunksForMaterial(id);
+    return { chunks };
+  }
+
   @Delete('materials/:id')
   @ApiOperation({ summary: 'Delete a study material' })
   deleteMaterial(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
