@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ThumbsUp, Send, Loader2, Star } from "lucide-react";
 import api from "../../services/api";
 import "./peer-review-challenge.css";
+import { Textarea } from "@/components/ui/textarea";
 
 interface PeerExplanation {
   id: string;
@@ -109,7 +110,7 @@ export function PeerReviewChallenge({
 
       {/* Submit / edit own explanation */}
       <div className="pr-compose">
-        <textarea
+        <Textarea
           className="pr-textarea"
           rows={3}
           placeholder={
