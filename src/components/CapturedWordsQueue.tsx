@@ -4,6 +4,7 @@ import { BookmarkPlus, Trash2, Check, X, Loader2, ChevronDown, ChevronUp } from 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { getPendingCaptures, updateCaptureStatus, createFlashcard, getDecks } from '@/services/flashcards';
 import { toast } from 'sonner';
 
@@ -121,8 +122,8 @@ const CapturedWordsQueue = () => {
                         
                         <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-mono text-muted-foreground uppercase">Definition / Flashcard Back</label>
-                          <textarea 
-                            className="bg-background/50 border border-border rounded px-3 py-2 text-sm focus:outline-none focus:border-primary min-h-[80px]"
+                          <Textarea
+                            className="bg-background/50 border-border min-h-[80px] text-sm"
                             placeholder="Explain this concept..."
                             value={definition}
                             onChange={(e) => setDefinition(e.target.value)}

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Play, MoreVertical, Trash2, Edit2, Loader2, Star, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import Navbar from '@/components/Navbar';
 import Breadcrumb from '@/components/Breadcrumb';
 import { getDeck, createFlashcard, deleteFlashcard, toggleStarFlashcard } from '@/services/flashcards';
@@ -123,21 +124,21 @@ const DeckDetail = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Front (Term / Question)</label>
-                    <textarea
+                    <Textarea
                       required
                       value={front}
                       onChange={(e) => setFront(e.target.value)}
-                      className="w-full h-32 bg-background/50 border border-border rounded-md p-3 text-sm focus:outline-none focus:border-primary resize-none"
+                      className="w-full min-h-[8rem] bg-background/50 border-border text-sm"
                       placeholder="e.g. EC2"
                     />
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Back (Definition / Answer)</label>
-                    <textarea
+                    <Textarea
                       required
                       value={back}
                       onChange={(e) => setBack(e.target.value)}
-                      className="w-full h-32 bg-background/50 border border-border rounded-md p-3 text-sm focus:outline-none focus:border-primary resize-none"
+                      className="w-full min-h-[8rem] bg-background/50 border-border text-sm"
                       placeholder="e.g. Elastic Compute Cloud - Virtual servers in the cloud"
                     />
                   </div>
