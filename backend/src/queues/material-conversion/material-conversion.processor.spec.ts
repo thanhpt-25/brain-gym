@@ -48,7 +48,7 @@ describe('MaterialConversionProcessor', () => {
     jest.spyOn(processor as any, 'convertToMarkdown').mockImplementation(impl);
 
   it('deletes the S3 temp object after a successful conversion', async () => {
-    mockConvert(async () => '# Hello\n\nSome content.');
+    mockConvert(() => Promise.resolve('# Hello\n\nSome content.'));
 
     await processor.process(makeJob(0, 3));
 
@@ -61,9 +61,7 @@ describe('MaterialConversionProcessor', () => {
   });
 
   it('keeps the S3 temp object on a non-final failed attempt and stays processing', async () => {
-    mockConvert(async () => {
-      throw new Error('Lambda throttled');
-    });
+    mockConvert(() => Promise.reject(new Error('Lambda throttled')));
 
     // attempt 1 of 3 (attemptsMade=0) — retries remain.
     await expect(processor.process(makeJob(0, 3))).rejects.toThrow(
@@ -76,9 +74,7 @@ describe('MaterialConversionProcessor', () => {
   });
 
   it('deletes the S3 temp object and marks failed on the final attempt', async () => {
-    mockConvert(async () => {
-      throw new Error('Lambda throttled');
-    });
+    mockConvert(() => Promise.reject(new Error('Lambda throttled')));
 
     // attempt 3 of 3 (attemptsMade=2) — no retry left.
     await expect(processor.process(makeJob(2, 3))).rejects.toThrow(
@@ -92,7 +88,7 @@ describe('MaterialConversionProcessor', () => {
   });
 
   it('treats empty markdown as a retryable failure (temp preserved when retries remain)', async () => {
-    mockConvert(async () => '   ');
+    mockConvert(() => Promise.resolve('   '));
 
     await expect(processor.process(makeJob(0, 3))).rejects.toThrow(
       /empty content/i,
@@ -103,9 +99,7 @@ describe('MaterialConversionProcessor', () => {
   });
 
   it('handles a single-attempt job (no retries) by cleaning up on failure', async () => {
-    mockConvert(async () => {
-      throw new Error('boom');
-    });
+    mockConvert(() => Promise.reject(new Error('boom')));
 
     // opts.attempts undefined -> defaults to 1, so attempt 1 is also the last.
     const job = makeJob(0, undefined as unknown as number);
