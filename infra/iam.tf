@@ -83,6 +83,33 @@ resource "aws_iam_role_policy" "ecs_task_avatars" {
   })
 }
 
+# Allow the ECS task to stage uploaded files and invoke the Markitdown Lambda.
+resource "aws_iam_role_policy" "ecs_task_markitdown" {
+  name = "markitdown-pipeline"
+  role = aws_iam_role.ecs_task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "MaterialsTmpBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:DeleteObject",
+        ]
+        Resource = "${aws_s3_bucket.materials_tmp.arn}/*"
+      },
+      {
+        Sid      = "InvokeMarkitdownLambda"
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
+        Resource = aws_lambda_function.markitdown.arn
+      }
+    ]
+  })
+}
+
 # ─────────────────────────────────────────────
 # GitHub Actions Deploy Role (OIDC)
 # Assumed by GitHub Actions via OIDC — no static
@@ -166,6 +193,15 @@ resource "aws_iam_role_policy" "github_deploy" {
           "ecs:RunTask"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "Lambda"
+        Effect = "Allow"
+        Action = [
+          "lambda:UpdateFunctionCode",
+          "lambda:GetFunction"
+        ]
+        Resource = aws_lambda_function.markitdown.arn
       },
       {
         Sid    = "PassRole"

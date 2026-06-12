@@ -1,0 +1,15 @@
+# Targeted extras — only install what we actually convert.
+# DO NOT use markitdown[all]: it pulls in pydub + SpeechRecognition
+# which require the `ffmpeg` system binary (not available in Lambda by default).
+#
+# Supported formats and their extras:
+#   pdf   → pdfminer.six, pdfplumber   (pure Python, no system deps)
+#   docx  → mammoth, lxml              (pure Python, no system deps)
+#   pptx  → python-pptx                (pure Python, no system deps)
+#   xlsx  → pandas, openpyxl           (pure Python, no system deps)
+#
+# To add audio support in future, you must also:
+#   1. Add `markitdown[audio-transcription]` below
+#   2. Install ffmpeg in the Dockerfile:  RUN dnf install -y ffmpeg-free
+markitdown[pdf,docx,pptx,xlsx]>=0.1.0
+boto3>=1.34.0

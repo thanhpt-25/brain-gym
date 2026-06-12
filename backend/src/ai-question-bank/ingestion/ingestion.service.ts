@@ -3,79 +3,206 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MaterialContentType } from '@prisma/client';
 import { UploadMaterialDto } from '../dto/upload-material.dto';
 import { chunkText } from './chunker';
+import { S3UploadService } from './s3-upload.service';
+import {
+  MATERIAL_CONVERSION_QUEUE,
+  MaterialConversionJobData,
+} from '../../queues/material-conversion/material-conversion.job.interface';
 
 const MAX_TEXT_LENGTH = 100_000; // ~25k tokens
+// Warn when embedding file in Redis job payload (local dev only). 10 MB base64 ≈ 13.3 MB in Redis.
+const LOCAL_BUFFER_WARN_BYTES = 10 * 1024 * 1024;
+
+const FILE_CONTENT_TYPES = new Set<MaterialContentType>([
+  MaterialContentType.PDF,
+  MaterialContentType.DOCX,
+  MaterialContentType.PPTX,
+  MaterialContentType.XLSX,
+]);
 
 @Injectable()
 export class IngestionService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(IngestionService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly s3Upload: S3UploadService,
+    @InjectQueue(MATERIAL_CONVERSION_QUEUE)
+    private readonly conversionQueue: Queue<MaterialConversionJobData>,
+  ) {}
 
   async uploadMaterial(
     userId: string,
     dto: UploadMaterialDto,
     fileBuffer?: Buffer,
+    originalFilename?: string,
   ) {
-    let rawText: string;
-
     if (dto.contentType === MaterialContentType.TEXT) {
-      if (!dto.textContent)
-        throw new BadRequestException('textContent is required for TEXT type');
-      if (dto.textContent.length > MAX_TEXT_LENGTH) {
-        throw new BadRequestException(
-          `Text content exceeds maximum length of ${MAX_TEXT_LENGTH} characters`,
-        );
-      }
-      rawText = dto.textContent;
-    } else if (dto.contentType === MaterialContentType.URL) {
-      if (!dto.sourceUrl)
-        throw new BadRequestException('sourceUrl is required for URL type');
-      rawText = await this.fetchUrl(dto.sourceUrl);
-    } else if (dto.contentType === MaterialContentType.PDF) {
-      if (!fileBuffer)
-        throw new BadRequestException('A PDF file is required for PDF type');
-      rawText = await this.parsePdf(fileBuffer);
-    } else {
-      throw new BadRequestException('Unsupported content type');
+      return this.uploadTextMaterial(userId, dto);
     }
 
-    // Create the SourceMaterial record
+    if (dto.contentType === MaterialContentType.URL) {
+      return this.uploadUrlMaterial(userId, dto);
+    }
+
+    if (FILE_CONTENT_TYPES.has(dto.contentType)) {
+      if (!fileBuffer || !originalFilename) {
+        throw new BadRequestException('A file is required for this content type');
+      }
+      return this.queueFileMaterial(userId, dto, fileBuffer, originalFilename);
+    }
+
+    throw new BadRequestException('Unsupported content type');
+  }
+
+  private async uploadTextMaterial(userId: string, dto: UploadMaterialDto) {
+    if (!dto.textContent)
+      throw new BadRequestException('textContent is required for TEXT type');
+    if (dto.textContent.length > MAX_TEXT_LENGTH) {
+      throw new BadRequestException(
+        `Text content exceeds maximum length of ${MAX_TEXT_LENGTH} characters`,
+      );
+    }
+
     const material = await this.prisma.sourceMaterial.create({
       data: {
         userId,
         certificationId: dto.certificationId || null,
         title: dto.title,
         contentType: dto.contentType,
-        sourceUrl: dto.sourceUrl || null,
         status: 'processing',
       },
     });
 
-    // Chunk and store
+    const chunks = chunkText(dto.textContent);
+    await this.prisma.sourceChunk.createMany({
+      data: chunks.map((c) => ({
+        materialId: material.id,
+        content: c.content,
+        chunkIndex: c.chunkIndex,
+        pageNumber: c.pageNumber ?? null,
+        sectionTitle: c.sectionTitle ?? null,
+        tokenCount: c.tokenCount,
+      })),
+    });
+
+    return this.prisma.sourceMaterial.update({
+      where: { id: material.id },
+      data: { chunkCount: chunks.length, status: 'ready' },
+      include: { _count: { select: { chunks: true } } },
+    });
+  }
+
+  private async uploadUrlMaterial(userId: string, dto: UploadMaterialDto) {
+    if (!dto.sourceUrl)
+      throw new BadRequestException('sourceUrl is required for URL type');
+
+    const rawText = await this.fetchUrl(dto.sourceUrl);
+
+    const material = await this.prisma.sourceMaterial.create({
+      data: {
+        userId,
+        certificationId: dto.certificationId || null,
+        title: dto.title,
+        contentType: dto.contentType,
+        sourceUrl: dto.sourceUrl,
+        status: 'processing',
+      },
+    });
+
     const chunks = chunkText(rawText);
     await this.prisma.sourceChunk.createMany({
       data: chunks.map((c) => ({
         materialId: material.id,
         content: c.content,
         chunkIndex: c.chunkIndex,
-        pageNumber: c.pageNumber || null,
-        sectionTitle: c.sectionTitle || null,
+        pageNumber: c.pageNumber ?? null,
+        sectionTitle: c.sectionTitle ?? null,
         tokenCount: c.tokenCount,
       })),
     });
 
-    // Update chunk count and status
-    const updated = await this.prisma.sourceMaterial.update({
+    return this.prisma.sourceMaterial.update({
       where: { id: material.id },
       data: { chunkCount: chunks.length, status: 'ready' },
       include: { _count: { select: { chunks: true } } },
     });
+  }
 
-    return updated;
+  private async queueFileMaterial(
+    userId: string,
+    dto: UploadMaterialDto,
+    fileBuffer: Buffer,
+    originalFilename: string,
+  ) {
+    // Create the record first so we have a materialId for the job.
+    const material = await this.prisma.sourceMaterial.create({
+      data: {
+        userId,
+        certificationId: dto.certificationId || null,
+        title: dto.title,
+        contentType: dto.contentType,
+        originalFilename,
+        status: 'processing',
+      },
+      include: { _count: { select: { chunks: true } } },
+    });
+
+    // If staging or queueing fails, mark the material as failed so it doesn't
+    // stay stuck in 'processing' forever (Fix #1).
+    try {
+      const jobData: MaterialConversionJobData = {
+        materialId: material.id,
+        filename: originalFilename,
+      };
+
+      const useS3 = !!process.env.AWS_S3_MATERIALS_TMP_BUCKET;
+      if (useS3) {
+        const { bucket, key } = await this.s3Upload.uploadToTemp(
+          fileBuffer,
+          originalFilename,
+        );
+        jobData.s3Bucket = bucket;
+        jobData.s3Key = key;
+      } else {
+        // Local dev: embed buffer in job payload (Fix #4 — warn on large files).
+        if (fileBuffer.length > LOCAL_BUFFER_WARN_BYTES) {
+          this.logger.warn(
+            `Large file embedded in Redis job payload (${Math.round(fileBuffer.length / 1024 / 1024)}MB). ` +
+              'Set AWS_S3_MATERIALS_TMP_BUCKET to use S3 staging instead.',
+          );
+        }
+        jobData.bufferBase64 = fileBuffer.toString('base64');
+      }
+
+      // removeOnComplete: true — the job payload may contain a large base64
+      // buffer (local dev) or S3 coords (production). Once the processor has
+      // finished there is no reason to keep the job in Redis; the result is
+      // persisted as SourceChunk rows in Postgres.
+      await this.conversionQueue.add('convert', jobData, {
+        removeOnComplete: true,
+        removeOnFail: { count: 10 }, // keep a small window of failures for debugging
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to stage/queue material ${material.id}: ${err}`,
+      );
+      await this.prisma.sourceMaterial.update({
+        where: { id: material.id },
+        data: { status: 'failed' },
+      });
+      throw err;
+    }
+
+    return material;
   }
 
   async getMaterials(userId: string, certificationId?: string) {
@@ -85,7 +212,10 @@ export class IngestionService {
         ...(certificationId ? { certificationId } : {}),
       },
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { chunks: true } } },
+      include: {
+        _count: { select: { chunks: true } },
+        certification: { select: { code: true } },
+      },
     });
   }
 
@@ -127,24 +257,9 @@ export class IngestionService {
         `Failed to fetch URL: ${response.statusText}`,
       );
     const html = await response.text();
-    // Strip HTML tags
     return html
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s{2,}/g, ' ')
       .trim();
-  }
-
-  private async parsePdf(buffer: Buffer): Promise<string> {
-    // Dynamic import to avoid hard dependency at module load
-    const pdfParse = await import('pdf-parse')
-      .then((m) => m.default || m)
-      .catch(() => null);
-    if (!pdfParse) {
-      throw new BadRequestException(
-        'PDF parsing is not available. Please use TEXT type instead.',
-      );
-    }
-    const data = await pdfParse(buffer);
-    return data.text;
   }
 }

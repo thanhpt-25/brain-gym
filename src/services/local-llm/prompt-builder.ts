@@ -28,9 +28,13 @@ export function buildLocalUserPrompt(params: LocalGenerationParams): string {
       ? "MULTIPLE choice (2-3 correct answers out of 5-6 options)"
       : "SINGLE choice (exactly 1 correct answer out of 4 options)";
 
+  const contextSection = params.materialContext
+    ? `\n\nUse the following study material as your primary source for question content:\n\n---\n${params.materialContext}\n---\n`
+    : "";
+
   return `Generate ${params.questionCount} ${typeGuide} questions for the **${params.certificationName} (${params.certificationCode})** certification exam.
 ${params.domainName ? `Domain/Topic: ${params.domainName}` : ""}
-Difficulty: ${params.difficulty} — focus on ${difficultyGuide[params.difficulty]}.
+Difficulty: ${params.difficulty} — focus on ${difficultyGuide[params.difficulty]}.${contextSection}
 
 Return a JSON object with this exact schema:
 {

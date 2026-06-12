@@ -29,4 +29,6 @@ export interface LocalGenerationParams {
   difficulty: Difficulty;
   questionCount: number;
   questionType?: QuestionType;
+  /** Concatenated material chunks injected as context into the prompt. */
+  materialContext?: string;
 }
