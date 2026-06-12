@@ -108,7 +108,11 @@ jobs:
         with:
           context: ./lambda/markitdown
           file: ./lambda/markitdown/Dockerfile
-          push: true
+          # AWS Lambda rejects OCI image indexes with SLSA/SBOM attestations
+          # ("image manifest ... media type ... is not supported"). Disable
+          # provenance and force Docker v2s2 media types instead of OCI.
+          provenance: false
+          outputs: type=image,oci-mediatypes=false,push=true
           tags: |
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-markitdown:${{ needs.setup.outputs.image-tag }}
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/braingym-markitdown:latest
