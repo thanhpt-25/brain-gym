@@ -195,6 +195,15 @@ resource "aws_iam_role_policy" "github_deploy" {
         Resource = "*"
       },
       {
+        Sid    = "Lambda"
+        Effect = "Allow"
+        Action = [
+          "lambda:UpdateFunctionCode",
+          "lambda:GetFunction"
+        ]
+        Resource = aws_lambda_function.markitdown.arn
+      },
+      {
         Sid    = "PassRole"
         Effect = "Allow"
         Action = "iam:PassRole"
