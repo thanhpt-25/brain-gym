@@ -32,6 +32,14 @@ export class MaterialConversionProcessor extends WorkerHost {
     const { materialId, filename, s3Bucket, s3Key, bufferBase64 } = job.data;
     this.logger.log(`Converting material ${materialId} (${filename})`);
 
+    // Fix #93: BullMQ retries (default attempts: 3) re-run this processor on
+    // transient failures. The S3 temp object is the only file source for the
+    // production (Lambda) path, so it must survive until no further retry can
+    // run — otherwise retries re-download a deleted key and fail with NoSuchKey.
+    const maxAttempts = job.opts.attempts ?? 1;
+    const isLastAttempt = job.attemptsMade + 1 >= maxAttempts;
+    let succeeded = false;
+
     try {
       const markdown = await this.convertToMarkdown(
         filename,
@@ -66,21 +74,34 @@ export class MaterialConversionProcessor extends WorkerHost {
         data: { status: 'ready', chunkCount: chunks.length },
       });
 
-      this.logger.log(
-        `Material ${materialId} ready — ${chunks.length} chunks`,
-      );
+      succeeded = true;
+      this.logger.log(`Material ${materialId} ready — ${chunks.length} chunks`);
     } catch (err) {
-      this.logger.error(`Failed to convert material ${materialId}: ${err}`);
-      await this.prisma.sourceMaterial.update({
-        where: { id: materialId },
-        data: { status: 'failed' },
-      });
+      // Fix #93: Only flip the material to `failed` once retries are exhausted.
+      // While attempts remain, leave it `processing` so a transient failure
+      // doesn't surface a permanent failure the user must re-upload to clear.
+      if (isLastAttempt) {
+        this.logger.error(
+          `Failed to convert material ${materialId} (final attempt): ${err}`,
+        );
+        await this.prisma.sourceMaterial.update({
+          where: { id: materialId },
+          data: { status: 'failed' },
+        });
+      } else {
+        this.logger.warn(
+          `Conversion attempt ${job.attemptsMade + 1}/${maxAttempts} failed ` +
+            `for material ${materialId}, will retry: ${err}`,
+        );
+      }
       throw err;
     } finally {
-      // Fix #3: Always clean up the S3 temp object, even on conversion failure.
-      // The 24h lifecycle rule is a safety net, but eager cleanup avoids leaked
-      // objects accumulating across BullMQ retries (default: 3 attempts).
-      if (s3Bucket && s3Key) {
+      // Fix #93: Clean up the S3 temp object only when no further retry will
+      // run — on success or the last failed attempt. Deleting on every attempt
+      // defeats BullMQ retries because retries 2..n can no longer re-download
+      // the staged file. The 24h S3 lifecycle rule is the safety net for any
+      // object left behind on an unexpected exit.
+      if (s3Bucket && s3Key && (succeeded || isLastAttempt)) {
         await this.s3Upload.deleteTemp(s3Bucket, s3Key);
       }
     }
@@ -163,8 +184,12 @@ export class MaterialConversionProcessor extends WorkerHost {
       fileBuffer = Buffer.from(bufferBase64, 'base64');
     } else if (s3Bucket && s3Key) {
       const { GetObjectCommand, S3Client } = await import('@aws-sdk/client-s3');
-      const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
-      const obj = await s3.send(new GetObjectCommand({ Bucket: s3Bucket, Key: s3Key }));
+      const s3 = new S3Client({
+        region: process.env.AWS_REGION ?? 'us-east-1',
+      });
+      const obj = await s3.send(
+        new GetObjectCommand({ Bucket: s3Bucket, Key: s3Key }),
+      );
       const chunks: Uint8Array[] = [];
       for await (const chunk of obj.Body as any) chunks.push(chunk);
       fileBuffer = Buffer.concat(chunks);
@@ -177,8 +202,12 @@ export class MaterialConversionProcessor extends WorkerHost {
     form.append('file', new Blob([new Uint8Array(fileBuffer)]), filename);
     form.append('filename', filename);
 
-    const res = await fetch(`${baseUrl}/convert`, { method: 'POST', body: form });
-    if (!res.ok) throw new Error(`Markitdown local server error: ${res.statusText}`);
+    const res = await fetch(`${baseUrl}/convert`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!res.ok)
+      throw new Error(`Markitdown local server error: ${res.statusText}`);
     const json = (await res.json()) as { markdown: string };
     return json.markdown;
   }
