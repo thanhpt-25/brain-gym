@@ -126,4 +126,35 @@ export class MailService {
       this.logger.error(`Failed to send email to ${options.to}`, error);
     }
   }
+
+  async sendOtp(email: string, code: string, inviteId: string): Promise<void> {
+    const maskedEmail = email.replace(/(.{2}).+(@.+)/, '$1***$2');
+    try {
+      await this.transporter.sendMail({
+        from: this.from,
+        to: email,
+        subject: 'Your assessment verification code',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:auto">
+            <h2>Verification code</h2>
+            <p>Use the code below to start your assessment:</p>
+            <p style="font-size:32px;font-weight:bold;letter-spacing:6px;text-align:center;
+                      background:#f4f4f5;padding:16px;border-radius:8px;margin:24px 0">
+              ${code}
+            </p>
+            <p>This code expires in <strong>10 minutes</strong>.<br>
+               Do not share this code with anyone.</p>
+          </div>
+        `,
+      });
+    } catch (error) {
+      // Structured log — no code or hash exposed
+      this.logger.error('OTP_MAIL_FAILED', {
+        event: 'OTP_MAIL_FAILED',
+        maskedEmail,
+        inviteId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 }

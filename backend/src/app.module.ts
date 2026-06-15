@@ -39,6 +39,8 @@ import { InsightsModule } from './insights/insights.module';
 import { PassLikelihoodModule } from './surveys/pass-likelihood.module';
 import { SquadsModule } from './squads/squads.module';
 import { KnowledgeGraphModule } from './knowledge-graph/knowledge-graph.module';
+import { RedisModule } from './redis/redis.module';
+import { CompetencyModule } from './competency/competency.module';
 
 @Module({
   imports: [
@@ -82,6 +84,8 @@ import { KnowledgeGraphModule } from './knowledge-graph/knowledge-graph.module';
     PassLikelihoodModule,
     SquadsModule,
     KnowledgeGraphModule,
+    RedisModule,
+    CompetencyModule,
   ],
   controllers: [AppController],
   providers: [
