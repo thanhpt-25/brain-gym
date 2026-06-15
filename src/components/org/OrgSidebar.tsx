@@ -1,11 +1,21 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useOrgStore } from '@/stores/org.store';
+import { useLocation, useNavigate } from "react-router-dom";
+import { useOrgStore } from "@/stores/org.store";
 import {
-  LayoutDashboard, Users, Settings, Shield, BookOpen,
-  GraduationCap, Library, BookMarked, ClipboardList, BarChart3, Briefcase,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { OrgRole } from '@/types/org-types';
+  LayoutDashboard,
+  Users,
+  Settings,
+  Shield,
+  BookOpen,
+  GraduationCap,
+  Library,
+  BookMarked,
+  ClipboardList,
+  BarChart3,
+  Briefcase,
+  Award,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { OrgRole } from "@/types/org-types";
 
 const OrgSidebar = () => {
   const navigate = useNavigate();
@@ -18,31 +28,82 @@ const OrgSidebar = () => {
 
   // RECRUITER: only assessments + job-roles visible; no question bank / settings / catalog
   const links = [
-    { label: 'Dashboard',      href: `/org/${slug}`,               icon: LayoutDashboard, exact: true,
-      hidden: role === 'RECRUITER' },
-    { label: 'Members',        href: `/org/${slug}/members`,        icon: Users,
-      hidden: role === 'RECRUITER' },
-    { label: 'Groups',         href: `/org/${slug}/groups`,         icon: Shield,
-      hidden: role === 'RECRUITER' },
-    { label: 'Questions',      href: `/org/${slug}/questions`,      icon: BookOpen,
-      hidden: role === 'RECRUITER' },
-    { label: 'Exam Catalog',   href: `/org/${slug}/catalog`,        icon: GraduationCap,
-      hidden: role === 'RECRUITER' },
-    { label: 'Manage Catalog', href: `/org/${slug}/catalog/manage`, icon: Library,
-      roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[],
-      hidden: role === 'RECRUITER' },
-    { label: 'Tracks',         href: `/org/${slug}/tracks`,         icon: BookMarked,
-      roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[],
-      hidden: role === 'RECRUITER' },
+    {
+      label: "Dashboard",
+      href: `/org/${slug}`,
+      icon: LayoutDashboard,
+      exact: true,
+      hidden: role === "RECRUITER",
+    },
+    {
+      label: "Members",
+      href: `/org/${slug}/members`,
+      icon: Users,
+      hidden: role === "RECRUITER",
+    },
+    {
+      label: "Groups",
+      href: `/org/${slug}/groups`,
+      icon: Shield,
+      hidden: role === "RECRUITER",
+    },
+    {
+      label: "Questions",
+      href: `/org/${slug}/questions`,
+      icon: BookOpen,
+      hidden: role === "RECRUITER",
+    },
+    {
+      label: "Exam Catalog",
+      href: `/org/${slug}/catalog`,
+      icon: GraduationCap,
+      hidden: role === "RECRUITER",
+    },
+    {
+      label: "Manage Catalog",
+      href: `/org/${slug}/catalog/manage`,
+      icon: Library,
+      roles: ["OWNER", "ADMIN", "MANAGER"] as OrgRole[],
+      hidden: role === "RECRUITER",
+    },
+    {
+      label: "Tracks",
+      href: `/org/${slug}/tracks`,
+      icon: BookMarked,
+      roles: ["OWNER", "ADMIN", "MANAGER"] as OrgRole[],
+      hidden: role === "RECRUITER",
+    },
     // P1: Recruiting — visible to OWNER/ADMIN/MANAGER/RECRUITER
-    { label: 'Assessments',    href: `/org/${slug}/assessments`,    icon: ClipboardList,
-      roles: ['OWNER', 'ADMIN', 'MANAGER', 'RECRUITER'] as OrgRole[] },
-    { label: 'Job Roles',      href: `/org/${slug}/job-roles`,      icon: Briefcase,
-      roles: ['OWNER', 'ADMIN', 'MANAGER', 'RECRUITER'] as OrgRole[] },
-    { label: 'Analytics',      href: `/org/${slug}/analytics`,      icon: BarChart3,
-      roles: ['OWNER', 'ADMIN', 'MANAGER'] as OrgRole[] },
-    { label: 'Settings',       href: `/org/${slug}/settings`,       icon: Settings,
-      roles: ['OWNER', 'ADMIN'] as OrgRole[] },
+    {
+      label: "Assessments",
+      href: `/org/${slug}/assessments`,
+      icon: ClipboardList,
+      roles: ["OWNER", "ADMIN", "MANAGER", "RECRUITER"] as OrgRole[],
+    },
+    {
+      label: "Job Roles",
+      href: `/org/${slug}/job-roles`,
+      icon: Briefcase,
+      roles: ["OWNER", "ADMIN", "MANAGER", "RECRUITER"] as OrgRole[],
+    },
+    {
+      label: "Competencies",
+      href: `/org/${slug}/competencies`,
+      icon: Award,
+      roles: ["OWNER", "ADMIN", "MANAGER"] as OrgRole[],
+    },
+    {
+      label: "Analytics",
+      href: `/org/${slug}/analytics`,
+      icon: BarChart3,
+      roles: ["OWNER", "ADMIN", "MANAGER"] as OrgRole[],
+    },
+    {
+      label: "Settings",
+      href: `/org/${slug}/settings`,
+      icon: Settings,
+      roles: ["OWNER", "ADMIN"] as OrgRole[],
+    },
   ];
 
   const isActive = (href: string, exact?: boolean) =>
@@ -65,7 +126,9 @@ const OrgSidebar = () => {
             </span>
           </div>
         )}
-        <span className="text-xs font-mono font-medium truncate">{currentOrg?.name}</span>
+        <span className="text-xs font-mono font-medium truncate">
+          {currentOrg?.name}
+        </span>
       </div>
       {links
         .filter((link) => !link.hidden)
@@ -77,8 +140,8 @@ const OrgSidebar = () => {
             size="sm"
             className={`justify-start gap-2 font-mono text-xs ${
               isActive(link.href, link.exact)
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:text-foreground'
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => navigate(link.href)}
           >
