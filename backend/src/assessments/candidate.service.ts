@@ -5,7 +5,8 @@ import {
   ForbiddenException,
   GoneException,
   ServiceUnavailableException,
-  TooManyRequestsException,
+  HttpException,
+  HttpStatus,
   Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -77,8 +78,9 @@ export class CandidateService {
       );
     }
     if (locked) {
-      throw new TooManyRequestsException(
+      throw new HttpException(
         'Too many failed attempts — try again later',
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
@@ -110,13 +112,14 @@ export class CandidateService {
     try {
       locked = await this.redis.get(lockKey);
       if (locked) {
-        throw new TooManyRequestsException(
+        throw new HttpException(
           'Too many failed attempts — try again later',
+          HttpStatus.TOO_MANY_REQUESTS,
         );
       }
       storedHash = await this.redis.getdel(otpKey);
     } catch (err) {
-      if (err instanceof TooManyRequestsException) throw err;
+      if (err instanceof HttpException) throw err;
       throw new ServiceUnavailableException(
         'OTP service temporarily unavailable',
       );
