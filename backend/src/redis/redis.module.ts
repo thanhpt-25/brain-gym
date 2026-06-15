@@ -15,14 +15,14 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           // Tests needing real Redis behaviour should override REDIS_CLIENT
           // in their own Test.createTestingModule().
           return {
-            get: async () => null,
-            set: async () => 'OK',
-            setex: async () => 'OK',
-            getdel: async () => null,
-            del: async () => 0,
-            incr: async () => 1,
-            expire: async () => 1,
-            quit: async () => 'OK',
+            get: () => Promise.resolve(null),
+            set: () => Promise.resolve('OK'),
+            setex: () => Promise.resolve('OK'),
+            getdel: () => Promise.resolve(null),
+            del: () => Promise.resolve(0),
+            incr: () => Promise.resolve(1),
+            expire: () => Promise.resolve(1),
+            quit: () => Promise.resolve('OK'),
           } as unknown as Redis;
         }
         return new Redis({
