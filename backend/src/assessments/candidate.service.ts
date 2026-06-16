@@ -4,25 +4,32 @@ import {
   BadRequestException,
   ForbiddenException,
   GoneException,
+  ServiceUnavailableException,
+  HttpException,
+  HttpStatus,
+  Inject,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssessmentsService } from './assessments.service';
+import { MailService } from '../mail/mail.service';
+import { REDIS_CLIENT } from '../redis/redis.module';
 import { CandidateSubmitDto } from './dto/candidate-submit.dto';
 import { AssessmentSelectionMode } from '@prisma/client';
 import * as crypto from 'crypto';
+import type Redis from 'ioredis';
 
-const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_TTL_SEC = 600; // 10 minutes
+const OTP_LOCK_TTL_SEC = 3600; // 1 hour lockout after max attempts
+const OTP_MAX_ATTEMPTS = 5;
 const CLIENT_TS_SKEW_MS = 60 * 60 * 1000; // allow ±1 hour skew
-
-// In-memory OTP store — works for single-process (dev/single-pod).
-// Replace otpStore.get/set/delete with Redis calls (SETEX + GET + DEL) for multi-process.
-const otpStore = new Map<string, { hash: string; expiresAt: number }>();
 
 @Injectable()
 export class CandidateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly assessmentsService: AssessmentsService,
+    private readonly mailService: MailService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   async loadAssessment(token: string) {
@@ -61,39 +68,105 @@ export class CandidateService {
       throw new BadRequestException('OTP is not required for this assessment');
     }
 
-    // Fix #9: use cryptographically secure random integer
+    const lockKey = `otp:locked:${invite.id}`;
+    let locked: string | null;
+    try {
+      locked = await this.redis.get(lockKey);
+    } catch {
+      throw new ServiceUnavailableException(
+        'OTP service temporarily unavailable',
+      );
+    }
+    if (locked) {
+      throw new HttpException(
+        'Too many failed attempts — try again later',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const code = crypto.randomInt(100_000, 1_000_000).toString();
     const hash = crypto.createHash('sha256').update(code).digest('hex');
-    otpStore.set(invite.id, { hash, expiresAt: Date.now() + OTP_TTL_MS });
 
-    // Fix #3: never log the raw OTP code — only log masked email for traceability
-    const masked = invite.candidateEmail.replace(/(.{2}).+(@.+)/, '$1***$2');
-    console.log(`[OTP] code sent to ${masked}`);
+    try {
+      await this.redis.setex(`otp:${invite.id}`, OTP_TTL_SEC, hash);
+    } catch {
+      throw new ServiceUnavailableException(
+        'OTP service temporarily unavailable',
+      );
+    }
 
-    // TODO: integrate real email service (Mailtrap dev → SES/SendGrid prod)
-    // emailService.sendOtp(invite.candidateEmail, code);
+    await this.mailService.sendOtp(invite.candidateEmail, code, invite.id);
 
-    return { message: `OTP sent to ${invite.candidateEmail}` };
+    return { message: 'OTP sent' };
   }
 
   async verifyOtp(token: string, code: string) {
     const invite = await this.findInviteByToken(token);
-    const entry = otpStore.get(invite.id);
 
-    if (!entry) {
-      throw new BadRequestException('No OTP requested — please request a new code');
-    }
-    if (Date.now() > entry.expiresAt) {
-      otpStore.delete(invite.id);
-      throw new BadRequestException('OTP has expired — please request a new code');
+    const lockKey = `otp:locked:${invite.id}`;
+    const attemptsKey = `otp:attempts:${invite.id}`;
+    const otpKey = `otp:${invite.id}`;
+
+    let locked: string | null;
+    let storedHash: string | null;
+    try {
+      locked = await this.redis.get(lockKey);
+      if (locked) {
+        throw new HttpException(
+          'Too many failed attempts — try again later',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      storedHash = await this.redis.getdel(otpKey);
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      throw new ServiceUnavailableException(
+        'OTP service temporarily unavailable',
+      );
     }
 
-    const inputHash = crypto.createHash('sha256').update(code.trim()).digest('hex');
-    if (inputHash !== entry.hash) {
+    if (!storedHash) {
+      throw new BadRequestException(
+        'No OTP requested — please request a new code',
+      );
+    }
+
+    // Strip CRLF then hash, compare with timing-safe equality
+    const sanitized = code.replace(/[\r\n]/g, '').trim();
+    const inputHash = crypto
+      .createHash('sha256')
+      .update(sanitized)
+      .digest('hex');
+    const inputBuf = Buffer.from(inputHash, 'utf8');
+    const storedBuf = Buffer.from(storedHash, 'utf8');
+
+    const match =
+      inputBuf.length === storedBuf.length &&
+      crypto.timingSafeEqual(inputBuf, storedBuf);
+
+    if (!match) {
+      try {
+        const attempts = await this.redis.incr(attemptsKey);
+        if (attempts >= OTP_MAX_ATTEMPTS) {
+          await this.redis.setex(lockKey, OTP_LOCK_TTL_SEC, '1');
+          await this.redis.del(attemptsKey);
+        } else {
+          // Expire the counter so stale failures from days ago don't accumulate
+          await this.redis.expire(attemptsKey, OTP_LOCK_TTL_SEC);
+        }
+      } catch {
+        // best-effort; do not mask the user-facing error
+      }
       throw new BadRequestException('Invalid OTP');
     }
 
-    otpStore.delete(invite.id);
+    // Clear attempt counter on success
+    try {
+      await this.redis.del(attemptsKey);
+    } catch {
+      // best-effort
+    }
+
     await this.prisma.candidateInvite.update({
       where: { id: invite.id },
       data: { otpVerifiedAt: new Date() },
@@ -218,7 +291,8 @@ export class CandidateService {
 
       if (isCorrect) totalCorrect++;
 
-      if (!domainScores[domain]) domainScores[domain] = { correct: 0, total: 0 };
+      if (!domainScores[domain])
+        domainScores[domain] = { correct: 0, total: 0 };
       domainScores[domain].total++;
       if (isCorrect) domainScores[domain].correct++;
 
@@ -231,7 +305,8 @@ export class CandidateService {
     }
 
     const totalQuestions = scoringQuestions.length;
-    const score = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+    const score =
+      totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
     const timeSpent = invite.startedAt
       ? Math.round((Date.now() - invite.startedAt.getTime()) / 1000)
       : null;
@@ -243,7 +318,10 @@ export class CandidateService {
         where: { inviteId: invite.id },
         select: { eventType: true },
       });
-      const integrityScore = this.calcIntegrityScore(events, invite.tabSwitchCount ?? 0);
+      const integrityScore = this.calcIntegrityScore(
+        events,
+        invite.tabSwitchCount ?? 0,
+      );
 
       await tx.candidateAnswer.createMany({ data: answerRecords });
       await tx.candidateInvite.update({
@@ -276,13 +354,20 @@ export class CandidateService {
     };
   }
 
-  async reportEvent(token: string, eventType: string, clientTs?: string, payload?: any) {
+  async reportEvent(
+    token: string,
+    eventType: string,
+    clientTs?: string,
+    payload?: any,
+  ) {
     const invite = await this.findInviteByToken(token);
 
     // Fix #5: clamp client-supplied timestamp to ±1 hour of server time
     const now = Date.now();
     const rawTs = clientTs ? new Date(clientTs).getTime() : now;
-    const clampedTs = new Date(Math.max(now - CLIENT_TS_SKEW_MS, Math.min(now, rawTs)));
+    const clampedTs = new Date(
+      Math.max(now - CLIENT_TS_SKEW_MS, Math.min(now, rawTs)),
+    );
 
     await this.prisma.candidateEvent.create({
       data: {
@@ -308,7 +393,8 @@ export class CandidateService {
       where: { id: inviteId, assessmentId },
       select: { id: true },
     });
-    if (!invite) throw new NotFoundException('Candidate not found for this assessment');
+    if (!invite)
+      throw new NotFoundException('Candidate not found for this assessment');
 
     return this.prisma.candidateEvent.findMany({
       where: { inviteId },
@@ -400,7 +486,11 @@ export class CandidateService {
         const domain = (q as any).category ?? 'General';
         return { questionId: q.id, question: q, domain };
       })
-      .filter(Boolean) as { questionId: string; question: any; domain: string }[];
+      .filter(Boolean) as {
+      questionId: string;
+      question: any;
+      domain: string;
+    }[];
   }
 
   /**
@@ -414,8 +504,12 @@ export class CandidateService {
         questions: {
           orderBy: { sortOrder: 'asc' },
           include: {
-            orgQuestion: { include: { choices: { orderBy: { sortOrder: 'asc' } } } },
-            publicQuestion: { include: { choices: { orderBy: { sortOrder: 'asc' } } } },
+            orgQuestion: {
+              include: { choices: { orderBy: { sortOrder: 'asc' } } },
+            },
+            publicQuestion: {
+              include: { choices: { orderBy: { sortOrder: 'asc' } } },
+            },
           },
         },
       },

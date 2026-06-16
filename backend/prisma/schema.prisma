@@ -212,6 +212,16 @@ enum ExamCatalogItemType {
   DYNAMIC
 }
 
+// ==================== COMPETENCY ENUMS ====================
+
+/// Discriminates which domainScores namespace a CompetencyDomain key belongs to.
+/// ORG_QUESTION_CATEGORY: keys from OrgQuestion.category (CandidateInvite.domainScores, hiring flow)
+/// PUBLIC_DOMAIN:         keys from Domain.name (ExamAttempt.domainScores, employee assessment flow)
+enum CompetencyDomainSource {
+  ORG_QUESTION_CATEGORY
+  PUBLIC_DOMAIN
+}
+
 enum OrgQuestionStatus {
   DRAFT
   UNDER_REVIEW
@@ -839,6 +849,7 @@ model Organization {
   peerExplanations PeerExplanation[]
   userReputations  UserReputation[]
   reputationFlags  ReputationFlag[]
+  competencies     Competency[]
 
   @@map("organizations")
 }
@@ -927,11 +938,12 @@ model OrgQuestion {
   createdAt        DateTime          @default(now()) @map("created_at")
   updatedAt        DateTime          @updatedAt @map("updated_at")
 
-  organization    Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  certification   Certification?        @relation(fields: [certificationId], references: [id])
-  choices         OrgQuestionChoice[]
-  catalogLinks    ExamCatalogQuestion[]
-  assessmentLinks AssessmentQuestion[]
+  organization      Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  certification     Certification?        @relation(fields: [certificationId], references: [id])
+  choices           OrgQuestionChoice[]
+  catalogLinks      ExamCatalogQuestion[]
+  assessmentLinks   AssessmentQuestion[]
+  competencyLinks   QuestionCompetency[]
 
   @@index([orgId, status])
   @@map("org_questions")
@@ -1038,8 +1050,9 @@ model JobRole {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  assessments  Assessment[]
+  organization    Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assessments     Assessment[]
+  competencyReqs  JobRoleCompetency[]
 
   @@index([orgId])
   @@map("job_roles")
@@ -1560,3 +1573,72 @@ model DdsConfig {
   @@map("dds_configs")
 }
 
+
+// ==================== COMPETENCY MODELS (Sprint 0 — FR-1) ====================
+
+model Competency {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  scaleMin    Int      @default(1) @map("scale_min")
+  scaleMax    Int      @default(5) @map("scale_max")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  domains      CompetencyDomain[]
+  questions    QuestionCompetency[]
+  jobRoles     JobRoleCompetency[]
+
+  @@unique([orgId, name])
+  @@index([orgId])
+  @@map("competencies")
+}
+
+model CompetencyDomain {
+  id           String                 @id @default(uuid())
+  competencyId String                 @map("competency_id")
+  domainName   String                 @map("domain_name") @db.VarChar(200)
+  source       CompetencyDomainSource @default(ORG_QUESTION_CATEGORY) @map("source")
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([competencyId, source, domainName])
+  @@index([competencyId])
+  @@map("competency_domains")
+}
+
+model QuestionCompetency {
+  id            String   @id @default(uuid())
+  competencyId  String   @map("competency_id")
+  orgQuestionId String   @map("org_question_id")
+  weight        Float    @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  competency  Competency  @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  orgQuestion OrgQuestion @relation(fields: [orgQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([competencyId, orgQuestionId])
+  @@index([orgQuestionId])
+  @@map("question_competencies")
+}
+
+model JobRoleCompetency {
+  id            String   @id @default(uuid())
+  jobRoleId     String   @map("job_role_id")
+  competencyId  String   @map("competency_id")
+  requiredLevel Int      @map("required_level")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  jobRole    JobRole    @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+  competency Competency @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+
+  @@unique([jobRoleId, competencyId])
+  @@index([competencyId])
+  @@map("job_role_competencies")
+}
