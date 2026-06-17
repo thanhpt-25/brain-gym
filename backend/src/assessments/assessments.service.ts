@@ -625,10 +625,18 @@ export class AssessmentsService {
     if (filter === 'submitted' || filter === 'passed' || filter === 'shortlisted') {
       inviteWhere['status'] = 'SUBMITTED';
     }
-    const invites = await this.prisma.candidateInvite.findMany({
+    if (filter === 'shortlisted') {
+      inviteWhere['stage'] = 'SHORTLISTED';
+    }
+    let invites = await this.prisma.candidateInvite.findMany({
       where: inviteWhere,
       orderBy: [{ score: 'desc' }, { createdAt: 'asc' }],
     });
+    if (filter === 'passed' && assessment.passingScore != null) {
+      invites = invites.filter(
+        (i) => i.score != null && Number(i.score) >= assessment.passingScore!,
+      );
+    }
 
     // Compute percentile rank for each submitted candidate
     const submitted = invites.filter((i) => i.status === 'SUBMITTED');
@@ -749,6 +757,9 @@ export class AssessmentsService {
       where: { id: assessmentId, orgId },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
+    if (assessment.status !== AssessmentStatus.ACTIVE) {
+      throw new BadRequestException('Assessment must be ACTIVE to invite candidates');
+    }
 
     const { valid, invalid } = parseCandidateCsv(dto.csv);
     const errors: { row: number; email: string; reason: string }[] = invalid.map(

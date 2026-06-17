@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttemptStatus, CandidateAttemptStatus } from '@prisma/client';
 import { inferCompetencyLevel, DEFAULT_THRESHOLDS_1_5 } from '../competency/scoring/infer-competency-level';
@@ -439,14 +435,20 @@ export class OrgAnalyticsService {
   ) {
     const orgId = await this.resolveOrgId(orgIdOrSlug);
 
+    // Validate memberId belongs to this org before exposing their data
+    if (memberId) {
+      const membership = await this.prisma.orgMember.findFirst({
+        where: { orgId, userId: memberId, isActive: true },
+      });
+      if (!membership) throw new NotFoundException('Member not found in this organization');
+    }
+
     // Load competencies for this org
     const competencies = await this.prisma.competency.findMany({
       where: { orgId, isActive: true },
       include: {
         domains: { select: { domainName: true } },
-        jobRoles: jobRoleId
-          ? { where: { jobRoleId }, select: { requiredLevel: true } }
-          : { where: { jobRoleId: '__none__' }, select: { requiredLevel: true } },
+        ...(jobRoleId ? { jobRoles: { where: { jobRoleId }, select: { requiredLevel: true } } } : {}),
       },
     });
 
