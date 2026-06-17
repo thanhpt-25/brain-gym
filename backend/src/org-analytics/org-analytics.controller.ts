@@ -73,4 +73,27 @@ export class OrgAnalyticsController {
   ) {
     return this.orgAnalyticsService.getMemberAnalytics(orgId, userId);
   }
+  @Get('competency-profile')
+  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
+  @UseGuards(JwtAuthGuard, OrgRoleGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get competency profile for org or individual member' })
+  @ApiQuery({ name: 'memberId', required: false })
+  @ApiQuery({ name: 'jobRoleId', required: false })
+  getCompetencyProfile(
+    @Param('orgId') orgId: string,
+    @Query('memberId') memberId?: string,
+    @Query('jobRoleId') jobRoleId?: string,
+  ) {
+    return this.orgAnalyticsService.getCompetencyProfile(orgId, memberId, jobRoleId);
+  }
+
+  @Get('competency-heatmap')
+  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
+  @UseGuards(JwtAuthGuard, OrgRoleGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get competency heatmap (all members x all competencies)' })
+  getCompetencyHeatmap(@Param('orgId') orgId: string) {
+    return this.orgAnalyticsService.getCompetencyHeatmap(orgId);
+  }
 }

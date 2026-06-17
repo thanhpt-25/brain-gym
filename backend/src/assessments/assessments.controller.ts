@@ -18,6 +18,7 @@ import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
 import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto';
+import { BulkCsvInviteDto } from './dto/bulk-csv-invite.dto';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -102,8 +103,12 @@ export class AssessmentsController {
   }
 
   @Get(':aid/results')
-  getResults(@Param('orgId') orgId: string, @Param('aid') aid: string) {
-    return this.service.getResults(orgId, aid);
+  getResults(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Query('filter') filter?: string,
+  ) {
+    return this.service.getResults(orgId, aid, filter);
   }
 
   @Get(':aid/results/export')
@@ -113,13 +118,23 @@ export class AssessmentsController {
     @Param('orgId') orgId: string,
     @Param('aid') aid: string,
     @Res() res: Response,
+    @Query('filter') filter?: string,
   ) {
-    const csv = await this.service.exportCsv(orgId, aid);
+    const csv = await this.service.exportCsv(orgId, aid, filter);
     res.setHeader(
       'Content-Disposition',
       'attachment; filename="assessment-results.csv"',
     );
     res.send(csv);
+  }
+
+  @Post(':aid/candidates/bulk-csv')
+  bulkCsvInvite(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Body() dto: BulkCsvInviteDto,
+  ) {
+    return this.service.bulkCsvInvite(orgId, aid, dto);
   }
 
   @Patch(':aid/candidates/:inviteId')

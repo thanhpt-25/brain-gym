@@ -12,6 +12,8 @@ import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
 import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto';
 import { randomUUID } from 'crypto';
+import { parseCandidateCsv } from '../common/csv/parse-candidate-csv';
+import { BulkCsvInviteDto } from './dto/bulk-csv-invite.dto';
 
 // ─── Blueprint / Pool config shapes ─────────────────────────────────────────
 
@@ -611,7 +613,7 @@ export class AssessmentsService {
     return { invited: invites.length, invites };
   }
 
-  async getResults(slugOrId: string, assessmentId: string) {
+  async getResults(slugOrId: string, assessmentId: string, filter?: string) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, orgId },
@@ -619,8 +621,12 @@ export class AssessmentsService {
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
+    const inviteWhere: Record<string, unknown> = { assessmentId };
+    if (filter === 'submitted' || filter === 'passed' || filter === 'shortlisted') {
+      inviteWhere['status'] = 'SUBMITTED';
+    }
     const invites = await this.prisma.candidateInvite.findMany({
-      where: { assessmentId },
+      where: inviteWhere,
       orderBy: [{ score: 'desc' }, { createdAt: 'asc' }],
     });
 
@@ -698,8 +704,8 @@ export class AssessmentsService {
     });
   }
 
-  async exportCsv(slugOrId: string, assessmentId: string): Promise<string> {
-    const results = await this.getResults(slugOrId, assessmentId);
+  async exportCsv(slugOrId: string, assessmentId: string, filter?: string): Promise<string> {
+    const results = await this.getResults(slugOrId, assessmentId, filter);
     const header =
       'Name,Email,Attempt Status,Stage,Score (%),Percentile,Total Correct,Total Questions,Rating,Time Spent (s),Tab Switches,Started At,Submitted At,Recruiter Note';
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
@@ -729,6 +735,54 @@ export class AssessmentsService {
     return this.prisma.assessment.delete({
       where: { id: assessmentId, orgId },
     });
+  }
+
+  // ── US-C1: Bulk CSV Invite ─────────────────────────────────────────────────
+
+  async bulkCsvInvite(
+    slugOrId: string,
+    assessmentId: string,
+    dto: BulkCsvInviteDto,
+  ): Promise<{ created: number; skipped: number; errors: { row: number; email: string; reason: string }[] }> {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const assessment = await this.prisma.assessment.findFirst({
+      where: { id: assessmentId, orgId },
+    });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    const { rows, errors: parseErrors } = parseCandidateCsv(dto.csv);
+    const errors: { row: number; email: string; reason: string }[] = parseErrors.map((e) => ({
+      row: e.row,
+      email: e.email ?? '',
+      reason: e.reason,
+    }));
+
+    if (rows.length === 0) return { created: 0, skipped: 0, errors };
+
+    const emails = rows.map((r) => r.email);
+    const existing = await this.prisma.candidateInvite.findMany({
+      where: { assessmentId, candidateEmail: { in: emails } },
+      select: { candidateEmail: true },
+    });
+    const existingSet = new Set(existing.map((e) => e.candidateEmail));
+
+    const toCreate = rows.filter((r) => !existingSet.has(r.email));
+    const skipped = rows.length - toCreate.length;
+
+    if (toCreate.length > 0) {
+      await this.prisma.candidateInvite.createMany({
+        data: toCreate.map((r) => ({
+          id: randomUUID(),
+          assessmentId,
+          candidateEmail: r.email,
+          candidateName: r.name ?? null,
+          token: randomUUID(),
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { created: toCreate.length, skipped, errors };
   }
 
   // ─── Pool count (preview for UI) ───────────────────────────────────────────
