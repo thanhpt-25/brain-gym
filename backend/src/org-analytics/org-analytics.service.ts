@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttemptStatus, CandidateAttemptStatus } from '@prisma/client';
-import { inferCompetencyLevel, DEFAULT_THRESHOLDS_1_5 } from '../competency/scoring/infer-competency-level';
+import {
+  inferCompetencyLevel,
+  DEFAULT_THRESHOLDS_1_5,
+} from '../competency/scoring/infer-competency-level';
 
 @Injectable()
 export class OrgAnalyticsService {
@@ -440,19 +443,37 @@ export class OrgAnalyticsService {
       const membership = await this.prisma.orgMember.findFirst({
         where: { orgId, userId: memberId, isActive: true },
       });
-      if (!membership) throw new NotFoundException('Member not found in this organization');
+      if (!membership)
+        throw new NotFoundException('Member not found in this organization');
+    }
+
+    interface CompetencyWithRelations {
+      id: string;
+      name: string;
+      scaleMin: number;
+      scaleMax: number;
+      domains: { domainName: string }[];
+      jobRoles?: { requiredLevel: number }[];
     }
 
     // Load competencies for this org
-    const competencies = await this.prisma.competency.findMany({
+    const competencies = (await this.prisma.competency.findMany({
       where: { orgId, isActive: true },
       include: {
         domains: { select: { domainName: true } },
-        ...(jobRoleId ? { jobRoles: { where: { jobRoleId }, select: { requiredLevel: true } } } : {}),
+        ...(jobRoleId
+          ? {
+              jobRoles: {
+                where: { jobRoleId },
+                select: { requiredLevel: true },
+              },
+            }
+          : {}),
       },
-    });
+    })) as unknown as CompetencyWithRelations[];
 
-    if (competencies.length === 0) return { competencies: [], memberId, jobRoleId };
+    if (competencies.length === 0)
+      return { competencies: [], memberId, jobRoleId };
 
     // Collect exam attempts to compute domain scores
     const targetUserIds = memberId
@@ -467,7 +488,10 @@ export class OrgAnalyticsService {
     // Aggregate domain scores across attempts
     const domainAgg: Record<string, { correct: number; total: number }> = {};
     for (const attempt of attempts) {
-      const breakdown = attempt.domainScores as Record<string, { correct: number; total: number }> | null;
+      const breakdown = attempt.domainScores as Record<
+        string,
+        { correct: number; total: number }
+      > | null;
       if (!breakdown) continue;
       for (const [domain, scores] of Object.entries(breakdown)) {
         if (!domainAgg[domain]) domainAgg[domain] = { correct: 0, total: 0 };
@@ -477,9 +501,10 @@ export class OrgAnalyticsService {
     }
 
     const result = competencies.map((comp) => {
-      const domainNames = (comp as any).domains.map((d: { domainName: string }) => d.domainName);
-      const mappedDomains = domainNames.filter((d: string) => domainAgg[d]);
-      const domainScores: Record<string, { correct: number; total: number }> = {};
+      const domainNames = comp.domains.map((d) => d.domainName);
+      const mappedDomains = domainNames.filter((d) => domainAgg[d]);
+      const domainScores: Record<string, { correct: number; total: number }> =
+        {};
       for (const d of mappedDomains) domainScores[d] = domainAgg[d];
 
       const inferred = inferCompetencyLevel(domainScores, mappedDomains, {
@@ -488,9 +513,10 @@ export class OrgAnalyticsService {
         thresholds: DEFAULT_THRESHOLDS_1_5,
       });
 
-      const requiredLevel = jobRoleId && (comp as any).jobRoles?.length > 0
-        ? (comp as any).jobRoles[0].requiredLevel
-        : null;
+      const requiredLevel =
+        jobRoleId && comp.jobRoles && comp.jobRoles.length > 0
+          ? comp.jobRoles[0].requiredLevel
+          : null;
 
       return {
         competencyId: comp.id,
@@ -505,22 +531,46 @@ export class OrgAnalyticsService {
       };
     });
 
-    return { competencies: result, memberId: memberId ?? null, jobRoleId: jobRoleId ?? null };
+    return {
+      competencies: result,
+      memberId: memberId ?? null,
+      jobRoleId: jobRoleId ?? null,
+    };
   }
 
   async getCompetencyHeatmap(orgIdOrSlug: string) {
     const orgId = await this.resolveOrgId(orgIdOrSlug);
-    const members = await this.prisma.orgMember.findMany({
-      where: { orgId, isActive: true },
-      include: { user: { select: { id: true, displayName: true, email: true } } },
-    });
-    if (members.length === 0) return { members: [], competencies: [], cells: [] };
 
-    const competencies = await this.prisma.competency.findMany({
+    const MAX_HEATMAP_MEMBERS = 200;
+
+    interface MemberWithUser {
+      userId: string;
+      user: { id: string; displayName: string | null; email: string };
+    }
+    interface CompetencyWithDomains {
+      id: string;
+      name: string;
+      scaleMin: number;
+      scaleMax: number;
+      domains: { domainName: string }[];
+    }
+
+    const members = (await this.prisma.orgMember.findMany({
+      where: { orgId, isActive: true },
+      take: MAX_HEATMAP_MEMBERS,
+      include: {
+        user: { select: { id: true, displayName: true, email: true } },
+      },
+    })) as unknown as MemberWithUser[];
+    if (members.length === 0)
+      return { members: [], competencies: [], cells: [] };
+
+    const competencies = (await this.prisma.competency.findMany({
       where: { orgId, isActive: true },
       include: { domains: { select: { domainName: true } } },
-    });
-    if (competencies.length === 0) return { members: [], competencies: [], cells: [] };
+    })) as unknown as CompetencyWithDomains[];
+    if (competencies.length === 0)
+      return { members: [], competencies: [], cells: [] };
 
     const userIds = members.map((m) => m.userId);
     const attempts = await this.prisma.examAttempt.findMany({
@@ -529,44 +579,70 @@ export class OrgAnalyticsService {
     });
 
     // Per-user domain aggregation
-    const userDomainAgg: Record<string, Record<string, { correct: number; total: number }>> = {};
+    const userDomainAgg: Record<
+      string,
+      Record<string, { correct: number; total: number }>
+    > = {};
     for (const attempt of attempts) {
       const uid = attempt.userId;
-      const breakdown = attempt.domainScores as Record<string, { correct: number; total: number }> | null;
+      const breakdown = attempt.domainScores as Record<
+        string,
+        { correct: number; total: number }
+      > | null;
       if (!breakdown) continue;
       if (!userDomainAgg[uid]) userDomainAgg[uid] = {};
       for (const [domain, scores] of Object.entries(breakdown)) {
-        if (!userDomainAgg[uid][domain]) userDomainAgg[uid][domain] = { correct: 0, total: 0 };
+        if (!userDomainAgg[uid][domain])
+          userDomainAgg[uid][domain] = { correct: 0, total: 0 };
         userDomainAgg[uid][domain].correct += scores.correct ?? 0;
         userDomainAgg[uid][domain].total += scores.total ?? 0;
       }
     }
 
-    const cells: { userId: string; competencyId: string; level: number; confidence: string }[] = [];
+    const cells: {
+      userId: string;
+      competencyId: string;
+      level: number;
+      confidence: string;
+    }[] = [];
     for (const member of members) {
       const uid = member.userId;
       const domainAgg = userDomainAgg[uid] ?? {};
       for (const comp of competencies) {
-        const domainNames = (comp as any).domains.map((d: { domainName: string }) => d.domainName);
-        const mappedDomains = domainNames.filter((d: string) => domainAgg[d]);
-        const domainScores: Record<string, { correct: number; total: number }> = {};
+        const domainNames = comp.domains.map((d) => d.domainName);
+        const mappedDomains = domainNames.filter((d) => domainAgg[d]);
+        const domainScores: Record<string, { correct: number; total: number }> =
+          {};
         for (const d of mappedDomains) domainScores[d] = domainAgg[d];
         const inferred = inferCompetencyLevel(domainScores, mappedDomains, {
           scaleMin: comp.scaleMin,
           scaleMax: comp.scaleMax,
           thresholds: DEFAULT_THRESHOLDS_1_5,
         });
-        cells.push({ userId: uid, competencyId: comp.id, level: inferred.level, confidence: inferred.confidence });
+        cells.push({
+          userId: uid,
+          competencyId: comp.id,
+          level: inferred.level,
+          confidence: inferred.confidence,
+        });
       }
     }
 
     return {
-      members: members.map((m) => ({ userId: m.userId, displayName: m.user.displayName, email: m.user.email })),
-      competencies: competencies.map((c) => ({ id: c.id, name: c.name, scaleMin: c.scaleMin, scaleMax: c.scaleMax })),
+      members: members.map((m) => ({
+        userId: m.userId,
+        displayName: m.user.displayName,
+        email: m.user.email,
+      })),
+      competencies: competencies.map((c) => ({
+        id: c.id,
+        name: c.name,
+        scaleMin: c.scaleMin,
+        scaleMax: c.scaleMax,
+      })),
       cells,
     };
   }
-
 }
 
 function getISOWeekLabel(date: Date): string {

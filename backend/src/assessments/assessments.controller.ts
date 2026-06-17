@@ -40,7 +40,11 @@ export class AssessmentsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.service.list(orgId, Number(page) || 1, Number(limit) || 20);
+    return this.service.list(
+      orgId,
+      Math.max(1, Number(page) || 1),
+      Number(limit) || 20,
+    );
   }
 
   /** Preview: count APPROVED questions available for a given pool filter config. */
@@ -55,8 +59,18 @@ export class AssessmentsController {
     return this.service.getPoolCount(orgId, {
       difficulty: difficulty || undefined,
       certificationId: certificationId || undefined,
-      categories: categories ? categories.split(',').map((c) => c.trim()).filter(Boolean) : undefined,
-      tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+      categories: categories
+        ? categories
+            .split(',')
+            .map((c) => c.trim())
+            .filter(Boolean)
+        : undefined,
+      tags: tags
+        ? tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : undefined,
     });
   }
 
@@ -145,7 +159,13 @@ export class AssessmentsController {
     @Body() dto: UpdateCandidateDecisionDto,
     @CurrentUser() user: any,
   ) {
-    return this.service.updateCandidateDecision(orgId, aid, inviteId, dto, user.id);
+    return this.service.updateCandidateDecision(
+      orgId,
+      aid,
+      inviteId,
+      dto,
+      user.id,
+    );
   }
 
   @Get(':aid/candidates/:inviteId/events')

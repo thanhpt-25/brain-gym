@@ -33,6 +33,45 @@ function sanitizeField(value: string): string {
   return /^[=+\-@]/.test(value) ? `'${value}` : value;
 }
 
+// RFC-4180 compliant field parser — handles quoted fields containing commas and escaped quotes
+function parseRFC4180Fields(line: string): string[] {
+  const fields: string[] = [];
+  let i = 0;
+  while (i <= line.length) {
+    if (i === line.length) break;
+    if (line[i] === '"') {
+      let val = '';
+      i++; // skip opening quote
+      while (i < line.length) {
+        if (line[i] === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            val += '"';
+            i += 2;
+          } else {
+            i++; // skip closing quote
+            break;
+          }
+        } else {
+          val += line[i++];
+        }
+      }
+      fields.push(val);
+      if (i < line.length && line[i] === ',') i++; // skip delimiter
+    } else {
+      const comma = line.indexOf(',', i);
+      if (comma === -1) {
+        fields.push(line.slice(i));
+        break;
+      } else {
+        fields.push(line.slice(i, comma));
+        i = comma + 1;
+        if (i === line.length) fields.push(''); // trailing comma
+      }
+    }
+  }
+  return fields;
+}
+
 export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
   const lines = input.split(/\r?\n/);
   const valid: ParsedCandidate[] = [];
@@ -48,7 +87,9 @@ export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
     return { valid, invalid, duplicatesRemoved };
   }
 
-  const headers = headerLine.split(',').map((h) => h.trim().toLowerCase());
+  const headers = parseRFC4180Fields(headerLine).map((h) =>
+    h.trim().toLowerCase(),
+  );
   const emailIdx = headers.indexOf('email');
 
   if (emailIdx === -1) {
@@ -81,7 +122,7 @@ export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
       continue;
     }
 
-    const cols = trimmed.split(',').map((c) => c.trim());
+    const cols = parseRFC4180Fields(trimmed).map((c) => c.trim());
     const email = (cols[emailIdx] ?? '').toLowerCase().trim();
 
     if (!email) {

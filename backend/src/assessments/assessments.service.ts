@@ -6,7 +6,13 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { MailService } from '../mail/mail.service';
-import { AssessmentSelectionMode, AssessmentStatus, CandidateStage, Prisma } from '@prisma/client';
+import {
+  AssessmentSelectionMode,
+  AssessmentStatus,
+  CandidateStage,
+  Difficulty,
+  Prisma,
+} from '@prisma/client';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
@@ -52,23 +58,26 @@ export class AssessmentsService {
    * Fixes #7: eliminates four copies of identical filter logic.
    * Fix #5: domain matching is case-insensitive via `{ equals: …, mode: 'insensitive' }`.
    */
-  private buildPoolWhere(orgId: string, config: Partial<PoolConfig>): any {
-    const where: any = { orgId, status: 'APPROVED' };
-    if (config.difficulty) where.difficulty = config.difficulty;
-    if (config.certificationId) where.certificationId = config.certificationId;
-    if (config.categories && config.categories.length > 0) {
-      // case-insensitive match for each category
-      where.OR = [
-        ...(where.OR ?? []),
-        ...config.categories.map((c) => ({
-          category: { equals: c, mode: 'insensitive' },
-        })),
-      ];
-    }
-    if (config.tags && config.tags.length > 0) {
-      where.tags = { hasSome: config.tags };
-    }
-    return where;
+  private buildPoolWhere(
+    orgId: string,
+    config: Partial<PoolConfig>,
+  ): Prisma.OrgQuestionWhereInput {
+    const orClauses: Prisma.OrgQuestionWhereInput[] = config.categories?.length
+      ? config.categories.map((c) => ({
+          category: { equals: c, mode: 'insensitive' as const },
+        }))
+      : [];
+
+    return {
+      orgId,
+      status: 'APPROVED',
+      ...(config.difficulty && { difficulty: config.difficulty as Difficulty }),
+      ...(config.certificationId && {
+        certificationId: config.certificationId,
+      }),
+      ...(orClauses.length > 0 && { OR: orClauses }),
+      ...(config.tags?.length && { tags: { hasSome: config.tags } }),
+    };
   }
 
   /**
@@ -194,6 +203,7 @@ export class AssessmentsService {
   // ─── CRUD ──────────────────────────────────────────────────────────────────
 
   async list(slugOrId: string, page = 1, limit = 20) {
+    limit = Math.min(limit, 100);
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const skip = (page - 1) * limit;
 
@@ -211,20 +221,22 @@ export class AssessmentsService {
       this.prisma.assessment.count({ where: { orgId } }),
     ]);
 
-    const enriched = await Promise.all(
-      data.map(async (a) => {
-        const stats = await this.prisma.candidateInvite.aggregate({
-          where: { assessmentId: a.id, status: 'SUBMITTED' },
-          _avg: { score: true },
-          _count: { id: true },
-        });
-        return {
-          ...a,
-          submittedCount: stats._count.id,
-          avgScore: stats._avg.score ? Number(stats._avg.score) : null,
-        };
-      }),
-    );
+    const ids = data.map((a) => a.id);
+    const statRows = await this.prisma.candidateInvite.groupBy({
+      by: ['assessmentId'],
+      where: { assessmentId: { in: ids }, status: 'SUBMITTED' },
+      _avg: { score: true },
+      _count: { id: true },
+    });
+    const statsMap = new Map(statRows.map((r) => [r.assessmentId, r]));
+    const enriched = data.map((a) => {
+      const stat = statsMap.get(a.id);
+      return {
+        ...a,
+        submittedCount: stat ? stat._count.id : 0,
+        avgScore: stat?._avg.score ? Number(stat._avg.score) : null,
+      };
+    });
 
     return {
       data: enriched,
@@ -435,19 +447,38 @@ export class AssessmentsService {
           where: { id: assessmentId },
           data: {
             ...(dto.title !== undefined && { title: dto.title }),
-            ...(dto.description !== undefined && { description: dto.description }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
             ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
-            ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
-            ...(dto.randomizeQuestions !== undefined && { randomizeQuestions: dto.randomizeQuestions }),
-            ...(dto.randomizeChoices !== undefined && { randomizeChoices: dto.randomizeChoices }),
-            ...(dto.detectTabSwitch !== undefined && { detectTabSwitch: dto.detectTabSwitch }),
-            ...(dto.blockCopyPaste !== undefined && { blockCopyPaste: dto.blockCopyPaste }),
-            ...(dto.requireFullscreen !== undefined && { requireFullscreen: dto.requireFullscreen }),
+            ...(dto.passingScore !== undefined && {
+              passingScore: dto.passingScore,
+            }),
+            ...(dto.randomizeQuestions !== undefined && {
+              randomizeQuestions: dto.randomizeQuestions,
+            }),
+            ...(dto.randomizeChoices !== undefined && {
+              randomizeChoices: dto.randomizeChoices,
+            }),
+            ...(dto.detectTabSwitch !== undefined && {
+              detectTabSwitch: dto.detectTabSwitch,
+            }),
+            ...(dto.blockCopyPaste !== undefined && {
+              blockCopyPaste: dto.blockCopyPaste,
+            }),
+            ...(dto.requireFullscreen !== undefined && {
+              requireFullscreen: dto.requireFullscreen,
+            }),
             ...(dto.requireOtp !== undefined && { requireOtp: dto.requireOtp }),
-            ...(dto.maxAttempts !== undefined && { maxAttempts: dto.maxAttempts }),
-            ...(dto.linkExpiryHours !== undefined && { linkExpiryHours: dto.linkExpiryHours }),
+            ...(dto.maxAttempts !== undefined && {
+              maxAttempts: dto.maxAttempts,
+            }),
+            ...(dto.linkExpiryHours !== undefined && {
+              linkExpiryHours: dto.linkExpiryHours,
+            }),
             selectionMode: AssessmentSelectionMode.BLUEPRINT,
-            selectionConfig: (dto.selectionConfig ?? assessment.selectionConfig) as any,
+            selectionConfig: (dto.selectionConfig ??
+              assessment.selectionConfig) as any,
             questionCount: questionRows.length,
           },
           include: {
@@ -477,19 +508,38 @@ export class AssessmentsService {
           where: { id: assessmentId },
           data: {
             ...(dto.title !== undefined && { title: dto.title }),
-            ...(dto.description !== undefined && { description: dto.description }),
+            ...(dto.description !== undefined && {
+              description: dto.description,
+            }),
             ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
-            ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
-            ...(dto.randomizeQuestions !== undefined && { randomizeQuestions: dto.randomizeQuestions }),
-            ...(dto.randomizeChoices !== undefined && { randomizeChoices: dto.randomizeChoices }),
-            ...(dto.detectTabSwitch !== undefined && { detectTabSwitch: dto.detectTabSwitch }),
-            ...(dto.blockCopyPaste !== undefined && { blockCopyPaste: dto.blockCopyPaste }),
-            ...(dto.requireFullscreen !== undefined && { requireFullscreen: dto.requireFullscreen }),
+            ...(dto.passingScore !== undefined && {
+              passingScore: dto.passingScore,
+            }),
+            ...(dto.randomizeQuestions !== undefined && {
+              randomizeQuestions: dto.randomizeQuestions,
+            }),
+            ...(dto.randomizeChoices !== undefined && {
+              randomizeChoices: dto.randomizeChoices,
+            }),
+            ...(dto.detectTabSwitch !== undefined && {
+              detectTabSwitch: dto.detectTabSwitch,
+            }),
+            ...(dto.blockCopyPaste !== undefined && {
+              blockCopyPaste: dto.blockCopyPaste,
+            }),
+            ...(dto.requireFullscreen !== undefined && {
+              requireFullscreen: dto.requireFullscreen,
+            }),
             ...(dto.requireOtp !== undefined && { requireOtp: dto.requireOtp }),
-            ...(dto.maxAttempts !== undefined && { maxAttempts: dto.maxAttempts }),
-            ...(dto.linkExpiryHours !== undefined && { linkExpiryHours: dto.linkExpiryHours }),
+            ...(dto.maxAttempts !== undefined && {
+              maxAttempts: dto.maxAttempts,
+            }),
+            ...(dto.linkExpiryHours !== undefined && {
+              linkExpiryHours: dto.linkExpiryHours,
+            }),
             selectionMode: AssessmentSelectionMode.POOL,
-            selectionConfig: (dto.selectionConfig ?? assessment.selectionConfig) as any,
+            selectionConfig: (dto.selectionConfig ??
+              assessment.selectionConfig) as any,
             questionCount: config.drawCount,
           },
           include: {
@@ -517,17 +567,33 @@ export class AssessmentsService {
         where: { id: assessmentId },
         data: {
           ...(dto.title !== undefined && { title: dto.title }),
-          ...(dto.description !== undefined && { description: dto.description }),
+          ...(dto.description !== undefined && {
+            description: dto.description,
+          }),
           ...(dto.timeLimit !== undefined && { timeLimit: dto.timeLimit }),
-          ...(dto.passingScore !== undefined && { passingScore: dto.passingScore }),
-          ...(dto.randomizeQuestions !== undefined && { randomizeQuestions: dto.randomizeQuestions }),
-          ...(dto.randomizeChoices !== undefined && { randomizeChoices: dto.randomizeChoices }),
-          ...(dto.detectTabSwitch !== undefined && { detectTabSwitch: dto.detectTabSwitch }),
-          ...(dto.blockCopyPaste !== undefined && { blockCopyPaste: dto.blockCopyPaste }),
-          ...(dto.linkExpiryHours !== undefined && { linkExpiryHours: dto.linkExpiryHours }),
+          ...(dto.passingScore !== undefined && {
+            passingScore: dto.passingScore,
+          }),
+          ...(dto.randomizeQuestions !== undefined && {
+            randomizeQuestions: dto.randomizeQuestions,
+          }),
+          ...(dto.randomizeChoices !== undefined && {
+            randomizeChoices: dto.randomizeChoices,
+          }),
+          ...(dto.detectTabSwitch !== undefined && {
+            detectTabSwitch: dto.detectTabSwitch,
+          }),
+          ...(dto.blockCopyPaste !== undefined && {
+            blockCopyPaste: dto.blockCopyPaste,
+          }),
+          ...(dto.linkExpiryHours !== undefined && {
+            linkExpiryHours: dto.linkExpiryHours,
+          }),
           selectionMode: AssessmentSelectionMode.MANUAL,
           selectionConfig: Prisma.JsonNull,
-          ...(dto.questions !== undefined && { questionCount: dto.questions.length }),
+          ...(dto.questions !== undefined && {
+            questionCount: dto.questions.length,
+          }),
         },
         include: {
           _count: { select: { questions: true, candidateInvites: true } },
@@ -622,7 +688,11 @@ export class AssessmentsService {
     if (!assessment) throw new NotFoundException('Assessment not found');
 
     const inviteWhere: Record<string, unknown> = { assessmentId };
-    if (filter === 'submitted' || filter === 'passed' || filter === 'shortlisted') {
+    if (
+      filter === 'submitted' ||
+      filter === 'passed' ||
+      filter === 'shortlisted'
+    ) {
       inviteWhere['status'] = 'SUBMITTED';
     }
     if (filter === 'shortlisted') {
@@ -699,8 +769,13 @@ export class AssessmentsService {
     const data = {
       ...(dto.stage !== undefined && { stage: dto.stage }),
       ...(dto.rating !== undefined && { rating: dto.rating }),
-      ...(dto.recruiterNote !== undefined && { recruiterNote: dto.recruiterNote }),
-      ...(isStageDecision && { decidedBy: decidedByUserId, decidedAt: new Date() }),
+      ...(dto.recruiterNote !== undefined && {
+        recruiterNote: dto.recruiterNote,
+      }),
+      ...(isStageDecision && {
+        decidedBy: decidedByUserId,
+        decidedAt: new Date(),
+      }),
     };
 
     // No-op guard — avoid hitting the DB if nothing changed
@@ -712,7 +787,11 @@ export class AssessmentsService {
     });
   }
 
-  async exportCsv(slugOrId: string, assessmentId: string, filter?: string): Promise<string> {
+  async exportCsv(
+    slugOrId: string,
+    assessmentId: string,
+    filter?: string,
+  ): Promise<string> {
     const results = await this.getResults(slugOrId, assessmentId, filter);
     const header =
       'Name,Email,Attempt Status,Stage,Score (%),Percentile,Total Correct,Total Questions,Rating,Time Spent (s),Tab Switches,Started At,Submitted At,Recruiter Note';
@@ -751,24 +830,29 @@ export class AssessmentsService {
     slugOrId: string,
     assessmentId: string,
     dto: BulkCsvInviteDto,
-  ): Promise<{ created: number; skipped: number; errors: { row: number; email: string; reason: string }[] }> {
+  ): Promise<{
+    created: number;
+    skipped: number;
+    errors: { row: number; email: string; reason: string }[];
+  }> {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, orgId },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
     if (assessment.status !== AssessmentStatus.ACTIVE) {
-      throw new BadRequestException('Assessment must be ACTIVE to invite candidates');
+      throw new BadRequestException(
+        'Assessment must be ACTIVE to invite candidates',
+      );
     }
 
     const { valid, invalid } = parseCandidateCsv(dto.csv);
-    const errors: { row: number; email: string; reason: string }[] = invalid.map(
-      (e: { row: number; raw: string; reason: string }) => ({
+    const errors: { row: number; email: string; reason: string }[] =
+      invalid.map((e: { row: number; raw: string; reason: string }) => ({
         row: e.row,
         email: e.raw,
         reason: e.reason,
-      }),
-    );
+      }));
 
     if (valid.length === 0) return { created: 0, skipped: 0, errors };
 
@@ -779,7 +863,9 @@ export class AssessmentsService {
     });
     const existingSet = new Set(existing.map((e) => e.candidateEmail));
 
-    const toCreate = valid.filter((r: { email: string; name?: string }) => !existingSet.has(r.email));
+    const toCreate = valid.filter(
+      (r: { email: string; name?: string }) => !existingSet.has(r.email),
+    );
     const skipped = valid.length - toCreate.length;
 
     if (toCreate.length > 0) {

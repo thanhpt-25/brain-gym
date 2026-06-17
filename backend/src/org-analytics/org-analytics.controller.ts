@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -13,59 +13,51 @@ import { OrgRole } from '@prisma/client';
 
 @ApiTags('org-analytics')
 @Controller('organizations/:orgId/analytics')
+@UseGuards(JwtAuthGuard, OrgRoleGuard)
+@OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
+@ApiBearerAuth()
 export class OrgAnalyticsController {
   constructor(private readonly orgAnalyticsService: OrgAnalyticsService) {}
 
   @Get('overview')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get team overview KPIs' })
   getOverview(@Param('orgId') orgId: string) {
     return this.orgAnalyticsService.getOverview(orgId);
   }
 
   @Get('readiness')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get per-certification readiness across team' })
   getReadiness(@Param('orgId') orgId: string) {
     return this.orgAnalyticsService.getReadiness(orgId);
   }
 
   @Get('skill-gaps')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get domain-level weakness analysis' })
   getSkillGaps(@Param('orgId') orgId: string) {
     return this.orgAnalyticsService.getSkillGaps(orgId);
   }
 
   @Get('progress')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get week-over-week progress trends' })
-  @ApiQuery({ name: 'weeks', required: false, type: Number })
+  @ApiQuery({
+    name: 'weeks',
+    required: false,
+    type: Number,
+    minimum: 1,
+    maximum: 52,
+  })
   getProgress(@Param('orgId') orgId: string, @Query('weeks') weeks?: string) {
-    return this.orgAnalyticsService.getProgress(orgId, weeks ? +weeks : 12);
+    const w = weeks ? Math.min(52, Math.max(1, +weeks)) : 12;
+    return this.orgAnalyticsService.getProgress(orgId, w);
   }
 
   @Get('engagement')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get engagement metrics' })
   getEngagement(@Param('orgId') orgId: string) {
     return this.orgAnalyticsService.getEngagement(orgId);
   }
 
   @Get('member/:userId')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get individual member deep-dive analytics' })
   getMemberAnalytics(
     @Param('orgId') orgId: string,
@@ -73,11 +65,11 @@ export class OrgAnalyticsController {
   ) {
     return this.orgAnalyticsService.getMemberAnalytics(orgId, userId);
   }
+
   @Get('competency-profile')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get competency profile for org or individual member' })
+  @ApiOperation({
+    summary: 'Get competency profile for org or individual member',
+  })
   @ApiQuery({ name: 'memberId', required: false })
   @ApiQuery({ name: 'jobRoleId', required: false })
   getCompetencyProfile(
@@ -85,14 +77,17 @@ export class OrgAnalyticsController {
     @Query('memberId') memberId?: string,
     @Query('jobRoleId') jobRoleId?: string,
   ) {
-    return this.orgAnalyticsService.getCompetencyProfile(orgId, memberId, jobRoleId);
+    return this.orgAnalyticsService.getCompetencyProfile(
+      orgId,
+      memberId,
+      jobRoleId,
+    );
   }
 
   @Get('competency-heatmap')
-  @OrgRoles(OrgRole.OWNER, OrgRole.ADMIN, OrgRole.MANAGER)
-  @UseGuards(JwtAuthGuard, OrgRoleGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get competency heatmap (all members x all competencies)' })
+  @ApiOperation({
+    summary: 'Get competency heatmap (all members x all competencies)',
+  })
   getCompetencyHeatmap(@Param('orgId') orgId: string) {
     return this.orgAnalyticsService.getCompetencyHeatmap(orgId);
   }

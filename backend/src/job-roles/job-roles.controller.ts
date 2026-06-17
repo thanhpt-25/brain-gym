@@ -23,6 +23,7 @@ export class JobRolesController {
   constructor(private readonly service: JobRolesService) {}
 
   @Get()
+  @OrgRoles('OWNER', 'ADMIN', 'MANAGER', 'RECRUITER', 'MEMBER')
   list(@Param('orgId') orgId: string) {
     return this.service.list(orgId);
   }
