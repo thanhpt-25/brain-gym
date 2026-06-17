@@ -11,8 +11,22 @@ export interface ParseCandidateCsvResult {
   duplicatesRemoved: number;
 }
 
-// RFC 5322 simplified — good enough for server-side pre-validation
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Linear-time structural email check — avoids ReDoS from backtracking regex
+function isValidEmail(email: string): boolean {
+  if (email.length > 254) return false;
+  const at = email.indexOf('@');
+  if (at <= 0 || at !== email.lastIndexOf('@')) return false;
+  const domain = email.slice(at + 1);
+  if (!domain) return false;
+  const dot = domain.lastIndexOf('.');
+  if (dot <= 0 || dot === domain.length - 1) return false;
+  // Whitespace check only — single-pass, no backtracking
+  for (let i = 0; i < email.length; i++) {
+    const c = email[i];
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') return false;
+  }
+  return true;
+}
 
 // Sanitize values that could cause formula injection if exported to spreadsheets
 function sanitizeField(value: string): string {
@@ -75,7 +89,7 @@ export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
       continue;
     }
 
-    if (!EMAIL_RE.test(email)) {
+    if (!isValidEmail(email)) {
       invalid.push({
         row: i + 1,
         raw: trimmed,
