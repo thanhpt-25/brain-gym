@@ -444,7 +444,7 @@ export class OrgAnalyticsService {
       where: { orgId, isActive: true },
       include: {
         domains: { select: { domainName: true } },
-        jobRoleCompetencies: jobRoleId
+        jobRoles: jobRoleId
           ? { where: { jobRoleId }, select: { requiredLevel: true } }
           : { where: { jobRoleId: '__none__' }, select: { requiredLevel: true } },
       },
@@ -475,8 +475,8 @@ export class OrgAnalyticsService {
     }
 
     const result = competencies.map((comp) => {
-      const domainNames = comp.domains.map((d) => d.domainName);
-      const mappedDomains = domainNames.filter((d) => domainAgg[d]);
+      const domainNames = (comp as any).domains.map((d: { domainName: string }) => d.domainName);
+      const mappedDomains = domainNames.filter((d: string) => domainAgg[d]);
       const domainScores: Record<string, { correct: number; total: number }> = {};
       for (const d of mappedDomains) domainScores[d] = domainAgg[d];
 
@@ -486,8 +486,8 @@ export class OrgAnalyticsService {
         thresholds: DEFAULT_THRESHOLDS_1_5,
       });
 
-      const requiredLevel = jobRoleId && (comp as any).jobRoleCompetencies?.length > 0
-        ? (comp as any).jobRoleCompetencies[0].requiredLevel
+      const requiredLevel = jobRoleId && (comp as any).jobRoles?.length > 0
+        ? (comp as any).jobRoles[0].requiredLevel
         : null;
 
       return {
@@ -545,8 +545,8 @@ export class OrgAnalyticsService {
       const uid = member.userId;
       const domainAgg = userDomainAgg[uid] ?? {};
       for (const comp of competencies) {
-        const domainNames = comp.domains.map((d) => d.domainName);
-        const mappedDomains = domainNames.filter((d) => domainAgg[d]);
+        const domainNames = (comp as any).domains.map((d: { domainName: string }) => d.domainName);
+        const mappedDomains = domainNames.filter((d: string) => domainAgg[d]);
         const domainScores: Record<string, { correct: number; total: number }> = {};
         for (const d of mappedDomains) domainScores[d] = domainAgg[d];
         const inferred = inferCompetencyLevel(domainScores, mappedDomains, {

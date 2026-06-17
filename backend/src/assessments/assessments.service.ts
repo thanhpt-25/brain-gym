@@ -750,33 +750,35 @@ export class AssessmentsService {
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
 
-    const { rows, errors: parseErrors } = parseCandidateCsv(dto.csv);
-    const errors: { row: number; email: string; reason: string }[] = parseErrors.map((e) => ({
-      row: e.row,
-      email: e.email ?? '',
-      reason: e.reason,
-    }));
+    const { valid, invalid } = parseCandidateCsv(dto.csv);
+    const errors: { row: number; email: string; reason: string }[] = invalid.map(
+      (e: { row: number; raw: string; reason: string }) => ({
+        row: e.row,
+        email: e.raw,
+        reason: e.reason,
+      }),
+    );
 
-    if (rows.length === 0) return { created: 0, skipped: 0, errors };
+    if (valid.length === 0) return { created: 0, skipped: 0, errors };
 
-    const emails = rows.map((r) => r.email);
+    const emails = valid.map((r: { email: string; name?: string }) => r.email);
     const existing = await this.prisma.candidateInvite.findMany({
       where: { assessmentId, candidateEmail: { in: emails } },
       select: { candidateEmail: true },
     });
     const existingSet = new Set(existing.map((e) => e.candidateEmail));
 
-    const toCreate = rows.filter((r) => !existingSet.has(r.email));
-    const skipped = rows.length - toCreate.length;
+    const toCreate = valid.filter((r: { email: string; name?: string }) => !existingSet.has(r.email));
+    const skipped = valid.length - toCreate.length;
 
     if (toCreate.length > 0) {
       await this.prisma.candidateInvite.createMany({
-        data: toCreate.map((r) => ({
-          id: randomUUID(),
+        data: toCreate.map((r: { email: string; name?: string }) => ({
           assessmentId,
           candidateEmail: r.email,
           candidateName: r.name ?? null,
-          token: randomUUID(),
+          token: randomUUID() as string,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         })),
         skipDuplicates: true,
       });
