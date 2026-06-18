@@ -25,6 +25,8 @@ Technical and product documentation for the CertGym platform. For a project over
 |----------|-------------|
 | [Exam Engine](./exam-engine.md) | State machine, timer modes, mark-for-review, domain scoring, submission flow |
 | [Organization Management](./organization.md) | Multi-tenant orgs, roles, member onboarding |
+| [Competency Framework](./features/competency-framework.md) | Competency/domain model, scoring algorithm, job role gap analysis, configuration steps |
+| [Candidate Assessment](./features/candidate-assessment.md) | Assessment lifecycle, question selection modes, token flow, anti-cheat, bulk CSV invite, results |
 | [Coach Tier Gating](./features/coach-tier-gating.md) | AI coach access control by subscription tier |
 | [Burnout Detection](./features/burnout-detection.md) | Signal weighting, severity levels, user guidance, best practices |
 | [Local LLM Question Generation](./local-llm-question-generation.md) | Configuring and using local LLM providers |
@@ -81,6 +83,7 @@ Architecture Decision Records documenting significant technical choices.
 | [ADR-025](./adr/025-reputation-model-tiers.md) | Reputation model and tier thresholds | Accepted |
 | [ADR-026](./adr/026-dds-auto-apply-ga-canary-policy.md) | DDS auto-apply GA & canary promotion policy | Accepted |
 | [ADR-027](./adr/027-reputation-anti-gaming-thresholds.md) | Reputation anti-gaming detection thresholds | Accepted |
+| [ADR-028](./adr/028-competency-scoring.md) | Competency scoring algorithm (domain-aggregate approach) | Proposed |
 
 Full ADR index: [adr/00-index.md](./adr/00-index.md)
 
