@@ -2,40 +2,61 @@
 
 ## Rotation
 
-Sprint 1: [FE Senior] (FE) + [BE Senior] (BE) — tuan 1
-Sprint 2: [FE Mid] (FE) + [BE Mid] (BE) — tuan 2
+Sprint 1: [FE Senior] (FE) + [BE Senior] (BE) — week 1
+Sprint 2: [FE Mid] (FE) + [BE Mid] (BE) — week 2
 
 ## Escalation
 
-1. On-call engineer check alert trong #certgym-incidents
-2. Neu khong giai quyet trong 15 phut → ping SM
-3. SM ping Tech Lead neu architectural issue
+1. On-call engineer checks alert in #certgym-incidents
+2. If not resolved within 15 minutes, ping SM
+3. SM pings Tech Lead for architectural issues
 
 ## Deploy Rollback
 
-```bash
-# FE rollback (Nginx serving static)
-git revert HEAD --no-edit
-git push origin main
-# CI se build + deploy lai tu dong
+The production deployment pipeline is GitHub Actions (`.github/workflows/deploy.yml`).
 
-# BE rollback
+**Backend rollback** — re-deploy the previous image revision in ECS:
+
+```bash
+# Identify the previous task definition revision from ECS console or CLI
+aws ecs describe-services \
+  --cluster braingym-production \
+  --services braingym-backend \
+  --query 'services[0].taskDefinition'
+
+# Roll back by deploying the previous revision
+aws ecs update-service \
+  --cluster braingym-production \
+  --service braingym-backend \
+  --task-definition braingym-backend:<PREVIOUS_REVISION>
+```
+
+**Database migration rollback:**
+
+```bash
 cd backend
-git revert HEAD --no-edit
-git push origin main
-# Hoac rollback migration:
 npx prisma migrate resolve --rolled-back <migration_name>
+```
+
+**Frontend rollback** — re-sync the previous build artifact to S3:
+
+```bash
+# Trigger a workflow_dispatch for the previous SHA from GitHub Actions UI,
+# or manually sync a previous dist/ artifact to S3 and invalidate CloudFront.
+aws cloudfront create-invalidation \
+  --distribution-id $AWS_CLOUDFRONT_DISTRIBUTION_ID \
+  --paths "/*"
 ```
 
 ## Log Access
 
 ```bash
-# Docker logs
+# Docker logs (local / staging docker-compose stack)
 docker-compose logs -f backend
 docker-compose logs -f nginx
 
-# DB queries
-docker-compose exec db psql -U postgres -d braingym
+# DB access (service name is "postgres")
+docker-compose exec postgres psql -U braingym -d braingym
 ```
 
 ## Common Incidents
@@ -48,8 +69,8 @@ docker-compose exec db psql -U postgres -d braingym
 
 ### DB connection failed
 
-1. `docker-compose ps db` — check postgres
-2. `docker-compose restart db && docker-compose restart backend`
+1. `docker-compose ps postgres` — check postgres container
+2. `docker-compose restart postgres && docker-compose restart backend`
 3. Verify `DATABASE_URL` env var
 
 ### LLM quota exceeded
@@ -70,11 +91,11 @@ docker-compose exec db psql -U postgres -d braingym
 
 ### DDS Canary Rollback Rate High (US-1109)
 
-**Alert:** `DDSCanaryRollbackRateHigh`  
-**Severity:** CRITICAL  
-**Threshold:** Rollback rate > 5% (10-minute window)  
-**Grace Period:** 2 minutes (alert fires after sustained threshold breach)  
-**Reference:** US-1109, ADR-026, `backend/monitoring/alert-rules-sprint11.yml`  
+**Alert:** `DDSCanaryRollbackRateHigh`
+**Severity:** CRITICAL
+**Threshold:** Rollback rate > 5% (10-minute window)
+**Grace Period:** 2 minutes (alert fires after sustained threshold breach)
+**Reference:** US-1109, ADR-026, `backend/monitoring/alert-rules-sprint11.yml`
 **Behavior:** Canary auto-pause already implemented in `backend/src/ai-question-bank/dds/dds.service.ts` (US-1101)
 
 #### Response (First 5 Minutes)
@@ -134,8 +155,8 @@ curl -X POST http://backend:3000/admin/dds/canary/resume \
 
 ### Reputation Anti-Gaming Flag Rate
 
-**Alert:** `ReputationFlagCreationRate`  
-**Severity:** INFO  
+**Alert:** `ReputationFlagCreationRate`
+**Severity:** INFO
 **Threshold:** >5% of votes flagged (1-hour window)
 
 #### Quick Check
@@ -154,14 +175,14 @@ WHERE created_at > NOW()-INTERVAL '1 hour'
 GROUP BY user_id HAVING COUNT(*) >= 3;
 ```
 
-**If rate > 5%:** Review flags (ADR-027) to see if velocity-burst (≥5 votes, 10s) or vote-ring (3+ votes, 60s) thresholds need tuning.
+**If rate > 5%:** Review flags (ADR-027) to see if velocity-burst (>=5 votes, 10s) or vote-ring (3+ votes, 60s) thresholds need tuning.
 
 ---
 
 ### KG Recompute Failure Rate
 
-**Alert:** `KGOverlapRecomputeFailureRate`  
-**Severity:** WARNING  
+**Alert:** `KGOverlapRecomputeFailureRate`
+**Severity:** WARNING
 **Threshold:** >5% of jobs failing (1-hour window)
 
 #### Diagnostics
@@ -192,8 +213,8 @@ GROUP BY error_message ORDER BY count DESC;
 
 ### KG Recompute Latency High
 
-**Alert:** `KGOverlapRecomputeDurationHigh`  
-**Severity:** WARNING  
+**Alert:** `KGOverlapRecomputeDurationHigh`
+**Severity:** WARNING
 **Threshold:** p95 duration > 500ms
 
 ```sql

@@ -77,9 +77,9 @@ curl -X POST https://brain-gym.com/api/v1/squads \
 
 | Code | Message | Cause |
 |------|---------|-------|
-| 400 | "Free users cannot create squads" | User plan is FREE |
 | 400 | "Certification not found" | certificationId doesn't exist |
 | 401 | Unauthorized | Missing or invalid JWT token |
+| 403 | "Free users cannot create squads" | User plan is FREE |
 | 422 | Validation error | Invalid request body (name not string, certificationId not UUID, etc.) |
 
 ---
@@ -199,11 +199,11 @@ curl -X POST https://brain-gym.com/api/v1/squads/join/a1b2c3d4-e5f6-41d4-a716-44
 
 | Code | Message | Cause |
 |------|---------|-------|
-| 400 | "Invite link has expired" | Token expired (>7 days old) |
+| 400 | "Invite link has expired" | Token not found, or token expired (>7 days old) |
 | 400 | "Invite has already been accepted" | Token status is not PENDING |
 | 400 | "Squad is at full capacity" | Squad has reached maxSeats limit |
-| 400 | "Squad not found" | Squad doesn't exist |
 | 401 | Unauthorized | Missing or invalid JWT token |
+| 404 | "Squad not found" | Squad doesn't exist |
 
 ---
 
@@ -242,7 +242,7 @@ Attempting to create catalog items or assessments on a squad organization will f
 ## FAQ
 
 ### How many people can join a squad?
-Default capacity is 50 members per squad. This can be adjusted via the `maxSeats` field on the Organization row.
+Squads are created with a default capacity of 50 members (hardcoded in `SquadsService.createSquad`). This can be adjusted by updating the `maxSeats` field on the Organization row directly. Note: the Prisma schema default for `maxSeats` is 10, but the service overrides this to 50 at creation time for squads.
 
 ### Can an invite token be used multiple times?
 No. After one person accepts an invite (status transitions to ACCEPTED), that token can no longer be used. Generate a new invite link for additional members.
@@ -280,10 +280,10 @@ Only PREMIUM and ENTERPRISE plan users can create squads. FREE users receive `40
 
 | Scenario | Endpoint | Status | Error |
 |----------|----------|--------|-------|
-| FREE user creates squad | POST /squads | 400 | "Free users cannot create squads" |
+| FREE user creates squad | POST /squads | 403 | "Free users cannot create squads" |
 | Certification missing | POST /squads | 400 | "Certification not found" |
 | Invite limit exceeded | POST /:id/invites | 400 | "Daily invite limit reached (max 10 per day)" |
-| Token expired | POST /join/:token | 400 | "Invite link has expired" |
+| Token not found or expired | POST /join/:token | 400 | "Invite link has expired" |
 | Token already accepted | POST /join/:token | 400 | "Invite has already been accepted" |
 | Squad at capacity | POST /join/:token | 400 | "Squad is at full capacity" |
 | Missing auth | All | 401 | "Unauthorized" |

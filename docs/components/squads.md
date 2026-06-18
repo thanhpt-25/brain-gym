@@ -10,6 +10,7 @@ The Squad Dashboard is a feature for displaying study group information, member 
 - `src/pages/SquadDashboard.tsx` (container)
 - `src/components/squads/SquadMemberList.tsx`
 - `src/components/squads/SquadMemberCard.tsx`
+- `src/components/squads/SquadReputationLeaderboard.tsx`
 - `src/components/squads/ReadinessCard.tsx`
 - `src/components/squads/EmptyState.tsx`
 - `src/components/squads/squad-dashboard.css`
@@ -28,7 +29,7 @@ None — uses `useParams()` to read `slug` from the URL.
 
 ### Data Flow
 
-Uses TanStack Query to fetch three parallel queries:
+Uses TanStack Query to fetch three queries with cascading `enabled` conditions:
 
 1. **`useQuery(['squad', slug])`** — Fetches squad metadata (name, certificationId, memberCount, targetExamDate)
 2. **`useQuery(['squad-members', squad.data?.id])`** — Fetches member list (enabled only when squad.data?.id exists)
@@ -41,7 +42,7 @@ Each dependent query uses the `enabled` condition to prevent waterfall loading.
 - **Loading**: Displays `<Loader2>` spinner centered on full-height container
 - **Error**: Renders error state with message "Something went wrong"
 - **Not Found**: Renders 404 state with message "Squad not found"
-- **Success**: Renders full squad dashboard with header, readiness card, and member list
+- **Success**: Renders full squad dashboard with header, readiness card, member list, and reputation leaderboard
 
 ### Accessibility
 
@@ -113,9 +114,9 @@ Displays a single squad member with avatar, name, email, role, and inactive stat
 
 ```typescript
 interface SquadMemberCardProps {
-  member: OrgMember & { user?: User };
+  member: OrgMember;
   isInactive: boolean;
-  targetExamDate?: Date;
+  targetExamDate?: string;
 }
 ```
 
@@ -155,6 +156,68 @@ interface SquadMemberCardProps {
 
 ---
 
+## SquadReputationLeaderboard
+
+**Path**: `src/components/squads/SquadReputationLeaderboard.tsx`
+
+Displays a ranked list of squad members by reputation points, with tier badges (Gold / Silver / Bronze) and highlighting for the current user.
+
+### Props
+
+```typescript
+interface Props {
+  squadId: string;
+  currentUserId?: string;
+  limit?: number; // default: 10
+}
+```
+
+### Data Fetching
+
+Uses TanStack Query:
+
+```typescript
+useQuery({
+  queryKey: ["squad-leaderboard", squadId, limit],
+  queryFn: () => getReputationLeaderboard(squadId, limit),
+  staleTime: 60_000,
+})
+```
+
+The API call goes to `GET /squads/peer-review/:squadId/reputation/leaderboard?limit=<n>`.
+
+### Features
+
+- **Loading**: Shows a spinner with `aria-busy="true"`
+- **Error**: Renders an error message in a `role="alert"` container
+- **Empty**: Shows a trophy icon and "No reputation points yet" message
+- **Rank icons**: Gold / Silver / Bronze medal icons for positions 1-3 (Lucide `Medal`); numeric rank for positions 4+
+- **Current user**: Row gets `.rep-item--me` class and an `aria-current="true"` attribute; "(you)" label appended to the name
+- **Tier badges**: `LeaderboardEntry.tier` of `"gold"`, `"silver"`, `"bronze"`, or `"none"` — tiers other than `"none"` render a styled badge
+
+### LeaderboardEntry type
+
+```typescript
+interface LeaderboardEntry {
+  userId: string;
+  displayName: string | null;
+  points: number;
+  tier: "gold" | "silver" | "bronze" | "none";
+}
+```
+
+### Example
+
+```tsx
+<SquadReputationLeaderboard
+  squadId="org-123456"
+  currentUserId={user?.id}
+  limit={10}
+/>
+```
+
+---
+
 ## ReadinessCard
 
 **Path**: `src/components/squads/ReadinessCard.tsx`
@@ -175,11 +238,11 @@ interface ReadinessCardProps {
 
 - **Progress Ring**: SVG circle showing score 0-100 with accent color stroke
 - **Score Display**: Large centered percentage (e.g., "65%")
-- **Level Label**: Derived from score:
-  - 0-25: "Beginner"
-  - 25-50: "Novice"
-  - 50-75: "Intermediate"
-  - 75-100: "Advanced"
+- **Level Label**: Derived from score (strict `<` comparison):
+  - score < 25: "Beginner"
+  - score < 50: "Novice"
+  - score < 75: "Intermediate"
+  - score >= 75: "Advanced"
 - **Certification ID**: Small gray text showing cert ID
 - **Loading State**: Shows skeleton pulse animation while fetching
 
@@ -304,17 +367,30 @@ When `prefers-reduced-motion: reduce` is set:
 
 ## Service Layer (`src/services/squads.ts`)
 
-Three functions for fetching squad data:
+All functions use the shared Axios instance from `src/services/api.ts` which handles JWT authentication.
 
 ```typescript
+// Fetch squad metadata by slug (delegates to /organizations/by-slug/:slug)
 export async function getSquadBySlug(slug: string): Promise<SquadDto>;
-export async function getSquadMembers(squadId: string): Promise<OrgMember[]>;
-export async function getSquadReadiness(
-  certificationId: string,
-): Promise<ReadinessScore>;
-```
 
-All functions use the shared Axios instance from `src/services/api.ts` which handles JWT authentication.
+// Fetch squad members (delegates to /organizations/:id/members)
+export async function getSquadMembers(squadId: string): Promise<OrgMember[]>;
+
+// Fetch squad readiness score (delegates to /insights/readiness?certificationId=...)
+export async function getSquadReadiness(certificationId: string): Promise<ReadinessScore>;
+
+// Generate an invite link token for a squad (POST /squads/:id/invites)
+export async function createSquadInviteLink(squadId: string): Promise<InviteLinkDto>;
+
+// Join a squad using an invite token (POST /squads/join/:token)
+export async function joinSquadWithToken(token: string): Promise<SquadDto>;
+
+// Fetch the reputation leaderboard for a squad (GET /squads/peer-review/:squadId/reputation/leaderboard)
+export async function getReputationLeaderboard(
+  squadId: string,
+  limit?: number,
+): Promise<LeaderboardEntry[]>;
+```
 
 ---
 
