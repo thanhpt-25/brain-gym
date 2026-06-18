@@ -1,75 +1,86 @@
-# ADR 003 — Competency Scoring Algorithm (S0-2 / FR-2)
+# ADR-028 — Competency Scoring Algorithm
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-06-14
 **Deciders:** ThanhPT (Architect)
-**Liên quan:** [Sprint 0 — Foundation Basic Design](../specs/sprint-0-foundation-basic-design.md) §5
-
-> ⚠️ **Lưu ý số hiệu:** số `003` hiện đã thuộc về `003-pass-predictor-v0.md` trong `00-index.md`.
-> Tên file này theo yêu cầu enabler S0-2; **cần đổi số (vd 028) trước khi merge** để tránh trùng. Xem Consequences.
+**Related:** [Sprint 0 Foundation Basic Design](../specs/sprint-0-foundation-basic-design.md) §5
 
 ---
 
 ## Context
 
-Sáng kiến Enterprise Organization cần suy ra **mức năng lực (competency level, thang 1–5)** của một người (nhân viên hoặc ứng viên) cho mỗi competency mà org định nghĩa. Dữ liệu điểm số sau mỗi bài đánh giá **đã được tổng hợp sẵn theo tên domain** dưới dạng JSON:
+The Enterprise Organization feature requires inferring a **competency level (scale 1–5)** for each person (employee or candidate) against each competency the org has defined.
 
-- `CandidateInvite.domainScores` và `ExamAttempt.domainScores` có shape
-  `Record<string, { correct: number; total: number }>`, key là **tên domain/category** (string).
-- Được tính tại thời điểm nộp bài — xem `candidate.service.ts submitAttempt` (L197–223) và
-  `org-analytics.service.ts getSkillGaps` (L179). Không có bảng "raw answer per competency" sẵn dùng cho chấm điểm năng lực.
-- Model `CompetencyDomain` (FR-1) ánh xạ một competency tới **nhiều tên domain** (so khớp case-insensitive).
-- Model `QuestionCompetency` (FR-1) ánh xạ competency tới từng câu hỏi org, có `weight` — nhưng chưa được dùng ở đâu.
+After each submitted exam attempt, scores are already aggregated by domain name and stored as JSON:
 
-Có **hai phương án** để tính điểm năng lực:
+- `ExamAttempt.domainScores` and `CandidateInvite.domainScores` have the shape `Record<string, { correct: number; total: number }>`, where keys are domain/category name strings.
+- These are computed at submission time in `candidate.service.ts submitAttempt` and used by `org-analytics.service.ts getSkillGaps`.
+- There is no per-answer table pre-joined to competencies.
 
-- **Phương án A — recompute từ raw answers theo từng câu hỏi qua `QuestionCompetency`.**
-  Với mỗi competency, lấy tập câu hỏi liên kết (qua `weight`), truy ngược các bản ghi answer của người đó, tính tỷ lệ đúng có trọng số. **Chính xác hơn** (chấm đúng theo câu hỏi thuộc competency, không phụ thuộc cách gom domain), nhưng đòi hỏi:
-  - re-fetch raw answers (`Answer` / answer records của `CandidateInvite`) — thêm I/O, thêm join;
-  - dữ liệu `QuestionCompetency` phải được điền đầy đủ (hiện chưa có UI/seed nào điền) → v0 sẽ không có gì để tính.
+The `CompetencyDomain` model (added in the competency framework sprint) maps a single competency to **multiple domain names** (matched case-insensitively).
 
-- **Phương án B — aggregate `domainScores` đã lưu qua mapping `CompetencyDomain`.**
-  Với mỗi competency, lấy danh sách `CompetencyDomain.domainName`, cộng dồn `correct`/`total` của các domain khớp (case-insensitive) trong `domainScores`, ra tỷ lệ phần trăm → bucket thành level. **Tái dùng dữ liệu đã có**, không re-fetch raw answers, chạy được ngay khi org chỉ cần map domain (việc nhẹ) thay vì gán từng câu hỏi.
+The `QuestionCompetency` model maps a competency to individual org questions with a numeric `weight`, but is not yet populated — no UI or seed data fills it.
+
+Two approaches were considered:
+
+**Approach A — Recompute from raw answers via `QuestionCompetency`.**
+For each competency, fetch the linked question IDs, look up the person's individual answers, and compute a weighted accuracy. More precise, but requires:
+- Re-fetching raw answer records — extra I/O and joins.
+- `QuestionCompetency` data to be fully populated — it is not in v0, so this approach would produce no results.
+
+**Approach B — Aggregate `domainScores` via `CompetencyDomain` mappings.**
+For each competency, fetch its mapped domain names, sum `correct`/`total` from the matching keys in `domainScores` (case-insensitive), convert to a percentage, and bucket into a level. Reuses already-stored data, requires no re-fetching of raw answers, and works immediately once the org maps a few domain names.
 
 ---
 
 ## Decision
 
-### Chọn **Phương án B cho v0.**
+**Approach B was selected for v0.**
 
-Lý do:
+Reasons:
 
-1. **Tái dùng dữ liệu đã lưu** — `domainScores` đã tồn tại trên mọi attempt/invite đã nộp; không cần re-fetch hay re-score raw answers. I/O tối thiểu, tính được cả trên dữ liệu lịch sử.
-2. **Chi phí cấu hình thấp** — org chỉ cần map vài tên domain vào competency (`CompetencyDomain`), thay vì gán nhãn competency cho từng câu hỏi. Điều này khả thi ngay Sprint 0; phương án A sẽ "rỗng" vì `QuestionCompetency` chưa được điền.
-3. **Giữ cửa cho độ chính xác sau này** — `QuestionCompetency` vẫn được tạo ở FR-1 và **giữ lại** cho v1: khi dữ liệu gán câu hỏi đủ dày, có thể nâng cấp sang phương án A (hoặc lai) mà không phá schema.
+1. **Reuses stored data** — `domainScores` already exists on every submitted attempt and candidate invite; no backfill or raw-answer re-fetch is needed. Historical attempts are scored immediately.
+2. **Low configuration cost** — the org only needs to map domain names to competencies (`CompetencyDomain`), not label every individual question. This is feasible from day one; Approach A would produce empty results until `QuestionCompetency` is populated.
+3. **Does not foreclose accuracy improvements** — `QuestionCompetency` remains in the schema. When sufficient question-level labels exist, the service layer can be upgraded to Approach A (or a hybrid) without changing the public function signature or the database schema.
 
-### Pure function `inferCompetencyLevel()`
+---
 
-Vị trí: `backend/src/competency/scoring/infer-competency-level.ts` — thuần, không I/O.
+## Implementation
+
+### Pure function: `inferCompetencyLevel()`
+
+Location: `backend/src/competency/scoring/infer-competency-level.ts`
+
+No I/O, no database access, fully deterministic.
 
 ```ts
-interface DomainScore {
+export interface DomainScore {
   correct: number;
   total: number;
 }
-interface Threshold {
+
+export interface Threshold {
+  /** Inclusive lower bound. Must be sorted descending by minPercentage. */
   minPercentage: number;
   level: number;
-} // sắp xếp giảm dần theo minPercentage
-
-interface InferCompetencyLevelOptions {
-  scaleMin: number; // mặc định 1
-  scaleMax: number; // mặc định 5
-  thresholds: Threshold[]; // bảng ngưỡng (xem mặc định bên dưới)
-  minSampleForHigh?: number; // mặc định 20
-  minSampleForMedium?: number; // mặc định 8
 }
 
-interface CompetencyLevelResult {
-  level: number; // trong [scaleMin, scaleMax]
-  percentage: number; // 0..100, làm tròn 1 chữ số thập phân
-  confidence: "LOW" | "MEDIUM" | "HIGH";
-  sampleSize: number; // Σtotal trên các domain khớp
+export interface InferCompetencyLevelOptions {
+  scaleMin: number;
+  scaleMax: number;
+  thresholds: Threshold[];
+  /** sumTotal threshold for HIGH confidence (default 20) */
+  minSampleForHigh?: number;
+  /** sumTotal threshold for MEDIUM confidence (default 8) */
+  minSampleForMedium?: number;
+}
+
+export interface CompetencyLevelResult {
+  level: number;          // integer in [scaleMin, scaleMax]
+  percentage: number;     // 0..100, rounded to 1 decimal place
+  confidence: 'LOW' | 'MEDIUM' | 'HIGH';
+  sampleSize: number;     // sum of total across matched domains
+  matchedDomains: string[];
 }
 
 function inferCompetencyLevel(
@@ -79,90 +90,89 @@ function inferCompetencyLevel(
 ): CompetencyLevelResult;
 ```
 
-**Thuật toán:**
+### Algorithm
 
-1. Chuẩn hóa key: lập map `lowercaseTrim(domainName) → DomainScore` từ `domainScores`; chuẩn hóa `mappedDomains` tương tự (**case-insensitive matching**).
-2. Cộng dồn `sumCorrect = Σcorrect`, `sumTotal = Σtotal` chỉ trên các domain **vừa được map vừa có mặt** trong `domainScores`.
-3. **Edge — không có dữ liệu** (`sumTotal === 0`, do không domain nào khớp / `domainScores` rỗng / `mappedDomains` rỗng):
-   trả `{ level: scaleMin, percentage: 0, confidence: 'LOW', sampleSize: 0 }`. Không chia cho 0.
-4. `percentage = (sumCorrect / sumTotal) * 100`.
-5. **Bucket level:** duyệt `thresholds` (giảm dần theo `minPercentage`), chọn `level` đầu tiên có `percentage >= minPercentage`; nếu không khớp ngưỡng nào → `scaleMin`. Clamp kết quả vào `[scaleMin, scaleMax]`.
-6. **Confidence theo sample size** (`sumTotal`):
-   - `HIGH` nếu `sumTotal >= minSampleForHigh` (mặc định 20),
-   - `MEDIUM` nếu `sumTotal >= minSampleForMedium` (mặc định 8),
-   - ngược lại `LOW`.
-     Confidence **độc lập** với level — báo cho người dùng "level này đáng tin tới đâu" dựa trên số câu đã làm.
+1. **Normalize** all keys in `domainScores` and all entries in `mappedDomains` by `lowercaseTrim()`.
+2. **Aggregate** — for each domain in `mappedDomains` that has a matching (normalized) key in `domainScores`, add its `correct` and `total` to running sums `sumCorrect` and `sumTotal`. Record matched domain names.
+3. **No-data edge case** — if `sumTotal === 0` (no domains matched, empty inputs, or all matched domains have `total === 0`), return `{ level: scaleMin, percentage: 0, confidence: 'LOW', sampleSize: 0, matchedDomains: [] }`. Division by zero never occurs.
+4. **Percentage** — `percentage = round((sumCorrect / sumTotal) * 100, 1)`.
+5. **Level bucketing** — iterate `thresholds` in descending order of `minPercentage`; pick the `level` of the first threshold where `percentage >= minPercentage`. If none match, use `scaleMin`. Clamp the result to `[scaleMin, scaleMax]`.
+6. **Confidence** — determined independently of level, based solely on `sumTotal`:
+   - `HIGH` if `sumTotal >= minSampleForHigh` (default 20)
+   - `MEDIUM` if `sumTotal >= minSampleForMedium` (default 8)
+   - `LOW` otherwise
 
-**Edge cases được xử lý tường minh:**
+### Default threshold table (scale 1–5)
 
-| Edge                                                                       | Hành vi                                                                     |
-| :------------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
-| Không domain nào khớp / `domainScores` rỗng                                | `level=scaleMin, percentage=0, confidence=LOW, sampleSize=0` (không chia 0) |
-| **Partial overlap** (chỉ một phần `mappedDomains` có trong `domainScores`) | Chỉ cộng phần khớp; `sampleSize` phản ánh đúng cỡ mẫu thực                  |
-| **Case-insensitive** ("Networking" vs "networking" vs " NETWORKING ")      | Khớp sau khi `lowercaseTrim`                                                |
-| Domain có `total=0` lọt vào                                                | Cộng vào sumTotal không đổi → không ảnh hưởng; vẫn an toàn                  |
-| `percentage` đúng ngưỡng (vd = 80)                                         | Dùng `>=` → rơi vào bucket cao hơn                                          |
-
-### Bảng ngưỡng mặc định (thang 1–5)
-
-| Level | Nhãn gợi ý | `minPercentage` (≥) | Khoảng % |
-| :---- | :--------- | :------------------ | :------- |
-| **5** | Expert     | 90                  | 90–100   |
-| **4** | Proficient | 75                  | 75–89    |
-| **3** | Competent  | 60                  | 60–74    |
-| **2** | Developing | 40                  | 40–59    |
-| **1** | Novice     | 0                   | 0–39     |
+| Level | Label | minPercentage (>=) | Range |
+|:-----:|:------|:------------------:|:------|
+| 5 | Expert | 90 | 90–100% |
+| 4 | Proficient | 75 | 75–89% |
+| 3 | Competent | 60 | 60–74% |
+| 2 | Developing | 40 | 40–59% |
+| 1 | Novice | 0 | 0–39% |
 
 ```ts
-const DEFAULT_THRESHOLDS_1_5: Threshold[] = [
+export const DEFAULT_THRESHOLDS_1_5: Threshold[] = [
   { minPercentage: 90, level: 5 },
   { minPercentage: 75, level: 4 },
   { minPercentage: 60, level: 3 },
   { minPercentage: 40, level: 2 },
-  { minPercentage: 0, level: 1 },
+  { minPercentage: 0,  level: 1 },
 ];
 ```
 
-### Unit-test cases (đại diện)
+### Edge cases handled
+
+| Scenario | Behavior |
+|:---------|:---------|
+| No domain matches / empty `domainScores` | `level=scaleMin, percentage=0, confidence=LOW, sampleSize=0` |
+| Partial overlap (only some `mappedDomains` present in `domainScores`) | Only matching domains are summed; `sampleSize` reflects actual sample |
+| Case / whitespace differences ("Networking" vs "NETWORKING" vs " networking ") | Normalized by `lowercaseTrim` before comparison |
+| Domain present in both sets but with `total=0` | Adds 0 to `sumTotal`; only triggers no-data path if ALL matched domains have `total=0` |
+| Percentage exactly on a threshold boundary (e.g. exactly 75%) | `>=` operator — rounds up to the higher level |
+
+### Representative unit tests
 
 ```ts
 const opts = { scaleMin: 1, scaleMax: 5, thresholds: DEFAULT_THRESHOLDS_1_5 };
 
-// TC1 — happy path, gộp nhiều domain, sample đủ lớn → HIGH
-// Networking 18/20 + Security 9/10 = 27/30 = 90.0% → level 5; sample 30 ≥ 20 → HIGH
+// TC1 — multiple domains aggregated, sampleSize >= 20 → HIGH
+// Networking 18/20 + Security 9/10 = 27/30 = 90.0% → level 5; sample 30 → HIGH
 inferCompetencyLevel(
-  {
-    Networking: { correct: 18, total: 20 },
-    Security: { correct: 9, total: 10 },
-    Storage: { correct: 1, total: 5 },
-  },
-  ["Networking", "Security"],
+  { Networking: { correct: 18, total: 20 }, Security: { correct: 9, total: 10 }, Storage: { correct: 1, total: 5 } },
+  ['Networking', 'Security'],
   opts,
-); // => { level: 5, percentage: 90.0, confidence: 'HIGH', sampleSize: 30 }
+); // => { level: 5, percentage: 90.0, confidence: 'HIGH', sampleSize: 30, matchedDomains: ['Networking', 'Security'] }
 
-// TC2 — không có dữ liệu (mapped domain không xuất hiện trong domainScores)
+// TC2 — mapped domain not present in domainScores
 inferCompetencyLevel(
   { Compute: { correct: 4, total: 5 } },
-  ["Networking"],
+  ['Networking'],
   opts,
-); // => { level: 1, percentage: 0, confidence: 'LOW', sampleSize: 0 }
+); // => { level: 1, percentage: 0, confidence: 'LOW', sampleSize: 0, matchedDomains: [] }
 
-// TC3 — case-insensitive + partial overlap, sample nhỏ → LOW
-// chỉ 'networking' khớp ('Databases' không có): 3/6 = 50.0% → level 2; sample 6 < 8 → LOW
+// TC3 — case-insensitive, partial overlap, small sample → LOW
+// 'networking' matches 'NETWORKING'; 'Databases' not present: 3/6 = 50.0% → level 2; sample 6 < 8 → LOW
 inferCompetencyLevel(
   { networking: { correct: 3, total: 6 } },
-  ["NETWORKING", "Databases"],
+  ['NETWORKING', 'Databases'],
   opts,
-); // => { level: 2, percentage: 50.0, confidence: 'LOW', sampleSize: 6 }
+); // => { level: 2, percentage: 50.0, confidence: 'LOW', sampleSize: 6, matchedDomains: ['NETWORKING'] }
 
-// TC4 — biên ngưỡng dùng '>=' và confidence MEDIUM
-// 6/8 = 75.0% đúng ngưỡng level 4; sample 8 ≥ 8 → MEDIUM
+// TC4 — exact boundary 75% uses >=; sampleSize 8 == minSampleForMedium → MEDIUM
 inferCompetencyLevel(
   { Security: { correct: 6, total: 8 } },
-  ["security"],
+  ['security'],
   opts,
 ); // => { level: 4, percentage: 75.0, confidence: 'MEDIUM', sampleSize: 8 }
 ```
+
+The full test suite (`infer-competency-level.spec.ts`) covers 10 cases including empty inputs, whitespace trimming, `total=0` domains, custom scale, and confidence boundary at exactly `minSampleForHigh`.
+
+### Integration with `OrgAnalyticsService`
+
+`OrgAnalyticsService` imports `inferCompetencyLevel` and `DEFAULT_THRESHOLDS_1_5` directly. It fetches competency definitions (with their `CompetencyDomain` mappings) and the aggregated `domainScores` from member attempts, then calls `inferCompetencyLevel` per competency to produce the competency profile and heatmap responses.
 
 ---
 
@@ -170,21 +180,15 @@ inferCompetencyLevel(
 
 ### Positive
 
-- **Chạy được ngay trên dữ liệu hiện có** — tái dùng `domainScores` đã lưu, không cần backfill, không re-fetch raw answers; tính được cả cho attempt lịch sử.
-- **Pure function, dễ test** — tách hoàn toàn khỏi Prisma/HTTP; toàn bộ nhánh (no-data, partial overlap, case-insensitive, biên ngưỡng, các mức confidence) phủ được bằng unit test, không cần DB.
-- **Cấu hình nhẹ cho org** — chỉ cần map tên domain vào competency là có điểm; không bắt buộc gán nhãn từng câu hỏi.
-- **Không khóa tương lai** — `QuestionCompetency` vẫn tồn tại; có thể nâng lên phương án A (chấm theo câu hỏi có trọng số) ở v1 mà không phá schema hay đổi chữ ký public (chỉ thay phần chuẩn bị input ở service layer).
-- **Confidence tách khỏi level** — người dùng biết một level "4" dựa trên 6 câu là kém tin hơn dựa trên 40 câu, tránh quyết định tuyển dụng/đánh giá trên mẫu quá nhỏ.
+- **Works on existing data** — reuses `domainScores` already stored on all submitted attempts; no backfill, no schema change, historical data is scored immediately.
+- **Pure function, easy to test** — completely decoupled from Prisma and HTTP; all branches (no-data, partial overlap, case differences, threshold boundaries, confidence levels) are covered by unit tests without a database.
+- **Low org setup cost** — mapping a few domain names to a competency is sufficient to get results; labeling every question is not required.
+- **No schema lock-in** — `QuestionCompetency` is preserved for a future v1 upgrade to Approach A (per-question weighted scoring) without breaking the public function signature.
+- **Confidence is independent of level** — callers know when a level 4 is based on 6 questions vs. 40, which is important for hiring decisions.
 
-### Risks / mitigations
+### Risks and mitigations
 
-- **Lệ thuộc chất lượng mapping domain** — nếu org map sai/thiếu tên domain, điểm sẽ lệch hoặc rỗng. _Mitigation:_ trả `confidence: LOW` + `sampleSize` rõ ràng để lộ "thiếu dữ liệu"; UI cảnh báo khi `sampleSize` thấp; validate domain tồn tại khi map.
-- **`domainScores` aggregate, không weighted theo câu hỏi** — mọi domain trong competency được cộng "bình đẳng" theo số câu, không theo `weight`. _Mitigation:_ chấp nhận ở v0 (đủ tốt cho sàng lọc); v1 chuyển phương án A nếu cần độ chính xác.
-- **Ngưỡng mặc định chỉ đúng cho thang 1–5** — org đặt `scaleMin/scaleMax` khác sẽ cần bảng ngưỡng riêng. _Mitigation:_ `thresholds` là tham số đầu vào (không hardcode); v0 chỉ ship bảng 1–5 và **giới hạn org dùng thang 1–5** cho tới khi có cơ chế ngưỡng tổng quát (ghi nhận open question §11.5 của basic design).
-- **Tie-break / ranking hiring** — level rời rạc (1–5) gây nhiều ứng viên cùng level. _Mitigation:_ khi xếp hạng, dùng `percentage` (liên tục) làm tie-break thứ cấp, không chỉ `level`.
-- **Trùng số ADR** — `003` đã dùng cho pass-predictor. _Mitigation:_ đổi số file (vd `028-competency-scoring.md`) và cập nhật `docs/adr/00-index.md` trước khi merge; nội dung quyết định không đổi.
-- **Schema-only ở Sprint 0** — pure function + test được giao, nhưng endpoint chấm điểm thật chưa nối. _Mitigation:_ service layer kết nối ở sprint sau; Sprint 0 chỉ cam kết hàm thuần đã test.
-
-```
-
-```
+- **Mapping quality dependency** — incorrect or missing domain mappings produce skewed or zero scores. Mitigation: surface `confidence: LOW` and `sampleSize: 0` clearly in the UI; validate that mapped domain names match known domains when saving.
+- **Domain aggregation is unweighted** — all domains in a competency contribute equally per question answered, regardless of the `weight` field on `QuestionCompetency`. Acceptable for v0 screening use cases; Approach A addresses this in v1.
+- **Default thresholds fixed for scale 1–5** — orgs using a different scale need a custom threshold table. Mitigation: `thresholds` is a function parameter (not hardcoded); v0 restricts orgs to scale 1–5 until a threshold-management UI is built.
+- **Discrete levels cause ties** — many candidates may share the same integer level. Mitigation: use `percentage` (continuous) as a secondary sort key in ranking views.

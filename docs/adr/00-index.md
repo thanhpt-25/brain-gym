@@ -23,7 +23,7 @@ This directory contains architecture decision records for CertGym. Each ADR docu
 | 025 | Reputation model and tier thresholds            | Accepted | S10    | 2026-05-24   |
 | 026 | DDS auto-apply GA & canary promotion policy     | Accepted | S11    | 2026-05-24   |
 | 027 | Reputation anti-gaming detection thresholds     | Accepted | S11    | 2026-05-24   |
-| 028 | Competency level inference algorithm (v0)       | Proposed | S0     | 2026-06-14   |
+| 028 | Competency level inference algorithm (v0)       | Accepted | S0     | 2026-06-14   |
 
 ---
 
