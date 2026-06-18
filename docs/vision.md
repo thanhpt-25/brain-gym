@@ -1,8 +1,8 @@
-# Brain Gym Product Vision
+# CertGym Product Vision
 
 > **"A Training System, Not Just a Question Bank."**
 
-Imagine a platform that doesn't just ask you questions but acts as a high-performance **"Brain Gym"**. Users don't come just to "do tests"; they come to train their memory, refine their reasoning, and build the mental stamina required for high-stakes certifications.
+Imagine a platform that doesn't just ask you questions but acts as a high-performance **"Certification Gym"**. Users don't come just to "do tests"; they come to train their memory, refine their reasoning, and build the mental stamina required for high-stakes certifications.
 
 ---
 
@@ -10,7 +10,7 @@ Imagine a platform that doesn't just ask you questions but acts as a high-perfor
 
 Brains do not fail exams solely because they lack information. They fail because **memory retrieval**, **situational reasoning**, and **pattern recognition** break down under pressure. 
 
-Brain Gym is built on three pillars:
+CertGym is built on three pillars:
 1.  **Knowledge (The Content):** High-quality, community-curated, and AI-enhanced question banks.
 2.  **Stamina (The Simulation):** Fighting "exam fatigue" through realistic, high-pressure simulation.
 3.  **Strategy (The Meta-Game):** Learning *how* vendors think, how to eliminate "traps," and how to manage time.
@@ -93,7 +93,7 @@ Preventing "Rote Memorization."
 
 ## 6. The AI Coaching Layer
 
-The future of Brain Gym is an **AI Training Partner** that:
+The future of CertGym is an **AI Training Partner** that:
 - **Rewrites Explanations:** Simplifying complex jargon into "ELI5" (Explain Like I'm 5) models.
 - **Detects Semantic Duplicates:** Ensuring the question pool stays lean and high-value.
 - **Behavioral Insights:** "You tend to fail questions read after the 60-minute mark. Let's work on your mid-exam focus."
