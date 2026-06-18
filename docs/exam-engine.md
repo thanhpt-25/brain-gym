@@ -9,7 +9,7 @@ The Brain Gym exam engine orchestrates the complete exam-taking experience: from
 **Key responsibilities:**
 
 - Exam session lifecycle (intro → exam → results)
-- Timer management (STRICT, ACCELERATED, RELAXED modes)
+- Timer management (STRICT, ACCELERATED, RELAXED, TIME_PRESSURE modes)
 - Question randomization and presentation
 - Answer capture and persistence
 - Mark-for-review tracking
@@ -67,7 +67,7 @@ interface StartAttemptResponse {
   title: string;
   certification: Certification; // includes domains
   timeLimit: number; // minutes
-  timerMode?: TimerMode; // STRICT | ACCELERATED | RELAXED
+  timerMode: TimerMode; // STRICT | ACCELERATED | RELAXED | TIME_PRESSURE
   totalQuestions: number;
   questions: AttemptQuestion[]; // randomized, no correct answers revealed
 }
@@ -89,7 +89,7 @@ interface AttemptQuestion {
 
 ## Timer Modes
 
-The exam supports three distinct timer modes, selected before exam start.
+The exam supports four distinct timer modes, selected before exam start.
 
 ### 1. STRICT (Default)
 
@@ -159,6 +159,16 @@ function getTimerClass(
 - Timer displays in muted/secondary text color
 - No warnings or pulsing
 - Exam duration is extended (typically 2–3x normal)
+
+### 4. TIME_PRESSURE
+
+**Behavior:**
+
+- Dedicated mode for time-pressure exams; exam is created with `examType: TIME_PRESSURE` and `timerMode: TIME_PRESSURE`
+- Question count capped at 65 (vs 130 for STANDARD) and `timeLimit` set to 90 minutes (vs 180)
+- Timer and UI behavior follow the same styling logic as ACCELERATED
+
+**Use case:** Rapid-fire certification drills where question volume and time are both constrained
 
 ### Timer Hook Implementation
 
@@ -333,7 +343,7 @@ const selectAnswer = (questionId: string, choiceId: string) => {
 
 ### Server-side Answer Persistence
 
-The backend **does not** provide a mid-exam save endpoint for learners. All answers are written to the database **only** on explicit submit via POST `/attempts/{id}/submit`.
+The backend provides `POST /api/v1/attempts/:id/answer` (`@SkipThrottle`) to upsert a single answer during an exam session. This endpoint is used by the practice/training flow (`PracticeSession.tsx`). The standard `ExamPage.tsx` exam flow does **not** call this endpoint mid-exam — all answers remain in local state and are written to the database only on explicit submit via `POST /api/v1/attempts/:id/submit`. There is also `POST /api/v1/attempts/:id/finish` which submits the attempt using whatever answers have already been saved via the per-answer endpoint.
 
 ---
 
@@ -368,7 +378,7 @@ The backend **does not** provide a mid-exam save endpoint for learners. All answ
 2. **Backend receives submit request** (`attempts.controller.ts`, lines 57–71)
    - `POST /api/v1/attempts/{id}/submit`
    - JWT guard verifies user ownership of attempt
-   - Throttle: rate-limited per-user (5 req/min)
+   - `@SkipThrottle()` — no rate limit on submit; rate limit (5 req/60 s) applies to `POST /api/v1/exams/:examId/start` instead
 
 3. **Server evaluates all answers** (`attempts.service.ts`, lines 152–224)
    - Fetches exam + all questions + correct choices
@@ -421,19 +431,20 @@ model Answer {
 ### ExamAttempt Record
 
 ```prisma
-// Prisma schema, lines 388–407
+// Prisma schema
 model ExamAttempt {
   id             String        @id
   userId         String
   examId         String
-  startedAt      DateTime
+  startedAt      DateTime      @default(now())
   submittedAt    DateTime?
   timeSpent      Int?
   score          Decimal?
   totalCorrect   Int?
   totalQuestions Int?
   domainScores   Json?         // { "Domain": { correct: n, total: m }, ... }
-  status         AttemptStatus // IN_PROGRESS | SUBMITTED | ABANDONED
+  examType       ExamType      @default(STANDARD) // STANDARD | TIME_PRESSURE
+  status         AttemptStatus @default(IN_PROGRESS) // IN_PROGRESS | SUBMITTED | ABANDONED
 }
 ```
 
@@ -461,7 +472,7 @@ model ExamAttempt {
 
 ### Adding a New Timer Mode
 
-1. Update Prisma enum (`backend/prisma/schema.prisma`, line 91–95)
+1. Update Prisma enum (`backend/prisma/schema.prisma`, `TimerMode` enum)
 2. Update TypeScript type (`src/types/api-types.ts`)
 3. Add timer styling logic (`src/components/exam/ExamSession.tsx`, `getTimerClass()`)
 4. Update intro UI with radio option (`src/components/exam/ExamIntro.tsx`)
@@ -469,7 +480,7 @@ model ExamAttempt {
 
 ### Adding a New Question Type
 
-1. Update Prisma enum (`backend/prisma/schema.prisma`, line 31–34)
+1. Update Prisma enum (`backend/prisma/schema.prisma`, `QuestionType` enum)
 2. Update frontend types (`src/types/api-types.ts`)
 3. Update answer selection logic (`src/pages/ExamPage.tsx`, `selectAnswer()`)
 4. Update backend evaluation (`backend/src/attempts/attempts.service.ts`, `evaluateAnswers()`)
@@ -483,7 +494,7 @@ model ExamAttempt {
 - Frontend main: `/src/pages/ExamPage.tsx`
 - Frontend components: `/src/components/exam/`
 - Frontend hooks: `/src/hooks/useTimer.ts`, `/src/hooks/useTextSelection.ts`
-- Backend controller: `/backend/src/attempts/attempts.controller.ts`
+- Backend controller: `/backend/src/attempts/attempts.controller.ts` — routes: `POST /exams/:examId/start`, `POST /attempts/:id/answer`, `POST /attempts/:id/submit`, `POST /attempts/:id/finish`, `GET /attempts/:id`, `GET /attempts/me`
 - Backend service: `/backend/src/attempts/attempts.service.ts`
 - Database models: `/backend/prisma/schema.prisma`
 - API types: `/src/types/api-types.ts`

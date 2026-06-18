@@ -1,6 +1,6 @@
 # Local LLM Question Generation
 
-> **Feature:** US-XXXX — Sinh câu hỏi từ Local LLM (Ollama / LM Studio)
+> **Feature:** US-XXXX — Question generation from Local LLM (Ollama / LM Studio)
 > **Version:** 1.0
 > **Date:** 2026-05-31
 > **Status:** Design — Awaiting Implementation
@@ -10,140 +10,140 @@
 
 ## Table of Contents
 
-1. [Tổng quan & Mục tiêu](#1-tổng-quan--mục-tiêu)
-2. [Phân tích hiện trạng](#2-phân-tích-hiện-trạng)
-3. [Kiến trúc giải pháp](#3-kiến-trúc-giải-pháp)
-4. [Thiết kế kỹ thuật chi tiết](#4-thiết-kế-kỹ-thuật-chi-tiết)
-   - 4.1 [LocalLlmDialect — lớp trừu tượng](#41-localllmdialect--lớp-trừu-tượng)
+1. [Overview & Goals](#1-overview--goals)
+2. [Current State Analysis](#2-current-state-analysis)
+3. [Solution Architecture](#3-solution-architecture)
+4. [Technical Design](#4-technical-design)
+   - 4.1 [LocalLlmDialect — abstraction layer](#41-localllmdialect--abstraction-layer)
    - 4.2 [Model discovery](#42-model-discovery)
-   - 4.3 [Sinh câu hỏi (generate)](#43-sinh-câu-hỏi-generate)
+   - 4.3 [Question generation](#43-question-generation)
    - 4.4 [JSON validation & repair](#44-json-validation--repair)
-   - 4.5 [Intake vào BrainGym](#45-intake-vào-braingym)
-   - 4.6 [Lưu trữ cấu hình local](#46-lưu-trữ-cấu-hình-local)
-   - 4.7 [UI — mở rộng LlmConfigPanel](#47-ui--mở-rộng-llmconfigpanel)
-5. [Xử lý lỗi & UX](#5-xử-lý-lỗi--ux)
-6. [Bảo mật](#6-bảo-mật)
-7. [Backend — thay đổi tối thiểu](#7-backend--thay-đổi-tối-thiểu)
-8. [Kế hoạch triển khai](#8-kế-hoạch-triển-khai)
+   - 4.5 [Intake into CertGym](#45-intake-into-certgym)
+   - 4.6 [Local config storage](#46-local-config-storage)
+   - 4.7 [UI — extending LlmConfigPanel](#47-ui--extending-llmconfigpanel)
+5. [Error Handling & UX](#5-error-handling--ux)
+6. [Security](#6-security)
+7. [Backend — minimal changes](#7-backend--minimal-changes)
+8. [Implementation Plan](#8-implementation-plan)
 9. [Acceptance Criteria](#9-acceptance-criteria)
-10. [Rủi ro & Giảm thiểu](#10-rủi-ro--giảm-thiểu)
+10. [Risks & Mitigations](#10-risks--mitigations)
 
 ---
 
-## 1. Tổng quan & Mục tiêu
+## 1. Overview & Goals
 
-### Vấn đề
+### Problem
 
-Luồng sinh câu hỏi hiện tại (`POST /ai-questions/generate`) gọi LLM từ backend — yêu cầu API key trả phí (Anthropic / OpenAI / Gemini) và trừ quota tổ chức. Người dùng muốn tận dụng model đang chạy trên máy local (Ollama, LM Studio) để sinh câu hỏi mà không tốn tiền.
+The current question generation flow (`POST /api/v1/ai-questions/generate`) calls an LLM from the backend — requiring a paid API key (Anthropic / OpenAI / Gemini) and consuming org quota. Users want to leverage models running locally (Ollama, LM Studio) to generate questions without cost.
 
-### Mục tiêu
+### Goals
 
-| #   | Mục tiêu                                                                                                   |
-| --- | ---------------------------------------------------------------------------------------------------------- |
-| M1  | Frontend có thể liệt kê model từ bất kỳ self-hosted LLM nào (Ollama, LM Studio, vLLM, Jan, v.v.) theo chuẩn OpenAI-compatible hoặc Anthropic-compatible |
-| M2  | Người dùng chọn model, nhập ngữ cảnh, sinh câu hỏi trực tiếp từ browser → self-hosted LLM                   |
-| M3  | Câu hỏi qua bước review rồi mới đẩy vào BrainGym Intake (`mcp/intake`)                                     |
-| M4  | Không tốn API fee, không đốt quota backend                                                                 |
-| M5  | Lỗi CORS / unreachable / dialect sai được chẩn đoán rõ ràng, có hướng dẫn khắc phục                        |
+| #   | Goal                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------ |
+| M1  | Frontend can list models from any self-hosted LLM (Ollama, LM Studio, vLLM, Jan, etc.) via OpenAI-compatible or Anthropic-compatible API |
+| M2  | User selects a model, enters context, and generates questions directly from the browser to the self-hosted LLM |
+| M3  | Questions go through a human review step before being pushed into CertGym via intake (`mcp/intake`)    |
+| M4  | No API fees, no backend quota consumption                                                              |
+| M5  | CORS / unreachable / wrong dialect errors are diagnosed clearly with remediation guidance               |
 
-### Không trong phạm vi (v1)
+### Out of scope (v1)
 
-- Backend tự gọi local LLM (bất khả thi với SaaS multi-tenant)
-- Auto-approve không qua review con người
-- Fine-tuning / quản lý model
-- Org-scoped intake (dùng intake cá nhân trước)
+- Backend calling a local LLM (infeasible for SaaS multi-tenant)
+- Auto-approve without human review
+- Fine-tuning / model management
+- Org-scoped intake (personal intake first)
 
 ---
 
-## 2. Phân tích hiện trạng
+## 2. Current State Analysis
 
-### Luồng cloud hiện tại
+### Existing cloud flow
 
 ```
-[Browser] → POST /ai-questions/generate (JWT)
+[Browser] → POST /api/v1/ai-questions/generate (JWT)
               → LlmQuotaService.enforceQuota()
               → BullMQ job → ai-gen.processor.ts
                  → createLlmProvider(provider, encryptedKey)
                     → AnthropicProvider | OpenAiProvider | GeminiProvider
                        → LLM API (cloud)
-              → POST /ai-questions/save
+              → POST /api/v1/ai-questions/save
 ```
 
-### Điểm tái dụng (không cần xây lại)
+### Reusable components (no rebuild needed)
 
-| Thành phần                        | File                                             | Tái dụng như thế nào                                               |
-| --------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------ |
-| `POST /ai-questions/mcp/intake`   | `ai-question-bank.controller.ts:180`             | Endpoint nhận câu hỏi local sau khi review                         |
-| `mcpIntake()`                     | `ai-question-bank.service.ts:306`                | Quality score → tier → `APPROVED`/`PENDING` → `questions.create()` |
-| `McpIntakeDto` / `McpQuestionDto` | `mcp-intake.dto.ts`                              | Schema validate câu hỏi gửi lên                                    |
-| `GeneratedQuestionsReview`        | `src/components/ai-questions/`                   | UI review / edit câu hỏi trước khi submit                          |
-| `LlmConfigPanel`                  | `src/components/ai-questions/LlmConfigPanel.tsx` | Mở rộng thêm section "Local LLM"                                   |
-| `GenerationForm`                  | `src/components/ai-questions/GenerationForm.tsx` | Mở rộng chọn provider LOCAL                                        |
+| Component                         | File                                             | How it is reused                                                    |
+| --------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------- |
+| `POST /api/v1/ai-questions/mcp/intake` | `ai-question-bank.controller.ts` line 211   | Endpoint that receives local-generated questions after review       |
+| `mcpIntake()`                     | `ai-question-bank.service.ts` line 296           | Scores quality → tier → `APPROVED`/`PENDING` → `questions.create()` |
+| `McpIntakeDto` / `McpQuestionDto` | `mcp-intake.dto.ts`                              | Schema for validating questions sent to intake                      |
+| `GeneratedQuestionsReview`        | `src/components/ai-questions/`                   | UI for reviewing / editing questions before submit                  |
+| `LlmConfigPanel`                  | `src/components/ai-questions/LlmConfigPanel.tsx` | Extend with a "Local LLM" section                                   |
+| `GenerationForm`                  | `src/components/ai-questions/GenerationForm.tsx` | Extend to support `LOCAL` provider selection                        |
 
-### Lý do frontend gọi trực tiếp GenAI endpoint, không phải backend
+### Why the frontend calls the GenAI endpoint directly, not the backend
 
-Backend chạy trên server/Docker — không thể kết nối tới local network của người dùng. Đây là ràng buộc SaaS không thể thay đổi. Mọi request đến GenAI endpoint **phải** xuất phát từ browser.
+The backend runs on a server/Docker container — it cannot reach the user's local network. This is an immutable SaaS constraint. All requests to GenAI endpoints **must** originate from the browser.
 
-**Bất kỳ URL `http://` hoặc `https://` nào đều được chấp nhận:**
+**Any `http://` or `https://` URL is accepted:**
 
-| Loại               | Ví dụ                                  |
+| Type               | Example                                |
 | ------------------ | -------------------------------------- |
 | Localhost          | `http://localhost:11434/v1`            |
 | LAN / private IP   | `http://192.168.1.100:8080/v1`         |
 | mDNS               | `http://gpu-box.local:11434/v1`        |
-| VPC / hostname nội bộ | `https://inference.company.com/v1`  |
+| VPC / internal hostname | `https://inference.company.com/v1` |
 | Docker/K8s service | `http://ollama-svc:11434/v1`           |
 
-Không có whitelist IP/hostname — giới hạn duy nhất là **browser CORS policy**: nếu server không set `Access-Control-Allow-Origin`, browser sẽ block response trước khi data được đọc.
+No IP/hostname allowlist — the only constraint is the **browser CORS policy**: if the server does not set `Access-Control-Allow-Origin`, the browser blocks the response before data can be read.
 
-**Lưu ý:** Nếu URL trùng với hostname của cloud provider chính thức (`api.openai.com`, `api.anthropic.com`...), UI sẽ cảnh báo dùng section Cloud Providers (BYOK) thay thế.
+**Note:** If the URL matches an official cloud provider hostname (`api.openai.com`, `api.anthropic.com`, etc.), the UI warns the user to use the Cloud Providers (BYOK) section instead.
 
 ---
 
-## 3. Kiến trúc giải pháp
+## 3. Solution Architecture
 
-### Sơ đồ luồng
+### Flow diagram
 
 ```
 ┌─────────────────────────────── Browser ─────────────────────────────────┐
 │                                                                           │
 │  LlmConfigPanel (Local tab)                                               │
-│    ├── chọn Dialect (OpenAI-compat | Anthropic-compat | Ollama native)   │
-│    ├── nhập Base URL (prefill: localhost:11434, localhost:1234/v1, ...)   │
+│    ├── choose Dialect (OpenAI-compat | Anthropic-compat | Ollama native) │
+│    ├── enter Base URL (prefill: localhost:11434, localhost:1234/v1, ...)  │
 │    ├── [Refresh models] → LocalLlmClient.listModels()                    │
 │    │       └── GET {baseUrl}/models  |  GET {baseUrl}/api/tags           │
-│    ├── dropdown chọn model                                                │
-│    └── lưu config → localStorage                                         │
+│    ├── model dropdown                                                     │
+│    └── save config → localStorage                                        │
 │                                                                           │
 │  GenerationForm (provider = LOCAL)                                        │
 │    └── [Generate] → LocalLlmClient.generate(prompt)                      │
 │           └── POST {baseUrl}/chat/completions | /messages | /api/generate │
 │                                                                           │
-│  parse JSON → Zod validate → repair (nếu lệch schema)                    │
+│  parse JSON → Zod validate → repair (if schema drift)                    │
 │                                                                           │
-│  GeneratedQuestionsReview (tái dụng)                                      │
+│  GeneratedQuestionsReview (reused)                                        │
 │    └── user review / edit / discard                                       │
 │                                                                           │
-│  [Submit to BrainGym]                                                     │
+│  [Submit to CertGym]                                                      │
 │    └── POST /api/v1/ai-questions/mcp/intake  (JWT Bearer)                │
 │                                                                           │
 └───────────────────────────────────────────────────────────────────────────┘
                                           │
                               ┌───────────▼──────────────┐
-                              │  BrainGym Backend (NestJS) │
-                              │  mcpIntake()               │
-                              │  scoreTotier()             │
-                              │  questions.create()        │
+                              │  CertGym Backend (NestJS) │
+                              │  mcpIntake()              │
+                              │  scoreTotier()            │
+                              │  questions.create()       │
                               └────────────────────────────┘
 ```
 
 ---
 
-## 4. Thiết kế kỹ thuật chi tiết
+## 4. Technical Design
 
-### 4.1 LocalLlmDialect — lớp trừu tượng
+### 4.1 LocalLlmDialect — abstraction layer
 
-Định nghĩa một type `LocalLlmDialect` mô tả cách một server local expose API:
+Define a `LocalLlmDialect` type describing how a local server exposes its API:
 
 ```typescript
 // src/services/local-llm/types.ts
@@ -152,36 +152,36 @@ export type LocalLlmDialect = "openai" | "anthropic" | "ollama";
 
 export interface LocalLlmConfig {
   dialect: LocalLlmDialect;
-  baseUrl: string; // vd: "http://localhost:11434"
-  modelId: string; // vd: "llama3.2:3b"
-  apiKey?: string; // thường bỏ trống với local
+  baseUrl: string; // e.g. "http://localhost:11434"
+  modelId: string; // e.g. "llama3.2:3b"
+  apiKey?: string; // usually empty for local
 }
 
 export interface LocalModelInfo {
-  id: string; // định danh để gọi generate
-  name: string; // hiển thị UI
-  sizeLabel?: string; // "3B", "7B"... nếu server cung cấp
+  id: string; // identifier used in generate calls
+  name: string; // display name in UI
+  sizeLabel?: string; // "3B", "7B"... if server provides it
 }
 
 export interface LocalLlmGenerateResult {
-  rawText: string; // text thô từ model
+  rawText: string; // raw model output
   model: string;
 }
 ```
 
-**Bảng ánh xạ dialect → endpoint:**
+**Dialect → endpoint mapping:**
 
 | Dialect     | List models endpoint | Parser field    | Generate endpoint        | Auth header                                  |
 | ----------- | -------------------- | --------------- | ------------------------ | -------------------------------------------- |
 | `openai`    | `GET /models`        | `data[].id`     | `POST /chat/completions` | `Authorization: Bearer <key>`                |
 | `anthropic` | `GET /models`        | `data[].id`     | `POST /messages`         | `x-api-key`, `anthropic-version: 2023-06-01` |
-| `ollama`    | `GET /api/tags`      | `models[].name` | `POST /api/generate`     | (không cần)                                  |
+| `ollama`    | `GET /api/tags`      | `models[].name` | `POST /api/generate`     | (not required)                               |
 
-> **Lưu ý:** Ollama từ v0.1.24 hỗ trợ OpenAI-compat tại `/v1`. Khuyến nghị users dùng `openai` dialect với Ollama (`baseUrl = http://localhost:11434/v1`) để thống nhất. Dialect `ollama` native giữ làm fallback auto-detect.
+> **Note:** Ollama from v0.1.24 supports OpenAI-compat at `/v1`. Recommend users use `openai` dialect with Ollama (`baseUrl = http://localhost:11434/v1`) for consistency. The `ollama` native dialect is kept as an auto-detect fallback.
 
-**Phủ sóng thực tế:**
+**Practical coverage:**
 
-| Tool             | Dialect khuyến nghị | Default base URL            |
+| Tool             | Recommended dialect | Default base URL            |
 | ---------------- | ------------------- | --------------------------- |
 | Ollama           | `openai`            | `http://localhost:11434/v1` |
 | LM Studio        | `openai`            | `http://localhost:1234/v1`  |
@@ -200,9 +200,9 @@ export interface LocalLlmGenerateResult {
 
 export class LocalLlmClient {
   async listModels(config: LocalLlmConfig): Promise<LocalModelInfo[]>;
-  // 1. Gọi endpoint theo dialect
-  // 2. Nếu 404 và dialect là 'openai' → fallback thử /api/tags (Ollama native)
-  // 3. Phân biệt lỗi: CORS | network unreachable | 404 (wrong dialect) | empty list
+  // 1. Call endpoint per dialect
+  // 2. If 404 and dialect is 'openai' → fallback to /api/tags (Ollama native)
+  // 3. Distinguish error types: CORS | network unreachable | 404 (wrong dialect) | empty list
 
   async testConnection(
     config: Omit<LocalLlmConfig, "modelId">,
@@ -218,20 +218,20 @@ export type ConnectionTestResult =
     };
 ```
 
-**Logic auto-detect (khi user nhập base URL mà chưa chọn dialect):**
+**Auto-detect logic (when user enters a base URL without selecting a dialect):**
 
 ```
-1. GET {baseUrl}/models          → nếu 200 + data[] → dialect: openai
-2. GET {baseUrl}/api/tags        → nếu 200 + models[] → dialect: ollama
+1. GET {baseUrl}/models          → if 200 + data[] → dialect: openai
+2. GET {baseUrl}/api/tags        → if 200 + models[] → dialect: ollama
 3. GET {baseUrl}/models (anthropic headers) → dialect: anthropic
-4. Nếu tất cả fail → trả về 'unreachable' hoặc 'cors'
+4. If all fail → return 'unreachable' or 'cors'
 ```
 
 ---
 
-### 4.3 Sinh câu hỏi (generate)
+### 4.3 Question generation
 
-Prompt template được xây từ ngữ cảnh form (certification, domain, difficulty, question count, questionType). Dùng lại cấu trúc prompt đã thiết kế ở backend providers để đảm bảo chất lượng đồng nhất:
+The prompt template is built from the form context (certification, domain, difficulty, question count, questionType). Reuse the prompt structure from the backend providers to ensure consistent quality:
 
 ```typescript
 async generateQuestions(
@@ -240,7 +240,7 @@ async generateQuestions(
 ): Promise<LocalLlmGenerateResult>
 ```
 
-**Cấu trúc JSON yêu cầu model trả về** (nhúng vào system prompt):
+**JSON structure requested from the model** (embedded in the system prompt):
 
 ```json
 {
@@ -259,34 +259,34 @@ async generateQuestions(
 }
 ```
 
-**Mapping dialect → generate request:**
+**Dialect → generate request mapping:**
 
-| Dialect     | Payload key cho nội dung                             | Cách set system prompt           |
-| ----------- | ---------------------------------------------------- | -------------------------------- |
-| `openai`    | `messages[{role:"system",...},{role:"user",...}]`    | message đầu với `role: "system"` |
-| `anthropic` | `messages[{role:"user",...}]` + field `system` riêng | field `system` ở top-level       |
-| `ollama`    | `prompt` (string đơn)                                | prefix vào `prompt`              |
+| Dialect     | Payload key for content                               | How to set system prompt          |
+| ----------- | ----------------------------------------------------- | --------------------------------- |
+| `openai`    | `messages[{role:"system",...},{role:"user",...}]`     | first message with `role: "system"` |
+| `anthropic` | `messages[{role:"user",...}]` + top-level `system`   | top-level `system` field          |
+| `ollama`    | `prompt` (single string)                              | prefix into `prompt`              |
 
 ---
 
 ### 4.4 JSON validation & repair
 
-Model local hay trả JSON lệch — đây là rủi ro #2. Quy trình xử lý theo pipeline:
+Local models frequently return malformed JSON — this is risk #2. Processing pipeline:
 
 ````
 rawText
-  → bước 1: JSON.parse() thẳng
-  → bước 2: extract từ markdown fence (```json ... ```)
-  → bước 3: extractBalancedJson() — tìm { } đầu tiên cân bằng
-  → bước 4: Zod parse theo schema LocalQuestionsResponseSchema
+  → step 1: JSON.parse() directly
+  → step 2: extract from markdown fence (```json ... ```)
+  → step 3: extractBalancedJson() — find the first balanced { }
+  → step 4: Zod parse with LocalQuestionsResponseSchema
        - isCorrect missing → default false
        - choices < 2 → discard question + warn user
        - quality_score missing → default 0.5
-  → bước 5: nếu < 1 question hợp lệ → báo lỗi, cho retry
-  → bước 6: hiển thị lên GeneratedQuestionsReview với số câu hợp lệ / tổng
+  → step 5: if < 1 valid question → error, allow retry
+  → step 6: display in GeneratedQuestionsReview with valid/total count
 ````
 
-**Schema Zod (frontend mirror của `McpQuestionDto`):**
+**Zod schema (frontend mirror of `McpQuestionDto`):**
 
 ```typescript
 // src/services/local-llm/schema.ts
@@ -312,9 +312,9 @@ export const LocalQuestionsResponseSchema = z.object({
 
 ---
 
-### 4.5 Intake vào BrainGym
+### 4.5 Intake into CertGym
 
-Sau khi user duyệt tại `GeneratedQuestionsReview`, map sang `McpIntakeDto` và POST:
+After the user approves questions in `GeneratedQuestionsReview`, map to `McpIntakeDto` and POST:
 
 ```typescript
 // src/services/local-llm/submit-intake.ts
@@ -330,23 +330,25 @@ export async function submitLocalQuestionsToIntake(
 ): Promise<McpIntakeResponse>;
 ```
 
-Gọi endpoint: `POST /api/v1/ai-questions/mcp/intake`
+Endpoint: `POST /api/v1/ai-questions/mcp/intake`
 
-**Behavior quality gate của intake hiện tại (không thay đổi):**
+**Intake quality gate (existing behavior, unchanged):**
 
-| quality_score | Status sau intake           |
-| ------------- | --------------------------- |
-| ≥ 0.8         | `APPROVED`                  |
-| 0.5 – 0.79    | `PENDING` (chờ admin duyệt) |
-| < 0.5         | discarded                   |
+The backend uses two constants: `QUALITY_HIGH = 0.85` and `QUALITY_MEDIUM = 0.6` (defined in `ai-question-bank.service.ts`).
 
-Câu hỏi từ model local không có `quality_score` đáng tin → default `0.6` → `PENDING` (an toàn, cần admin duyệt thêm).
+| quality_score  | Status after intake                   |
+| -------------- | ------------------------------------- |
+| ≥ 0.85         | `APPROVED`                            |
+| 0.60 – 0.84    | `PENDING` (awaiting admin review)     |
+| < 0.60         | discarded (not saved)                 |
+
+Questions from local models lack a reliable `quality_score`. The `mcpIntake()` service defaults a missing `quality_score` to `0.7`, which maps to `PENDING` — a safe default requiring admin review.
 
 ---
 
-### 4.6 Lưu trữ cấu hình local
+### 4.6 Local config storage
 
-Cấu hình local LLM **không** lưu DB (không có secret server-side cần encrypt). Dùng `localStorage`:
+Local LLM config is **not** stored in the database (no server-side secret to encrypt). Use `localStorage`:
 
 ```typescript
 // src/services/local-llm/config-storage.ts
@@ -356,7 +358,7 @@ export interface StoredLocalLlmConfig {
   baseUrl: string;
   modelId: string;
   apiKey?: string;
-  savedAt: string;       // ISO 8601
+  savedAt: string; // ISO 8601
 }
 
 // Key: "braingym:local-llm-config"
@@ -370,34 +372,34 @@ export const localLlmConfigStorage = {
 
 ---
 
-### 4.7 UI — mở rộng LlmConfigPanel
+### 4.7 UI — extending LlmConfigPanel
 
-Thêm tab/section **"Local LLM"** tách biệt với phần cloud BYOK hiện tại (không làm hỏng flow cũ):
+Add a **"Local LLM"** tab/section separate from the existing cloud BYOK section (no disruption to the existing flow):
 
 ```
 LlmConfigPanel
-  ├── [Cloud Providers]  ← giữ nguyên hoàn toàn
-  └── [Local LLM]         ← mới
+  ├── [Cloud Providers]  ← unchanged
+  └── [Local LLM]         ← new
         ├── Dialect selector
         │     • OpenAI-compatible (Ollama, LM Studio, llama.cpp, vLLM...)  ← default
         │     • Anthropic-compatible (proxy)  ← "(Advanced)"
         │     • Ollama native
         ├── Base URL input
-        │     placeholder theo dialect đã chọn
+        │     placeholder changes per dialect
         ├── API Key input (optional)
         │     placeholder: "Leave empty — not needed for local"
-        │     ⚠️  warning: "Đừng nhập API key cloud vào đây"
+        │     ⚠️  warning: "Do not enter a cloud API key here"
         ├── [Test Connection] button
-        │     loading state → kết quả:
+        │     loading state → result:
         │       ✅ Connected — N models found
-        │       ❌ CORS blocked  [Xem hướng dẫn ▾]
-        │       ❌ Unreachable — kiểm tra Ollama đang chạy
-        │       ❌ Wrong dialect — thử đổi sang OpenAI-compatible
-        │       ⚠️  No models — load model vào LM Studio trước
-        ├── Model dropdown (populate sau khi test OK)
+        │       ❌ CORS blocked  [View setup guide ▾]
+        │       ❌ Unreachable — check Ollama is running
+        │       ❌ Wrong dialect — try OpenAI-compatible
+        │       ⚠️  No models — load a model in LM Studio first
+        ├── Model dropdown (populated after successful test)
         ├── [Save local config]
-        └── [CORS setup guide ▾] (fold/unfold)
-              Hiển thị dynamic app origin (từ window.location.origin)
+        └── [CORS setup guide ▾] (collapsible)
+              Shows dynamic app origin (from window.location.origin)
               Ollama:  OLLAMA_ORIGINS=<origin> ollama serve
               LM Studio: Settings → Local Server → CORS → add origin
               llama.cpp: ./server --cors-allowed-origins "<origin>"
@@ -405,28 +407,28 @@ LlmConfigPanel
               Custom: Set Access-Control-Allow-Origin response header
 ```
 
-**Tại `GenerationForm`:**
+**In `GenerationForm`:**
 
-- Thêm option `LOCAL` trong provider selector
-- Khi chọn LOCAL: hiển thị model đã lưu (từ localStorage), ẩn field "API Key"
-- Khi chưa có config → hiển thị banner "Chưa cấu hình Local LLM" + link Settings
+- Add `LOCAL` option in the provider selector
+- When LOCAL is selected: show model from localStorage, hide the API Key field
+- When LOCAL is not yet configured → show a banner "Local LLM not configured" + link to Settings
 
 ---
 
-## 5. Xử lý lỗi & UX
+## 5. Error Handling & UX
 
-| Tình huống              | Phát hiện                                   | Thông báo người dùng                                                                                      |
-| ----------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| CORS blocked            | `fetch` throw `TypeError` với URL localhost | "CORS blocked. Thêm origin BrainGym vào `OLLAMA_ORIGINS` hoặc bật CORS trong LM Studio." + link hướng dẫn |
-| Server không chạy       | Connection refused                          | "Không kết nối được đến {baseUrl}. Kiểm tra Ollama/LM Studio đang chạy."                                  |
-| 404 endpoint            | HTTP 404                                    | "Endpoint không đúng. Thử đổi sang dialect OpenAI-compatible."                                            |
-| List model rỗng         | 200 + `data = []`                           | "Không có model nào đang nạp. Load model trong LM Studio trước khi refresh."                              |
-| JSON output lệch schema | Zod parse fail                              | "Model trả về {valid}/{total} câu hợp lệ. Thử lại hoặc chọn model khác."                                  |
-| 0 câu hợp lệ            | valid = 0                                   | Nút Retry nổi bật, không cho phép submit                                                                  |
-| Intake fail — auth      | 401 từ backend                              | "Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại."                                                        |
-| Intake fail — server    | 5xx từ backend                              | "Lỗi hệ thống. Câu hỏi chưa được lưu, thử lại sau."                                                       |
+| Situation               | Detection                                   | User message                                                                                           |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| CORS blocked            | `fetch` throws `TypeError` for localhost URL | "CORS blocked. Add the CertGym origin to `OLLAMA_ORIGINS` or enable CORS in LM Studio." + guide link  |
+| Server not running      | Connection refused                          | "Cannot connect to {baseUrl}. Check that Ollama/LM Studio is running."                                |
+| 404 endpoint            | HTTP 404                                    | "Endpoint not found. Try switching to OpenAI-compatible dialect."                                      |
+| Empty model list        | 200 + `data = []`                           | "No models loaded. Load a model in LM Studio before refreshing."                                       |
+| JSON output schema mismatch | Zod parse failure                       | "Model returned {valid}/{total} valid questions. Try again or choose a different model."               |
+| 0 valid questions       | valid = 0                                   | Retry button highlighted; submit blocked                                                               |
+| Intake failure — auth   | 401 from backend                            | "Session expired. Please log in again."                                                                |
+| Intake failure — server | 5xx from backend                            | "Server error. Questions were not saved, please try again."                                            |
 
-**Phân biệt CORS vs unreachable** (quan trọng, 2 lỗi trông giống nhau):
+**Distinguishing CORS vs unreachable** (important — both errors look similar):
 
 ```typescript
 try {
@@ -434,47 +436,47 @@ try {
   // ...
 } catch (err) {
   if (err instanceof TypeError && err.message.includes('fetch')) {
-    // Kiểm tra: thử fetch không có CORS header để xác nhận
-    // → nếu fail tương tự: 'unreachable'
-    // → nếu có response headers nhưng bị block: 'cors'
+    // Check: attempt fetch without CORS headers to confirm
+    // → if same failure: 'unreachable'
+    // → if response headers present but blocked: 'cors'
   }
-  if (err.name === 'TimeoutError') → 'unreachable'
+  if (err.name === 'TimeoutError') // → 'unreachable'
 }
 ```
 
 ---
 
-## 6. Bảo mật
+## 6. Security
 
-| Vấn đề                                 | Giải pháp                                                                  |
-| -------------------------------------- | -------------------------------------------------------------------------- |
-| SSRF từ browser — user nhập URL tùy ý  | Không cần whitelist phía ứng dụng — browser tự enforce CORS. Ứng dụng chỉ validate URL hợp lệ (`http`/`https` scheme). Soft-warning nếu URL khớp cloud provider chính thức để tránh nhầm section. |
-| API key cloud vô tình lưu localStorage | Warning rõ trong UI; label field là "optional, for local auth only"        |
-| JSON injection từ model output         | Parse `JSON.parse()` (không `eval`), validate Zod trước khi render         |
-| Câu hỏi chất lượng thấp vào bank       | Human review bắt buộc + intake quality gate → `PENDING` mặc định           |
-| Intake endpoint                        | JWT guard giữ nguyên, không thay đổi                                       |
+| Concern                                  | Mitigation                                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| SSRF from browser — user enters any URL  | No server-side allowlist needed — browser CORS policy enforces access. App only validates `http`/`https` scheme. Soft warning if URL matches an official cloud provider to avoid misuse. |
+| Cloud API key accidentally saved to localStorage | Clear warning in UI; field labeled "optional, for local auth only"                      |
+| JSON injection from model output         | Parse via `JSON.parse()` (not `eval`); Zod validation before render                              |
+| Low-quality questions entering the bank  | Mandatory human review + intake quality gate → `PENDING` by default                              |
+| Intake endpoint                          | JWT guard unchanged                                                                               |
 
 ---
 
-## 7. Backend — thay đổi tối thiểu
+## 7. Backend — minimal changes
 
-Luồng local LLM **không yêu cầu** thay đổi backend. Các bổ sung dưới đây là **tùy chọn** để cải thiện observability:
+The local LLM flow **does not require** backend changes. The additions below are **optional** for improved observability:
 
-### Tùy chọn A — Thêm provenance vào McpIntakeDto _(khuyến nghị làm ngay)_
+### Option A — Add provenance to McpIntakeDto _(recommended for current sprint)_
 
 ```typescript
 // backend/src/ai-question-bank/mcp/mcp-intake.dto.ts
 
 @IsOptional()
-source?: 'MCP' | 'LOCAL_LLM';    // truy vết nguồn câu hỏi
+source?: 'MCP' | 'LOCAL_LLM';    // track question origin
 
 @IsOptional()
-localModelId?: string;           // vd: "llama3.2:3b"
+localModelId?: string;           // e.g. "llama3.2:3b"
 ```
 
-Không breaking change — field optional, intake hiện tại vẫn chạy đúng.
+Non-breaking — field is optional; existing intake logic continues to work.
 
-### Tùy chọn B — Thêm `LOCAL` vào enum LlmProvider _(sprint sau)_
+### Option B — Add `LOCAL` to the `LlmProvider` enum _(next sprint)_
 
 ```prisma
 // backend/prisma/schema.prisma
@@ -482,28 +484,28 @@ enum LlmProvider {
   OPENAI
   ANTHROPIC
   GEMINI
-  LOCAL      // ← nếu muốn tracking job/usage analytics
+  LOCAL      // ← if job/usage analytics tracking is needed
 }
 ```
 
 ---
 
-## 8. Kế hoạch triển khai
+## 8. Implementation Plan
 
-### Effort ước tính: **5.5–7 SP** (Frontend-heavy)
+### Estimated effort: **5.5–7 SP** (frontend-heavy)
 
-| Phạm vi                   | SP       |
+| Scope                     | SP       |
 | ------------------------- | -------- |
-| Frontend (Task 1–4)       | 5 SP     |
+| Frontend (Tasks 1–4)      | 5 SP     |
 | Backend optional (Task 5) | 0.5 SP   |
 | Test & QA (Task 6)        | 1.5 SP   |
-| **Tổng**                  | **7 SP** |
+| **Total**                 | **7 SP** |
 
 ---
 
-### Task 1 — Lớp trừu tượng & Model discovery (2 SP)
+### Task 1 — Abstraction layer & Model discovery (2 SP)
 
-**Files mới:**
+**New files:**
 
 - `src/services/local-llm/types.ts`
 - `src/services/local-llm/local-llm-client.ts`
@@ -511,89 +513,89 @@ enum LlmProvider {
 
 **Checklist:**
 
-- [ ] Định nghĩa `LocalLlmDialect`, `LocalLlmConfig`, `LocalModelInfo`, `ConnectionTestResult`
-- [ ] `listModels()` cho cả 3 dialect (openai / anthropic / ollama)
-- [ ] Auto-detect: thử OpenAI endpoint → fallback Ollama native `/api/tags`
-- [ ] `testConnection()` → phân loại 4 loại kết quả (ok / cors / unreachable / wrong_dialect / empty)
-- [ ] Base URL validator: chỉ cho phép localhost / 127.0.0.1 / [::1] / \*.local
-- [ ] `localLlmConfigStorage` (get / set / clear với key `braingym:local-llm-config`)
-- [ ] Unit test (vitest): mock fetch, test từng dialect, test mỗi loại lỗi
+- [ ] Define `LocalLlmDialect`, `LocalLlmConfig`, `LocalModelInfo`, `ConnectionTestResult`
+- [ ] `listModels()` for all 3 dialects (openai / anthropic / ollama)
+- [ ] Auto-detect: try OpenAI endpoint → fallback to Ollama native `/api/tags`
+- [ ] `testConnection()` → classify 4 result types (ok / cors / unreachable / wrong_dialect / empty)
+- [ ] Base URL validator: allow localhost / 127.0.0.1 / [::1] / *.local
+- [ ] `localLlmConfigStorage` (get / set / clear with key `braingym:local-llm-config`)
+- [ ] Unit tests (vitest): mock fetch, test each dialect, test each error type
 
 ---
 
 ### Task 2 — Prompt builder, generate & JSON validation (2 SP)
 
-**Files mới:**
+**New files:**
 
 - `src/services/local-llm/prompt-builder.ts`
 - `src/services/local-llm/schema.ts`
 
-**Files sửa:**
+**Modified files:**
 
-- `src/services/local-llm/local-llm-client.ts` — thêm `generateQuestions()`
+- `src/services/local-llm/local-llm-client.ts` — add `generateQuestions()`
 
 **Checklist:**
 
-- [ ] `buildPrompt(params: GenerationParams): { system: string; user: string }` — tái dụng cấu trúc prompt từ backend providers làm chuẩn
-- [ ] `generateQuestions()` cho cả 3 dialect (payload format khác nhau theo bảng §4.3)
-- [ ] `extractAndValidate(rawText): { valid: ValidatedLocalQuestion[]; total: number }` — pipeline 6 bước §4.4
+- [ ] `buildPrompt(params: GenerationParams): { system: string; user: string }` — reuse backend provider prompt structure for consistency
+- [ ] `generateQuestions()` for all 3 dialects (payload format differs per table in §4.3)
+- [ ] `extractAndValidate(rawText): { valid: ValidatedLocalQuestion[]; total: number }` — 6-step pipeline from §4.4
 - [ ] Zod schema `LocalQuestionsResponseSchema`
-- [ ] Unit test: JSON hoàn hảo, JSON trong markdown fence, JSON broken, JSON hoàn toàn sai, 0 câu hợp lệ
+- [ ] Unit tests: perfect JSON, JSON in markdown fence, broken JSON, completely invalid JSON, 0 valid questions
 
 ---
 
-### Task 3 — UI: LlmConfigPanel mở rộng Local tab (1 SP)
+### Task 3 — UI: LlmConfigPanel extended with Local tab (1 SP)
 
-**Files sửa:**
+**Modified files:**
 
 - `src/components/ai-questions/LlmConfigPanel.tsx`
 
 **Checklist:**
 
-- [ ] Thêm tab / section "Local LLM" không làm hỏng flow cloud hiện tại
-- [ ] Dialect selector (3 options, `openai` là default)
-- [ ] Base URL input với placeholder thay đổi theo dialect
-- [ ] API Key input (optional) + warning không nhập key cloud
-- [ ] Nút "Test Connection" + hiển thị kết quả (`ConnectionTestResult`)
-- [ ] Model dropdown (populate sau khi test OK), disabled khi chưa test
-- [ ] Nút "Save" → `localLlmConfigStorage.set()`
-- [ ] CORS setup guide (fold/unfold, nội dung theo §5)
+- [ ] Add "Local LLM" tab/section without breaking existing cloud flow
+- [ ] Dialect selector (3 options, `openai` is default)
+- [ ] Base URL input with placeholder changing per dialect
+- [ ] API Key input (optional) + warning not to enter cloud keys
+- [ ] "Test Connection" button + result display (`ConnectionTestResult`)
+- [ ] Model dropdown (populated after successful test), disabled until tested
+- [ ] "Save" button → `localLlmConfigStorage.set()`
+- [ ] CORS setup guide (collapsible, content per §5)
 
 ---
 
-### Task 4 — GenerationForm (LOCAL provider) + submit intake (1 SP)
+### Task 4 — GenerationForm (LOCAL provider) + intake submit (1 SP)
 
-**Files sửa:**
+**Modified files:**
 
 - `src/components/ai-questions/GenerationForm.tsx`
 
-**Files mới:**
+**New files:**
 
 - `src/services/local-llm/submit-intake.ts`
 
 **Checklist:**
 
-- [ ] Thêm option `LOCAL` trong provider selector
-- [ ] Khi chọn LOCAL: hiển thị model từ localStorage, ẩn API key field
-- [ ] Khi chưa cấu hình LOCAL → banner + link Settings
-- [ ] Gọi `LocalLlmClient.generateQuestions()` khi submit form
-- [ ] Hiển thị kết quả qua `GeneratedQuestionsReview` (tái dụng, không sửa)
-- [ ] `submitToIntake()`: map sang `McpIntakeDto` → `POST /ai-questions/mcp/intake`
-- [ ] Toast success ("N câu đã gửi vào ngân hàng") / error phân loại
+- [ ] Add `LOCAL` option in provider selector
+- [ ] When LOCAL selected: show model from localStorage, hide API key field
+- [ ] When LOCAL not configured → banner + link to Settings
+- [ ] Call `LocalLlmClient.generateQuestions()` on form submit
+- [ ] Display results via `GeneratedQuestionsReview` (reused, no changes)
+- [ ] `submitToIntake()`: map to `McpIntakeDto` → `POST /api/v1/ai-questions/mcp/intake`
+- [ ] Toast success ("N questions submitted to bank") / classified error messages
 
 ---
 
 ### Task 5 — Backend: provenance field (0.5 SP)
 
-**Files sửa:**
+**Modified files:**
 
 - `backend/src/ai-question-bank/mcp/mcp-intake.dto.ts`
 
 **Checklist:**
 
-- [ ] Thêm `source?: 'MCP' | 'LOCAL_LLM'` (optional, `@IsOptional()`)
-- [ ] Thêm `localModelId?: string` (optional, `@IsOptional()`)
-- [ ] Không thay đổi logic `mcpIntake()` — chỉ lưu thêm metadata
+- [ ] Add `source?: 'MCP' | 'LOCAL_LLM'` (optional, `@IsOptional()`)
+- [ ] Add `localModelId?: string` (optional, `@IsOptional()`)
+- [ ] No change to `mcpIntake()` logic — metadata only
 
 ---
 
@@ -601,62 +603,62 @@ enum LlmProvider {
 
 **Checklist:**
 
-- [ ] Unit test Task 1 + Task 2 đủ các edge case
-- [ ] E2E Playwright: mock local LLM endpoint → generate → review → submit intake → verify question tạo ra ở trạng thái PENDING
-- [ ] Test lỗi CORS: mock server không có CORS header → verify error message đúng loại
-- [ ] Test JSON hỏng: mock trả markdown + broken JSON → verify pipeline repair
-- [ ] Test thực tế với Ollama (integration test hoặc manual)
-- [ ] Test thực tế với LM Studio (manual)
-- [ ] Accessibility: keyboard navigation trên model dropdown, aria-label
+- [ ] Unit tests for Tasks 1 + 2 covering all edge cases
+- [ ] E2E Playwright: mock local LLM endpoint → generate → review → submit intake → verify question created with status `PENDING`
+- [ ] CORS error test: mock server with no CORS header → verify correct error classification
+- [ ] Broken JSON test: mock returning markdown + broken JSON → verify repair pipeline
+- [ ] Real test with Ollama (integration test or manual)
+- [ ] Real test with LM Studio (manual)
+- [ ] Accessibility: keyboard navigation on model dropdown, aria-labels
 - [ ] Responsive: mobile 375px (form, dropdown)
 
 ---
 
-### Sơ đồ phụ thuộc task
+### Task dependency diagram
 
 ```
 Task 1 ──→ Task 2 ──→ Task 4
 Task 1 ──→ Task 3
-Task 5    (độc lập)
-Task 6    (sau Task 1–4 hoàn thành)
+Task 5    (independent)
+Task 6    (after Tasks 1–4 complete)
 ```
 
-Task 1 và Task 5 có thể làm song song trong cùng sprint.
+Tasks 1 and 5 can be worked in parallel in the same sprint.
 
 ---
 
 ## 9. Acceptance Criteria
 
-| #     | Điều kiện                                                                    | Kết quả mong đợi                                                              |
-| ----- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| AC-1  | Cấu hình Ollama (`openai` dialect, `localhost:11434/v1`) → Test Connection   | ✅ danh sách model đang nạp                                                   |
-| AC-2  | Cấu hình LM Studio (`openai` dialect, `localhost:1234/v1`) → Test Connection | ✅ model đang load trong LM Studio                                            |
-| AC-3  | Ollama chưa set `OLLAMA_ORIGINS` → Test Connection                           | ❌ "CORS blocked" + hướng dẫn                                                 |
-| AC-4  | Ollama không chạy → Test Connection                                          | ❌ "Unreachable"                                                              |
-| AC-5  | Base URL sai dialect (404)                                                   | ❌ "Wrong dialect — thử OpenAI-compatible"                                    |
-| AC-6  | Generate 5 câu từ Ollama (llama3.2:3b)                                       | Hiển thị đủ 5 câu trong review; không call API cloud; không trừ quota         |
-| AC-7  | Model trả JSON lệch schema (thiếu field)                                     | Hiển thị "{valid}/5 câu hợp lệ" + tùy chọn retry                              |
-| AC-8  | Model trả hoàn toàn không phải JSON                                          | 0 câu hợp lệ, nút Retry nổi bật, không cho submit                             |
-| AC-9  | Submit sau khi review                                                        | Câu hỏi xuất hiện trong bank với status `PENDING`                             |
-| AC-10 | Chưa cấu hình Local LLM nhưng chọn provider LOCAL                            | Banner hướng dẫn, không crash                                                 |
-| AC-11 | Verify không tạo cloud API call                                              | DevTools Network: không có request đến `api.anthropic.com` / `api.openai.com` |
-| AC-12 | Verify không tạo `QuestionGenerationJob` record                              | Không xuất hiện entry mới trong `/ai-questions/history`                       |
+| #     | Condition                                                                    | Expected result                                                              |
+| ----- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| AC-1  | Configure Ollama (`openai` dialect, `localhost:11434/v1`) → Test Connection  | ✅ list of loaded models                                                     |
+| AC-2  | Configure LM Studio (`openai` dialect, `localhost:1234/v1`) → Test Connection | ✅ model loaded in LM Studio                                               |
+| AC-3  | Ollama without `OLLAMA_ORIGINS` set → Test Connection                        | ❌ "CORS blocked" + setup guide                                              |
+| AC-4  | Ollama not running → Test Connection                                         | ❌ "Unreachable"                                                             |
+| AC-5  | Wrong dialect base URL (404)                                                 | ❌ "Wrong dialect — try OpenAI-compatible"                                   |
+| AC-6  | Generate 5 questions from Ollama (llama3.2:3b)                               | 5 questions shown in review; no cloud API call; no backend quota consumed    |
+| AC-7  | Model returns JSON with missing fields                                       | Displays "{valid}/5 valid questions" + retry option                          |
+| AC-8  | Model returns completely non-JSON output                                     | 0 valid questions, Retry button prominent, submit blocked                    |
+| AC-9  | Submit after review                                                          | Questions appear in bank with status `PENDING`                               |
+| AC-10 | LOCAL provider selected before Local LLM is configured                       | Setup banner displayed, no crash                                             |
+| AC-11 | Verify no cloud API call is made                                             | DevTools Network: no request to `api.anthropic.com` / `api.openai.com`      |
+| AC-12 | Verify no `QuestionGenerationJob` record is created                          | No new entry in `/api/v1/ai-questions/history`                               |
 
 ---
 
-## 10. Rủi ro & Giảm thiểu
+## 10. Risks & Mitigations
 
-| Rủi ro                                   | Mức            | Giảm thiểu                                                                                                   |
-| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------ |
-| CORS blocked browser → self-hosted LLM   | **Cao**        | UI hướng dẫn cấu hình CORS cho từng loại server; Test Connection chẩn đoán chính xác; docs inline           |
-| JSON output kém từ model nhỏ (7B/8B)     | **Cao**        | Pipeline repair 6 bước; Zod validate; human review bắt buộc; default `quality_score = 0.6` → PENDING         |
-| Mixed content HTTPS app → HTTP localhost | **Trung bình** | Chrome/Firefox/Edge OK với localhost (potentially trustworthy); Safari cần test và có thể cần hướng dẫn thêm |
-| LM Studio chỉ list model đang load       | **Thấp–TB**    | Ghi chú UI rõ ràng; hướng dẫn load model trước                                                               |
-| API key cloud vô tình lưu localStorage   | **Thấp**       | Warning trong UI; label field là "optional, local auth only"                                                 |
-| Anthropic-compat proxy ít server hỗ trợ  | **Thấp**       | Đánh dấu "(Advanced)"; mặc định OpenAI-compat; không ưu tiên trong demo/docs                                 |
-| SSRF từ browser — URL tùy ý              | **Thấp**       | Whitelist localhost/loopback validate trước khi fetch                                                        |
+| Risk                                       | Severity       | Mitigation                                                                                                    |
+| ------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------- |
+| CORS blocked browser → self-hosted LLM     | **High**       | UI guides CORS configuration per server type; Test Connection diagnoses accurately; inline docs               |
+| Poor JSON output from small models (7B/8B) | **High**       | 6-step repair pipeline; Zod validation; mandatory human review; default `quality_score = 0.7` → PENDING       |
+| Mixed content HTTPS app → HTTP localhost   | **Medium**     | Chrome/Firefox/Edge OK with localhost (potentially trustworthy); Safari needs additional testing and guidance |
+| LM Studio only lists loaded models         | **Low–Medium** | Clear UI note; guide users to load a model first                                                             |
+| Cloud API key accidentally saved in localStorage | **Low**   | UI warning; field labeled "optional, local auth only"                                                        |
+| Anthropic-compat proxy has limited server support | **Low** | Marked "(Advanced)"; defaults to OpenAI-compat; not prioritized in demos/docs                               |
+| SSRF from browser — arbitrary URL          | **Low**        | localhost/loopback allowlist validation before fetch                                                         |
 
 ---
 
-_Document này theo dõi thiết kế feature US-XXXX — Local LLM Question Generation.
-Cập nhật khi có thay đổi thiết kế hoặc sau sprint review._
+_This document tracks the design for feature US-XXXX — Local LLM Question Generation.
+Update when design changes or after sprint review._
