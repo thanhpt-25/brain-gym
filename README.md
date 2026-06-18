@@ -73,6 +73,7 @@ docker-compose up -d --build
 | Frontend | http://localhost |
 | Backend API | http://localhost/api/v1 |
 | Swagger docs | http://localhost/api/docs |
+| Markitdown | http://localhost:8001 (internal) |
 
 Stop all services: `docker-compose down`
 
@@ -86,7 +87,7 @@ Stop all services: `docker-compose down`
 | **Backend** | NestJS 11, TypeScript, Prisma ORM, Passport.js (JWT), Swagger/OpenAPI |
 | **Database** | PostgreSQL 16 |
 | **Cache** | Redis 7 |
-| **Infrastructure** | Docker, Docker Compose, Nginx |
+| **Infrastructure** | Docker, Docker Compose, Nginx, Markitdown |
 | **Testing** | Vitest (frontend), Jest (backend), Playwright (e2e) |
 
 ---
@@ -133,10 +134,10 @@ brain-gym/
 
 ## Development Setup
 
-### 1. Start infrastructure (Postgres + Redis)
+### 1. Start infrastructure (Postgres + Redis + Markitdown)
 
 ```bash
-docker-compose up -d postgres redis
+docker-compose up -d postgres redis markitdown
 ```
 
 ### 2. Backend
@@ -193,6 +194,7 @@ The frontend proxies `/api` to `localhost:3000` via Vite's dev server — no COR
 
 ```bash
 VITE_API_BASE_URL=/api/v1          # override for cloud deployments
+VITE_GOOGLE_CLIENT_ID=             # required for Google OAuth (Docker build)
 ```
 
 ### Backend (`backend/.env`)
@@ -206,6 +208,7 @@ JWT_REFRESH_SECRET=change-me
 LLM_KEY_ENCRYPTION_SECRET=change-me
 PORT=3000
 NODE_ENV=development
+MARKITDOWN_LOCAL_URL=http://markitdown:8001
 ```
 
 > Do not commit `.env` files. `.gitignore` already excludes them.

@@ -1,4 +1,4 @@
-# Brain Gym — Basic Design Document
+# CertGym — Basic Design Document
 
 > **Version:** 1.0  
 > **Date:** April 3, 2026  
@@ -26,7 +26,7 @@
 
 ### 1.1 Vision
 
-Brain Gym is a **community-driven certification exam preparation platform** designed as a high-performance training system — not just a question bank. The platform helps learners train memory, refine reasoning, and build mental stamina for high-stakes certifications (AWS, Azure, GCP, etc.).
+CertGym is a **community-driven certification exam preparation platform** designed as a high-performance training system — not just a question bank. The platform helps learners train memory, refine reasoning, and build mental stamina for high-stakes certifications (AWS, Azure, GCP, etc.).
 
 ### 1.2 Core Pillars
 
@@ -59,12 +59,12 @@ Brain Gym is a **community-driven certification exam preparation platform** desi
 
 ```mermaid
 C4Context
-    title System Context — Brain Gym
+    title System Context — CertGym
 
     Person(learner, "Learner", "Studies for certifications")
     Person(contributor, "Contributor", "Creates questions and exams")
 
-    System(brainGym, "Brain Gym Platform", "Exam simulation, flashcards, training, and analytics")
+    System(brainGym, "CertGym Platform", "Exam simulation, flashcards, training, and analytics")
 
     System_Ext(llm, "LLM Provider", "OpenAI / Anthropic / Gemini for AI question generation")
     System_Ext(db, "PostgreSQL", "Persistent data store")
@@ -81,7 +81,7 @@ C4Context
 
 ```mermaid
 C4Container
-    title Container Diagram — Brain Gym
+    title Container Diagram — CertGym
 
     Container(spa, "Frontend SPA", "React 18, Vite, TypeScript", "Interactive exam simulation & training UI")
     Container(api, "Backend API", "NestJS, TypeScript", "REST API: auth, exams, questions, AI, analytics")
@@ -153,7 +153,7 @@ sequenceDiagram
 | Auth | Passport.js + JWT (`@nestjs/jwt`) |
 | Validation | class-validator + class-transformer |
 | API Docs | Swagger / OpenAPI (`@nestjs/swagger`) |
-| Rate Limiting | `@nestjs/throttler` (60 req/min default) |
+| Rate Limiting | `@nestjs/throttler` (300 req/min default) |
 | PDF Parsing | pdf-parse (for source materials) |
 | Encryption | bcryptjs (passwords), custom AES (LLM keys) |
 | MCP | `@modelcontextprotocol/sdk` |
@@ -172,7 +172,7 @@ sequenceDiagram
 
 ## 4. Data Model
 
-The persistent layer uses **PostgreSQL** managed via **Prisma ORM**. The schema defines **25 models** across 6 data domains, with **16 enums** for type safety.
+The persistent layer uses **PostgreSQL** managed via **Prisma ORM**. The schema defines **68 models** across 6 data domains, with **33 enums** for type safety.
 
 ### 4.1 Entity Relationship Overview
 
@@ -248,7 +248,7 @@ erDiagram
 | **UUID Primary Keys** | All models use `@default(uuid())` |
 | **Cascading Deletes** | Orphan cleanup (e.g., Question → Choices, User → Decks) |
 | **Soft Delete** | Questions use `deletedAt` field |
-| **Database Enums** | 16 enums for strict type safety at the DB level |
+| **Database Enums** | 33 enums for strict type safety at the DB level |
 | **JSON Fields** | Flexible schemas for `Exam.difficultyDist`, `Badge.criteria`, `ExamAttempt.domainScores` |
 | **Composite Indexes** | Performance indexes on `[certificationId, status]`, `[action]`, `[targetType, targetId]` |
 | **Snake_case Mapping** | Prisma `@map()` bridges TypeScript camelCase to PostgreSQL snake_case |
@@ -266,7 +266,7 @@ erDiagram
 | Format | JSON exclusively |
 | Validation | `class-validator` + `class-transformer` via NestJS `ValidationPipe` |
 | Docs | Swagger UI at `/api/docs` (dev mode) |
-| Rate Limit | 60 requests per minute (global `ThrottlerGuard`) |
+| Rate Limit | 300 requests per minute (global `ThrottlerGuard`) |
 
 ### 5.2 HTTP Status Codes
 
@@ -487,7 +487,7 @@ Implementation: `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles()` metadata dec
 | SQL Injection | Prisma ORM parameterized queries |
 | Cross-Site Forgery | CORS whitelist via `CORS_ORIGINS` env |
 | Token Theft | Short-lived access tokens, refresh rotation |
-| DDoS / Spam | `@nestjs/throttler` at 60 req/min globally |
+| DDoS / Spam | `@nestjs/throttler` at 300 req/min globally |
 | Sensitive Key Exposure | LLM API keys encrypted at rest in DB |
 
 ---
@@ -504,6 +504,7 @@ graph TB
         Backend["backend (NestJS)<br/>Port: 3000"]
         Postgres["postgres (16-alpine)<br/>Port: 5432"]
         Redis["redis (7-alpine)<br/>Port: 6379"]
+        Markitdown["markitdown<br/>Port: 8001"]
     end
 
     Client((Browser)) --> Nginx
@@ -511,12 +512,14 @@ graph TB
     Nginx -->|"/api/* proxy"| Backend
     Backend --> Postgres
     Backend --> Redis
+    Backend -->|"Document conversion"| Markitdown
 
     style Nginx fill:#2d6a4f,stroke:#1b4332,color:white
     style Frontend fill:#457b9d,stroke:#1d3557,color:white
     style Backend fill:#e76f51,stroke:#264653,color:white
     style Postgres fill:#264653,stroke:#2a9d8f,color:white
     style Redis fill:#e63946,stroke:#1d3557,color:white
+    style Markitdown fill:#6b4c9a,stroke:#1d3557,color:white
 ```
 
 ### 8.2 Container Details
@@ -528,6 +531,7 @@ graph TB
 | `braingym-backend` | `node` | NestJS API server; runs Prisma migrations on boot |
 | `braingym-postgres` | `postgres:16-alpine` | Primary data store with health checks |
 | `braingym-redis` | `redis:7-alpine` | Cache layer with health checks |
+| `braingym-markitdown` | Custom (`Dockerfile.local`) | Document-to-markdown conversion service for source material ingestion |
 
 ### 8.3 Environment Configuration
 
@@ -565,7 +569,7 @@ graph TB
 
 ### 9.2 MCP Server Integration
 
-The Brain Gym MCP Server (`backend/src/mcp-server.ts`) enables external AI tools (Claude Desktop, NotebookLM, etc.) to push bulk-generated questions via the Model Context Protocol:
+The CertGym MCP Server (`backend/src/mcp-server.ts`) enables external AI tools (Claude Desktop, NotebookLM, etc.) to push bulk-generated questions via the Model Context Protocol:
 
 ```
 External AI Tool → MCP Server (stdio) → POST /api/v1/ai-questions/mcp/intake → Quality Gate → PostgreSQL
@@ -578,7 +582,7 @@ External AI Tool → MCP Server (stdio) → POST /api/v1/ai-questions/mcp/intake
 | Requirement | Target |
 | :--- | :--- |
 | **Performance** | API responses < 200ms for standard queries |
-| **Rate Limiting** | 60 requests/minute per client (global) |
+| **Rate Limiting** | 300 requests/minute per client (global) |
 | **Code Splitting** | All pages lazy-loaded via `React.lazy()` |
 | **Type Safety** | Full TypeScript coverage (frontend & backend) |
 | **Data Integrity** | 16 DB-level enums, cascading deletes, soft-delete for questions |

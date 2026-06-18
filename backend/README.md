@@ -92,6 +92,7 @@ JWT_REFRESH_SECRET=your-refresh-secret
 LLM_KEY_ENCRYPTION_SECRET=your-encryption-secret
 PORT=3000
 NODE_ENV=development
+MARKITDOWN_LOCAL_URL=http://markitdown:8001
 ```
 
 In production, secrets are injected via AWS Secrets Manager — see [docs/deployment/aws-overview.md](../docs/deployment/aws-overview.md).
