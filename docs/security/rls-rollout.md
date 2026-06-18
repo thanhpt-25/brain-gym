@@ -19,7 +19,7 @@ RLS policies use `current_setting('app.org_id', true)` set per-request by `RlsIn
 
 **Tables:** `org_members`, `org_questions`
 
-**Policy:** `FOR ALL USING (org_id::text = COALESCE(current_setting('app.org_id', true), ''))`
+**Policy:** `FOR ALL USING (org_id::text = COALESCE(current_setting('app.org_id', true), '')) WITH CHECK (org_id::text = COALESCE(current_setting('app.org_id', true), ''))`
 
 **Test coverage:** `backend/test/security/rls.cross-org.e2e-spec.ts` — `org_members RLS`, `org_questions RLS`
 
@@ -29,7 +29,7 @@ RLS policies use `current_setting('app.org_id', true)` set per-request by `RlsIn
 
 **Tables:** `org_groups`, `org_invites`, `assessments`
 
-**Policy:** Same pattern as Phase-1 — `FOR ALL USING / WITH CHECK` on `org_id`.
+**Policy:** Same pattern as Phase-1 — `FOR ALL USING (...) WITH CHECK (...)` on `org_id`. All three tables also use `FORCE ROW LEVEL SECURITY` so that the table owner cannot bypass policies.
 
 **Test coverage:** `backend/test/security/rls.cross-org.e2e-spec.ts` — `org_groups RLS`, `org_invites RLS`, `assessments RLS`
 
