@@ -1,97 +1,136 @@
-# AWS Deployment Setup Guide
+# AWS Deployment Overview
 
-This guide walks through setting up CI/CD to deploy CertGym to AWS (ECS Fargate + RDS + ElastiCache + S3 + CloudFront).
+This guide walks through setting up CI/CD to deploy CertGym to AWS (ECS Fargate + RDS + ElastiCache + S3 + CloudFront + Lambda).
 
 ## Prerequisites
 
 - AWS account with appropriate permissions
 - GitHub repository with branch protection rules enabled
-- Docker images pushed to ECR
-- Terraform or CDK (for infrastructure as code)
+- Terraform >= 1.0 for infrastructure provisioning (see `aws-terraform.md`)
 
 ---
 
 ## Phase 1: AWS Infrastructure Setup
 
-Use Terraform (recommended) or CloudFormation to provision:
+All infrastructure is managed by Terraform in `infra/`. The sections below describe what is provisioned and why.
 
 ### Networking
-- VPC with 2 public + 2 private subnets across 2 AZs
-- NAT Gateway for private subnets
-- Security groups:
-  - ALB: allow 80/443 from 0.0.0.0/0
-  - ECS: allow 3000 from ALB, 5432 from ECS, 6379 from ECS
-  - RDS: allow 5432 from ECS
-  - ElastiCache: allow 6379 from ECS
 
-### Compute & Storage
-- **ECR Repository**: `braingym-backend` (shared across environments, tagged by commit SHA)
-- **ECS Cluster**: `braingym-staging` and `braingym-production`
-- **ECS Task Definition**: `braingym-backend` (Fargate, 512 CPU / 1024 MB memory minimum)
-- **RDS PostgreSQL 16**: private subnets, multi-AZ recommended for prod
-- **ElastiCache Redis 7**: private subnets, single-node for staging, cluster for prod
-- **S3 Bucket**: private (BlockPublicAccess enabled), OAC for CloudFront
-- **CloudFront Distribution**: 
-  - Origin 1: S3 bucket (with OAC)
-  - Origin 2: ALB (for /api/v1 routing)
-  - Behaviors:
-    - `/api/v1/*` → ALB
-    - `/` → S3 with SPA error handling (403/404 → /index.html)
-- **Application Load Balancer**: target group → ECS service, health check on `/api/v1/health`
+Provisioned in `infra/main.tf`:
+
+- VPC (`10.0.0.0/16`) with 2 public + 2 private subnets across 2 AZs (`us-east-1a`, `us-east-1b`)
+- Single NAT Gateway (staging cost saving; production may use one per AZ)
+- Security groups:
+  - `braingym-{env}-alb-sg` — allows 80/443 from `0.0.0.0/0`
+  - `braingym-{env}-ecs-sg` — allows port 3000 from ALB SG only
+  - `braingym-{env}-rds-sg` — allows port 5432 from ECS SG only
+  - `braingym-{env}-redis-sg` — allows port 6379 from ECS SG only
+- CloudWatch Log Group `/ecs/braingym-backend` (retention: 7 days staging, 30 days production)
+
+### Compute
+
+Provisioned in `infra/ecs.tf` and `infra/ecr.tf`:
+
+- **ECR Repositories**:
+  - `braingym-backend` — NestJS API container images (lifecycle: keep last 10)
+  - `braingym-markitdown` — Markitdown Lambda container images (lifecycle: keep last 5)
+- **ECS Cluster**: `braingym-{env}` with Container Insights enabled; Fargate + Fargate Spot capacity providers
+- **ECS Task Definitions** (both Fargate, `awsvpc` network mode, 512 CPU / 1024 MB memory):
+  - `braingym-backend` — main service; 1 container on port 3000
+  - `braingym-backend-migrate` — one-off migration task; no port mappings; runs `sh docker-entrypoint.sh migrate`
+- **ECS Service**: `braingym-backend`; rolling deployment with circuit breaker + auto-rollback
+- **Lambda Function**: `braingym-{env}-markitdown`; container image package; 1024 MB / 5 min timeout
+
+### Storage
+
+Provisioned in `infra/rds.tf`, `infra/elasticache.tf`, `infra/s3_cloudfront.tf`, `infra/s3_materials.tf`:
+
+- **RDS PostgreSQL 16**: `braingym-{env}`, private subnets, `gp3` storage, encrypted at rest; multi-AZ disabled for staging
+- **ElastiCache Redis 7**: replication group `braingym-{env}`, `cache.t3.micro` (staging), encrypted at rest; in-transit encryption disabled by default (requires app TLS support)
+- **S3 buckets** (all private, BlockPublicAccess enabled, AES-256 encryption):
+  - `braingym-{env}-frontend` — React SPA static files
+  - `braingym-{env}-avatars` — user avatar uploads (presigned PUT URLs; served via CloudFront `/avatars/*`)
+  - `braingym-{env}-materials-tmp` — temporary staging for uploaded study materials; auto-deleted after 24 h
+
+### CDN & DNS
+
+Provisioned in `infra/s3_cloudfront.tf`, `infra/dns.tf`:
+
+- **CloudFront Distribution** with three origins:
+  - `s3-frontend` (default) — private S3 frontend bucket, accessed via OAC
+  - `s3-avatars` — private S3 avatars bucket, accessed via OAC; path `/avatars/*`
+  - `alb-backend` — ALB DNS name over HTTP; path `/api/v1/*`
+- SPA error handling: 403/404 from S3 → return `index.html` with HTTP 200
+- **Route53 Hosted Zone** for `brain-gym.biz`; ACM certificate (DNS validation, `us-east-1`) covers apex + `www`
+- Custom domain aliases: `brain-gym.biz` and `www.brain-gym.biz`
+
+### Application Load Balancer
+
+Provisioned in `infra/alb.tf`:
+
+- Internet-facing ALB in public subnets
+- Target group `braingym-{env}`: protocol HTTP, port 3000, target type `ip` (required for Fargate)
+- Health check: `GET /api/v1/health`, 2 healthy / 3 unhealthy thresholds, 30-second interval
+- HTTP listener on port 80 → forwards to target group (CloudFront handles HTTPS termination)
 
 ### Secrets Management
-Store in AWS Secrets Manager per environment:
 
-```json
-{
-  "DATABASE_URL": "postgresql://braingym:PASSWORD@rds-endpoint:5432/braingym?schema=public",
-  "JWT_SECRET": "...",
-  "JWT_REFRESH_SECRET": "...",
-  "LLM_KEY_ENCRYPTION_SECRET": "..."
-}
-```
+Provisioned in `infra/rds.tf`:
+
+All secrets stored in AWS Secrets Manager under the path prefix `braingym/{env}/`:
+
+| Secret name | Contents |
+|---|---|
+| `braingym/{env}/database-url` | Full `postgresql://` connection string (auto-generated by Terraform) |
+| `braingym/{env}/db-password` | Raw RDS password (auto-generated by Terraform) |
+| `braingym/{env}/jwt-secret` | JWT signing secret |
+| `braingym/{env}/jwt-refresh-secret` | JWT refresh token secret |
+| `braingym/{env}/llm-encryption-secret` | LLM key encryption secret |
+| `braingym/{env}/redis-auth-token` | Redis AUTH token (used only if `redis_transit_encryption = true`) |
 
 ### IAM
 
-**OIDC Provider** (one-time setup):
-```bash
-aws iam create-openid-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
-```
+Provisioned in `infra/iam.tf`:
 
-**Deploy Role** (per environment):
+**ECS Task Execution Role** (`braingym-{env}-ecs-execution`):
+- Managed policy: `AmazonECSTaskExecutionRolePolicy` (ECR pull, CloudWatch logs)
+- Inline: `secretsmanager:GetSecretValue` for `braingym/{env}/*`
+
+**ECS Task Role** (`braingym-{env}-ecs-task`):
+- Inline `s3-avatars`: `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject` on the avatars bucket
+- Inline `markitdown-pipeline`: `s3:PutObject`, `s3:DeleteObject` on materials-tmp; `lambda:InvokeFunction` on the Markitdown Lambda
+
+**GitHub Actions Deploy Role** (`braingym-deploy-{env}`):
+
+Trust policy (OIDC, scoped to GitHub environment):
 ```json
 {
   "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT:oidc-provider/token.actions.githubusercontent.com"
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {
+      "Federated": "arn:aws:iam::ACCOUNT:oidc-provider/token.actions.githubusercontent.com"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Condition": {
+      "StringEquals": {
+        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
       },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:OWNER/brain-gym:environment:ENVIRONMENT"
-        }
+      "StringLike": {
+        "token.actions.githubusercontent.com:sub": "repo:thanhpt-25/brain-gym:environment:ENVIRONMENT"
       }
     }
-  ]
+  }]
 }
 ```
 
-**Inline Permissions** for the deploy role:
+Inline permissions:
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "ECRPush",
+      "Sid": "ECR",
       "Effect": "Allow",
       "Action": [
         "ecr:GetAuthorizationToken",
@@ -100,61 +139,57 @@ aws iam create-openid-connect-provider \
         "ecr:PutImage",
         "ecr:InitiateLayerUpload",
         "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload"
+        "ecr:CompleteLayerUpload",
+        "ecr:BatchCheckLayerAvailability"
       ],
-      "Resource": "arn:aws:ecr:REGION:ACCOUNT:repository/braingym-backend"
+      "Resource": "*"
     },
     {
-      "Sid": "ECSUpdate",
+      "Sid": "ECS",
       "Effect": "Allow",
       "Action": [
         "ecs:UpdateService",
         "ecs:DescribeServices",
         "ecs:DescribeTaskDefinition",
+        "ecs:RegisterTaskDefinition",
         "ecs:DescribeTasks",
         "ecs:ListTasks",
         "ecs:RunTask"
       ],
-      "Resource": [
-        "arn:aws:ecs:REGION:ACCOUNT:service/braingym-ENVIRONMENT/*",
-        "arn:aws:ecs:REGION:ACCOUNT:task-definition/braingym-backend*",
-        "arn:aws:ecs:REGION:ACCOUNT:cluster/braingym-ENVIRONMENT"
-      ]
+      "Resource": "*"
     },
     {
-      "Sid": "PassRoleForECS",
+      "Sid": "Lambda",
+      "Effect": "Allow",
+      "Action": ["lambda:UpdateFunctionCode", "lambda:GetFunction"],
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT:function:braingym-ENVIRONMENT-markitdown"
+    },
+    {
+      "Sid": "PassRole",
       "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": [
-        "arn:aws:iam::ACCOUNT:role/ecsTaskExecutionRole",
-        "arn:aws:iam::ACCOUNT:role/ecsTaskRole"
+        "arn:aws:iam::ACCOUNT:role/braingym-ENVIRONMENT-ecs-execution",
+        "arn:aws:iam::ACCOUNT:role/braingym-ENVIRONMENT-ecs-task"
       ]
     },
     {
-      "Sid": "S3DeployFrontend",
+      "Sid": "S3Frontend",
       "Effect": "Allow",
-      "Action": [
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:GetObject",
-        "s3:ListBucket"
-      ],
+      "Action": ["s3:PutObject", "s3:DeleteObject", "s3:GetObject", "s3:ListBucket"],
       "Resource": [
         "arn:aws:s3:::braingym-ENVIRONMENT-frontend",
         "arn:aws:s3:::braingym-ENVIRONMENT-frontend/*"
       ]
     },
     {
-      "Sid": "CloudFrontInvalidate",
+      "Sid": "CloudFront",
       "Effect": "Allow",
-      "Action": [
-        "cloudfront:CreateInvalidation",
-        "cloudfront:GetDistribution"
-      ],
+      "Action": ["cloudfront:CreateInvalidation", "cloudfront:GetDistribution"],
       "Resource": "*"
     },
     {
-      "Sid": "SecretsManagerRead",
+      "Sid": "SecretsManager",
       "Effect": "Allow",
       "Action": "secretsmanager:GetSecretValue",
       "Resource": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/*"
@@ -167,49 +202,49 @@ aws iam create-openid-connect-provider \
 
 ## Phase 2: GitHub Secrets & Environment Configuration
 
-### Repository Secrets (Settings > Secrets and Variables > Actions)
-
-**Global:**
-- None (all secrets per-environment)
-
 ### Environment Configuration (Settings > Environments)
 
-Create two environments: `staging` and `production`
+Create two environments: `staging` and `production`.
 
 **Staging Environment Secrets:**
 ```
-AWS_ROLE_ARN = arn:aws:iam::ACCOUNT:role/braingym-deploy-staging
-AWS_ACCOUNT_ID = ACCOUNT
-AWS_S3_BUCKET = braingym-staging-frontend
-AWS_CLOUDFRONT_DISTRIBUTION_ID = E1234567890ABC
-AWS_PRIVATE_SUBNET_IDS = subnet-xxx,subnet-yyy
-AWS_ECS_SECURITY_GROUP = sg-xxx
-VITE_API_BASE_URL = https://staging.braingym.dev/api/v1
-DEPLOYMENT_ENDPOINT = https://staging.braingym.dev
+AWS_ROLE_ARN                  = arn:aws:iam::ACCOUNT:role/braingym-deploy-staging
+AWS_ACCOUNT_ID                = ACCOUNT
+AWS_S3_BUCKET                 = braingym-staging-frontend
+AWS_CLOUDFRONT_DISTRIBUTION_ID = <from terraform output cloudfront_distribution_id>
+AWS_PRIVATE_SUBNET_IDS        = subnet-xxx,subnet-yyy
+AWS_ECS_SECURITY_GROUP        = sg-xxx
+VITE_API_BASE_URL             = https://brain-gym.biz/api/v1
+DEPLOYMENT_ENDPOINT           = https://brain-gym.biz
+VITE_GOOGLE_CLIENT_ID         = <Google OAuth client ID>
 ```
 
 **Production Environment Secrets:**
 ```
-AWS_ROLE_ARN = arn:aws:iam::ACCOUNT:role/braingym-deploy-production
-AWS_ACCOUNT_ID = ACCOUNT
-AWS_S3_BUCKET = braingym-production-frontend
-AWS_CLOUDFRONT_DISTRIBUTION_ID = E9876543210XYZ
-AWS_PRIVATE_SUBNET_IDS = subnet-aaa,subnet-bbb
-AWS_ECS_SECURITY_GROUP = sg-yyy
-VITE_API_BASE_URL = https://braingym.com/api/v1
-DEPLOYMENT_ENDPOINT = https://braingym.com
+AWS_ROLE_ARN                  = arn:aws:iam::ACCOUNT:role/braingym-deploy-production
+AWS_ACCOUNT_ID                = ACCOUNT
+AWS_S3_BUCKET                 = braingym-production-frontend
+AWS_CLOUDFRONT_DISTRIBUTION_ID = <from terraform output cloudfront_distribution_id>
+AWS_PRIVATE_SUBNET_IDS        = subnet-aaa,subnet-bbb
+AWS_ECS_SECURITY_GROUP        = sg-yyy
+VITE_API_BASE_URL             = https://brain-gym.biz/api/v1
+DEPLOYMENT_ENDPOINT           = https://brain-gym.biz
+VITE_GOOGLE_CLIENT_ID         = <Google OAuth client ID>
 ```
 
 **Production Environment Protection Rules:**
 - Require review from code owners
 - Dismiss stale pull request approvals
-- Require the latest commit
 
 ---
 
 ## Phase 3: ECS Task Definitions
 
+Both task definitions are managed by Terraform and updated by CI/CD on every deploy using `amazon-ecs-render-task-definition`. Terraform provisions the bootstrap (`:latest`) revision; the pipeline registers SHA-pinned revisions at deploy time.
+
 ### Main Task Definition (`braingym-backend`)
+
+Key fields (abbreviated):
 
 ```json
 {
@@ -218,63 +253,51 @@ DEPLOYMENT_ENDPOINT = https://braingym.com
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "512",
   "memory": "1024",
-  "containerDefinitions": [
-    {
-      "name": "braingym-backend",
-      "image": "ACCOUNT.dkr.ecr.REGION.amazonaws.com/braingym-backend:latest",
-      "essential": true,
-      "portMappings": [
-        {
-          "containerPort": 3000,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        {
-          "name": "NODE_ENV",
-          "value": "production"
-        },
-        {
-          "name": "PORT",
-          "value": "3000"
-        }
-      ],
-      "secrets": [
-        {
-          "name": "DATABASE_URL",
-          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/database-url"
-        },
-        {
-          "name": "JWT_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/jwt-secret"
-        },
-        {
-          "name": "JWT_REFRESH_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/jwt-refresh-secret"
-        },
-        {
-          "name": "LLM_KEY_ENCRYPTION_SECRET",
-          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/llm-encryption-secret"
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/braingym-backend",
-          "awslogs-region": "REGION",
-          "awslogs-stream-prefix": "ecs"
-        }
+  "executionRoleArn": "arn:aws:iam::ACCOUNT:role/braingym-ENVIRONMENT-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT:role/braingym-ENVIRONMENT-ecs-task",
+  "containerDefinitions": [{
+    "name": "braingym-backend",
+    "image": "ACCOUNT.dkr.ecr.REGION.amazonaws.com/braingym-backend:SHA",
+    "essential": true,
+    "portMappings": [{"containerPort": 3000, "protocol": "tcp"}],
+    "environment": [
+      {"name": "NODE_ENV", "value": "production"},
+      {"name": "PORT", "value": "3000"},
+      {"name": "REDIS_HOST", "value": "<ElastiCache primary endpoint>"},
+      {"name": "REDIS_PORT", "value": "6379"},
+      {"name": "CORS_ORIGINS", "value": "https://brain-gym.biz,https://www.brain-gym.biz,https://<cloudfront-domain>"},
+      {"name": "AWS_REGION", "value": "REGION"},
+      {"name": "AWS_S3_AVATARS_BUCKET", "value": "braingym-ENVIRONMENT-avatars"},
+      {"name": "AWS_AVATARS_CDN_BASE_URL", "value": "https://brain-gym.biz"},
+      {"name": "AWS_S3_MATERIALS_TMP_BUCKET", "value": "braingym-ENVIRONMENT-materials-tmp"},
+      {"name": "AWS_MARKITDOWN_LAMBDA_ARN", "value": "<markitdown lambda ARN>"},
+      {"name": "DDS_SHADOW_MODE", "value": "false"}
+    ],
+    "secrets": [
+      {"name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/database-url"},
+      {"name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/jwt-secret"},
+      {"name": "JWT_REFRESH_SECRET", "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/jwt-refresh-secret"},
+      {"name": "LLM_KEY_ENCRYPTION_SECRET", "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT:secret:braingym/ENVIRONMENT/llm-encryption-secret"}
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "/ecs/braingym-backend",
+        "awslogs-region": "REGION",
+        "awslogs-stream-prefix": "ecs"
       }
     }
-  ],
-  "executionRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::ACCOUNT:role/ecsTaskRole"
+  }]
 }
 ```
 
 ### Migration Task Definition (`braingym-backend-migrate`)
 
-Same as above, but used as a one-off task triggered by `aws ecs run-task` with command override `["sh", "docker-entrypoint.sh", "migrate"]`.
+Identical to the main task definition except:
+- No `portMappings`
+- Container `command`: `["sh", "docker-entrypoint.sh", "migrate"]`
+- Only `DATABASE_URL` secret injected (JWT/LLM secrets not needed)
+- Log stream prefix: `migrate`
 
 ---
 
@@ -282,28 +305,44 @@ Same as above, but used as a one-off task triggered by `aws ecs run-task` with c
 
 The `.github/workflows/deploy.yml` workflow automates:
 
-1. **Build & Push** — Docker image tagged by commit SHA to ECR
-2. **Migrate DB** — Run one-off ECS task to execute migrations
-3. **Deploy Backend** — Update ECS service with new image, wait for stability
-4. **Deploy Frontend** — Build Vite + sync to S3 + invalidate CloudFront
-5. **Smoke Test** — Health check on deployed endpoints
+1. **Build & Push Backend** — Docker image tagged by commit SHA and `:latest` pushed to ECR `braingym-backend`
+2. **Build & Push Markitdown Lambda** — Container image pushed to ECR `braingym-markitdown`; Lambda function code updated immediately via `aws lambda update-function-code`
+3. **Migrate DB** — Registers a SHA-pinned revision of `braingym-backend-migrate`, runs it as a one-off Fargate task, waits up to 5 minutes for completion
+4. **Deploy Backend** — Renders a SHA-pinned revision of `braingym-backend` and deploys via `amazon-ecs-deploy-task-definition`; waits for service stability
+5. **Deploy Frontend** — Builds React with Vite, syncs `dist/` to S3 (`index.html` with short cache; all other assets with 1-year cache), invalidates CloudFront
+6. **Smoke Test** — HTTP health check on `DEPLOYMENT_ENDPOINT/api/v1/health`
 
 ### Triggers
 
 - **Push to `main`** → auto-deploy to **staging**
-- **Manual trigger** (`workflow_dispatch` with `environment: production`) → deploy to **production** (gated by Environment approval rule)
+- **Manual trigger** (`workflow_dispatch`, environment: `production`) → deploy to **production** (gated by Environment approval rule)
+
+### AWS Region
+
+The CI/CD pipeline uses region `ap-southeast-1`. Terraform uses the region configured in `terraform.tfvars` (variable `aws_region`, default `us-east-1`). Ensure the region in `terraform.tfvars` matches `AWS_REGION` in the deploy workflow.
 
 ### Rollback
 
-If smoke test fails or issues occur:
-1. Manual: `aws ecs update-service --cluster braingym-production --service braingym-backend --task-definition braingym-backend:PREVIOUS_REVISION`
-2. Frontend: CloudFront distributions keep prior versions; can revert via S3 version history
+If the smoke test fails or issues occur after deployment:
+```bash
+# Roll back the ECS service to the previous task definition revision
+aws ecs update-service \
+  --cluster braingym-production \
+  --service braingym-backend \
+  --task-definition braingym-backend:PREVIOUS_REVISION
+
+# Roll back frontend via S3 version history
+aws s3api list-object-versions --bucket braingym-production-frontend --prefix index.html
+aws s3api get-object --bucket braingym-production-frontend \
+  --key index.html --version-id PREVIOUS_VERSION_ID index.html
+aws s3 cp index.html s3://braingym-production-frontend/index.html
+```
 
 ---
 
 ## Phase 5: Local Testing
 
-Before deploying to staging, test the workflow locally:
+Before deploying to staging, test locally:
 
 ```bash
 # Build backend image
@@ -315,7 +354,7 @@ docker run --rm \
   braingym-backend:test \
   sh docker-entrypoint.sh migrate
 
-# Test app startup (only runs migrations in dev, not prod)
+# Test app startup
 docker run --rm \
   -e NODE_ENV=production \
   -e DATABASE_URL="postgresql://..." \
@@ -331,17 +370,21 @@ ls dist/
 ## Monitoring & Troubleshooting
 
 ### CloudWatch Logs
-- Backend: `/ecs/braingym-backend`
-- ECS: CloudWatch Insights queries for task failures
+
+- Backend: `/ecs/braingym-backend` (stream prefix: `ecs`)
+- Migrations: `/ecs/braingym-backend` (stream prefix: `migrate`)
+- Markitdown Lambda: `/aws/lambda/braingym-{env}-markitdown`
 
 ### Common Issues
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| Task fails to start | Missing secrets in Secrets Manager | Verify all secrets exist in AWS Secrets Manager |
-| Migration timeout | Database unreachable | Check RDS security group allows ECS access |
-| Frontend 403 errors | S3 not in CloudFront OAC | Verify CloudFront OAC permissions on S3 bucket |
-| API health check fails | ALB route misconfigured | Ensure target group health check targets `/api/v1/health` |
+| Task fails to start | Missing or wrong secret ARN | Verify all secrets exist under `braingym/{env}/` in Secrets Manager |
+| Migration timeout | Database unreachable | Check RDS security group allows ECS SG on port 5432 |
+| Frontend 403 errors | OAC bucket policy missing | Re-copy policy from CloudFront console and paste into S3 bucket policy |
+| API health check fails | ALB misconfigured | Ensure target group health check path is `/api/v1/health` |
+| GitHub Actions `Could not assume role` | OIDC subject mismatch | Verify `github_repo` in `terraform.tfvars` matches `owner/repo` exactly |
+| Lambda update fails | ECR image rejected | Lambda requires Docker v2s2 media type — pipeline sets `provenance: false` and `oci-mediatypes: false` |
 
 ---
 
@@ -349,9 +392,9 @@ ls dist/
 
 | Component | Staging | Production | Notes |
 |-----------|---------|------------|-------|
-| ECS Fargate | $15 | $30 | Depends on vCPU hours |
-| RDS PostgreSQL | $30 | $100+ | Multi-AZ for prod |
-| ElastiCache Redis | $20 | $50+ | Cluster mode for prod |
-| S3 + CloudFront | $1-5 | $5-20 | CDN egress costs |
+| ECS Fargate | ~$15 | ~$30 | Depends on vCPU hours |
+| RDS PostgreSQL | ~$30 | ~$100+ | Multi-AZ for prod |
+| ElastiCache Redis | ~$20 | ~$50+ | Multi-node for prod |
+| S3 + CloudFront | ~$1–5 | ~$5–20 | CDN egress costs |
+| Lambda | < $1 | < $5 | Invoked only on document uploads |
 | **Total** | **~$70** | **~$200+** | |
-
