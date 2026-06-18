@@ -18,6 +18,7 @@ import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
 import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto';
+import { BulkCsvInviteDto } from './dto/bulk-csv-invite.dto';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -39,7 +40,11 @@ export class AssessmentsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.service.list(orgId, Number(page) || 1, Number(limit) || 20);
+    return this.service.list(
+      orgId,
+      Math.max(1, Number(page) || 1),
+      Number(limit) || 20,
+    );
   }
 
   /** Preview: count APPROVED questions available for a given pool filter config. */
@@ -54,8 +59,18 @@ export class AssessmentsController {
     return this.service.getPoolCount(orgId, {
       difficulty: difficulty || undefined,
       certificationId: certificationId || undefined,
-      categories: categories ? categories.split(',').map((c) => c.trim()).filter(Boolean) : undefined,
-      tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+      categories: categories
+        ? categories
+            .split(',')
+            .map((c) => c.trim())
+            .filter(Boolean)
+        : undefined,
+      tags: tags
+        ? tags
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : undefined,
     });
   }
 
@@ -102,8 +117,12 @@ export class AssessmentsController {
   }
 
   @Get(':aid/results')
-  getResults(@Param('orgId') orgId: string, @Param('aid') aid: string) {
-    return this.service.getResults(orgId, aid);
+  getResults(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Query('filter') filter?: string,
+  ) {
+    return this.service.getResults(orgId, aid, filter);
   }
 
   @Get(':aid/results/export')
@@ -113,13 +132,23 @@ export class AssessmentsController {
     @Param('orgId') orgId: string,
     @Param('aid') aid: string,
     @Res() res: Response,
+    @Query('filter') filter?: string,
   ) {
-    const csv = await this.service.exportCsv(orgId, aid);
+    const csv = await this.service.exportCsv(orgId, aid, filter);
     res.setHeader(
       'Content-Disposition',
       'attachment; filename="assessment-results.csv"',
     );
     res.send(csv);
+  }
+
+  @Post(':aid/candidates/bulk-csv')
+  bulkCsvInvite(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Body() dto: BulkCsvInviteDto,
+  ) {
+    return this.service.bulkCsvInvite(orgId, aid, dto);
   }
 
   @Patch(':aid/candidates/:inviteId')
@@ -130,7 +159,13 @@ export class AssessmentsController {
     @Body() dto: UpdateCandidateDecisionDto,
     @CurrentUser() user: any,
   ) {
-    return this.service.updateCandidateDecision(orgId, aid, inviteId, dto, user.id);
+    return this.service.updateCandidateDecision(
+      orgId,
+      aid,
+      inviteId,
+      dto,
+      user.id,
+    );
   }
 
   @Get(':aid/candidates/:inviteId/events')

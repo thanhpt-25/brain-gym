@@ -11,12 +11,65 @@ export interface ParseCandidateCsvResult {
   duplicatesRemoved: number;
 }
 
-// RFC 5322 simplified — good enough for server-side pre-validation
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Linear-time structural email check — avoids ReDoS from backtracking regex
+function isValidEmail(email: string): boolean {
+  if (email.length > 254) return false;
+  const at = email.indexOf('@');
+  if (at <= 0 || at !== email.lastIndexOf('@')) return false;
+  const domain = email.slice(at + 1);
+  if (!domain) return false;
+  const dot = domain.lastIndexOf('.');
+  if (dot <= 0 || dot === domain.length - 1) return false;
+  // Whitespace check only — single-pass, no backtracking
+  for (let i = 0; i < email.length; i++) {
+    const c = email[i];
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') return false;
+  }
+  return true;
+}
 
 // Sanitize values that could cause formula injection if exported to spreadsheets
 function sanitizeField(value: string): string {
   return /^[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
+// RFC-4180 compliant field parser — handles quoted fields containing commas and escaped quotes
+function parseRFC4180Fields(line: string): string[] {
+  const fields: string[] = [];
+  let i = 0;
+  while (i <= line.length) {
+    if (i === line.length) break;
+    if (line[i] === '"') {
+      let val = '';
+      i++; // skip opening quote
+      while (i < line.length) {
+        if (line[i] === '"') {
+          if (i + 1 < line.length && line[i + 1] === '"') {
+            val += '"';
+            i += 2;
+          } else {
+            i++; // skip closing quote
+            break;
+          }
+        } else {
+          val += line[i++];
+        }
+      }
+      fields.push(val);
+      if (i < line.length && line[i] === ',') i++; // skip delimiter
+    } else {
+      const comma = line.indexOf(',', i);
+      if (comma === -1) {
+        fields.push(line.slice(i));
+        break;
+      } else {
+        fields.push(line.slice(i, comma));
+        i = comma + 1;
+        if (i === line.length) fields.push(''); // trailing comma
+      }
+    }
+  }
+  return fields;
 }
 
 export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
@@ -34,7 +87,9 @@ export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
     return { valid, invalid, duplicatesRemoved };
   }
 
-  const headers = headerLine.split(',').map((h) => h.trim().toLowerCase());
+  const headers = parseRFC4180Fields(headerLine).map((h) =>
+    h.trim().toLowerCase(),
+  );
   const emailIdx = headers.indexOf('email');
 
   if (emailIdx === -1) {
@@ -67,7 +122,7 @@ export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
       continue;
     }
 
-    const cols = trimmed.split(',').map((c) => c.trim());
+    const cols = parseRFC4180Fields(trimmed).map((c) => c.trim());
     const email = (cols[emailIdx] ?? '').toLowerCase().trim();
 
     if (!email) {
@@ -75,7 +130,7 @@ export function parseCandidateCsv(input: string): ParseCandidateCsvResult {
       continue;
     }
 
-    if (!EMAIL_RE.test(email)) {
+    if (!isValidEmail(email)) {
       invalid.push({
         row: i + 1,
         raw: trimmed,
