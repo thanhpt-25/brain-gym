@@ -10,7 +10,7 @@ The AI Coach feature in CertGym is gated by subscription tier to manage API cost
 |------|--------|---------------|------------------|
 | Free | ❌ No access | — | — |
 | Pro | ✅ Full access | 10 sessions/day | Unlimited |
-| Elite | ✅ Full access | Unlimited | Unlimited |
+| Enterprise | ✅ Full access | Unlimited | Unlimited |
 
 ## Implementation Details
 
@@ -31,8 +31,8 @@ async sendMessage(@Param('sessionId') sessionId: string, @Req() req: any) {
   const userTier = await this.getOrganizationTier(req.user.id);
   
   // 2. Check tier access
-  if (userTier === 'free') {
-    throw new ForbiddenException('Coach feature not available on Free tier');
+  if (userTier === 'free' || userTier === 'FREE') {
+    throw new ForbiddenException('Coach feature is not available on free tier. Please upgrade to Pro or Enterprise tier.');
   }
   
   // 3. Check session rate limit
@@ -79,7 +79,7 @@ To change tier limits, modify the constants in `coach.controller.ts`:
 const TIER_LIMITS = {
   free: { enabled: false, sessionsPerDay: 0 },
   pro: { enabled: true, sessionsPerDay: 10 },
-  elite: { enabled: true, sessionsPerDay: 999999 }, // Effectively unlimited
+  enterprise: { enabled: true, sessionsPerDay: 999999 }, // Effectively unlimited
 };
 
 // Use in rate limit check
@@ -142,12 +142,12 @@ curl -H "Authorization: Bearer $PRO_TOKEN" \
 # Response: "Daily session limit reached"
 ```
 
-### Test 3: Elite Tier Unlimited Access
+### Test 3: Enterprise Tier Unlimited Access
 ```bash
-# Elite users should not hit session limits
+# Enterprise users should not hit session limits
 # Create 20+ sessions - all should succeed
 for i in {1..20}; do
-  curl -H "Authorization: Bearer $ELITE_TOKEN" \
+  curl -H "Authorization: Bearer $ENTERPRISE_TOKEN" \
     POST http://localhost:3000/api/v1/training/coach/session/:sessionId/message \
     -d '{"message": "test"}'
 done

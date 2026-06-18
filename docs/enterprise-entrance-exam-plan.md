@@ -1,100 +1,100 @@
-# Enterprise Entrance-Exam — Upgrade Plan (P0–P3)
+# Enterprise Entrance Exam — Upgrade Plan (P0–P3)
 
-> Nâng cấp tính năng **Organization** thành một giải pháp enterprise để doanh nghiệp tạo & quản lý **bài kiểm tra đầu vào** (tuyển dụng / sàng lọc / onboarding) cho ứng viên.
+> Upgrade the **Organization** feature into an enterprise solution that allows companies to create and manage **entrance exams** (for hiring, screening, and onboarding) for external candidates.
 
 **Status:** Draft for review · **Author:** —  · **Date:** 2026-06-04
 
 ---
 
-## 0. Bối cảnh & Hiện trạng
+## 0. Context & Current State
 
-Phần lớn nền tảng đã tồn tại. Luồng "kiểm tra đầu vào" hiện được hiện thực qua bộ model **Candidate Assessment**:
+Most of the platform infrastructure already exists. The "entrance exam" flow is implemented through the **Candidate Assessment** model set:
 
-| Thành phần | Vị trí | Vai trò |
+| Component | Location | Role |
 |---|---|---|
-| `Assessment` / `AssessmentQuestion` | [schema.prisma:1010](../backend/prisma/schema.prisma) | Đề kiểm tra của org cho ứng viên ngoài |
-| `CandidateInvite` / `CandidateAnswer` | [schema.prisma:1049](../backend/prisma/schema.prisma) | Lời mời theo email + token, bài làm, điểm |
-| Backend service | [assessments.service.ts](../backend/src/assessments/assessments.service.ts), [candidate.service.ts](../backend/src/assessments/candidate.service.ts) | CRUD, invite, results, export CSV; load/start/submit |
-| Frontend admin | [AssessmentBuilder.tsx](../src/pages/org/AssessmentBuilder.tsx), [OrgAssessments.tsx](../src/pages/org/OrgAssessments.tsx), [AssessmentResults.tsx](../src/pages/org/AssessmentResults.tsx) | Tạo đề, danh sách, kết quả |
-| Frontend candidate | `CandidateExam` / `CandidateResult` ([App.tsx:397](../src/App.tsx)) | Trang công khai làm bài, không cần auth |
-| Ngân hàng câu hỏi | `OrgQuestion` (workflow `DRAFT→UNDER_REVIEW→APPROVED→REJECTED`) | Nguồn câu hỏi riêng của org |
+| `Assessment` / `AssessmentQuestion` | [schema.prisma:1010](../backend/prisma/schema.prisma) | Org exam definition for external candidates |
+| `CandidateInvite` / `CandidateAnswer` | [schema.prisma:1049](../backend/prisma/schema.prisma) | Email-based invite with token, submission, and score |
+| Backend service | [assessments.service.ts](../backend/src/assessments/assessments.service.ts), [candidate.service.ts](../backend/src/assessments/candidate.service.ts) | CRUD, invite, results, CSV export; load/start/submit |
+| Frontend admin | [AssessmentBuilder.tsx](../src/pages/org/AssessmentBuilder.tsx), [OrgAssessments.tsx](../src/pages/org/OrgAssessments.tsx), [AssessmentResults.tsx](../src/pages/org/AssessmentResults.tsx) | Exam creation, listing, results |
+| Frontend candidate | `CandidateExam` / `CandidateResult` ([App.tsx:397](../src/App.tsx)) | Public exam page, no auth required |
+| Question bank | `OrgQuestion` (workflow `DRAFT→UNDER_REVIEW→APPROVED→REJECTED`) | Org-specific question source |
 
-**Đã có:** chấm điểm tự động, `domainScores`, `passingScore`, funnel (invited→started→submitted→passed), randomize câu/đáp án, `detectTabSwitch`, `blockCopyPaste`, `linkExpiryHours`, `tabSwitchCount`, `ipAddress`, export CSV.
+**Already implemented:** automated scoring, `domainScores`, `passingScore`, funnel (invited→started→submitted→passed), question/answer randomization, `detectTabSwitch`, `blockCopyPaste`, `linkExpiryHours`, `tabSwitchCount`, `ipAddress`, CSV export.
 
-**Còn thiếu để dùng cho doanh nghiệp thật:** tạo đề thông minh theo blueprint/pool, quy trình tuyển dụng (ATS-lite), phân quyền recruiter, proctoring nghiêm túc, email branded thật, báo cáo & tuân thủ dữ liệu.
+**Still needed for real enterprise use:** smart exam creation via blueprint/pool, recruiting workflow (ATS-lite), recruiter role permissions, serious proctoring, real branded email delivery, reporting, and data compliance.
 
-### Nguyên tắc thiết kế
-- **Tái sử dụng tối đa**: dựng trên `Assessment`/`CandidateInvite`, không tạo trục song song.
-- **Mỗi phase deploy độc lập**, có migration riêng, không phá vỡ luồng hiện tại (backward-compatible defaults).
-- Tôn trọng quy ước codebase: TanStack Query cho server state, Zustand cho client state, loose TS (`strictNullChecks: false`), guard `org-role.guard.ts`.
+### Design Principles
+- **Maximum reuse**: build on `Assessment`/`CandidateInvite`; do not create parallel data models.
+- **Each phase deploys independently**, with its own migration, without breaking the current flow (backward-compatible defaults).
+- Follow codebase conventions: TanStack Query for server state, Zustand for client state, loose TS (`strictNullChecks: false`), `org-role.guard.ts` for authorization.
 
 ---
 
 ## P0 — Smart Assessment Builder
 
-> **Mục tiêu:** Cho phép tạo đề tự động theo blueprint domain-% hoặc rút ngẫu nhiên từ pool, mỗi ứng viên một đề khác nhau. Tận dụng logic blueprint đã làm ở #69/#70.
+> **Goal:** Allow automatic exam generation by domain-% blueprint or random pool draw, giving each candidate a different set of questions. Leverages the blueprint logic from #69/#70.
 
 ### User stories
-- **US-P0-1** — Là Admin org, tôi chọn chế độ tạo đề: *Thủ công* / *Blueprint theo % domain* / *Pool ngẫu nhiên*, để không phải chọn tay từng câu.
-- **US-P0-2** — Là Admin, với Blueprint tôi nhập tổng số câu + tỷ lệ % mỗi domain; hệ thống tự rút từ `OrgQuestion` đã `APPROVED`.
-- **US-P0-3** — Là Admin, với Pool tôi định nghĩa filter (certification, tags, difficulty) + số câu rút; **mỗi ứng viên nhận một bộ câu ngẫu nhiên khác nhau** từ pool.
-- **US-P0-4** — Là Admin, tôi thấy cảnh báo nếu pool/blueprint không đủ câu hỏi cho cấu hình.
+- **US-P0-1** — As an org Admin, I choose the exam creation mode: *Manual* / *Blueprint by domain %* / *Random pool*, so I don't have to select questions individually.
+- **US-P0-2** — As an Admin, with Blueprint I enter the total question count and domain percentages; the system draws from `OrgQuestion` records with status `APPROVED`.
+- **US-P0-3** — As an Admin, with Pool I define a filter (certification, tags, difficulty) and draw count; **each candidate receives a different random set** drawn from the pool.
+- **US-P0-4** — As an Admin, I see a warning if the pool or blueprint does not have enough available questions for the configuration.
 
 ### Data model (Prisma)
 ```prisma
 enum AssessmentSelectionMode {
-  MANUAL      // hiện tại — danh sách câu cố định
-  BLUEPRINT   // auto-build 1 đề cố định theo % domain lúc tạo
-  POOL        // rút ngẫu nhiên N câu mỗi ứng viên lúc startAttempt
+  MANUAL      // current behavior — fixed question list
+  BLUEPRINT   // build one fixed exam by domain % at creation time
+  POOL        // draw N random questions per candidate at startAttempt
 }
 
 model Assessment {
-  // ... fields hiện có
+  // ... existing fields
   selectionMode AssessmentSelectionMode @default(MANUAL) @map("selection_mode")
-  // Cấu hình blueprint/pool, dạng JSON để linh hoạt:
+  // Blueprint/pool configuration as JSON for flexibility:
   // BLUEPRINT: { totalQuestions, domains: [{ domain, percentage }], difficulty? }
   // POOL:      { drawCount, certificationId?, tags?: string[], difficulty?, domains?: [...] }
   selectionConfig Json? @map("selection_config")
 }
 ```
-- MANUAL/BLUEPRINT: vẫn vật chất hoá qua `AssessmentQuestion` (BLUEPRINT build 1 lần lúc tạo) → không đổi `candidate.service`.
-- POOL: **không** vật chất hoá; lưu `selectionConfig`. `CandidateInvite` cần lưu bộ câu đã rút để tái lập khi reload:
+- MANUAL/BLUEPRINT: questions are materialized via `AssessmentQuestion` (BLUEPRINT builds once at creation) — `candidate.service` is unchanged.
+- POOL: questions are **not** materialized; `selectionConfig` is stored. `CandidateInvite` must save the drawn set for consistent reload:
 ```prisma
 model CandidateInvite {
   // ...
-  drawnQuestionIds String[] @default([]) @map("drawn_question_ids") // POOL: snapshot câu đã rút
+  drawnQuestionIds String[] @default([]) @map("drawn_question_ids") // POOL: snapshot of drawn questions
 }
 ```
 
 ### Backend
-- `create-assessment.dto.ts`: thêm `selectionMode`, `selectionConfig` (validate theo mode). Khi BLUEPRINT → service gọi lại logic phân bổ domain-% (trích xuất từ Smart Exam Builder #70 thành helper dùng chung, ví dụ `blueprint.util.ts`), query `OrgQuestion` `status=APPROVED` theo org, rút câu, ghi `AssessmentQuestion`.
-- `candidate.service.ts › buildQuestionPayload` ([candidate.service.ts:214](../backend/src/assessments/candidate.service.ts)): nếu `selectionMode=POOL` và `invite.drawnQuestionIds` rỗng → rút ngẫu nhiên từ pool theo `selectionConfig`, lưu vào `drawnQuestionIds` (idempotent: lần sau dùng lại snapshot).
-- Validation: nếu số câu khả dụng < yêu cầu → ném `BadRequestException` (US-P0-4); endpoint preview đếm câu khả dụng cho UI.
-- Endpoint mới (tùy chọn): `GET /orgs/:slug/assessments/pool-count?config=...` trả số câu khả dụng.
+- `create-assessment.dto.ts`: add `selectionMode`, `selectionConfig` (validated per mode). When BLUEPRINT → service calls the domain-% allocation logic (extracted from Smart Exam Builder #70 into a shared helper, e.g. `blueprint.util.ts`), queries `OrgQuestion` where `status=APPROVED` for the org, draws questions, and writes `AssessmentQuestion` records.
+- `candidate.service.ts › buildQuestionPayload` ([candidate.service.ts:214](../backend/src/assessments/candidate.service.ts)): if `selectionMode=POOL` and `invite.drawnQuestionIds` is empty → draw randomly from pool per `selectionConfig`, save to `drawnQuestionIds` (idempotent: subsequent calls reuse the snapshot).
+- Validation: if available question count < requirement → throw `BadRequestException` (US-P0-4); a preview endpoint counts available questions for the UI.
+- New endpoint (optional): `GET /orgs/:slug/assessments/pool-count?config=...` returns available question count.
 
 ### Frontend
-- [AssessmentBuilder.tsx](../src/pages/org/AssessmentBuilder.tsx): thêm tab/segmented control 3 mode. Tái dùng UI blueprint từ Smart Exam Builder (component nhập % domain) nếu đã tách được; nếu chưa, refactor thành component dùng chung `BlueprintDomainEditor`.
-- Hiển thị "X/Y câu khả dụng" realtime; disable submit nếu không đủ.
-- `assessment-types.ts` + `services/assessments.ts`: thêm `selectionMode`, `selectionConfig` vào payload/types.
+- [AssessmentBuilder.tsx](../src/pages/org/AssessmentBuilder.tsx): add tab/segmented control for 3 modes. Reuse blueprint UI from Smart Exam Builder (domain % entry component) if already extracted; otherwise refactor into shared `BlueprintDomainEditor` component.
+- Show "X/Y questions available" in real time; disable submit if count is insufficient.
+- `assessment-types.ts` + `services/assessments.ts`: add `selectionMode`, `selectionConfig` to payload/types.
 
 ### Acceptance criteria
-- [ ] Tạo assessment BLUEPRINT 20 câu (50% Domain A, 50% Domain B) → `AssessmentQuestion` có đúng 10+10 câu APPROVED.
-- [ ] Tạo assessment POOL drawCount=15 → 2 ứng viên khác nhau nhận 2 bộ câu khác nhau; reload cùng token → cùng bộ câu.
-- [ ] Cấu hình vượt số câu khả dụng → lỗi rõ ràng ở UI, không tạo được.
-- [ ] MANUAL giữ nguyên hành vi cũ (regression).
+- [ ] Create a BLUEPRINT assessment with 20 questions (50% Domain A, 50% Domain B) → `AssessmentQuestion` contains exactly 10+10 APPROVED questions.
+- [ ] Create a POOL assessment with drawCount=15 → two different candidates receive two different question sets; reloading the same token returns the same set.
+- [ ] Configuration that exceeds available question count → clear error in UI, assessment not created.
+- [ ] MANUAL mode preserves existing behavior (regression test).
 
 ---
 
 ## P1 — Recruiting Workflow (ATS-lite)
 
-> **Mục tiêu:** Biến danh sách "candidate invites" thành pipeline tuyển dụng có vị trí, giai đoạn, quyết định, ghi chú, xếp hạng.
+> **Goal:** Turn the list of candidate invites into a recruiting pipeline with job roles, stages, decisions, notes, and rankings.
 
 ### User stories
-- **US-P1-1** — Là Recruiter, tôi gắn mỗi assessment với một **vị trí tuyển dụng** (Job Role) để nhóm ứng viên theo vị trí.
-- **US-P1-2** — Là Recruiter, tôi xem bảng ứng viên có **xếp hạng theo điểm + percentile**, lọc theo trạng thái, sắp xếp.
-- **US-P1-3** — Là Recruiter, tôi đánh dấu ứng viên `SHORTLISTED / REJECTED / HIRED`, chấm sao (rating) và ghi chú nội bộ.
-- **US-P1-4** — Là Recruiter, tôi **import danh sách ứng viên từ CSV** để mời hàng loạt.
-- **US-P1-5** — Là Owner/Admin, tôi gán role **RECRUITER** cho thành viên — chỉ thấy assessment & ứng viên, không sửa được question bank/settings.
+- **US-P1-1** — As a Recruiter, I attach each assessment to a **job role** to group candidates by position.
+- **US-P1-2** — As a Recruiter, I view a candidate table with **score + percentile rankings**, filterable by stage and sortable.
+- **US-P1-3** — As a Recruiter, I mark candidates as `SHORTLISTED / REJECTED / HIRED`, assign a star rating, and add internal notes.
+- **US-P1-4** — As a Recruiter, I **import a candidate list from CSV** for bulk invitations.
+- **US-P1-5** — As an Owner/Admin, I assign the **RECRUITER** role to members — they can only see assessments and candidates, not the question bank or settings.
 
 ### Data model
 ```prisma
@@ -102,7 +102,7 @@ enum OrgRole {
   OWNER
   ADMIN
   MANAGER
-  RECRUITER   // mới: chỉ assessment & candidates
+  RECRUITER   // new: assessments & candidates only
   MEMBER
 }
 
@@ -136,7 +136,7 @@ model Assessment {
 model CandidateInvite {
   // ...
   stage         CandidateStage @default(APPLIED)
-  rating        Int?           // 1..5, đánh giá thủ công
+  rating        Int?           // 1..5, manual rating
   recruiterNote String?        @map("recruiter_note")
   decidedBy     String?        @map("decided_by")
   decidedAt     DateTime?      @map("decided_at")
@@ -144,37 +144,37 @@ model CandidateInvite {
 ```
 
 ### Backend
-- Module mới `job-roles` (CRUD, guard ADMIN/OWNER).
-- `org-roles.decorator.ts` + `org-role.guard.ts`: thêm `RECRUITER`; định nghĩa ma trận quyền (RECRUITER cho phép: list/get/create assessment, invite, results, cập nhật stage/rating/note; chặn: org settings, members admin, question bank ghi).
-- `candidate` / `assessment` service: endpoint `PATCH /assessments/:aid/candidates/:inviteId` (stage, rating, note), tính percentile trong `getResults`.
-- Bulk import: `POST /assessments/:aid/invite` nhận mảng từ CSV (đã có `inviteCandidates`, mở rộng nhận file/parse phía FE).
+- New `job-roles` module (CRUD, guarded by ADMIN/OWNER).
+- `org-roles.decorator.ts` + `org-role.guard.ts`: add `RECRUITER`; define permission matrix (RECRUITER allowed: list/get/create assessment, invite, results, update stage/rating/note; blocked: org settings, member admin, question bank writes).
+- `candidate` / `assessment` service: endpoint `PATCH /assessments/:aid/candidates/:inviteId` (stage, rating, note), percentile calculation in `getResults`.
+- Bulk import: `POST /assessments/:aid/invite` accepts an array from CSV (extends existing `inviteCandidates`, adds file/client-side parse support).
 
 ### Frontend
-- [AssessmentResults.tsx](../src/pages/org/AssessmentResults.tsx): nâng cấp thành bảng ứng viên đầy đủ — cột điểm, percentile, stage (badge), rating, action menu (shortlist/reject/hire), drawer chi tiết + ghi chú.
-- Trang/section **Job Roles** trong org; selector job role trong AssessmentBuilder.
-- CSV import dialog (parse client-side, preview, gửi bulk).
-- Ẩn các mục điều hướng question bank/settings khi `myRole === 'RECRUITER'`.
+- [AssessmentResults.tsx](../src/pages/org/AssessmentResults.tsx): upgrade to full candidate table — columns for score, percentile, stage (badge), rating, action menu (shortlist/reject/hire), detail drawer with notes.
+- Job Roles page/section within org; job role selector in AssessmentBuilder.
+- CSV import dialog (client-side parse, preview, bulk submit).
+- Hide question bank/settings navigation items when `myRole === 'RECRUITER'`.
 
 ### Acceptance criteria
-- [ ] RECRUITER đăng nhập chỉ thấy Assessments + Candidates, gọi API question-bank ghi → 403.
-- [ ] Bảng ứng viên xếp hạng đúng theo điểm, hiển thị percentile.
-- [ ] Đổi stage → REJECTED lưu `decidedBy/decidedAt`, phản ánh ở funnel.
-- [ ] Import CSV 50 dòng → tạo 50 invite, báo lỗi dòng email sai.
+- [ ] RECRUITER login sees only Assessments + Candidates; calling the question-bank write API → 403.
+- [ ] Candidate table sorted correctly by score with percentile displayed.
+- [ ] Stage change to REJECTED saves `decidedBy/decidedAt` and is reflected in the funnel.
+- [ ] CSV import of 50 rows → creates 50 invites; invalid email rows are reported.
 
 ---
 
 ## P2 — Proctoring & Integrity
 
-> **Mục tiêu:** Tăng độ tin cậy cho bài thi đầu vào nghiêm túc: chống gian lận, xác thực danh tính, điểm liêm chính.
+> **Goal:** Increase the reliability of entrance exams: anti-cheating, identity verification, and integrity scoring.
 
 ### User stories
-- **US-P2-1** — Là Admin, tôi bật **fullscreen bắt buộc**; thoát fullscreen bị cảnh báo và ghi log.
-- **US-P2-2** — Là ứng viên, tôi xác thực email bằng **OTP** trước khi vào làm bài.
-- **US-P2-3** — Hệ thống đảm bảo **một token chỉ làm được một lần** (chống làm lại/chia sẻ link).
-- **US-P2-4** — Là Recruiter, tôi thấy **Integrity Score** + timeline sự kiện (tab switch, mất focus, copy, thời gian/câu bất thường) của mỗi ứng viên.
+- **US-P2-1** — As an Admin, I enable **mandatory fullscreen**; exiting fullscreen triggers a warning and logs the event.
+- **US-P2-2** — As a candidate, I verify my email with an **OTP** before accessing the exam.
+- **US-P2-3** — The system ensures **one token can only be used once** (prevents re-attempts and link sharing).
+- **US-P2-4** — As a Recruiter, I see an **Integrity Score** plus an event timeline (tab switch, focus loss, copy, paste, abnormal time-per-question) for each candidate.
 
 ### Data model
-- Tái dùng `AttemptEvent` ([schema.prisma:1087](../backend/prisma/schema.prisma)) cho candidate (thêm liên kết `inviteId` hoặc bảng `CandidateEvent` tương tự nếu `AttemptEvent` gắn chặt `ExamAttempt`).
+- Reuse `AttemptEvent` ([schema.prisma:1087](../backend/prisma/schema.prisma)) for candidates (add `inviteId` link, or create a `CandidateEvent` table if `AttemptEvent` is tightly coupled to `ExamAttempt`).
 ```prisma
 model Assessment {
   // ...
@@ -184,73 +184,73 @@ model Assessment {
 }
 model CandidateInvite {
   // ...
-  integrityScore Int?     @map("integrity_score") // 0..100, tính tự động
+  integrityScore Int?     @map("integrity_score") // 0..100, computed automatically
   otpVerifiedAt  DateTime? @map("otp_verified_at")
 }
 ```
 
 ### Backend
-- `candidate.service.ts › startAttempt`: chặn nếu `status != INVITED` hoặc đã `SUBMITTED` (enforce 1 lần, US-P2-3 — hiện đã có một phần, siết chặt + maxAttempts).
-- OTP: `POST /candidate/:token/otp/request` (gửi mã qua email), `POST /candidate/:token/otp/verify`. Lưu hash OTP + hạn dùng (Redis hợp lý cho TTL).
-- `reportEvent` ([candidate.service.ts:182](../backend/src/assessments/candidate.service.ts)): mở rộng loại sự kiện (FULLSCREEN_EXIT, BLUR, COPY, PASTE, FAST_ANSWER). Khi submit, tính `integrityScore` = 100 − trọng số vi phạm.
+- `candidate.service.ts › startAttempt`: block if `status != INVITED` or already `SUBMITTED` (enforce single-attempt; partially exists — tighten with `maxAttempts`).
+- OTP: `POST /candidate/:token/otp/request` (send code via email), `POST /candidate/:token/otp/verify`. Store hashed OTP + expiry (Redis is appropriate for TTL).
+- `reportEvent` ([candidate.service.ts:182](../backend/src/assessments/candidate.service.ts)): expand event types (FULLSCREEN_EXIT, BLUR, COPY, PASTE, FAST_ANSWER). On submit, compute `integrityScore` = 100 − weighted penalty for violations.
 
 ### Frontend (CandidateExam)
-- Fullscreen API: yêu cầu fullscreen lúc start; bắt sự kiện exit → cảnh báo + `reportEvent`.
-- Màn OTP trước khi load đề (nếu `requireOtp`).
-- AssessmentResults: hiển thị Integrity Score (badge màu) + timeline sự kiện trong drawer chi tiết.
+- Fullscreen API: request fullscreen at exam start; listen for exit → show warning + call `reportEvent`.
+- OTP screen before loading questions (when `requireOtp` is enabled).
+- AssessmentResults: show Integrity Score (color badge) + event timeline in the candidate detail drawer.
 
 ### Acceptance criteria
-- [ ] Token đã SUBMITTED mở lại → bị chặn, không cho làm lại.
-- [ ] requireOtp bật: phải nhập OTP đúng mới vào; OTP hết hạn → từ chối.
-- [ ] Thoát fullscreen ghi event, hiển thị ở timeline.
-- [ ] Integrity Score giảm khi có nhiều tab-switch/copy.
+- [ ] Reopening an already-SUBMITTED token → blocked, cannot re-attempt.
+- [ ] `requireOtp` enabled: must enter correct OTP before accessing exam; expired OTP is rejected.
+- [ ] Fullscreen exit logs an event and appears in the timeline.
+- [ ] Integrity Score decreases with multiple tab-switches or copy events.
 
 ---
 
 ## P3 — Branding, Email & Compliance
 
-> **Mục tiêu:** Trải nghiệm chuyên nghiệp & tuân thủ dữ liệu cho doanh nghiệp.
+> **Goal:** Professional candidate experience and data compliance for enterprise use.
 
 ### User stories
-- **US-P3-1** — Là ứng viên, email mời/nhắc/kết quả mang **thương hiệu org** (logo, màu, tên) và là email **gửi thật**.
-- **US-P3-2** — Là ứng viên, trang làm bài hiển thị logo & màu của org.
-- **US-P3-3** — Là Recruiter, tôi xuất **báo cáo PDF** kết quả của một ứng viên.
-- **US-P3-4** — Là Owner, dữ liệu ứng viên tuân thủ **retention/ẩn danh** (GDPR): tự xoá/ẩn danh sau N ngày, ứng viên yêu cầu xoá.
-- **US-P3-5** — Là Admin, mọi thao tác trên assessment được **ghi audit log**.
+- **US-P3-1** — As a candidate, invitation/reminder/result emails carry the **org's brand** (logo, color, name) and are sent as **real emails**.
+- **US-P3-2** — As a candidate, the exam page displays the org's logo and accent color.
+- **US-P3-3** — As a Recruiter, I export a **PDF report** for an individual candidate's results.
+- **US-P3-4** — As an Owner, candidate data complies with **GDPR retention/anonymization**: auto-delete or anonymize after N days; candidates can request deletion.
+- **US-P3-5** — As an Admin, all actions on assessments are captured in an **audit log**.
 
 ### Backend
-- Email service branded: template (mời/nhắc hạn/kết quả) dùng `org.logoUrl`/`accentColor`/`name`. Tích hợp provider thật (Mailtrap dev → Gmail/SES prod theo [organization.md](organization.md)). Job nhắc hạn (cron) trước khi `expiresAt`.
-- PDF per-candidate: render server-side (hoặc client) từ `getResults` của một invite.
-- Retention: cron ẩn danh `candidateEmail/candidateName/ipAddress` sau `retentionDays` (cấu hình org); endpoint xoá theo yêu cầu ứng viên.
-- Audit log: tái dùng hệ thống audit hiện có (Admin có `OrgAuditLog`) cho create/update/status/invite/decision.
+- Branded email service: templates (invite/reminder/results) using `org.logoUrl`/`accentColor`/`name`. Integrate a real email provider (Mailtrap for dev → Gmail/SES for prod, per [organization.md](organization.md)). Cron job for deadline reminders before `expiresAt`.
+- Per-candidate PDF: render server-side (or client-side) from `getResults` for a single invite.
+- Retention: cron job anonymizes `candidateEmail/candidateName/ipAddress` after `retentionDays` (org config); endpoint for candidate deletion requests.
+- Audit log: reuse the existing audit system (`OrgAuditLog`) for create/update/status/invite/decision events on assessments.
 
 ### Frontend
-- CandidateExam/CandidateResult: áp branding org (logo header, accent color).
-- AssessmentResults: nút "Export PDF" per-candidate; phần cấu hình retention trong OrgSettings.
-- OrgAuditLog: hiển thị sự kiện assessment.
+- CandidateExam/CandidateResult: apply org branding (logo header, accent color).
+- AssessmentResults: "Export PDF" button per candidate; retention configuration in OrgSettings.
+- OrgAuditLog: display assessment-related events.
 
 ### Acceptance criteria
-- [ ] Mời ứng viên → email thật đến hộp thư (Mailtrap dev), có logo/màu org.
-- [ ] Export PDF của 1 ứng viên ra file hợp lệ (điểm, domain breakdown, integrity).
-- [ ] Sau retentionDays, PII ứng viên bị ẩn danh; điểm/aggregate vẫn giữ.
-- [ ] Mọi thao tác assessment xuất hiện trong audit log.
+- [ ] Inviting a candidate → real email arrives in inbox (Mailtrap for dev) with org logo and color.
+- [ ] Exporting a PDF for one candidate produces a valid file (score, domain breakdown, integrity).
+- [ ] After `retentionDays`, candidate PII is anonymized; scores and aggregates are preserved.
+- [ ] All assessment actions appear in the audit log.
 
 ---
 
-## Tổng hợp ưu tiên & phụ thuộc
+## Priority & Dependency Summary
 
-| Phase | Giá trị | Effort | Phụ thuộc | Migration |
+| Phase | Value | Effort | Dependencies | Migration |
 |---|---|---|---|---|
-| **P0** Smart Builder | ★★★ | Vừa (tái dùng #70) | — | `selection_mode`, `selection_config`, `drawn_question_ids` |
-| **P1** ATS-lite | ★★★ | Lớn | P0 nên có | `job_roles`, role RECRUITER, fields `CandidateInvite` |
-| **P2** Proctoring | ★★ | Vừa–Lớn | P1 (để xem integrity) | fields proctoring + OTP |
-| **P3** Branding/Compliance | ★★ | Vừa | Email infra | retention, audit |
+| **P0** Smart Builder | ★★★ | Medium (reuses #70) | — | `selection_mode`, `selection_config`, `drawn_question_ids` |
+| **P1** ATS-lite | ★★★ | Large | P0 recommended | `job_roles`, RECRUITER role, `CandidateInvite` fields |
+| **P2** Proctoring | ★★ | Medium–Large | P1 (for integrity view) | proctoring + OTP fields |
+| **P3** Branding/Compliance | ★★ | Medium | Email infra | retention, audit |
 
-**Khuyến nghị thứ tự ship:** P0 → P1 → P2 → P3. P0 mang giá trị tức thì và rủi ro thấp nhất (chủ yếu tái dùng code blueprint sẵn có).
+**Recommended ship order:** P0 → P1 → P2 → P3. P0 delivers immediate value at lowest risk (primarily reuses existing blueprint code).
 
-### Rủi ro & lưu ý
-- **Nguồn câu hỏi:** Blueprint/Pool phụ thuộc số lượng `OrgQuestion` `APPROVED` đủ lớn theo domain. Cần khuyến khích org xây dựng question bank trước (có thể nối với AI generation sẵn có).
-- **POOL snapshot:** bắt buộc lưu `drawnQuestionIds` để tránh đổi đề khi ứng viên reload — đã xử lý ở P0.
-- **Bảo mật token:** P2 siết 1-lần-làm + OTP là điều kiện để dùng cho tuyển dụng thật.
-- **GDPR:** nếu phục vụ ứng viên EU, P3 retention là bắt buộc, không phải tùy chọn.
-- **Tách helper blueprint:** cần refactor logic Smart Exam Builder (#70) thành util dùng chung trước P0 để tránh trùng lặp.
+### Risks & Notes
+- **Question source:** Blueprint/Pool depends on having a sufficiently large pool of `APPROVED` `OrgQuestion` records per domain. Orgs need to build their question bank first (can be accelerated via the existing AI generation feature).
+- **POOL snapshot:** `drawnQuestionIds` must be saved to prevent question sets from changing when a candidate reloads — handled in P0.
+- **Token security:** P2's single-attempt enforcement + OTP is a prerequisite for using entrance exams in real hiring scenarios.
+- **GDPR:** If serving candidates in the EU, P3 retention is mandatory, not optional.
+- **Blueprint helper refactor:** The Smart Exam Builder (#70) blueprint logic must be extracted into a shared util before P0 to avoid duplication.
