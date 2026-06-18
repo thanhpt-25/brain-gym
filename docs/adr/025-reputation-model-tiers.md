@@ -26,11 +26,14 @@ Requirements:
 
 ```
 UserReputation {
-  userId    String
-  squadId   String
-  points    Int       // cumulative, never decremented
-  updatedAt DateTime
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  squadId   String   @map("squad_id")
+  points    Int      @default(0)  // cumulative, never decremented
+  updatedAt DateTime @updatedAt @map("updated_at")
   @@unique([userId, squadId])
+  @@index([squadId, points])
+  @@map("user_reputations")
 }
 ```
 
@@ -58,7 +61,7 @@ Thresholds are evaluated after every accrual. The highest eligible tier badge is
 
 ### Leaderboard
 
-`GET /squads/:squadId/reputation/leaderboard?limit=N` returns the top N members ordered by points descending, with their resolved tier. The `displayName` field is nullable — if the user has no display name, the frontend renders a placeholder.
+`GET /squads/:squadId/reputation/leaderboard?limit=N` returns the top N members ordered by points descending, with their resolved tier. `displayName` is a required non-nullable field on the `User` model in `schema.prisma`.
 
 ### Anti-gaming
 

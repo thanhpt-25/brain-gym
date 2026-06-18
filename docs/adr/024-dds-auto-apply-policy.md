@@ -26,13 +26,13 @@ The key constraints:
 
 Auto-apply is controlled by environment variables:
 
-| Variable                   | Default | Meaning                                                      |
-| -------------------------- | ------- | ------------------------------------------------------------ |
-| `DDS_AUTO_APPLY_ENABLED`   | `false` | Master kill-switch. Must be `"true"` to enable.              |
-| `DDS_AUTO_APPLY_THRESHOLD` | `30`    | Minimum number of APPROVED variants before auto-apply fires. |
-| `DDS_SHADOW_MODE`          | `true`  | When `"false"`, commits the apply; otherwise logs only.      |
+| Variable                   | Default | Meaning                                                           |
+| -------------------------- | ------- | ----------------------------------------------------------------- |
+| `DDS_AUTO_APPLY_ENABLED`   | `false` | Master kill-switch. Must be `"true"` to enable.                   |
+| `DDS_AUTO_APPLY_THRESHOLD` | `30`    | Minimum number of APPROVED variants before auto-apply fires.      |
+| `DDS_SHADOW_MODE`          | `true`  | Used only during cohort promotion (`POST …/promote`) to set the initial `DdsConfig.shadowModeEnabled` DB flag. At runtime, `tryAutoApply` reads `DdsConfig.shadowModeEnabled` from the database, not this env var. |
 
-**Shadow mode is the safe default.** This allows the decision logic to run in production — logging `dds_auto_apply_shadow` events — without touching data. The Gate 2 sign-off (≥30 clean approvals, 0 correctness violations) is required before `DDS_SHADOW_MODE` is set to `"false"`.
+**Shadow mode is the safe default.** Each cohort's live/shadow state is stored in `DdsConfig.shadowModeEnabled`. This allows the decision logic to run in production — logging decisions — without touching data. The Gate 2 sign-off (≥30 clean approvals, 0 correctness violations) is required before promoting a cohort to live mode via `POST /ai-question-bank/dds/auto-apply/promote`.
 
 ### Decision algorithm (`evaluateAutoApply`)
 
@@ -80,7 +80,7 @@ We cannot verify correctness violations in the wild until we have production dat
 **Risks:**
 
 - Threshold-based gating does not distinguish per-question quality — a high threshold mitigates but does not eliminate the risk of a bad auto-apply.
-- `DDS_SHADOW_MODE` is an env var, not a DB flag — changing it requires a redeploy.
+- Shadow mode state is stored in `DdsConfig.shadowModeEnabled` (DB flag per cohort); canary auto-pause updates this without a redeploy. Manual promotion still requires an authenticated API call.
 
 ---
 

@@ -2,8 +2,10 @@
 
 ## Status
 
-Draft — opened Sprint 3 (US-307 spike). Target approval: end of Sprint 4
-after beta-cohort validation (see §Success Metrics).
+Accepted — productionized in Sprint 5. The `ReadinessScore` model is in
+`schema.prisma`, `ReadinessService` and the heuristic are implemented in
+`backend/src/insights/readiness/`, and the endpoint is live at
+`GET /insights/readiness/:certificationId`.
 
 ## Context
 
@@ -63,18 +65,18 @@ The predictor reads only — it does not mutate `attempt_events`.
 
 ## Output Contract
 
-Logical model (NOT a Prisma migration in this RFC — productionize in Sprint 5):
+Productionized Prisma model (in `schema.prisma` since Sprint 5):
 
 ```prisma
 model ReadinessScore {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   userId          String   @map("user_id")
   certificationId String   @map("certification_id")
   score           Int      // 0..100
-  confidence      Float    // 0..1
-  signals         Json     // { srsCoverage, recentAccuracy, domainSpread,
-                           //   timePressure, attemptCount, contributions,
-                           //   weightsVersion }
+  confidence      Decimal  @db.Decimal(4, 3) // 0.000–0.950
+  attempts        Int      @default(0)        // total attempts feeding this score
+  signals         Json     // { srsCoverage, recentAccuracy14d, domainSpread,
+                           //   timePressure }
   computedAt      DateTime @default(now()) @map("computed_at")
 
   @@unique([userId, certificationId])
@@ -83,8 +85,14 @@ model ReadinessScore {
 }
 ```
 
+> Note: `confidence` is stored as `Decimal(4,3)` (not `Float`). The `signals` JSON
+> uses `recentAccuracy14d` (14-day window) rather than `recentAccuracy`. The
+> `weightsVersion` and `contributions` fields proposed here were not included in
+> the shipped model; the `attempts` count is a top-level column instead of a
+> signal field.
+
 `signals` is denormalized JSON so the Coach can read contributions without
-re-running the heuristic, and so weight changes are auditable via `weightsVersion`.
+re-running the heuristic.
 
 ---
 

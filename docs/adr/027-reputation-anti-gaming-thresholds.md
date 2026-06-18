@@ -23,64 +23,56 @@ This ADR defines detection thresholds and response policies.
 
 **Anomaly Signature:**
 
-- **>10 votes** on same explanation or from same author
-- **Within 5-minute window**
-- **Indicates rapid coordinated voting**
+- **≥5 votes** on the same explanation within the velocity window (default)
+- **Within 60-second window** (default)
+- Thresholds are configurable via env vars:
+  - `REPUTATION_VELOCITY_BURST_THRESHOLD` (default: `5`)
+  - `REPUTATION_VELOCITY_WINDOW_MS` (default: `60000` ms = 60 s)
 
-**Detection Logic:**
+**Implementation:**
 
-```sql
-SELECT explanation_id, author_id, COUNT(*) as vote_count,
-       MIN(voted_at) as first_vote, MAX(voted_at) as last_vote
-FROM explanation_votes
-WHERE voted_at > NOW() - INTERVAL 5 MINUTES
-GROUP BY explanation_id, author_id
-HAVING COUNT(*) > 10 AND (MAX(voted_at) - MIN(voted_at)) <= INTERVAL 5 MINUTES
-```
+The detection is performed by `detectAnomaly()` in
+`backend/src/squads/peer-review/peer-review.service.ts`. It queries
+`ExplanationVote` rows within the velocity window and compares the count to
+the threshold. Returns `'velocity_burst'` if exceeded.
 
 **Flag Action:**
 
-- Mark all votes in burst window with reason: `velocity_burst`
-- Place points on **hold** (not credited to leaderboard)
-- Timestamp: when anomaly detected
-- Idempotent: no duplicate flags for same explanation in same window
+- Vote accrual is skipped; a `ReputationFlag` row is created with
+  `reason = 'velocity_burst'`
+- Points are held (not credited to leaderboard)
+- Idempotent: existing flag check before inserting a new one
+
+> Note: The original threshold proposed in this ADR was **>10 votes / 5 minutes**.
+> The shipped implementation defaults to **≥5 votes / 60 seconds**, matching
+> the env-var defaults in `peer-review.service.ts`.
 
 ### Vote-Ring Detection
 
 **Anomaly Signature:**
 
-- **≥3 coordinated accounts** within same squad
-- **Voting in round-robin pattern** (each voting for others' explanations)
-- **Within 1-hour window**
+- A voter has already voted on **≥3 explanations** from the same author within the same squad (configurable via `REPUTATION_RING_THRESHOLD`, default: `3`)
+- No time window — checks all-time cross-votes per voter/author/squad combination
 
-**Detection Logic:**
+**Implementation:**
 
-```sql
-SELECT squad_id, user_id, COUNT(DISTINCT voted_for_user_id) as unique_targets
-FROM explanation_votes ev
-JOIN users u ON ev.reviewer_id = u.id
-WHERE ev.squad_id = ?
-  AND ev.voted_at > NOW() - INTERVAL 1 HOUR
-GROUP BY squad_id, user_id
-HAVING COUNT(*) >= 3
-  AND EXISTS (
-    SELECT 1 FROM (
-      SELECT reviewer_id, voted_for_user_id
-      FROM explanation_votes
-      WHERE squad_id = ?
-        AND voted_at > NOW() - INTERVAL 1 HOUR
-    ) AS votes_matrix
-    WHERE votes_matrix.reviewer_id IN (SELECT user_id FROM ...)
-      AND votes_matrix.voted_for_user_id IN (SELECT user_id FROM ...)
-  )
-```
+The detection is performed inside the same `detectAnomaly()` method in
+`backend/src/squads/peer-review/peer-review.service.ts`. It counts how many
+of the target author's explanations the current voter has already upvoted in
+this squad. Returns `'vote_ring'` if the count meets or exceeds the threshold.
 
 **Flag Action:**
 
-- Mark all votes in ring with reason: `vote_ring`
-- Place points on **hold** (not credited to leaderboard)
-- Escalate to moderation queue for human review
-- Idempotent: no duplicate flags
+- Vote accrual is skipped; a `ReputationFlag` row is created with
+  `reason = 'vote_ring'`
+- Points are held (not credited to leaderboard)
+- Admin review required to clear or confirm
+- Idempotent: existing flag check before inserting
+
+> Note: The original 1-hour sliding window described here was not implemented.
+> The shipped logic checks all-time votes from the same voter to the same
+> author within the squad, not a time-bounded window. The ≥3 account threshold
+> refers to the number of cross-votes, not distinct coordinated accounts.
 
 ### Response & Recovery
 
@@ -104,20 +96,17 @@ HAVING COUNT(*) >= 3
 
 ## Rationale
 
-### Why >10 Votes in 5 Minutes (Vote-Velocity)?
+### Why ≥5 Votes in 60 Seconds (Vote-Velocity)?
 
-- **>10 votes:** Statistical rarity for legitimate reviewing (normal: 2–5 votes per 5 minutes per author)
-- **5-minute window:** Captures rapid coordinated voting; balances sensitivity vs. false positives
-- **Alternative thresholds considered:**
-  - 5 votes / 5m: Too aggressive, would flag high-velocity legitimate reviewers (rejected)
-  - 20 votes / 5m: Too permissive, allows coordinated campaigns (rejected)
+- **≥5 votes:** Flags rapid coordinated activity while tolerating normal async reviewing patterns
+- **60-second window:** Short enough to catch burst activity; tunable via `REPUTATION_VELOCITY_WINDOW_MS`
+- **Configurable thresholds** (`REPUTATION_VELOCITY_BURST_THRESHOLD`, `REPUTATION_VELOCITY_WINDOW_MS`) allow adjustment without a code deploy if false-positive rates are too high
 
-### Why ≥3 Accounts in Vote-Ring?
+### Why ≥3 Cross-Votes in Vote-Ring?
 
-- **Squad size:** Typical CertGym squads: 5–20 members
-- **≥3 accounts:** Statistically unlikely accident; clear coordination signal
-- **Configurable per squad size:** Smaller squads get higher thresholds to avoid false positives
-- **1-hour window:** Fast enough to catch coordinated campaigns; loose enough to avoid false positives on async voting
+- **≥3 votes from same voter to same author:** Statistically unlikely to be coincidental in small squads; clear preferential-voting signal
+- **Configurable via `REPUTATION_RING_THRESHOLD`:** Threshold can be raised for larger squads without a code deploy
+- **All-time window:** Persistent cross-vote pattern is more reliable than a short time window for detecting ring behaviour across sessions
 
 ### Why Point Hold (Not Deletion)?
 
@@ -170,9 +159,9 @@ HAVING COUNT(*) >= 3
 
 ## Implementation
 
-- **Backend:** `peer-review.service.ts:detectVelocityBurst()` + `detectVoteRing()`
-- **Database:** Flag records in `reputation_flags` table
-- **Admin UI:** `ReputationTab.tsx` (US-1102) for flag review + clearance
+- **Backend:** `peer-review.service.ts:detectAnomaly()` — single method handles both `velocity_burst` and `vote_ring` checks; called inside `vote()` before any point accrual
+- **Database:** Flag records in `reputation_flags` table (`backend/prisma/schema.prisma`)
+- **Admin UI:** `src/pages/admin/ReputationTab.tsx` (US-1102) for flag review + clearance
 - **Monitoring:** Dashboard panels (US-1106) track detection rates
 
 ---

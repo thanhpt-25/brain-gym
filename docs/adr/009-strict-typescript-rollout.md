@@ -184,7 +184,8 @@ Must show ≥95% coverage on new modules. Exceptions require explicit RFC amendm
 
 ## 11. Related Documents
 
-- `../../tsconfig.json` — Root TypeScript config (strict: false globally; per-module overrides via `"references"`)
-- `../../backend/tsconfig.json` — Backend TS config
+- `../../tsconfig.json` — Root TypeScript config (project-references wrapper; sets `strict: true` at the wrapper level, but the effective frontend config is `tsconfig.app.json`)
+- `../../tsconfig.app.json` — Frontend app TS config (`strict: false`, `noImplicitAny: false` — loose by default; per-module overrides apply)
+- `../../backend/tsconfig.json` — Backend TS config (`noImplicitAny: true`, `strictNullChecks: true`, `strictBindCallApply: true`; no top-level `strict: true` flag)
 - `docs/adr/003-pass-predictor-v0.md` — Earlier type safety decision (legacy context)
 - `docs/team-planning/sprint-05-implementation-plan.md` — Sprint plan (§US-509 references this RFC)

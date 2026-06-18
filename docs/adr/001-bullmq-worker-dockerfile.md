@@ -1,7 +1,12 @@
 # BullMQ Worker Dockerfile — Reference Spec
 
 > This document is part of [ADR 001](./001-bullmq-decision.md).
-> The actual `Dockerfile.worker` will be created in RFC-004 (Sprint 2).
+>
+> **Current Status:** Not implemented. RFC-004 (Sprint 2) chose to run processors
+> in-process inside the main `backend` container rather than a separate worker
+> container. `Dockerfile.worker` and the `worker` service in `docker-compose.yml`
+> were not created. This document is retained as a reference for a future
+> split if the in-process approach proves insufficient.
 
 ## Worker Entry Point
 

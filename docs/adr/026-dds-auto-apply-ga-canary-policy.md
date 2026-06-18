@@ -42,9 +42,9 @@ This ADR defines the thresholds and policies for both gates.
 
 **Canary Pause Behavior:**
 
-- When threshold exceeded: set `DDS_SHADOW_MODE = true` for cohort
+- When threshold exceeded: set `DdsConfig.shadowModeEnabled = true` for the cohort (DB update, no redeploy required)
 - Effect: Stop executing; revert to logging mode (auto-pause)
-- Recovery: Manual decision to retry promotion after investigation
+- Recovery: Manual decision to retry promotion after investigation via `POST /ai-question-bank/dds/auto-apply/promote`
 - Alert: Emit `US-1106` alert via monitoring system
 
 **Alert Escalation:**
