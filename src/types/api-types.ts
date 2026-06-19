@@ -391,3 +391,15 @@ export interface GenerationJob {
   domain?: { name: string };
   _count: { questions: number };
 }
+
+export interface McpApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface McpApiKeyCreated extends McpApiKey {
+  plaintext: string;
+}
