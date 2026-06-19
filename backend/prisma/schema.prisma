@@ -261,6 +261,7 @@ model User {
   flashcardReviewSchedules   FlashcardReviewSchedule[]
   capturedWords              CapturedWord[]
   llmConfigs                 UserLlmConfig[]
+  mcpApiKeys                 McpApiKey[]
   generationJobs             QuestionGenerationJob[]
   sourceMaterials            SourceMaterial[]
   auditLogs                  AuditLog[]
@@ -705,6 +706,24 @@ model CapturedWord {
   question    Question?    @relation(fields: [questionId], references: [id])
 
   @@map("captured_words")
+}
+
+// ==================== MCP API KEYS ====================
+
+model McpApiKey {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  name       String
+  keyHash    String    @unique @map("key_hash")
+  prefix     String
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mcp_api_keys")
 }
 
 // ==================== AI QUESTION BANK ====================

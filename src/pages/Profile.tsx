@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import McpApiKeysTab from "@/components/profile/McpApiKeysTab";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -349,6 +350,9 @@ export default function Profile() {
             <TabsTrigger value="activity" className="flex-1 gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               <Clock className="h-4 w-4" /> Activity
             </TabsTrigger>
+            <TabsTrigger value="mcp-keys" className="flex-1 gap-2 data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
+              <KeyRound className="h-4 w-4" /> MCP Keys
+            </TabsTrigger>
           </TabsList>
 
           {/* Personal Info */}
@@ -514,6 +518,11 @@ export default function Profile() {
                 </ul>
               </div>
             </Card>
+          </TabsContent>
+
+          {/* MCP API Keys */}
+          <TabsContent value="mcp-keys">
+            <McpApiKeysTab />
           </TabsContent>
         </Tabs>
           </div>
