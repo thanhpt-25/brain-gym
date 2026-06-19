@@ -45,22 +45,34 @@ if (!API_KEY || !API_KEY.startsWith('mcp_')) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-async function callIntakeApi(payload: Record<string, unknown>): Promise<{
+async function callApi(
+  path: string,
+  options: RequestInit = {},
+): Promise<{
   ok: boolean;
   status: number;
   body: unknown;
 }> {
-  const url = `${API_URL}/api/v1/ai-questions/mcp/intake`;
-  const res = await fetch(url, {
-    method: 'POST',
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
       'X-API-Key': API_KEY,
+      ...options.headers,
     },
-    body: JSON.stringify(payload),
   });
   const body = await res.json().catch(() => res.text());
   return { ok: res.ok, status: res.status, body };
+}
+
+async function fetchCertifications(): Promise<
+  { id: string; code: string; name: string }[]
+> {
+  const result = await callApi('/api/v1/certifications');
+  if (!result.ok || !Array.isArray(result.body)) return [];
+  return (result.body as { id: string; code: string; name: string }[]).map(
+    ({ id, code, name }) => ({ id, code, name }),
+  );
 }
 
 // ── MCP Server ─────────────────────────────────────────────────────────────────
@@ -116,12 +128,7 @@ server.tool(
     certificationId: z
       .string()
       .describe(
-        'ID of the target certification. Known IDs: ' +
-          '"aws-saa" (AWS Solutions Architect Associate), ' +
-          '"az-900" (Azure Fundamentals), ' +
-          '"gcp-pca" (GCP Professional Cloud Architect), ' +
-          '"cka" (Certified Kubernetes Administrator), ' +
-          '"pmp" (Project Management Professional)',
+        'UUID of the target certification. Read the brain-gym://certifications resource to get valid IDs before calling this tool.',
       ),
     domainId: z
       .string()
@@ -138,7 +145,10 @@ server.tool(
   },
   async (args) => {
     try {
-      const result = await callIntakeApi(args);
+      const result = await callApi('/api/v1/ai-questions/mcp/intake', {
+        method: 'POST',
+        body: JSON.stringify(args),
+      });
 
       if (!result.ok) {
         return {
@@ -188,38 +198,22 @@ server.tool(
 server.resource(
   'certifications',
   'brain-gym://certifications',
-  { description: 'List of available certifications in Brain Gym' },
-  () => ({
-    contents: [
-      {
-        uri: 'brain-gym://certifications',
-        mimeType: 'application/json',
-        text: JSON.stringify(
-          [
-            {
-              id: 'aws-saa',
-              code: 'SAA-C03',
-              name: 'AWS Solutions Architect Associate',
-            },
-            { id: 'az-900', code: 'AZ-900', name: 'Azure Fundamentals' },
-            {
-              id: 'gcp-pca',
-              code: 'PCA',
-              name: 'GCP Professional Cloud Architect',
-            },
-            {
-              id: 'cka',
-              code: 'CKA',
-              name: 'Certified Kubernetes Administrator',
-            },
-            { id: 'pmp', code: 'PMP', name: 'Project Management Professional' },
-          ],
-          null,
-          2,
-        ),
-      },
-    ],
-  }),
+  {
+    description:
+      'Live list of certifications available in Brain Gym. Read this before calling push_questions to get valid certificationId values.',
+  },
+  async () => {
+    const certs = await fetchCertifications();
+    return {
+      contents: [
+        {
+          uri: 'brain-gym://certifications',
+          mimeType: 'application/json',
+          text: JSON.stringify(certs, null, 2),
+        },
+      ],
+    };
+  },
 );
 
 // ── Start ──────────────────────────────────────────────────────────────────────
