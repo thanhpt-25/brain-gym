@@ -1,5 +1,4 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import { createHash } from 'crypto';
 import { McpKeysService } from './mcp-keys.service';
 
 const MCP_KEY_PREFIX = 'mcp_';
@@ -21,8 +20,7 @@ export class ApiKeyAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid API key');
     }
 
-    const hash = createHash('sha256').update(raw).digest('hex');
-    const key = await this.mcpKeys.findByHash(hash);
+    const key = await this.mcpKeys.findByRawKey(raw);
 
     if (!key) {
       throw new UnauthorizedException('Invalid API key');

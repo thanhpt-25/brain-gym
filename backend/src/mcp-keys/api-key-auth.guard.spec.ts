@@ -3,7 +3,7 @@ import { ApiKeyAuthGuard } from './api-key-auth.guard';
 import { McpKeysService } from './mcp-keys.service';
 
 const mockMcpKeysService = {
-  findByHash: jest.fn(),
+  findByRawKey: jest.fn(),
   updateLastUsed: jest.fn(),
 };
 
@@ -33,7 +33,7 @@ describe('ApiKeyAuthGuard', () => {
   });
 
   it('should throw UnauthorizedException when key hash not found in DB', async () => {
-    mockMcpKeysService.findByHash.mockResolvedValue(null);
+    mockMcpKeysService.findByRawKey.mockResolvedValue(null);
     await expect(
       guard.canActivate(makeContext({ 'x-api-key': 'mcp_validlooking12345678901234567890123456' })),
     ).rejects.toThrow(UnauthorizedException);
@@ -45,7 +45,7 @@ describe('ApiKeyAuthGuard', () => {
       userId: 'user-1',
       user: { id: 'user-1', email: 'x@x.com', role: 'CONTRIBUTOR', displayName: 'X' },
     };
-    mockMcpKeysService.findByHash.mockResolvedValue(fakeKey);
+    mockMcpKeysService.findByRawKey.mockResolvedValue(fakeKey);
 
     const ctx = makeContext({ 'x-api-key': 'mcp_validlooking12345678901234567890123456' });
     const req = ctx.switchToHttp().getRequest();

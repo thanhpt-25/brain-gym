@@ -6,7 +6,8 @@ import {
   HttpStatus,
   Inject,
 } from '@nestjs/common';
-import { createHash, randomBytes } from 'crypto';
+import { ConfigService } from '@nestjs/config';
+import { createHmac, randomBytes } from 'crypto';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -18,13 +19,19 @@ const RATE_WINDOW_SECONDS = 3600;
 export class McpKeysService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
+
+  private hashKey(raw: string): string {
+    const secret = this.config.get<string>('MCP_KEY_HMAC_SECRET') ?? 'dev-fallback-change-in-production';
+    return createHmac('sha256', secret).update(raw).digest('hex');
+  }
 
   async generateKey(userId: string, name: string) {
     const raw = 'mcp_' + randomBytes(32).toString('base64url');
     const prefix = raw.slice(0, 12);
-    const keyHash = createHash('sha256').update(raw).digest('hex');
+    const keyHash = this.hashKey(raw);
 
     const key = await this.prisma.mcpApiKey.create({
       data: { userId, name, keyHash, prefix },
@@ -52,7 +59,8 @@ export class McpKeysService {
     });
   }
 
-  async findByHash(hash: string) {
+  async findByRawKey(raw: string) {
+    const hash = this.hashKey(raw);
     const key = await this.prisma.mcpApiKey.findFirst({
       where: { keyHash: hash, revokedAt: null },
       select: {

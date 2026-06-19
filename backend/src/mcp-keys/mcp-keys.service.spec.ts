@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HttpException, HttpStatus, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { McpKeysService } from './mcp-keys.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -19,6 +20,8 @@ const mockRedis = {
   expire: jest.fn(),
 };
 
+const mockConfig = { get: jest.fn().mockReturnValue('test-hmac-secret') };
+
 describe('McpKeysService', () => {
   let service: McpKeysService;
   let prisma: typeof mockPrisma;
@@ -29,6 +32,7 @@ describe('McpKeysService', () => {
       providers: [
         McpKeysService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: ConfigService, useValue: mockConfig },
         { provide: REDIS_CLIENT, useValue: mockRedis },
       ],
     }).compile();
@@ -100,8 +104,8 @@ describe('McpKeysService', () => {
     });
   });
 
-  describe('findByHash', () => {
-    it('should return key with user for a valid active hash', async () => {
+  describe('findByRawKey', () => {
+    it('should return key with user for a valid active key', async () => {
       const key = {
         id: 'k1',
         userId: 'u1',
@@ -110,13 +114,13 @@ describe('McpKeysService', () => {
       };
       prisma.mcpApiKey.findFirst.mockResolvedValue(key);
 
-      const result = await service.findByHash('somehash');
+      const result = await service.findByRawKey('mcp_somevalidkey123456789012345678901234');
       expect(result).toEqual({ id: 'k1', userId: 'u1', user: key.user });
     });
 
     it('should return null if not found', async () => {
       prisma.mcpApiKey.findFirst.mockResolvedValue(null);
-      const result = await service.findByHash('badhash');
+      const result = await service.findByRawKey('mcp_somevalidkey123456789012345678901234');
       expect(result).toBeNull();
     });
 
@@ -127,7 +131,7 @@ describe('McpKeysService', () => {
         revokedAt: new Date(),
         user: { id: 'u1', email: 'x@x.com', role: 'CONTRIBUTOR', displayName: 'X' },
       });
-      const result = await service.findByHash('somehash');
+      const result = await service.findByRawKey('mcp_somevalidkey123456789012345678901234');
       expect(result).toBeNull();
     });
   });
