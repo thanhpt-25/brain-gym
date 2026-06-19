@@ -21,6 +21,8 @@ import { GenerateQuestionsDto } from './dto/generate-questions.dto';
 import { SaveGeneratedQuestionsDto } from './dto/save-questions.dto';
 import { McpIntakeDto } from './mcp/mcp-intake.dto';
 import { LlmQuotaService } from './llm-usage/llm-quota.service';
+import { AuditService } from '../audit/audit.service';
+import { McpKeysService } from '../mcp-keys/mcp-keys.service';
 import {
   Difficulty,
   LlmProvider,
@@ -41,6 +43,8 @@ export class AiQuestionBankService {
     private readonly encryption: EncryptionService,
     private readonly ingestion: IngestionService,
     private readonly quota: LlmQuotaService,
+    private readonly audit: AuditService,
+    private readonly mcpKeys: McpKeysService,
     @InjectQueue(AI_GEN_QUEUE) private readonly aiGenQueue: Queue<AiGenJobData>,
   ) {}
 
@@ -293,7 +297,9 @@ export class AiQuestionBankService {
 
   // ─── MCP Intake ──────────────────────────────────────────────────────────────
 
-  async mcpIntake(userId: string, dto: McpIntakeDto) {
+  async mcpIntake(userId: string, keyId: string, dto: McpIntakeDto) {
+    await this.mcpKeys.checkRateLimit(keyId);
+
     const saved: string[] = [];
     const discarded: number[] = [];
 
@@ -330,6 +336,21 @@ export class AiQuestionBankService {
 
       saved.push(question.id);
     }
+
+    this.audit
+      .log({
+        userId,
+        action: 'MCP_INTAKE',
+        targetType: 'certification',
+        targetId: dto.certificationId,
+        metadata: {
+          keyId,
+          source: dto.source ?? 'MCP',
+          saved: saved.length,
+          discarded: discarded.length,
+        },
+      })
+      .catch(() => {});
 
     return {
       saved: saved.length,

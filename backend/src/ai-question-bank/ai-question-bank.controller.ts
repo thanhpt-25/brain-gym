@@ -20,6 +20,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/interfaces/request.interface';
+import { Public } from '../common/decorators/public.decorator';
+import { ApiKeyAuthGuard } from '../mcp-keys/api-key-auth.guard';
 import { AiQuestionBankService } from './ai-question-bank.service';
 import { IngestionService } from './ingestion/ingestion.service';
 import { ConfigureLlmDto } from './dto/configure-llm.dto';
@@ -28,6 +30,10 @@ import { SaveGeneratedQuestionsDto } from './dto/save-questions.dto';
 import { UploadMaterialDto } from './dto/upload-material.dto';
 import { McpIntakeDto } from './mcp/mcp-intake.dto';
 import { Throttle } from '@nestjs/throttler';
+
+interface McpRequest extends AuthenticatedRequest {
+  mcpKeyId: string;
+}
 
 @ApiTags('AI Question Bank')
 @ApiBearerAuth()
@@ -209,11 +215,13 @@ export class AiQuestionBankController {
   // ─── MCP Intake ──────────────────────────────────────────────────────────────
 
   @Post('mcp/intake')
+  @Public()
+  @UseGuards(ApiKeyAuthGuard)
   @ApiOperation({
     summary:
       'MCP mode: receive questions pushed from external AI tools (Claude Desktop, etc.)',
   })
-  mcpIntake(@Req() req: AuthenticatedRequest, @Body() dto: McpIntakeDto) {
-    return this.service.mcpIntake(req.user.id, dto);
+  mcpIntake(@Req() req: McpRequest, @Body() dto: McpIntakeDto) {
+    return this.service.mcpIntake(req.user.id, req.mcpKeyId, dto);
   }
 }
