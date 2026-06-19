@@ -7,8 +7,8 @@
  * questions into the Brain Gym platform.
  *
  * Environment variables:
- *   BRAIN_GYM_API_URL       – Base URL of the running backend (default: http://localhost:3000)
- *   BRAIN_GYM_BEARER_TOKEN  – JWT bearer token for authentication (required)
+ *   BRAIN_GYM_API_URL  – Base URL of the running backend (default: http://localhost:3000)
+ *   BRAIN_GYM_API_KEY  – MCP API key generated in CertGym Settings (required, starts with mcp_)
  *
  * Usage with Claude Desktop – add to claude_desktop_config.json:
  *   {
@@ -19,7 +19,7 @@
  *         "cwd": "/path/to/brain-gym/backend",
  *         "env": {
  *           "BRAIN_GYM_API_URL": "http://localhost:3000",
- *           "BRAIN_GYM_BEARER_TOKEN": "<your-jwt>"
+ *           "BRAIN_GYM_API_KEY": "<your-mcp-api-key-from-settings>"
  *         }
  *       }
  *     }
@@ -33,12 +33,12 @@ import { z } from 'zod';
 // ── Configuration ──────────────────────────────────────────────────────────────
 
 const API_URL = process.env.BRAIN_GYM_API_URL || 'http://localhost:3000';
-const BEARER_TOKEN = process.env.BRAIN_GYM_BEARER_TOKEN || '';
+const API_KEY = process.env.BRAIN_GYM_API_KEY || '';
 
-if (!BEARER_TOKEN) {
+if (!API_KEY || !API_KEY.startsWith('mcp_')) {
   console.error(
-    '[brain-gym-mcp] ERROR: BRAIN_GYM_BEARER_TOKEN environment variable is required.\n' +
-      'Set it to a valid JWT token from your Brain Gym account.',
+    '[brain-gym-mcp] ERROR: BRAIN_GYM_API_KEY environment variable is required.\n' +
+      'Generate one in CertGym Settings → MCP API Keys. It starts with "mcp_".',
   );
   process.exit(1);
 }
@@ -55,7 +55,7 @@ async function callIntakeApi(payload: Record<string, unknown>): Promise<{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${BEARER_TOKEN}`,
+      'X-API-Key': API_KEY,
     },
     body: JSON.stringify(payload),
   });
