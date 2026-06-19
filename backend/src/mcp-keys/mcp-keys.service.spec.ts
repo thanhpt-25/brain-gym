@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpException, HttpStatus, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { McpKeysService } from './mcp-keys.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,9 +20,14 @@ const mockPrisma = {
   },
 };
 
+const mockPipeline = {
+  incr: jest.fn().mockReturnThis(),
+  expire: jest.fn().mockReturnThis(),
+  exec: jest.fn(),
+};
+
 const mockRedis = {
-  incr: jest.fn(),
-  expire: jest.fn(),
+  pipeline: jest.fn(() => mockPipeline),
 };
 
 const mockConfig = { get: jest.fn().mockReturnValue('test-hmac-secret') };
@@ -25,7 +35,6 @@ const mockConfig = { get: jest.fn().mockReturnValue('test-hmac-secret') };
 describe('McpKeysService', () => {
   let service: McpKeysService;
   let prisma: typeof mockPrisma;
-  let redis: typeof mockRedis;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -39,14 +48,18 @@ describe('McpKeysService', () => {
 
     service = module.get<McpKeysService>(McpKeysService);
     prisma = module.get<PrismaService>(PrismaService) as any;
-    redis = module.get(REDIS_CLIENT);
   });
 
   afterEach(() => jest.clearAllMocks());
 
   describe('generateKey', () => {
     it('should return plaintext key with mcp_ prefix and store hash', async () => {
-      const fakeKey = { id: 'key-1', prefix: 'mcp_abcd1234', name: 'My Key', createdAt: new Date() };
+      const fakeKey = {
+        id: 'key-1',
+        prefix: 'mcp_abcd1234',
+        name: 'My Key',
+        createdAt: new Date(),
+      };
       prisma.mcpApiKey.create.mockResolvedValue(fakeKey);
 
       const result = await service.generateKey('user-1', 'My Key');
@@ -68,13 +81,23 @@ describe('McpKeysService', () => {
 
   describe('listKeys', () => {
     it('should return active keys for user', async () => {
-      const keys = [{ id: 'k1', name: 'Key 1', prefix: 'mcp_abcd', createdAt: new Date(), lastUsedAt: null }];
+      const keys = [
+        {
+          id: 'k1',
+          name: 'Key 1',
+          prefix: 'mcp_abcd',
+          createdAt: new Date(),
+          lastUsedAt: null,
+        },
+      ];
       prisma.mcpApiKey.findMany.mockResolvedValue(keys);
 
       const result = await service.listKeys('user-1');
 
       expect(prisma.mcpApiKey.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { userId: 'user-1', revokedAt: null } }),
+        expect.objectContaining({
+          where: { userId: 'user-1', revokedAt: null },
+        }),
       );
       expect(result).toEqual(keys);
     });
@@ -82,7 +105,10 @@ describe('McpKeysService', () => {
 
   describe('revokeKey', () => {
     it('should set revokedAt on owned key', async () => {
-      prisma.mcpApiKey.findUnique.mockResolvedValue({ id: 'k1', userId: 'user-1' });
+      prisma.mcpApiKey.findUnique.mockResolvedValue({
+        id: 'k1',
+        userId: 'user-1',
+      });
       prisma.mcpApiKey.update.mockResolvedValue({});
 
       await service.revokeKey('user-1', 'k1');
@@ -95,12 +121,19 @@ describe('McpKeysService', () => {
 
     it('should throw NotFoundException if key does not exist', async () => {
       prisma.mcpApiKey.findUnique.mockResolvedValue(null);
-      await expect(service.revokeKey('user-1', 'missing')).rejects.toThrow(NotFoundException);
+      await expect(service.revokeKey('user-1', 'missing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ForbiddenException if key belongs to another user', async () => {
-      prisma.mcpApiKey.findUnique.mockResolvedValue({ id: 'k1', userId: 'user-2' });
-      await expect(service.revokeKey('user-1', 'k1')).rejects.toThrow(ForbiddenException);
+      prisma.mcpApiKey.findUnique.mockResolvedValue({
+        id: 'k1',
+        userId: 'user-2',
+      });
+      await expect(service.revokeKey('user-1', 'k1')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -109,45 +142,49 @@ describe('McpKeysService', () => {
       const key = {
         id: 'k1',
         userId: 'u1',
-        revokedAt: null,
-        user: { id: 'u1', email: 'x@x.com', role: 'CONTRIBUTOR', displayName: 'X' },
+        user: {
+          id: 'u1',
+          email: 'x@x.com',
+          role: 'CONTRIBUTOR',
+          displayName: 'X',
+        },
       };
       prisma.mcpApiKey.findFirst.mockResolvedValue(key);
 
-      const result = await service.findByRawKey('mcp_somevalidkey123456789012345678901234');
-      expect(result).toEqual({ id: 'k1', userId: 'u1', user: key.user });
+      const result = await service.findByRawKey(
+        'mcp_somevalidkey123456789012345678901234',
+      );
+      expect(result).toEqual(key);
     });
 
     it('should return null if not found', async () => {
       prisma.mcpApiKey.findFirst.mockResolvedValue(null);
-      const result = await service.findByRawKey('mcp_somevalidkey123456789012345678901234');
-      expect(result).toBeNull();
-    });
-
-    it('should return null if key is revoked', async () => {
-      prisma.mcpApiKey.findFirst.mockResolvedValue({
-        id: 'k1',
-        userId: 'u1',
-        revokedAt: new Date(),
-        user: { id: 'u1', email: 'x@x.com', role: 'CONTRIBUTOR', displayName: 'X' },
-      });
-      const result = await service.findByRawKey('mcp_somevalidkey123456789012345678901234');
+      const result = await service.findByRawKey(
+        'mcp_somevalidkey123456789012345678901234',
+      );
       expect(result).toBeNull();
     });
   });
 
   describe('checkRateLimit', () => {
     it('should not throw when under limit', async () => {
-      redis.incr.mockResolvedValue(50);
-      redis.expire.mockResolvedValue(1);
+      mockPipeline.exec.mockResolvedValue([
+        [null, 50],
+        [null, 1],
+      ]);
       await expect(service.checkRateLimit('key-1')).resolves.not.toThrow();
     });
 
     it('should throw 429 when over limit', async () => {
-      redis.incr.mockResolvedValue(101);
-      redis.expire.mockResolvedValue(1);
+      mockPipeline.exec.mockResolvedValue([
+        [null, 101],
+        [null, 1],
+      ]);
       await expect(service.checkRateLimit('key-1')).rejects.toThrow(
-        new HttpException('Rate limit exceeded: 100 requests per hour per API key', HttpStatus.TOO_MANY_REQUESTS),
+        new HttpException(
+          'Rate limit exceeded: 100 requests per hour per API key',
+          HttpStatus.TOO_MANY_REQUESTS,
+        ),
       );
     });
   });

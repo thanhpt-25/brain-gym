@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -37,6 +38,8 @@ const QUALITY_MEDIUM = 0.6;
 
 @Injectable()
 export class AiQuestionBankService {
+  private readonly logger = new Logger(AiQuestionBankService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly questions: QuestionsService,
@@ -350,7 +353,7 @@ export class AiQuestionBankService {
           discarded: discarded.length,
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => this.logger.warn('MCP audit log failed', err));
 
     return {
       saved: saved.length,
