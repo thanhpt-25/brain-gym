@@ -7,7 +7,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, randomBytes } from 'crypto';
+import { pbkdf2Sync, randomBytes } from 'crypto';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
@@ -25,7 +25,7 @@ export class McpKeysService {
 
   private hashKey(raw: string): string {
     const secret = this.config.get<string>('MCP_KEY_HMAC_SECRET') ?? 'dev-fallback-change-in-production';
-    return createHmac('sha256', secret).update(raw).digest('hex');
+    return pbkdf2Sync(raw, secret, 10000, 32, 'sha256').toString('hex');
   }
 
   async generateKey(userId: string, name: string) {
