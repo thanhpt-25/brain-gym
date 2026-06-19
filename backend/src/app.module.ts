@@ -41,6 +41,7 @@ import { SquadsModule } from './squads/squads.module';
 import { KnowledgeGraphModule } from './knowledge-graph/knowledge-graph.module';
 import { RedisModule } from './redis/redis.module';
 import { CompetencyModule } from './competency/competency.module';
+import { McpKeysModule } from './mcp-keys/mcp-keys.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { CompetencyModule } from './competency/competency.module';
     KnowledgeGraphModule,
     RedisModule,
     CompetencyModule,
+    McpKeysModule,
   ],
   controllers: [AppController],
   providers: [
