@@ -216,6 +216,45 @@ server.resource(
   },
 );
 
+// ── Tool: list_certifications ──────────────────────────────────────────────────
+
+server.tool(
+  'list_certifications',
+  'List all certifications available in Brain Gym. Call this first to get valid certificationId values before calling push_questions.',
+  {},
+  async () => {
+    try {
+      const certs = await fetchCertifications();
+      if (certs.length === 0) {
+        return {
+          content: [
+            { type: 'text' as const, text: 'No certifications found.' },
+          ],
+        };
+      }
+      const lines = certs.map((c) => `• ${c.code} — ${c.name}\n  id: ${c.id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Available certifications:\n\n${lines.join('\n\n')}`,
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `❌ Failed to fetch certifications: ${(err as Error).message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
 // ── Start ──────────────────────────────────────────────────────────────────────
 
 async function main() {
