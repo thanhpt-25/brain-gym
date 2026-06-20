@@ -20,6 +20,7 @@ import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto'
 import { randomUUID } from 'crypto';
 import { parseCandidateCsv } from '../common/csv/parse-candidate-csv';
 import { BulkCsvInviteDto } from './dto/bulk-csv-invite.dto';
+import { ScreeningService } from '../screening/screening.service';
 
 // ─── Blueprint / Pool config shapes ─────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export class AssessmentsService {
     private readonly prisma: PrismaService,
     private readonly orgsService: OrganizationsService,
     private readonly mailService: MailService,
+    private readonly screeningService: ScreeningService,
   ) {}
 
   // ─── Private helpers ───────────────────────────────────────────────────────
@@ -781,10 +783,22 @@ export class AssessmentsService {
     // No-op guard — avoid hitting the DB if nothing changed
     if (Object.keys(data).length === 0) return invite;
 
-    return this.prisma.candidateInvite.update({
+    const updated = await this.prisma.candidateInvite.update({
       where: { id: inviteId },
       data,
     });
+
+    if (isStageDecision && dto.stage) {
+      await this.screeningService.writeManualDecisionLog(
+        inviteId,
+        invite.stage,
+        dto.stage,
+        decidedByUserId,
+        dto.recruiterNote,
+      );
+    }
+
+    return updated;
   }
 
   async exportCsv(

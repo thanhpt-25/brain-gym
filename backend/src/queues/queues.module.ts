@@ -19,6 +19,14 @@ import { DigestGenerationProcessor } from '../mail/digest/digest-generation.proc
 import { DigestModule } from '../mail/digest/digest.module';
 import { BurnoutProcessor } from './processors/burnout.processor';
 import { TrainingModule } from '../training/training.module';
+import { MailModule } from '../mail/mail.module';
+import {
+  CAMPAIGN_RECURRENCE_QUEUE,
+  CAMPAIGN_REMINDER_QUEUE,
+} from './campaign/campaign.job.interface';
+import { CampaignRecurrenceProcessor } from './campaign/campaign-recurrence.processor';
+import { CampaignReminderProcessor } from './campaign/campaign-reminder.processor';
+import { CampaignSchedulerService } from './campaign/campaign-scheduler.service';
 
 @Module({
   imports: [
@@ -42,6 +50,8 @@ import { TrainingModule } from '../training/training.module';
     BullModule.registerQueue({ name: COACH_SESSION_MONITORING_QUEUE }),
     BullModule.registerQueue({ name: MATERIAL_CONVERSION_QUEUE }),
     BullModule.registerQueue({ name: 'burnout-detection' }),
+    BullModule.registerQueue({ name: CAMPAIGN_RECURRENCE_QUEUE }),
+    BullModule.registerQueue({ name: CAMPAIGN_REMINDER_QUEUE }),
     BullBoardModule.forRoot({
       route: '/admin/queues',
       adapter: ExpressAdapter,
@@ -70,10 +80,19 @@ import { TrainingModule } from '../training/training.module';
       name: 'burnout-detection',
       adapter: BullMQAdapter,
     }),
+    BullBoardModule.forFeature({
+      name: CAMPAIGN_RECURRENCE_QUEUE,
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: CAMPAIGN_REMINDER_QUEUE,
+      adapter: BullMQAdapter,
+    }),
     PrismaModule,
     LlmUsageModule,
     DigestModule,
     TrainingModule,
+    MailModule,
   ],
   providers: [
     AiGenProcessor,
@@ -83,6 +102,9 @@ import { TrainingModule } from '../training/training.module';
     IngestionService,
     S3UploadService,
     EncryptionService,
+    CampaignRecurrenceProcessor,
+    CampaignReminderProcessor,
+    CampaignSchedulerService,
   ],
   exports: [BullModule],
 })

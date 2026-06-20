@@ -1,13 +1,14 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AssessmentsController } from './assessments.controller';
 import { CandidateController } from './candidate.controller';
 import { AssessmentsService } from './assessments.service';
 import { CandidateService } from './candidate.service';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { MailModule } from '../mail/mail.module';
+import { ScreeningModule } from '../screening/screening.module';
 
 @Module({
-  imports: [OrganizationsModule, MailModule],
+  imports: [OrganizationsModule, MailModule, forwardRef(() => ScreeningModule)],
   controllers: [AssessmentsController, CandidateController],
   providers: [AssessmentsService, CandidateService],
   exports: [AssessmentsService],

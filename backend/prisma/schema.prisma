@@ -283,6 +283,8 @@ model User {
   reputationFlagsSent        ReputationFlag[]  @relation("FlagVoter")
   ddsPromotions              DdsConfig[] // US-1101: cohorts promoted to live by this admin
   oauthAccounts              OAuthAccount[]
+  campaignsCreated           AssessmentCampaign[]
+  publicApplyLinksCreated    PublicApplyLink[]
 
   @@index([status])
   @@map("users")
@@ -868,7 +870,10 @@ model Organization {
   peerExplanations PeerExplanation[]
   userReputations  UserReputation[]
   reputationFlags  ReputationFlag[]
-  competencies     Competency[]
+  competencies       Competency[]
+  campaigns          AssessmentCampaign[]
+  publicApplyLinks   PublicApplyLink[]
+  screeningRules     ScreeningRule[]
 
   @@map("organizations")
 }
@@ -882,9 +887,10 @@ model OrgMember {
   joinedAt  DateTime @default(now()) @map("joined_at")
   isActive  Boolean  @default(true) @map("is_active")
 
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id])
-  group        OrgGroup?    @relation(fields: [groupId], references: [id])
+  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id])
+  group        OrgGroup?        @relation(fields: [groupId], references: [id])
+  assignments  OrgExamAssignment[]
 
   @@unique([orgId, userId])
   @@map("org_members")
@@ -1010,6 +1016,7 @@ model ExamCatalogItem {
   dependents    ExamCatalogItem[]    @relation("Prerequisites")
   questions     ExamCatalogQuestion[]
   assignments   OrgExamAssignment[]
+  campaigns     AssessmentCampaign[]
   track         LearningTrack?       @relation(fields: [trackId], references: [id])
 
   @@map("exam_catalog_items")
@@ -1043,17 +1050,63 @@ model LearningTrack {
   @@map("learning_tracks")
 }
 
+// ─── US-B1/B2: ASSESSMENT CAMPAIGNS ───
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum RecurrenceInterval {
+  MONTHLY_3
+  MONTHLY_6
+  MONTHLY_12
+}
+
+model AssessmentCampaign {
+  id                 String              @id @default(uuid())
+  orgId              String              @map("org_id")
+  name               String
+  description        String?
+  kind               String              @default("INTERNAL")
+  catalogItemId      String              @map("catalog_item_id")
+  dueDate            DateTime?           @map("due_date")
+  status             CampaignStatus      @default(DRAFT)
+  recurrenceEnabled  Boolean             @default(false) @map("recurrence_enabled")
+  recurrenceInterval RecurrenceInterval? @map("recurrence_interval")
+  nextRunAt          DateTime?           @map("next_run_at")
+  parentCampaignId   String?             @map("parent_campaign_id")
+  createdBy          String              @map("created_by")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalogItem  ExamCatalogItem    @relation(fields: [catalogItemId], references: [id])
+  creator      User               @relation(fields: [createdBy], references: [id])
+  assignments  OrgExamAssignment[]
+
+  @@unique([orgId, name])
+  @@index([orgId])
+  @@map("assessment_campaigns")
+}
+
 model OrgExamAssignment {
-  id            String    @id @default(uuid())
-  catalogItemId String    @map("catalog_item_id")
-  groupId       String?   @map("group_id")
-  memberId      String?   @map("member_id")
-  dueDate       DateTime? @map("due_date")
-  assignedAt    DateTime  @default(now()) @map("assigned_at")
+  id             String    @id @default(uuid())
+  catalogItemId  String    @map("catalog_item_id")
+  groupId        String?   @map("group_id")
+  memberId       String?   @map("member_id")
+  dueDate        DateTime? @map("due_date")
+  assignedAt     DateTime  @default(now()) @map("assigned_at")
+  campaignId     String?   @map("campaign_id")
+  reminderOptOut Boolean   @default(false) @map("reminder_opt_out")
 
-  catalogItem ExamCatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
-  group       OrgGroup?       @relation(fields: [groupId], references: [id])
+  catalogItem ExamCatalogItem     @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  group       OrgGroup?           @relation(fields: [groupId], references: [id])
+  member      OrgMember?          @relation(fields: [memberId], references: [id])
+  campaign    AssessmentCampaign? @relation(fields: [campaignId], references: [id])
 
+  @@index([campaignId])
   @@map("org_exam_assignments")
 }
 
@@ -1072,6 +1125,7 @@ model JobRole {
   organization    Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
   assessments     Assessment[]
   competencyReqs  JobRoleCompetency[]
+  publicApplyLinks PublicApplyLink[]
 
   @@index([orgId])
   @@map("job_roles")
@@ -1105,10 +1159,13 @@ model Assessment {
   createdAt          DateTime                 @default(now()) @map("created_at")
   updatedAt          DateTime                 @updatedAt @map("updated_at")
 
-  organization     Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  jobRole          JobRole?              @relation(fields: [jobRoleId], references: [id])
-  candidateInvites CandidateInvite[]
-  questions        AssessmentQuestion[]
+  organization         Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobRole              JobRole?              @relation(fields: [jobRoleId], references: [id])
+  candidateInvites     CandidateInvite[]
+  questions            AssessmentQuestion[]
+  screeningRules       ScreeningRule[]
+  examDomainMappings   ExamDomainCompetency[]
+  publicApplyLinks     PublicApplyLink[]
 
   @@map("assessments")
 }
@@ -1157,11 +1214,16 @@ model CandidateInvite {
   /// P1: Who made the final hire/reject decision
   decidedBy        String?                @map("decided_by")
   decidedAt        DateTime?              @map("decided_at")
+  /// US-C2: consent timestamp from public apply form
+  consentedAt      DateTime?              @map("consented_at")
+  /// US-C2: source apply link
+  applyLinkId      String?                @map("apply_link_id")
   createdAt        DateTime               @default(now()) @map("created_at")
 
-  assessment Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  answers    CandidateAnswer[]
-  events     CandidateEvent[]
+  assessment    Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers       CandidateAnswer[]
+  events        CandidateEvent[]
+  decisionLogs  DecisionLog[]
 
   @@map("candidate_invites")
 }
@@ -1606,10 +1668,11 @@ model Competency {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  organization Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  organization Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
   domains      CompetencyDomain[]
   questions    QuestionCompetency[]
   jobRoles     JobRoleCompetency[]
+  examMappings ExamDomainCompetency[]
 
   @@unique([orgId, name])
   @@index([orgId])
@@ -1660,4 +1723,93 @@ model JobRoleCompetency {
   @@unique([jobRoleId, competencyId])
   @@index([competencyId])
   @@map("job_role_competencies")
+}
+
+// ─── US-C2: PUBLIC APPLY LINKS ───
+
+model PublicApplyLink {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  jobRoleId    String    @map("job_role_id")
+  assessmentId String    @map("assessment_id")
+  code         String    @unique
+  isActive     Boolean   @default(true) @map("is_active")
+  maxUses      Int?      @map("max_uses")
+  currentUses  Int       @default(0) @map("current_uses")
+  expiresAt    DateTime? @map("expires_at")
+  createdBy    String    @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  jobRole      JobRole      @relation(fields: [jobRoleId], references: [id])
+  assessment   Assessment   @relation(fields: [assessmentId], references: [id])
+  creator      User         @relation(fields: [createdBy], references: [id])
+
+  @@index([orgId])
+  @@map("public_apply_links")
+}
+
+// ─── US-E1: SCREENING RULES & DECISION LOG ───
+
+enum ScreeningAction {
+  SHORTLIST
+  REJECT
+}
+
+model ScreeningRule {
+  id              String          @id @default(uuid())
+  orgId           String          @map("org_id")
+  assessmentId    String          @map("assessment_id")
+  action          ScreeningAction
+  minScore        Decimal?        @map("min_score") @db.Decimal(5, 2)
+  maxScore        Decimal?        @map("max_score") @db.Decimal(5, 2)
+  minIntegrity    Int?            @map("min_integrity")
+  minDomainScores Json?           @map("min_domain_scores")
+  priority        Int             @default(0)
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  assessment   Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId, isActive, priority])
+  @@map("screening_rules")
+}
+
+model DecisionLog {
+  id            String   @id @default(uuid())
+  inviteId      String   @map("invite_id")
+  fromStage     String?  @map("from_stage")
+  toStage       String   @map("to_stage")
+  decidedBy     String   @map("decided_by")
+  ruleId        String?  @map("rule_id")
+  ruleSnapshot  Json?    @map("rule_snapshot")
+  scoreSnapshot Json?    @map("score_snapshot")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  invite CandidateInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+
+  @@index([inviteId])
+  @@map("decision_logs")
+}
+
+// ─── US-E3: EXAM DOMAIN → COMPETENCY MAPPING ───
+
+model ExamDomainCompetency {
+  id           String   @id @default(uuid())
+  assessmentId String   @map("assessment_id")
+  domainKey    String   @map("domain_key")
+  competencyId String   @map("competency_id")
+  weight       Float    @default(1.0)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  competency Competency  @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, domainKey])
+  @@index([assessmentId])
+  @@index([competencyId])
+  @@map("exam_domain_competencies")
 }

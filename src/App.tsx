@@ -60,6 +60,10 @@ const AssessmentBuilder = lazy(() => import("./pages/org/AssessmentBuilder"));
 const AssessmentResults = lazy(() => import("./pages/org/AssessmentResults"));
 const OrgJobRoles = lazy(() => import("./pages/org/OrgJobRoles"));
 const OrgCompetencies = lazy(() => import("./pages/org/OrgCompetencies"));
+const OrgCampaigns = lazy(() => import("./pages/org/OrgCampaigns"));
+const OrgScreeningRules = lazy(() => import("./pages/org/OrgScreeningRules"));
+const OrgScorecard = lazy(() => import("./pages/org/OrgScorecard"));
+const PublicApply = lazy(() => import("./pages/PublicApply"));
 const OrgAnalytics = lazy(() => import("./pages/org/OrgAnalytics"));
 const OrgAuditLog = lazy(() => import("./pages/org/OrgAuditLog"));
 const CandidateExam = lazy(() => import("./pages/CandidateExam"));
@@ -393,10 +397,22 @@ const AnimatedRoutes = () => {
           <Route path="assessments/:aid/edit" element={<AssessmentBuilder />} />
           <Route path="job-roles" element={<OrgJobRoles />} />
           <Route path="competencies" element={<OrgCompetencies />} />
+          <Route path="campaigns" element={<OrgCampaigns />} />
+          <Route
+            path="assessments/:aid/screening-rules"
+            element={<OrgScreeningRules />}
+          />
+          <Route
+            path="assessments/:assessmentId/candidates/:inviteId/scorecard"
+            element={<OrgScorecard />}
+          />
           <Route path="analytics" element={<OrgAnalytics />} />
           <Route path="settings" element={<OrgSettings />} />
           <Route path="settings/audit" element={<OrgAuditLog />} />
         </Route>
+
+        {/* Public apply link (no auth) */}
+        <Route path="/apply/:code" element={<PublicApply />} />
 
         {/* Candidate assessment routes (public, no auth) */}
         <Route
