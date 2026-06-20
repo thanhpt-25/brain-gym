@@ -65,14 +65,34 @@ async function callApi(
   return { ok: res.ok, status: res.status, body };
 }
 
-async function fetchCertifications(): Promise<
-  { id: string; code: string; name: string }[]
-> {
+interface CertDomain {
+  id: string;
+  name: string;
+}
+
+interface CertSummary {
+  id: string;
+  code: string;
+  name: string;
+  domains: CertDomain[];
+}
+
+async function fetchCertifications(): Promise<CertSummary[]> {
   const result = await callApi('/api/v1/certifications');
   if (!result.ok || !Array.isArray(result.body)) return [];
-  return (result.body as { id: string; code: string; name: string }[]).map(
-    ({ id, code, name }) => ({ id, code, name }),
-  );
+  return (
+    result.body as {
+      id: string;
+      code: string;
+      name: string;
+      domains?: CertDomain[];
+    }[]
+  ).map(({ id, code, name, domains }) => ({
+    id,
+    code,
+    name,
+    domains: domains ?? [],
+  }));
 }
 
 // ── MCP Server ─────────────────────────────────────────────────────────────────
@@ -247,6 +267,64 @@ server.tool(
           {
             type: 'text' as const,
             text: `❌ Failed to fetch certifications: ${(err as Error).message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
+// ── Tool: list_domains ────────────────────────────────────────────────────────
+
+server.tool(
+  'list_domains',
+  'List all domains for a specific certification. Call this after list_certifications to get valid domainId values for push_questions.',
+  {
+    certificationId: z
+      .string()
+      .describe('UUID of the certification to list domains for'),
+  },
+  async (args) => {
+    try {
+      const certs = await fetchCertifications();
+      const cert = certs.find((c) => c.id === args.certificationId);
+      if (!cert) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `❌ Certification "${args.certificationId}" not found. Call list_certifications to get valid IDs.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      if (cert.domains.length === 0) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `No domains defined for ${cert.code} — ${cert.name}.`,
+            },
+          ],
+        };
+      }
+      const lines = cert.domains.map((d) => `• ${d.name}\n  id: ${d.id}`);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Domains for ${cert.code} — ${cert.name}:\n\n${lines.join('\n\n')}`,
+          },
+        ],
+      };
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `❌ Failed to fetch domains: ${(err as Error).message}`,
           },
         ],
         isError: true,
