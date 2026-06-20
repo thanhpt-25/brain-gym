@@ -17,6 +17,7 @@ import { CandidateSubmitDto } from './dto/candidate-submit.dto';
 import { AssessmentSelectionMode } from '@prisma/client';
 import * as crypto from 'crypto';
 import type Redis from 'ioredis';
+import { ScreeningService } from '../screening/screening.service';
 
 const OTP_TTL_SEC = 600; // 10 minutes
 const OTP_LOCK_TTL_SEC = 3600; // 1 hour lockout after max attempts
@@ -30,6 +31,7 @@ export class CandidateService {
     private readonly assessmentsService: AssessmentsService,
     private readonly mailService: MailService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly screeningService: ScreeningService,
   ) {}
 
   async loadAssessment(token: string) {
@@ -340,6 +342,9 @@ export class CandidateService {
 
       return integrityScore;
     });
+
+    // Run auto-screening asynchronously so submission never blocks on rule eval
+    this.screeningService.evaluate(invite.id).catch(() => {});
 
     return {
       score: Number(score.toFixed(2)),

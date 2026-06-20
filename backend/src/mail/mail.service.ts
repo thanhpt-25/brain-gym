@@ -157,4 +157,32 @@ export class MailService {
       });
     }
   }
+
+  async sendCampaignReminder(opts: {
+    to: string;
+    name: string;
+    campaignName: string;
+    dueDate: Date;
+  }): Promise<void> {
+    const dueDateStr = opts.dueDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    await this.transporter.sendMail({
+      from: this.from,
+      to: opts.to,
+      subject: `Reminder: "${opts.campaignName}" assessment due ${dueDateStr}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:auto">
+          <h2>Assessment Reminder</h2>
+          <p>Hi ${opts.name},</p>
+          <p>This is a reminder that the <strong>${opts.campaignName}</strong> assessment
+             is due on <strong>${dueDateStr}</strong>.</p>
+          <p>Please complete it before the deadline.</p>
+        </div>
+      `,
+    });
+  }
 }

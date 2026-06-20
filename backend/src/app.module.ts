@@ -42,6 +42,10 @@ import { KnowledgeGraphModule } from './knowledge-graph/knowledge-graph.module';
 import { RedisModule } from './redis/redis.module';
 import { CompetencyModule } from './competency/competency.module';
 import { McpKeysModule } from './mcp-keys/mcp-keys.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
+import { ApplyModule } from './apply/apply.module';
+import { ScreeningModule } from './screening/screening.module';
+import { ScorecardModule } from './scorecard/scorecard.module';
 
 @Module({
   imports: [
@@ -88,6 +92,10 @@ import { McpKeysModule } from './mcp-keys/mcp-keys.module';
     RedisModule,
     CompetencyModule,
     McpKeysModule,
+    CampaignsModule,
+    ApplyModule,
+    ScreeningModule,
+    ScorecardModule,
   ],
   controllers: [AppController],
   providers: [
