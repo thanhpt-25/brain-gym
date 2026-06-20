@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
+import { CampaignStatus as PrismaCampaignStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
@@ -178,10 +179,17 @@ export class CampaignsService {
     });
     if (!campaign) throw new NotFoundException('Campaign not found');
 
-    if (dto.status === CampaignStatus.DRAFT && campaign.status !== 'DRAFT') {
+    if (
+      dto.status === CampaignStatus.DRAFT &&
+      campaign.status !== PrismaCampaignStatus.DRAFT
+    ) {
       throw new BadRequestException('Cannot revert status to DRAFT');
     }
-    if (campaign.status === 'CLOSED' && dto.status && dto.status !== 'CLOSED') {
+    if (
+      campaign.status === PrismaCampaignStatus.CLOSED &&
+      dto.status &&
+      dto.status !== CampaignStatus.CLOSED
+    ) {
       throw new BadRequestException('Cannot reopen a CLOSED campaign');
     }
 
