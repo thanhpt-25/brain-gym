@@ -872,10 +872,13 @@ model Organization {
   peerExplanations PeerExplanation[]
   userReputations  UserReputation[]
   reputationFlags  ReputationFlag[]
-  competencies       Competency[]
-  campaigns          AssessmentCampaign[]
-  publicApplyLinks   PublicApplyLink[]
-  screeningRules     ScreeningRule[]
+  competencies             Competency[]
+  campaigns                AssessmentCampaign[]
+  publicApplyLinks         PublicApplyLink[]
+  screeningRules           ScreeningRule[]
+  competencyCertifications CompetencyCertification[]
+  campaignReviews          CampaignMemberReview[]
+  memberIdps               MemberIdp[]
 
   @@map("organizations")
 }
