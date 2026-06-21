@@ -13,6 +13,8 @@ import {
   BarChart3,
   Briefcase,
   Award,
+  ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { OrgRole } from "@/types/org-types";
@@ -93,10 +95,22 @@ const OrgSidebar = () => {
       roles: ["OWNER", "ADMIN", "MANAGER"] as OrgRole[],
     },
     {
+      label: "Cert Compliance",
+      href: `/org/${slug}/competency/compliance`,
+      icon: ShieldCheck,
+      roles: ["OWNER", "ADMIN"] as OrgRole[],
+    },
+    {
       label: "Analytics",
       href: `/org/${slug}/analytics`,
       icon: BarChart3,
       roles: ["OWNER", "ADMIN", "MANAGER"] as OrgRole[],
+    },
+    {
+      label: "Executive",
+      href: `/org/${slug}/executive-dashboard`,
+      icon: TrendingUp,
+      roles: ["OWNER", "ADMIN"] as OrgRole[],
     },
     {
       label: "Settings",

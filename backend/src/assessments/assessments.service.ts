@@ -908,4 +908,108 @@ export class AssessmentsService {
     const available = await this.countPoolQuestions(orgId, config);
     return { available };
   }
+
+  // ─── US-D1: Pool stats ─────────────────────────────────────────────────────
+
+  async getPoolStats(slugOrId: string, assessmentId: string) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+
+    const assessment = await this.prisma.assessment.findFirst({
+      where: { id: assessmentId, orgId },
+      select: {
+        id: true,
+        selectionMode: true,
+        selectionConfig: true,
+        questionCount: true,
+        _count: { select: { questions: true } },
+      },
+    });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    const poolConfig =
+      (assessment.selectionConfig as Partial<PoolConfig>) ?? {};
+    const poolSize = await this.countPoolQuestions(orgId, poolConfig);
+    const drawCount = assessment.questionCount ?? assessment._count.questions;
+
+    const usageStats = await this.prisma.candidateAnswer.groupBy({
+      by: ['questionId'],
+      where: {
+        invite: { assessmentId },
+      },
+      _count: { questionId: true },
+      orderBy: { _count: { questionId: 'asc' } },
+    });
+
+    const leastUsed = usageStats.slice(0, 10).map((s) => ({
+      questionId: s.questionId,
+      usedCount: s._count.questionId,
+    }));
+
+    const overlapPct =
+      poolSize > 0 ? Math.round((drawCount / poolSize) * 100) : 100;
+
+    return {
+      assessmentId,
+      selectionMode: assessment.selectionMode,
+      poolSize,
+      drawCount,
+      overlapPct,
+      uniqueQuestionRatio:
+        poolSize > 0 ? Math.round((1 - drawCount / poolSize) * 100) : 0,
+      leastUsedQuestions: leastUsed,
+    };
+  }
+
+  async getPoolInfo(slugOrId: string, assessmentId: string) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+
+    const assessment = await this.prisma.assessment.findFirst({
+      where: { id: assessmentId, orgId },
+      select: {
+        selectionMode: true,
+        selectionConfig: true,
+        questionCount: true,
+      },
+    });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    const poolConfig =
+      (assessment.selectionConfig as Partial<PoolConfig>) ?? {};
+    const available = await this.countPoolQuestions(orgId, poolConfig);
+
+    return {
+      assessmentId,
+      selectionMode: assessment.selectionMode,
+      selectionConfig: poolConfig,
+      questionCount: assessment.questionCount,
+      poolAvailable: available,
+    };
+  }
+
+  // ─── US-D2: Risk config ────────────────────────────────────────────────────
+
+  async updateRiskConfig(
+    slugOrId: string,
+    assessmentId: string,
+    dto: { riskThreshold?: number; autoFlagRisk?: boolean },
+  ) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const assessment = await this.prisma.assessment.findFirst({
+      where: { id: assessmentId, orgId },
+    });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+
+    return this.prisma.assessment.update({
+      where: { id: assessmentId },
+      data: {
+        ...(dto.riskThreshold !== undefined && {
+          riskThreshold: dto.riskThreshold,
+        }),
+        ...(dto.autoFlagRisk !== undefined && {
+          autoFlagRisk: dto.autoFlagRisk,
+        }),
+      },
+      select: { id: true, riskThreshold: true, autoFlagRisk: true },
+    });
+  }
 }

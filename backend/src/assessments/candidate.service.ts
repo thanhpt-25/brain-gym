@@ -343,8 +343,9 @@ export class CandidateService {
       return integrityScore;
     });
 
-    // Run auto-screening asynchronously so submission never blocks on rule eval
+    // Run auto-screening and risk flagging asynchronously
     this.screeningService.evaluate(invite.id).catch(() => {});
+    this.autoFlagIfRisky(invite.id).catch(() => {});
 
     return {
       score: Number(score.toFixed(2)),
@@ -621,5 +622,88 @@ export class CandidateService {
         content: c.content,
       })),
     };
+  }
+
+  // ─── US-D2: Risk flagging ──────────────────────────────────────────────────
+
+  async autoFlagIfRisky(inviteId: string) {
+    const invite = await this.prisma.candidateInvite.findUnique({
+      where: { id: inviteId },
+      include: {
+        assessment: { select: { riskThreshold: true, autoFlagRisk: true } },
+      },
+    });
+    if (!invite || !invite.assessment.autoFlagRisk) return;
+
+    const integrityScore = invite.integrityScore ?? 100;
+    if (integrityScore < (invite.assessment.riskThreshold ?? 70)) {
+      await this.prisma.candidateInvite.update({
+        where: { id: inviteId },
+        data: {
+          isFlagged: true,
+          flaggedAt: new Date(),
+          flaggedReason: `Integrity score ${integrityScore} below threshold ${invite.assessment.riskThreshold ?? 70}`,
+          flaggedBy: 'SYSTEM',
+        },
+      });
+    }
+  }
+
+  async getRiskTimeline(orgId: string, assessmentId: string, inviteId: string) {
+    const invite = await this.prisma.candidateInvite.findFirst({
+      where: { id: inviteId, assessmentId },
+      include: { assessment: { select: { orgId: true } } },
+    });
+    if (!invite || invite.assessment.orgId !== orgId)
+      throw new NotFoundException('Invite not found');
+
+    const events = await this.prisma.candidateEvent.findMany({
+      where: { inviteId },
+      orderBy: { occurredAt: 'asc' },
+      select: { eventType: true, occurredAt: true, meta: true },
+    });
+
+    return {
+      inviteId,
+      candidateName: invite.candidateName,
+      candidateEmail: invite.candidateEmail,
+      integrityScore: invite.integrityScore,
+      isFlagged: invite.isFlagged,
+      flaggedAt: invite.flaggedAt,
+      flaggedReason: invite.flaggedReason,
+      events,
+    };
+  }
+
+  async patchFlag(
+    orgId: string,
+    assessmentId: string,
+    inviteId: string,
+    flaggedBy: string,
+    dto: { isFlagged: boolean; reason?: string },
+  ) {
+    const invite = await this.prisma.candidateInvite.findFirst({
+      where: { id: inviteId, assessmentId },
+      include: { assessment: { select: { orgId: true } } },
+    });
+    if (!invite || invite.assessment.orgId !== orgId)
+      throw new NotFoundException('Invite not found');
+
+    return this.prisma.candidateInvite.update({
+      where: { id: inviteId },
+      data: {
+        isFlagged: dto.isFlagged,
+        flaggedAt: dto.isFlagged ? new Date() : null,
+        flaggedReason: dto.isFlagged ? (dto.reason ?? 'Manual flag') : null,
+        flaggedBy: dto.isFlagged ? flaggedBy : null,
+      },
+      select: {
+        id: true,
+        isFlagged: true,
+        flaggedAt: true,
+        flaggedReason: true,
+        flaggedBy: true,
+      },
+    });
   }
 }

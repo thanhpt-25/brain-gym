@@ -9,6 +9,7 @@ import {
   type Campaign,
   type CreateCampaignPayload,
 } from "@/services/campaigns";
+import { issueCertificationsByCampaign } from "@/services/competency-cert";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ import {
   CalendarClock,
   Loader2,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -241,14 +243,18 @@ interface CampaignCardProps {
   campaign: Campaign;
   onActivate: (id: string) => void;
   onDelete: (id: string) => void;
+  onIssueCerts: (id: string) => void;
   activating: boolean;
+  issuingCerts: boolean;
 }
 
 const CampaignCard = ({
   campaign,
   onActivate,
   onDelete,
+  onIssueCerts,
   activating,
+  issuingCerts,
 }: CampaignCardProps) => (
   <Card className="bg-card border-border">
     <CardContent className="p-4 space-y-3">
@@ -281,6 +287,15 @@ const CampaignCard = ({
                 disabled={activating}
               >
                 <Play className="h-3.5 w-3.5 mr-2 text-emerald-400" /> Activate
+              </DropdownMenuItem>
+            )}
+            {campaign.status === "CLOSED" && (
+              <DropdownMenuItem
+                onClick={() => onIssueCerts(campaign.id)}
+                disabled={issuingCerts}
+              >
+                <ShieldCheck className="h-3.5 w-3.5 mr-2 text-violet-400" />
+                {issuingCerts ? "Đang cấp..." : "Cấp chứng nhận"}
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
@@ -386,6 +401,18 @@ const OrgCampaigns = () => {
       toast.error(e?.response?.data?.message || "Delete failed"),
   });
 
+  const issueCertsMutation = useMutation({
+    mutationFn: (campaignId: string) =>
+      issueCertificationsByCampaign(org!.id, campaignId),
+    onSuccess: (result) => {
+      toast.success(
+        `Đã cấp ${result.issued} chứng nhận mới, nâng cấp ${result.upgraded}`,
+      );
+    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.message || "Issue certs failed"),
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -429,7 +456,9 @@ const OrgCampaigns = () => {
               campaign={c}
               onActivate={(id) => activateMutation.mutate(id)}
               onDelete={(id) => deleteMutation.mutate(id)}
+              onIssueCerts={(id) => issueCertsMutation.mutate(id)}
               activating={activateMutation.isPending}
+              issuingCerts={issueCertsMutation.isPending}
             />
           ))}
         </div>
