@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useOrgStore } from "@/stores/org.store";
-import api from "@/services/api";
+import { getPoolStats, type PoolStats } from "@/services/assessments";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -15,29 +15,14 @@ import {
 } from "@/components/ui/table";
 import { Shuffle, Database, TrendingDown, Loader2 } from "lucide-react";
 
-interface PoolStats {
-  assessmentId: string;
-  selectionMode: string;
-  poolSize: number;
-  drawCount: number;
-  overlapPct: number;
-  uniqueQuestionRatio: number;
-  leastUsedQuestions: { questionId: string; usedCount: number }[];
-}
-
-const getPoolStats = (orgId: string, aid: string): Promise<PoolStats> =>
-  api
-    .get(`/organizations/${orgId}/assessments/${aid}/pool-stats`)
-    .then((r) => r.data);
-
 export default function OrgPoolStats() {
   const { aid } = useParams<{ aid: string }>();
-  const { org } = useOrgStore();
+  const currentOrg = useOrgStore((s) => s.currentOrg);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["pool-stats", org?.id, aid],
-    queryFn: () => getPoolStats(org!.id, aid!),
-    enabled: !!org && !!aid,
+  const { data, isLoading } = useQuery<PoolStats>({
+    queryKey: ["pool-stats", currentOrg?.slug, aid],
+    queryFn: () => getPoolStats(currentOrg!.slug, aid!),
+    enabled: !!currentOrg && !!aid,
   });
 
   if (isLoading) {

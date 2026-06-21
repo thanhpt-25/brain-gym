@@ -5,16 +5,40 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
-export interface UpsertReviewDto {
+export class UpsertReviewDto {
+  @IsString()
+  @MaxLength(2000)
   note: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   direction?: string;
 }
 
-export interface CreateIdpDto {
+export class CreateIdpDto {
+  @IsUUID()
   competencyId: string;
+
+  @IsUUID()
   trackId: string;
+
+  @IsInt()
+  @Min(1)
   targetLevel: number;
+
+  @IsOptional()
+  @IsISO8601()
   dueDate?: string;
 }
 

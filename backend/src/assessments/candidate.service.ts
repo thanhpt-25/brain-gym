@@ -8,6 +8,7 @@ import {
   HttpException,
   HttpStatus,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssessmentsService } from './assessments.service';
@@ -26,6 +27,8 @@ const CLIENT_TS_SKEW_MS = 60 * 60 * 1000; // allow ±1 hour skew
 
 @Injectable()
 export class CandidateService {
+  private readonly logger = new Logger(CandidateService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly assessmentsService: AssessmentsService,
@@ -344,8 +347,18 @@ export class CandidateService {
     });
 
     // Run auto-screening and risk flagging asynchronously
-    this.screeningService.evaluate(invite.id).catch(() => {});
-    this.autoFlagIfRisky(invite.id).catch(() => {});
+    this.screeningService
+      .evaluate(invite.id)
+      .catch((err) =>
+        this.logger.warn(
+          `screeningService.evaluate failed for invite ${invite.id}: ${String(err)}`,
+        ),
+      );
+    this.autoFlagIfRisky(invite.id).catch((err) =>
+      this.logger.warn(
+        `autoFlagIfRisky failed for invite ${invite.id}: ${String(err)}`,
+      ),
+    );
 
     return {
       score: Number(score.toFixed(2)),

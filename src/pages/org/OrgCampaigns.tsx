@@ -403,7 +403,7 @@ const OrgCampaigns = () => {
 
   const issueCertsMutation = useMutation({
     mutationFn: (campaignId: string) =>
-      issueCertificationsByCampaign(org!.id, campaignId),
+      issueCertificationsByCampaign(currentOrg!.id, campaignId),
     onSuccess: (result) => {
       toast.success(
         `Đã cấp ${result.issued} chứng nhận mới, nâng cấp ${result.upgraded}`,

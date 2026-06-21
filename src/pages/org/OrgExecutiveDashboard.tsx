@@ -16,7 +16,6 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { useAuthStore } from "@/stores/auth.store";
 
 function StatCard({
   title,
@@ -48,19 +47,18 @@ function StatCard({
 }
 
 export default function OrgExecutiveDashboard() {
-  const { org } = useOrgStore();
-  const { token } = useAuthStore();
+  const currentOrg = useOrgStore((s) => s.currentOrg);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["executive-dashboard", org?.id],
-    queryFn: () => getExecutiveDashboard(org!.id),
-    enabled: !!org,
+    queryKey: ["executive-dashboard", currentOrg?.id],
+    queryFn: () => getExecutiveDashboard(currentOrg!.id),
+    enabled: !!currentOrg,
     staleTime: 5 * 60 * 1000,
   });
 
   const handleExport = () => {
-    if (!org) return;
-    const url = getExecutiveDashboardCsvUrl(org.id);
+    if (!currentOrg) return;
+    const url = getExecutiveDashboardCsvUrl(currentOrg.id);
     const a = document.createElement("a");
     a.href = url;
     a.click();

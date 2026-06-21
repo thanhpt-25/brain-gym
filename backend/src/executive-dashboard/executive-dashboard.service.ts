@@ -92,11 +92,12 @@ export class ExecutiveDashboardService {
       },
     });
 
-    const assessments = await this.prisma.assessment.findMany({
+    // Single query — id used for counts, passingScore used for pass threshold
+    const assessmentsWithScore = await this.prisma.assessment.findMany({
       where: { orgId },
-      select: { id: true },
+      select: { id: true, passingScore: true },
     });
-    const assessmentIds = assessments.map((a) => a.id);
+    const assessmentIds = assessmentsWithScore.map((a) => a.id);
 
     const [invited, started, submitted] = await Promise.all([
       this.prisma.candidateInvite.count({
@@ -112,16 +113,17 @@ export class ExecutiveDashboardService {
         where: { assessmentId: { in: assessmentIds }, status: 'SUBMITTED' },
       }),
     ]);
-
-    const passedCount = await this.prisma.candidateInvite.count({
-      where: {
-        assessmentId: { in: assessmentIds },
-        status: 'SUBMITTED',
-        score: {
-          gte: 70, // default threshold
+    let passedCount = 0;
+    for (const a of assessmentsWithScore) {
+      const threshold = a.passingScore ?? 70;
+      passedCount += await this.prisma.candidateInvite.count({
+        where: {
+          assessmentId: a.id,
+          status: 'SUBMITTED',
+          score: { gte: threshold },
         },
-      },
-    });
+      });
+    }
 
     return {
       campaigns: campaigns.length,

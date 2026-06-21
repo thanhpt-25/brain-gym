@@ -18,6 +18,8 @@ import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
 import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto';
+import { UpdateRiskConfigDto } from './dto/update-risk-config.dto';
+import { PatchFlagDto } from './dto/patch-flag.dto';
 import { BulkCsvInviteDto } from './dto/bulk-csv-invite.dto';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
@@ -197,7 +199,7 @@ export class AssessmentsController {
   updateRiskConfig(
     @Param('orgId') orgId: string,
     @Param('aid') aid: string,
-    @Body() dto: { riskThreshold?: number; autoFlagRisk?: boolean },
+    @Body() dto: UpdateRiskConfigDto,
   ) {
     return this.service.updateRiskConfig(orgId, aid, dto);
   }
@@ -219,7 +221,7 @@ export class AssessmentsController {
     @Param('aid') aid: string,
     @Param('inviteId') inviteId: string,
     @CurrentUser('id') userId: string,
-    @Body() dto: { isFlagged: boolean; reason?: string },
+    @Body() dto: PatchFlagDto,
   ) {
     return this.candidateService.patchFlag(orgId, aid, inviteId, userId, dto);
   }
