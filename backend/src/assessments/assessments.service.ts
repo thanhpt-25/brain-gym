@@ -36,7 +36,7 @@ interface BlueprintConfig {
   certificationId?: string;
 }
 
-interface PoolConfig {
+export interface PoolConfig {
   drawCount: number;
   certificationId?: string;
   difficulty?: string;

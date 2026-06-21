@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Res, UseGuards } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { ExecutiveDashboardService } from './executive-dashboard.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';

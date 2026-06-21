@@ -127,7 +127,7 @@ export class ExecutiveDashboardService {
 
     return {
       campaigns: campaigns.length,
-      activeCampaigns: campaigns.filter((c) => c.status === 'OPEN').length,
+      activeCampaigns: campaigns.filter((c) => c.status === 'ACTIVE').length,
       totalCandidates: invited,
       started,
       submitted,

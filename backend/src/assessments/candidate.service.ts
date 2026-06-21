@@ -672,8 +672,8 @@ export class CandidateService {
 
     const events = await this.prisma.candidateEvent.findMany({
       where: { inviteId },
-      orderBy: { occurredAt: 'asc' },
-      select: { eventType: true, occurredAt: true, meta: true },
+      orderBy: { clientTs: 'asc' },
+      select: { eventType: true, clientTs: true, payload: true },
     });
 
     return {
