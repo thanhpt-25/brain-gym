@@ -161,8 +161,10 @@ export class CompetencyCertService {
 
       // Batch-fetch all competencies referenced in this scorecard
       const passedItems = (scorecard.items ?? []).filter((i: any) => i.passed);
-      const competencyIds: string[] = [
-        ...new Set(passedItems.map((i: any) => i.competencyId as string)),
+      const competencyIds = [
+        ...new Set<string>(
+          passedItems.map((i: any) => i.competencyId as string),
+        ),
       ];
       const competencies = await this.prisma.competency.findMany({
         where: { id: { in: competencyIds } },
