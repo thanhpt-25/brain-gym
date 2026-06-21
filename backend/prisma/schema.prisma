@@ -285,6 +285,8 @@ model User {
   oauthAccounts              OAuthAccount[]
   campaignsCreated           AssessmentCampaign[]
   publicApplyLinksCreated    PublicApplyLink[]
+  campaignReviewsGiven       CampaignMemberReview[]
+  memberIdpsCreated          MemberIdp[]
 
   @@index([status])
   @@map("users")
@@ -870,10 +872,13 @@ model Organization {
   peerExplanations PeerExplanation[]
   userReputations  UserReputation[]
   reputationFlags  ReputationFlag[]
-  competencies       Competency[]
-  campaigns          AssessmentCampaign[]
-  publicApplyLinks   PublicApplyLink[]
-  screeningRules     ScreeningRule[]
+  competencies             Competency[]
+  campaigns                AssessmentCampaign[]
+  publicApplyLinks         PublicApplyLink[]
+  screeningRules           ScreeningRule[]
+  competencyCertifications CompetencyCertification[]
+  campaignReviews          CampaignMemberReview[]
+  memberIdps               MemberIdp[]
 
   @@map("organizations")
 }
@@ -887,10 +892,13 @@ model OrgMember {
   joinedAt  DateTime @default(now()) @map("joined_at")
   isActive  Boolean  @default(true) @map("is_active")
 
-  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  user         User             @relation(fields: [userId], references: [id])
-  group        OrgGroup?        @relation(fields: [groupId], references: [id])
-  assignments  OrgExamAssignment[]
+  organization             Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user                     User                      @relation(fields: [userId], references: [id])
+  group                    OrgGroup?                 @relation(fields: [groupId], references: [id])
+  assignments              OrgExamAssignment[]
+  competencyCertifications CompetencyCertification[]
+  campaignReviews          CampaignMemberReview[]
+  memberIdps               MemberIdp[]
 
   @@unique([orgId, userId])
   @@map("org_members")
@@ -1046,6 +1054,7 @@ model LearningTrack {
 
   organization Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   catalogItems ExamCatalogItem[]
+  memberIdps   MemberIdp[]
 
   @@map("learning_tracks")
 }
@@ -1081,10 +1090,12 @@ model AssessmentCampaign {
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  catalogItem  ExamCatalogItem    @relation(fields: [catalogItemId], references: [id])
-  creator      User               @relation(fields: [createdBy], references: [id])
-  assignments  OrgExamAssignment[]
+  organization             Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  catalogItem              ExamCatalogItem           @relation(fields: [catalogItemId], references: [id])
+  creator                  User                      @relation(fields: [createdBy], references: [id])
+  assignments              OrgExamAssignment[]
+  competencyCertifications CompetencyCertification[]
+  campaignReviews          CampaignMemberReview[]
 
   @@unique([orgId, name])
   @@index([orgId])
@@ -1155,6 +1166,8 @@ model Assessment {
   maxAttempts        Int                      @default(1)     @map("max_attempts")
   linkExpiryHours    Int                      @default(72) @map("link_expiry_hours")
   jobRoleId          String?                  @map("job_role_id")
+  riskThreshold      Int                      @default(70) @map("risk_threshold")
+  autoFlagRisk       Boolean                  @default(true) @map("auto_flag_risk")
   createdBy          String                   @map("created_by")
   createdAt          DateTime                 @default(now()) @map("created_at")
   updatedAt          DateTime                 @updatedAt @map("updated_at")
@@ -1218,6 +1231,11 @@ model CandidateInvite {
   consentedAt      DateTime?              @map("consented_at")
   /// US-C2: source apply link
   applyLinkId      String?                @map("apply_link_id")
+  /// US-D2: risk flag
+  isFlagged        Boolean                @default(false) @map("is_flagged")
+  flaggedAt        DateTime?              @map("flagged_at")
+  flaggedReason    String?                @map("flagged_reason")
+  flaggedBy        String?                @map("flagged_by")
   createdAt        DateTime               @default(now()) @map("created_at")
 
   assessment    Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
@@ -1662,17 +1680,20 @@ model Competency {
   orgId       String   @map("org_id")
   name        String
   description String?
-  scaleMin    Int      @default(1) @map("scale_min")
-  scaleMax    Int      @default(5) @map("scale_max")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  scaleMin       Int      @default(1) @map("scale_min")
+  scaleMax       Int      @default(5) @map("scale_max")
+  validityMonths Int      @default(12) @map("validity_months")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  domains      CompetencyDomain[]
-  questions    QuestionCompetency[]
-  jobRoles     JobRoleCompetency[]
-  examMappings ExamDomainCompetency[]
+  organization              Organization              @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  domains                   CompetencyDomain[]
+  questions                 QuestionCompetency[]
+  jobRoles                  JobRoleCompetency[]
+  examMappings              ExamDomainCompetency[]
+  competencyCertifications  CompetencyCertification[]
+  memberIdps                MemberIdp[]
 
   @@unique([orgId, name])
   @@index([orgId])
@@ -1812,4 +1833,76 @@ model ExamDomainCompetency {
   @@index([assessmentId])
   @@index([competencyId])
   @@map("exam_domain_competencies")
+}
+
+// ─── US-B3: COMPETENCY CERTIFICATIONS ───
+
+model CompetencyCertification {
+  id            String    @id @default(uuid())
+  orgId         String    @map("org_id")
+  memberId      String    @map("member_id")
+  competencyId  String    @map("competency_id")
+  campaignId    String?   @map("campaign_id")
+  achievedLevel Int       @map("achieved_level")
+  issuedAt      DateTime  @default(now()) @map("issued_at")
+  expiresAt     DateTime  @map("expires_at")
+  revokedAt     DateTime? @map("revoked_at")
+
+  organization Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  member       OrgMember           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  competency   Competency          @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  campaign     AssessmentCampaign? @relation(fields: [campaignId], references: [id])
+
+  @@unique([memberId, competencyId, issuedAt])
+  @@index([orgId, competencyId])
+  @@index([memberId])
+  @@index([expiresAt])
+  @@map("competency_certifications")
+}
+
+// ─── US-B4: MANAGER REVIEW & IDP ───
+
+model CampaignMemberReview {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  campaignId String   @map("campaign_id")
+  memberId   String   @map("member_id")
+  reviewedBy String   @map("reviewed_by")
+  note       String   @db.Text
+  direction  String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  campaign     AssessmentCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  member       OrgMember          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reviewer     User               @relation(fields: [reviewedBy], references: [id])
+
+  @@unique([campaignId, memberId])
+  @@index([orgId, memberId])
+  @@map("campaign_member_reviews")
+}
+
+model MemberIdp {
+  id           String    @id @default(uuid())
+  orgId        String    @map("org_id")
+  memberId     String    @map("member_id")
+  competencyId String    @map("competency_id")
+  trackId      String    @map("track_id")
+  targetLevel  Int       @map("target_level")
+  dueDate      DateTime? @map("due_date")
+  completedAt  DateTime? @map("completed_at")
+  createdBy    String    @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  member       OrgMember     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  competency   Competency    @relation(fields: [competencyId], references: [id], onDelete: Restrict)
+  track        LearningTrack @relation(fields: [trackId], references: [id], onDelete: Restrict)
+  creator      User          @relation(fields: [createdBy], references: [id])
+
+  @@unique([memberId, competencyId, trackId])
+  @@index([orgId, memberId])
+  @@map("member_idps")
 }

@@ -46,6 +46,9 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { ApplyModule } from './apply/apply.module';
 import { ScreeningModule } from './screening/screening.module';
 import { ScorecardModule } from './scorecard/scorecard.module';
+import { CompetencyCertModule } from './competency-cert/competency-cert.module';
+import { IdpModule } from './idp/idp.module';
+import { ExecutiveDashboardModule } from './executive-dashboard/executive-dashboard.module';
 
 @Module({
   imports: [
@@ -96,6 +99,9 @@ import { ScorecardModule } from './scorecard/scorecard.module';
     ApplyModule,
     ScreeningModule,
     ScorecardModule,
+    CompetencyCertModule,
+    IdpModule,
+    ExecutiveDashboardModule,
   ],
   controllers: [AppController],
   providers: [

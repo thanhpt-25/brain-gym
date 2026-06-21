@@ -18,6 +18,8 @@ import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
 import { UpdateCandidateDecisionDto } from './dto/update-candidate-decision.dto';
+import { UpdateRiskConfigDto } from './dto/update-risk-config.dto';
+import { PatchFlagDto } from './dto/patch-flag.dto';
 import { BulkCsvInviteDto } from './dto/bulk-csv-invite.dto';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
@@ -174,6 +176,54 @@ export class AssessmentsController {
     @Param('inviteId') inviteId: string,
   ) {
     return this.candidateService.getEvents(inviteId, aid);
+  }
+
+  // ─── US-D1: Pool stats ─────────────────────────────────────────────────────
+
+  @Get(':aid/pool-stats')
+  @OrgRoles('OWNER', 'ADMIN', 'MANAGER')
+  getPoolStats(@Param('orgId') orgId: string, @Param('aid') aid: string) {
+    return this.service.getPoolStats(orgId, aid);
+  }
+
+  @Get(':aid/pool-info')
+  @OrgRoles('OWNER', 'ADMIN', 'MANAGER')
+  getPoolInfo(@Param('orgId') orgId: string, @Param('aid') aid: string) {
+    return this.service.getPoolInfo(orgId, aid);
+  }
+
+  // ─── US-D2: Risk config + flag management ─────────────────────────────────
+
+  @Patch(':aid/risk-config')
+  @OrgRoles('OWNER', 'ADMIN')
+  updateRiskConfig(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Body() dto: UpdateRiskConfigDto,
+  ) {
+    return this.service.updateRiskConfig(orgId, aid, dto);
+  }
+
+  @Get(':aid/candidates/:inviteId/risk-timeline')
+  @OrgRoles('OWNER', 'ADMIN', 'MANAGER')
+  getRiskTimeline(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Param('inviteId') inviteId: string,
+  ) {
+    return this.candidateService.getRiskTimeline(orgId, aid, inviteId);
+  }
+
+  @Patch(':aid/candidates/:inviteId/flag')
+  @OrgRoles('OWNER', 'ADMIN', 'MANAGER')
+  patchFlag(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Param('inviteId') inviteId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: PatchFlagDto,
+  ) {
+    return this.candidateService.patchFlag(orgId, aid, inviteId, userId, dto);
   }
 
   @Delete(':aid')

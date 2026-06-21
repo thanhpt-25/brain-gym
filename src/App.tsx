@@ -66,6 +66,13 @@ const OrgScorecard = lazy(() => import("./pages/org/OrgScorecard"));
 const PublicApply = lazy(() => import("./pages/PublicApply"));
 const OrgAnalytics = lazy(() => import("./pages/org/OrgAnalytics"));
 const OrgAuditLog = lazy(() => import("./pages/org/OrgAuditLog"));
+const OrgComplianceDashboard = lazy(
+  () => import("./pages/org/OrgComplianceDashboard"),
+);
+const OrgExecutiveDashboard = lazy(
+  () => import("./pages/org/OrgExecutiveDashboard"),
+);
+const OrgPoolStats = lazy(() => import("./pages/org/OrgPoolStats"));
 const CandidateExam = lazy(() => import("./pages/CandidateExam"));
 const CandidateResult = lazy(() => import("./pages/CandidateResult"));
 const MasteryPage = lazy(() => import("./pages/Dashboard/MasteryPage"));
@@ -409,6 +416,18 @@ const AnimatedRoutes = () => {
           <Route path="analytics" element={<OrgAnalytics />} />
           <Route path="settings" element={<OrgSettings />} />
           <Route path="settings/audit" element={<OrgAuditLog />} />
+          <Route
+            path="competency/compliance"
+            element={<OrgComplianceDashboard />}
+          />
+          <Route
+            path="executive-dashboard"
+            element={<OrgExecutiveDashboard />}
+          />
+          <Route
+            path="assessments/:aid/pool-stats"
+            element={<OrgPoolStats />}
+          />
         </Route>
 
         {/* Public apply link (no auth) */}

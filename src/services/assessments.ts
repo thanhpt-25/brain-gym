@@ -1,4 +1,4 @@
-import api from './api';
+import api from "./api";
 import type {
   Assessment,
   AssessmentResults,
@@ -15,7 +15,7 @@ import type {
   CandidateInvite,
   UpdateCandidateDecisionPayload,
   PoolConfig,
-} from '@/types/assessment-types';
+} from "@/types/assessment-types";
 
 const base = (slug: string) => `/organizations/${slug}/assessments`;
 
@@ -62,7 +62,9 @@ export const updateAssessmentStatus = async (
   aid: string,
   status: AssessmentStatus,
 ): Promise<Assessment> => {
-  const res = await api.patch<Assessment>(`${base(slug)}/${aid}/status`, { status });
+  const res = await api.patch<Assessment>(`${base(slug)}/${aid}/status`, {
+    status,
+  });
   return res.data;
 };
 
@@ -71,7 +73,10 @@ export const inviteCandidates = async (
   aid: string,
   data: InviteCandidatePayload,
 ): Promise<{ invited: number }> => {
-  const res = await api.post<{ invited: number }>(`${base(slug)}/${aid}/invite`, data);
+  const res = await api.post<{ invited: number }>(
+    `${base(slug)}/${aid}/invite`,
+    data,
+  );
   return res.data;
 };
 
@@ -83,9 +88,12 @@ export const getAssessmentResults = async (
   return res.data;
 };
 
-export const exportAssessmentCsv = async (slug: string, aid: string): Promise<string> => {
+export const exportAssessmentCsv = async (
+  slug: string,
+  aid: string,
+): Promise<string> => {
   const res = await api.get<string>(`${base(slug)}/${aid}/results/export`, {
-    responseType: 'text',
+    responseType: "text",
   });
   return res.data;
 };
@@ -93,13 +101,17 @@ export const exportAssessmentCsv = async (slug: string, aid: string): Promise<st
 /** Preview: count APPROVED questions matching a pool config filter. */
 export const getPoolCount = async (
   slug: string,
-  config: Partial<Pick<PoolConfig, 'difficulty' | 'certificationId' | 'categories' | 'tags'>>,
+  config: Partial<
+    Pick<PoolConfig, "difficulty" | "certificationId" | "categories" | "tags">
+  >,
 ): Promise<{ available: number }> => {
   const params = new URLSearchParams();
-  if (config.difficulty) params.set('difficulty', config.difficulty);
-  if (config.certificationId) params.set('certificationId', config.certificationId);
-  if (config.categories?.length) params.set('categories', config.categories.join(','));
-  if (config.tags?.length) params.set('tags', config.tags.join(','));
+  if (config.difficulty) params.set("difficulty", config.difficulty);
+  if (config.certificationId)
+    params.set("certificationId", config.certificationId);
+  if (config.categories?.length)
+    params.set("categories", config.categories.join(","));
+  if (config.tags?.length) params.set("tags", config.tags.join(","));
   const res = await api.get<{ available: number }>(
     `${base(slug)}/pool-count?${params.toString()}`,
   );
@@ -118,7 +130,9 @@ export const loadCandidateAssessment = async (
 export const startCandidateAttempt = async (
   token: string,
 ): Promise<CandidateExamPayload> => {
-  const res = await api.post<CandidateExamPayload>(`/assessments/take/${token}/start`);
+  const res = await api.post<CandidateExamPayload>(
+    `/assessments/take/${token}/start`,
+  );
   return res.data;
 };
 
@@ -145,8 +159,12 @@ export const reportCandidateEvent = async (
   });
 };
 
-export const requestCandidateOtp = async (token: string): Promise<{ message: string }> => {
-  const res = await api.post<{ message: string }>(`/assessments/take/${token}/otp/request`);
+export const requestCandidateOtp = async (
+  token: string,
+): Promise<{ message: string }> => {
+  const res = await api.post<{ message: string }>(
+    `/assessments/take/${token}/otp/request`,
+  );
   return res.data;
 };
 
@@ -194,5 +212,23 @@ export const bulkInviteCandidatesFromCsv = async (
     `${base(slug)}/${aid}/invite`,
     { candidates },
   );
+  return res.data;
+};
+
+export interface PoolStats {
+  assessmentId: string;
+  selectionMode: string;
+  poolSize: number;
+  drawCount: number;
+  overlapPct: number;
+  uniqueQuestionRatio: number;
+  leastUsedQuestions: { questionId: string; usedCount: number }[];
+}
+
+export const getPoolStats = async (
+  slug: string,
+  aid: string,
+): Promise<PoolStats> => {
+  const res = await api.get<PoolStats>(`${base(slug)}/${aid}/pool-stats`);
   return res.data;
 };
