@@ -185,4 +185,13 @@ export class MailService {
       `,
     });
   }
+
+  // US-C3: Generic send for custom email templates
+  async sendRaw(to: string, subject: string, html: string): Promise<void> {
+    try {
+      await this.transporter.sendMail({ from: this.from, to, subject, html });
+    } catch (error) {
+      this.logger.error(`Failed to send raw email to ${to}`, error);
+    }
+  }
 }
