@@ -75,17 +75,19 @@ export class EmailTemplatesService {
     return Object.values(EmailTemplateTrigger).map((trigger) => {
       const custom = existing.find((t) => t.trigger === trigger);
       const def = DEFAULT_TEMPLATES[trigger];
-      return (
-        custom ?? {
-          id: null,
-          orgId,
-          trigger,
-          subject: def.subject,
-          bodyHtml: def.bodyHtml,
-          isActive: true,
-          isDefault: true,
-        }
-      );
+      if (custom) {
+        return { ...custom, isCustom: true };
+      }
+      return {
+        id: null,
+        orgId,
+        trigger,
+        subject: def.subject,
+        bodyHtml: def.bodyHtml,
+        isActive: true,
+        isCustom: false,
+        updatedAt: null,
+      };
     });
   }
 

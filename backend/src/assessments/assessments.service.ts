@@ -725,12 +725,12 @@ export class AssessmentsService {
       'HIRED',
       'REJECTED',
     ]);
-    const shouldBlind = (assessment as any).blindReviewEnabled && !isPrivileged;
+    const shouldBlind = assessment.blindReviewEnabled && !isPrivileged;
 
     // Compute percentile rank for each submitted candidate
     const submitted = invites.filter((i) => i.status === 'SUBMITTED');
     const submittedCount = submitted.length;
-    const candidates = invites.map((invite, idx) => {
+    const candidates = invites.map((invite) => {
       const withPercentile =
         invite.status !== 'SUBMITTED' || invite.score == null
           ? { ...invite, percentile: null }
@@ -746,12 +746,12 @@ export class AssessmentsService {
               return { ...invite, percentile };
             })();
 
-      // US-G3: mask PII for non-privileged viewers when blind mode active and invite not yet decided
+      // US-G3: mask PII; use stable ID suffix so identity is consistent across sessions
       if (shouldBlind && !decidedStages.has(invite.stage as string)) {
         return {
           ...withPercentile,
           candidateName: null,
-          candidateEmail: `Candidate #${idx + 1}`,
+          candidateEmail: `Cand-${invite.id.slice(-6).toUpperCase()}`,
         };
       }
       return withPercentile;

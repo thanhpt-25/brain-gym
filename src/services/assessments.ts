@@ -274,11 +274,14 @@ export const requestCandidateDeletion = async (
 export const createInterviewPacketToken = async (
   orgId: string,
   inviteId: string,
-  expiresInHours = 72,
-): Promise<{ token: string; expiresAt: string }> => {
-  const res = await api.post<{ token: string; expiresAt: string }>(
-    `/organizations/${orgId}/invites/${inviteId}/packet-token`,
-    { expiresInHours },
-  );
+  expiresInDays = 7,
+): Promise<{ token: string; expiresAt: string; packetUrl: string }> => {
+  const res = await api.post<{
+    token: string;
+    expiresAt: string;
+    packetUrl: string;
+  }>(`/organizations/${orgId}/invites/${inviteId}/packet-token`, {
+    expiresInDays,
+  });
   return res.data;
 };

@@ -25,7 +25,6 @@ import {
   FileText,
   Mail,
   Shield,
-  Trash2,
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";

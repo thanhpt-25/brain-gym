@@ -101,7 +101,14 @@ export class InterviewPacketService {
       include: {
         invite: {
           include: {
-            assessment: { select: { id: true, orgId: true, title: true } },
+            assessment: {
+              select: {
+                id: true,
+                orgId: true,
+                title: true,
+                jobRole: { select: { title: true, department: true } },
+              },
+            },
           },
         },
       },
@@ -131,24 +138,16 @@ export class InterviewPacketService {
       candidate: {
         name: invite.candidateName,
         email: maskEmail(invite.candidateEmail),
-        stage: invite.stage,
-        interviewScheduledAt: invite.interviewScheduledAt ?? null,
-      },
-      exam: {
-        title: assessment.title,
-        submittedAt: invite.submittedAt ?? null,
         score: invite.score != null ? Number(invite.score) : null,
-        totalCorrect: invite.totalCorrect ?? null,
-        totalQuestions: invite.totalQuestions ?? null,
+        percentile: null, // populated by the results endpoint; not recalculated here
+        submittedAt: invite.submittedAt ?? null,
         timeSpent: invite.timeSpent ?? null,
       },
-      integrity: {
-        score:
-          invite.integrityScore != null ? Number(invite.integrityScore) : null,
-        isFlagged: invite.isFlagged ?? false,
-        flaggedReason: invite.flaggedReason ?? null,
+      assessment: {
+        title: assessment.title,
+        jobRole: assessment.jobRole ?? null,
       },
-      scorecard,
+      competencies: scorecard,
     };
   }
 }
