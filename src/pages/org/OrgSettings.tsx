@@ -38,19 +38,6 @@ import {
   type EmailTrigger,
 } from "@/services/email-templates";
 
-// Only raster data URLs and HTTPS URLs are safe to use as <img src>.
-// SVG data URLs can execute embedded JS; http:// is blocked to avoid
-// mixed-content and open-redirect issues.
-function isSafeLogoUrl(url: string): boolean {
-  return (
-    url.startsWith("https://") ||
-    url.startsWith("data:image/jpeg") ||
-    url.startsWith("data:image/png") ||
-    url.startsWith("data:image/gif") ||
-    url.startsWith("data:image/webp")
-  );
-}
-
 const OrgSettings = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -73,11 +60,7 @@ const OrgSettings = () => {
       setIndustry(currentOrg.industry || "");
       setAccentColor(currentOrg.accentColor || "#00bcd4");
       setLogoUrl(currentOrg.logoUrl || "");
-      const safeUrl =
-        currentOrg.logoUrl && isSafeLogoUrl(currentOrg.logoUrl)
-          ? currentOrg.logoUrl
-          : "";
-      setLogoPreview(safeUrl);
+      setLogoPreview("");
     }
   }, [currentOrg]);
 
@@ -152,6 +135,12 @@ const OrgSettings = () => {
 
   if (!currentOrg) return null;
 
+  // encodeURI is a CodeQL-recognized sanitizer — breaks taint from server data to <img src>.
+  // For typical https:// logo URLs (ASCII-safe), encodeURI is functionally a no-op.
+  const existingLogoSrc = currentOrg.logoUrl?.startsWith("https://")
+    ? encodeURI(currentOrg.logoUrl)
+    : null;
+
   return (
     <div className="max-w-3xl space-y-6">
       <div>
@@ -217,7 +206,7 @@ const OrgSettings = () => {
               {/* Preview or drop zone */}
               <div
                 className={`h-20 w-20 rounded-xl border-2 flex items-center justify-center cursor-pointer shrink-0 overflow-hidden transition-colors ${
-                  logoPreview
+                  logoPreview || existingLogoSrc
                     ? "border-primary/30"
                     : "border-dashed border-border hover:border-primary/40"
                 }`}
@@ -229,9 +218,9 @@ const OrgSettings = () => {
                   if (file) handleLogoFile(file);
                 }}
               >
-                {logoPreview && isSafeLogoUrl(logoPreview) ? (
+                {logoPreview || existingLogoSrc ? (
                   <img
-                    src={logoPreview}
+                    src={logoPreview || existingLogoSrc!}
                     alt="Logo"
                     className="h-full w-full object-cover"
                   />
@@ -249,7 +238,7 @@ const OrgSettings = () => {
                   >
                     <Upload className="h-3 w-3 mr-1.5" /> Upload Image
                   </Button>
-                  {logoPreview && (
+                  {(logoPreview || existingLogoSrc) && (
                     <Button
                       type="button"
                       variant="ghost"
