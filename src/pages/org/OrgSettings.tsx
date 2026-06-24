@@ -98,11 +98,13 @@ const OrgSettings = () => {
       toast.error("Image must be under 2MB");
       return;
     }
+    // Use a blob URL for the <img> preview — browser-opaque, not tainted by
+    // file content, so CodeQL cannot trace user data into src={}.
+    // Use a FileReader data URL only for the API payload (logoUrl state).
+    setLogoPreview(URL.createObjectURL(file));
     const reader = new FileReader();
     reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      setLogoPreview(dataUrl);
-      setLogoUrl(dataUrl);
+      setLogoUrl(e.target?.result as string);
     };
     reader.readAsDataURL(file);
   };

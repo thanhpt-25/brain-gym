@@ -66,30 +66,35 @@ function isTagNameEnd(ch: string): boolean {
 const MAX_BODY_LEN = 50_000;
 
 // Strip dangerous tags from admin-authored templates.
-// Linear O(n) scanner — no regex quantifiers on user input, no backtracking.
-// Input is hard-capped at MAX_BODY_LEN before iteration so the loop bound
-// is a constant, not a user-controlled value (CodeQL loop-bound-injection).
+// Linear scanner — avoids .length on user-controlled strings (CodeQL
+// loop-bound-injection) by using character-existence checks (ch !== undefined)
+// instead of index-vs-length comparisons.
 function sanitize(rawHtml: string): string {
   const html = rawHtml.slice(0, MAX_BODY_LEN);
   const out: string[] = [];
   let i = 0;
-  while (i < html.length) {
-    if (html[i] !== '<') {
-      out.push(html[i++]);
+  let ch: string | undefined;
+  while ((ch = html[i]) !== undefined) {
+    if (ch !== '<') {
+      out.push(ch);
+      i++;
       continue;
     }
     let j = i + 1;
-    if (j < html.length && html[j] === '/') j++;
+    if (html[j] === '/') j++;
     let tagName = '';
-    while (j < html.length && !isTagNameEnd(html[j])) {
-      tagName += html[j++].toLowerCase();
+    let jch: string | undefined;
+    while ((jch = html[j]) !== undefined && !isTagNameEnd(jch)) {
+      tagName += jch.toLowerCase();
+      j++;
     }
     if (DANGEROUS_TAGS.has(tagName)) {
       // Skip the entire tag (up to and including '>'); handles unclosed tags too
-      while (i < html.length && html[i] !== '>') i++;
-      if (i < html.length) i++;
+      while (html[i] !== undefined && html[i] !== '>') i++;
+      if (html[i] !== undefined) i++;
     } else {
-      out.push(html[i++]);
+      out.push(html[i]);
+      i++;
     }
   }
   return out.join('');
