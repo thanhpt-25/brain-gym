@@ -27,6 +27,7 @@ import {
   Shield,
   RotateCcw,
 } from "lucide-react";
+import DOMPurify from "dompurify";
 import { toast } from "sonner";
 import { useOrgStore } from "@/stores/org.store";
 import { updateOrg, deleteOrg } from "@/services/organizations";
@@ -220,7 +221,9 @@ const OrgSettings = () => {
               >
                 {logoPreview || existingLogoSrc ? (
                   <img
-                    src={logoPreview || existingLogoSrc!}
+                    src={DOMPurify.sanitize(
+                      logoPreview || existingLogoSrc || "",
+                    )}
                     alt="Logo"
                     className="h-full w-full object-cover"
                   />
