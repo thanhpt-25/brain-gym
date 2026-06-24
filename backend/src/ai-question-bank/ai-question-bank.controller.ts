@@ -224,4 +224,13 @@ export class AiQuestionBankController {
   mcpIntake(@Req() req: McpRequest, @Body() dto: McpIntakeDto) {
     return this.service.mcpIntake(req.user.id, req.mcpKeyId, dto);
   }
+
+  @Post('intake-browser')
+  @ApiOperation({
+    summary:
+      'Browser mode: save local-LLM-generated questions to the question bank (JWT auth)',
+  })
+  intakeBrowser(@Req() req: AuthenticatedRequest, @Body() dto: McpIntakeDto) {
+    return this.service.mcpIntake(req.user.id, dto);
+  }
 }
