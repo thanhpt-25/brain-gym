@@ -272,7 +272,8 @@ const OrgSettings = () => {
                   value={logoUrl.startsWith("data:") ? "" : logoUrl}
                   onChange={(e) => {
                     setLogoUrl(e.target.value);
-                    setLogoPreview(e.target.value);
+                    // Don't sync to logoPreview — preview only uses blob URLs
+                    // from file uploads; raw typed URLs never reach <img src>.
                   }}
                   className="bg-muted border-border text-xs h-7"
                 />
