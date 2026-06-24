@@ -49,18 +49,45 @@ function interpolate(
   return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '');
 }
 
-// Strip dangerous tags from admin-authored templates.
-// Two-pass approach avoids ReDoS from [\s\S]*?+backreference patterns and
-// also catches unclosed tags (e.g. <script src="evil"> with no </script>).
-function sanitize(html: string): string {
-  // Pass 1: strip opening / self-closing dangerous tags
-  let safe = html.replace(
-    /<(script|object|embed|iframe|form)(\s[^>]*)?\/?>/gi,
-    '',
+const DANGEROUS_TAGS = new Set(['script', 'object', 'embed', 'iframe', 'form']);
+
+function isTagNameEnd(ch: string): boolean {
+  return (
+    ch === '>' ||
+    ch === '/' ||
+    ch === ' ' ||
+    ch === '\t' ||
+    ch === '\n' ||
+    ch === '\r'
   );
-  // Pass 2: strip orphaned closing tags left after pass 1
-  safe = safe.replace(/<\/(script|object|embed|iframe|form)>/gi, '');
-  return safe;
+}
+
+// Strip dangerous tags from admin-authored templates.
+// Linear O(n) scanner — no regex quantifiers on user input, no backtracking.
+// Strips the tag tokens; content between tags becomes plain visible text.
+function sanitize(html: string): string {
+  const out: string[] = [];
+  let i = 0;
+  while (i < html.length) {
+    if (html[i] !== '<') {
+      out.push(html[i++]);
+      continue;
+    }
+    let j = i + 1;
+    if (j < html.length && html[j] === '/') j++;
+    let tagName = '';
+    while (j < html.length && !isTagNameEnd(html[j])) {
+      tagName += html[j++].toLowerCase();
+    }
+    if (DANGEROUS_TAGS.has(tagName)) {
+      // Skip the entire tag (up to and including '>'); handles unclosed tags too
+      while (i < html.length && html[i] !== '>') i++;
+      if (i < html.length) i++;
+    } else {
+      out.push(html[i++]);
+    }
+  }
+  return out.join('');
 }
 
 @Injectable()
