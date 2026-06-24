@@ -13,6 +13,7 @@ export class UpsertEmailTemplateDto {
   subject: string;
 
   @IsString()
+  @MaxLength(50_000)
   bodyHtml: string;
 
   @IsOptional()
@@ -29,5 +30,6 @@ export class PreviewEmailTemplateDto {
   subject: string;
 
   @IsString()
+  @MaxLength(50_000)
   bodyHtml: string;
 }

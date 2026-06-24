@@ -62,10 +62,15 @@ function isTagNameEnd(ch: string): boolean {
   );
 }
 
+// Maximum body length accepted — matches @MaxLength on the DTO.
+const MAX_BODY_LEN = 50_000;
+
 // Strip dangerous tags from admin-authored templates.
 // Linear O(n) scanner — no regex quantifiers on user input, no backtracking.
-// Strips the tag tokens; content between tags becomes plain visible text.
-function sanitize(html: string): string {
+// Input is hard-capped at MAX_BODY_LEN before iteration so the loop bound
+// is a constant, not a user-controlled value (CodeQL loop-bound-injection).
+function sanitize(rawHtml: string): string {
+  const html = rawHtml.slice(0, MAX_BODY_LEN);
   const out: string[] = [];
   let i = 0;
   while (i < html.length) {
@@ -159,10 +164,10 @@ export class EmailTemplatesService {
     return { message: 'Template removed — default will be used' };
   }
 
-  async preview(
+  preview(
     subject: string,
     bodyHtml: string,
-  ): Promise<{ subject: string; bodyHtml: string }> {
+  ): { subject: string; bodyHtml: string } {
     const sampleVars = {
       candidateName: 'Alex Johnson',
       orgName: 'Acme Corp',

@@ -22,7 +22,7 @@ export class DocumentIngestionService {
     @InjectQueue(DOCUMENT_INGESTION_QUEUE) private readonly queue: Queue,
   ) {}
 
-  async estimate(fileBuffer: Buffer, certificationId: string) {
+  estimate(fileBuffer: Buffer, certificationId: string) {
     const wordCount = fileBuffer
       .toString('utf8')
       .split(/\s+/)
