@@ -49,12 +49,18 @@ function interpolate(
   return template.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '');
 }
 
-// Strip script/object/embed tags to prevent XSS in admin-authored templates
+// Strip dangerous tags from admin-authored templates.
+// Two-pass approach avoids ReDoS from [\s\S]*?+backreference patterns and
+// also catches unclosed tags (e.g. <script src="evil"> with no </script>).
 function sanitize(html: string): string {
-  return html.replace(
-    /<(script|object|embed|iframe|form)[^>]*>[\s\S]*?<\/\1>/gi,
+  // Pass 1: strip opening / self-closing dangerous tags
+  let safe = html.replace(
+    /<(script|object|embed|iframe|form)(\s[^>]*)?\/?>/gi,
     '',
   );
+  // Pass 2: strip orphaned closing tags left after pass 1
+  safe = safe.replace(/<\/(script|object|embed|iframe|form)>/gi, '');
+  return safe;
 }
 
 @Injectable()

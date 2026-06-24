@@ -65,8 +65,16 @@ const OrgSettings = () => {
   }, [currentOrg]);
 
   const handleLogoFile = (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file");
+    // Explicitly allow only safe raster formats; SVG is excluded because
+    // data:image/svg+xml URLs can execute embedded JavaScript as <img src>.
+    const ALLOWED_TYPES = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error("Please select a JPEG, PNG, GIF, or WebP image");
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
