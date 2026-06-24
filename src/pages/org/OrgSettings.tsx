@@ -38,6 +38,19 @@ import {
   type EmailTrigger,
 } from "@/services/email-templates";
 
+// Only raster data URLs and HTTPS URLs are safe to use as <img src>.
+// SVG data URLs can execute embedded JS; http:// is blocked to avoid
+// mixed-content and open-redirect issues.
+function isSafeLogoUrl(url: string): boolean {
+  return (
+    url.startsWith("https://") ||
+    url.startsWith("data:image/jpeg") ||
+    url.startsWith("data:image/png") ||
+    url.startsWith("data:image/gif") ||
+    url.startsWith("data:image/webp")
+  );
+}
+
 const OrgSettings = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -60,7 +73,11 @@ const OrgSettings = () => {
       setIndustry(currentOrg.industry || "");
       setAccentColor(currentOrg.accentColor || "#00bcd4");
       setLogoUrl(currentOrg.logoUrl || "");
-      setLogoPreview(currentOrg.logoUrl || "");
+      const safeUrl =
+        currentOrg.logoUrl && isSafeLogoUrl(currentOrg.logoUrl)
+          ? currentOrg.logoUrl
+          : "";
+      setLogoPreview(safeUrl);
     }
   }, [currentOrg]);
 
@@ -210,7 +227,7 @@ const OrgSettings = () => {
                   if (file) handleLogoFile(file);
                 }}
               >
-                {logoPreview ? (
+                {logoPreview && isSafeLogoUrl(logoPreview) ? (
                   <img
                     src={logoPreview}
                     alt="Logo"

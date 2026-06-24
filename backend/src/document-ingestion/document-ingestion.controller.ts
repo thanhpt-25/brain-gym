@@ -26,7 +26,7 @@ export class DocumentIngestionController {
 
   @Post('estimate')
   @UseInterceptors(FileInterceptor('file'))
-  async estimate(
+  estimate(
     @UploadedFile() file: Express.Multer.File,
     @Body('certificationId') certificationId: string,
   ) {
