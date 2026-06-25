@@ -1,8 +1,11 @@
 -- Sprint 5: Email Templates (US-C3), Blind Review (US-G3),
 --           Data Privacy / Retention (US-G2), Document Ingestion (US-1200),
---           Interview Packet Tokens (US-F1)
+--           Interview Packet Tokens (US-F1), Interview Stage (US-F2)
 
 -- ─── Enums ───────────────────────────────────────────────────────────────────
+
+-- US-F2: Add INTERVIEW stage value to existing enum
+ALTER TYPE "CandidateStage" ADD VALUE 'INTERVIEW';
 
 CREATE TYPE "EmailTemplateTrigger" AS ENUM (
   'INVITE',
@@ -24,6 +27,11 @@ CREATE TYPE "IngestionJobStatus" AS ENUM (
 
 ALTER TABLE "organizations"
     ADD COLUMN "data_retention_months" INTEGER NOT NULL DEFAULT 12;
+
+-- ─── US-F2: Interview scheduling field on candidate_invites ─────────────────
+
+ALTER TABLE "candidate_invites"
+    ADD COLUMN "interview_scheduled_at" TIMESTAMP(3);
 
 -- ─── US-G3: Blind review flag on assessments ─────────────────────────────────
 
