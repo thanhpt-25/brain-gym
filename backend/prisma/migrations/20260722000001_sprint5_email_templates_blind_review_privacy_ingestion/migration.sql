@@ -33,6 +33,12 @@ ALTER TABLE "organizations"
 ALTER TABLE "candidate_invites"
     ADD COLUMN "interview_scheduled_at" TIMESTAMP(3);
 
+-- ─── US-G2: Privacy / anonymisation fields on candidate_invites ──────────────
+
+ALTER TABLE "candidate_invites"
+    ADD COLUMN "delete_requested_at" TIMESTAMP(3),
+    ADD COLUMN "anonymized_at"       TIMESTAMP(3);
+
 -- ─── US-G3: Blind review flag on assessments ─────────────────────────────────
 
 ALTER TABLE "assessments"
