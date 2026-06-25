@@ -1,9 +1,19 @@
-import type { PaginatedResponse } from './api-types';
+import type { PaginatedResponse } from "./api-types";
 
-export type AssessmentStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'ARCHIVED';
-export type CandidateAttemptStatus = 'INVITED' | 'STARTED' | 'SUBMITTED' | 'EXPIRED';
-export type AssessmentSelectionMode = 'MANUAL' | 'BLUEPRINT' | 'POOL';
-export type CandidateStage = 'APPLIED' | 'SCREENING' | 'SHORTLISTED' | 'REJECTED' | 'HIRED';
+export type AssessmentStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "ARCHIVED";
+export type CandidateAttemptStatus =
+  | "INVITED"
+  | "STARTED"
+  | "SUBMITTED"
+  | "EXPIRED";
+export type AssessmentSelectionMode = "MANUAL" | "BLUEPRINT" | "POOL";
+export type CandidateStage =
+  | "APPLIED"
+  | "SCREENING"
+  | "SHORTLISTED"
+  | "INTERVIEW"
+  | "REJECTED"
+  | "HIRED";
 
 export interface JobRole {
   id: string;
@@ -27,14 +37,14 @@ export interface BlueprintDomain {
 export interface BlueprintConfig {
   totalQuestions: number;
   domains: BlueprintDomain[];
-  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  difficulty?: "EASY" | "MEDIUM" | "HARD";
   certificationId?: string;
 }
 
 export interface PoolConfig {
   drawCount: number;
   certificationId?: string;
-  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  difficulty?: "EASY" | "MEDIUM" | "HARD";
   categories?: string[];
   tags?: string[];
 }
@@ -48,8 +58,16 @@ export interface AssessmentQuestionRef {
   orgQuestionId: string | null;
   publicQuestionId: string | null;
   sortOrder: number;
-  orgQuestion?: { id: string; title: string; choices: { id: string; label: string; content: string }[] } | null;
-  publicQuestion?: { id: string; title: string; choices: { id: string; label: string; content: string }[] } | null;
+  orgQuestion?: {
+    id: string;
+    title: string;
+    choices: { id: string; label: string; content: string }[];
+  } | null;
+  publicQuestion?: {
+    id: string;
+    title: string;
+    choices: { id: string; label: string; content: string }[];
+  } | null;
 }
 
 export interface Assessment {
@@ -73,6 +91,7 @@ export interface Assessment {
   linkExpiryHours: number;
   jobRoleId: string | null;
   jobRole?: { id: string; title: string; department: string | null } | null;
+  blindReviewEnabled: boolean;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -109,6 +128,9 @@ export interface CandidateInvite {
   decidedBy: string | null;
   decidedAt: string | null;
   percentile: number | null;
+  interviewScheduledAt: string | null;
+  deleteRequestedAt: string | null;
+  anonymizedAt: string | null;
   createdAt: string;
 }
 
@@ -125,6 +147,7 @@ export interface UpdateCandidateDecisionPayload {
   stage?: CandidateStage;
   rating?: number;
   recruiterNote?: string;
+  interviewScheduledAt?: string;
 }
 
 export interface AssessmentResults {

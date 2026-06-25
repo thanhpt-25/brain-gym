@@ -1,7 +1,7 @@
 // Organization types — aligned with backend Prisma responses
 
-export type OrgRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'RECRUITER' | 'MEMBER';
-export type OrgInviteStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+export type OrgRole = "OWNER" | "ADMIN" | "MANAGER" | "RECRUITER" | "MEMBER";
+export type OrgInviteStatus = "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
 
 export interface Organization {
   id: string;
@@ -13,6 +13,7 @@ export interface Organization {
   accentColor: string | null;
   maxSeats: number;
   isActive: boolean;
+  dataRetentionMonths: number;
   createdAt: string;
   updatedAt: string;
   _count: { members: number };
@@ -90,7 +91,9 @@ export interface CreateOrgPayload {
   accentColor?: string;
 }
 
-export interface UpdateOrgPayload extends Partial<CreateOrgPayload> {}
+export interface UpdateOrgPayload extends Partial<CreateOrgPayload> {
+  dataRetentionMonths?: number;
+}
 
 export interface InviteMemberPayload {
   email: string;

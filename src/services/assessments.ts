@@ -232,3 +232,56 @@ export const getPoolStats = async (
   const res = await api.get<PoolStats>(`${base(slug)}/${aid}/pool-stats`);
   return res.data;
 };
+
+// ─── Blind review ────────────────────────────────────────────────────────────
+
+export const updateBlindReview = async (
+  slug: string,
+  aid: string,
+  enabled: boolean,
+): Promise<{ blindReviewEnabled: boolean }> => {
+  const res = await api.patch<{ blindReviewEnabled: boolean }>(
+    `${base(slug)}/${aid}/blind-review`,
+    { blindReviewEnabled: enabled },
+  );
+  return res.data;
+};
+
+export const revealCandidateIdentity = async (
+  slug: string,
+  aid: string,
+  inviteId: string,
+): Promise<CandidateInvite> => {
+  const res = await api.get<CandidateInvite>(
+    `${base(slug)}/${aid}/candidates/${inviteId}/reveal`,
+  );
+  return res.data;
+};
+
+export const requestCandidateDeletion = async (
+  slug: string,
+  aid: string,
+  inviteId: string,
+): Promise<{ deleteRequestedAt: string }> => {
+  const res = await api.post<{ deleteRequestedAt: string }>(
+    `${base(slug)}/${aid}/candidates/${inviteId}/request-deletion`,
+  );
+  return res.data;
+};
+
+// ─── Interview packet token ───────────────────────────────────────────────────
+
+export const createInterviewPacketToken = async (
+  orgId: string,
+  inviteId: string,
+  expiresInDays = 7,
+): Promise<{ token: string; expiresAt: string; packetUrl: string }> => {
+  const res = await api.post<{
+    token: string;
+    expiresAt: string;
+    packetUrl: string;
+  }>(`/organizations/${orgId}/invites/${inviteId}/packet-token`, {
+    expiresInDays,
+  });
+  return res.data;
+};

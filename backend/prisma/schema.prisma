@@ -170,8 +170,25 @@ enum CandidateStage {
   APPLIED
   SCREENING
   SHORTLISTED
+  INTERVIEW
   REJECTED
   HIRED
+}
+
+enum EmailTemplateTrigger {
+  INVITE
+  SHORTLISTED
+  INTERVIEW
+  REJECTED
+  HIRED
+}
+
+enum IngestionJobStatus {
+  PENDING
+  EXTRACTING
+  ENRICHING
+  COMPLETED
+  FAILED
 }
 
 /// RFC-011 / Decision D5: squads are Organization rows with kind = SQUAD.
@@ -287,6 +304,9 @@ model User {
   publicApplyLinksCreated    PublicApplyLink[]
   campaignReviewsGiven       CampaignMemberReview[]
   memberIdpsCreated          MemberIdp[]
+  packetTokensCreated        InterviewPacketToken[]
+  emailTemplatesCreated      EmailTemplate[]
+  documentIngestionJobs      DocumentIngestionJob[]
 
   @@index([status])
   @@map("users")
@@ -354,6 +374,7 @@ model Certification {
   certOverlapsA  CertOverlap[] @relation("CertOverlapA")
   certOverlapsB  CertOverlap[] @relation("CertOverlapB")
   studyPlans     StudyPlan[]
+  documentIngestionJobs DocumentIngestionJob[]
 
   @@map("certifications")
 }
@@ -398,6 +419,12 @@ model Question {
   generationJobId String?        @map("generation_job_id")
   qualityTier     QualityTier?   @map("quality_tier")
   sourceChunkId   String?        @map("source_chunk_id")
+  /// US-1200: Document ingestion job that produced this question.
+  ingestionJobId  String?        @map("ingestion_job_id")
+  /// US-1200: LLM confidence in the paraphrased answer (0.00–1.00).
+  answerConfidence Decimal?      @map("answer_confidence") @db.Decimal(3, 2)
+  /// US-1200: SHA-256 of source content used — prevents duplicate ingestion.
+  sourceContentHash String?      @map("source_content_hash")
   deletedAt       DateTime?      @map("deleted_at")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
@@ -407,6 +434,7 @@ model Question {
   author          User            @relation(fields: [createdBy], references: [id])
   generationJob   QuestionGenerationJob? @relation(fields: [generationJobId], references: [id])
   sourceChunk     SourceChunk?    @relation(fields: [sourceChunkId], references: [id])
+  ingestionJob    DocumentIngestionJob? @relation(fields: [ingestionJobId], references: [id])
   choices            Choice[]
   tags               QuestionTag[]
   examQuestions      ExamQuestion[]
@@ -854,6 +882,8 @@ model Organization {
   certificationId String?  @map("certification_id")
   /// RFC-011: For SQUAD kind — optional target exam date.
   targetExamDate  DateTime? @map("target_exam_date")
+  /// US-G2: Months to retain candidate PII before auto-anonymisation.
+  dataRetentionMonths Int @default(12) @map("data_retention_months")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -879,6 +909,7 @@ model Organization {
   competencyCertifications CompetencyCertification[]
   campaignReviews          CampaignMemberReview[]
   memberIdps               MemberIdp[]
+  emailTemplates           EmailTemplate[]
 
   @@map("organizations")
 }
@@ -1168,6 +1199,8 @@ model Assessment {
   jobRoleId          String?                  @map("job_role_id")
   riskThreshold      Int                      @default(70) @map("risk_threshold")
   autoFlagRisk       Boolean                  @default(true) @map("auto_flag_risk")
+  /// US-G3: When true, reviewers only see scores — no candidate name/email.
+  blindReviewEnabled Boolean                  @default(false) @map("blind_review_enabled")
   createdBy          String                   @map("created_by")
   createdAt          DateTime                 @default(now()) @map("created_at")
   updatedAt          DateTime                 @updatedAt @map("updated_at")
@@ -1236,12 +1269,19 @@ model CandidateInvite {
   flaggedAt        DateTime?              @map("flagged_at")
   flaggedReason    String?                @map("flagged_reason")
   flaggedBy        String?                @map("flagged_by")
+  /// US-F2: scheduled interview datetime
+  interviewScheduledAt DateTime?          @map("interview_scheduled_at")
+  /// US-G2: timestamp when recruiter requested data erasure
+  deleteRequestedAt    DateTime?          @map("delete_requested_at")
+  /// US-G2: timestamp when PII anonymisation completed
+  anonymizedAt         DateTime?          @map("anonymized_at")
   createdAt        DateTime               @default(now()) @map("created_at")
 
-  assessment    Assessment        @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessment    Assessment              @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   answers       CandidateAnswer[]
   events        CandidateEvent[]
   decisionLogs  DecisionLog[]
+  packetTokens  InterviewPacketToken[]
 
   @@map("candidate_invites")
 }
@@ -1905,4 +1945,70 @@ model MemberIdp {
   @@unique([memberId, competencyId, trackId])
   @@index([orgId, memberId])
   @@map("member_idps")
+}
+
+// ─── Sprint 5 models ──────────────────────────────────────────────────────────
+
+model InterviewPacketToken {
+  id        String   @id @default(uuid())
+  inviteId  String   @map("invite_id")
+  token     String   @unique
+  createdBy String   @map("created_by")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  invite  CandidateInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  creator User            @relation(fields: [createdBy], references: [id])
+
+  @@index([inviteId])
+  @@index([expiresAt])
+  @@map("interview_packet_tokens")
+}
+
+model EmailTemplate {
+  id        String               @id @default(uuid())
+  orgId     String               @map("org_id")
+  trigger   EmailTemplateTrigger
+  subject   String
+  bodyHtml  String               @map("body_html") @db.Text
+  isActive  Boolean              @default(true) @map("is_active")
+  createdBy String               @map("created_by")
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  creator      User         @relation(fields: [createdBy], references: [id])
+
+  @@unique([orgId, trigger])
+  @@map("email_templates")
+}
+
+model DocumentIngestionJob {
+  id               String             @id @default(uuid())
+  userId           String             @map("user_id")
+  certificationId  String             @map("certification_id")
+  fileName         String             @map("file_name")
+  fileUrl          String             @map("file_url")
+  fileSizeBytes    Int                @map("file_size_bytes")
+  contentHash      String             @map("content_hash")
+  status           IngestionJobStatus @default(PENDING)
+  rightsAttestation Boolean           @map("rights_attestation")
+  declaredSource   String?            @map("declared_source")
+  extractedCount   Int?               @map("extracted_count")
+  enrichedCount    Int?               @map("enriched_count")
+  skippedCount     Int?               @map("skipped_count")
+  errorMessage     String?            @map("error_message")
+  estimatedCostUsd Decimal?           @map("estimated_cost_usd") @db.Decimal(10, 4)
+  actualCostUsd    Decimal?           @map("actual_cost_usd") @db.Decimal(10, 4)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  completedAt      DateTime?          @map("completed_at")
+
+  user          User          @relation(fields: [userId], references: [id])
+  certification Certification @relation(fields: [certificationId], references: [id])
+  questions     Question[]
+
+  @@index([userId, createdAt])
+  @@index([contentHash])
+  @@index([certificationId])
+  @@map("document_ingestion_jobs")
 }

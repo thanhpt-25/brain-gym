@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
@@ -22,4 +23,8 @@ export class UpdateCandidateDecisionDto {
   @IsOptional()
   @IsString()
   recruiterNote?: string;
+
+  @IsOptional()
+  @IsDateString()
+  interviewScheduledAt?: string;
 }

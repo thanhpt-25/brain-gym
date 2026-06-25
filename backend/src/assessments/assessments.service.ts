@@ -21,6 +21,7 @@ import { randomUUID } from 'crypto';
 import { parseCandidateCsv } from '../common/csv/parse-candidate-csv';
 import { BulkCsvInviteDto } from './dto/bulk-csv-invite.dto';
 import { ScreeningService } from '../screening/screening.service';
+import { EmailTemplatesService } from '../email-templates/email-templates.service';
 
 // ─── Blueprint / Pool config shapes ─────────────────────────────────────────
 
@@ -51,6 +52,7 @@ export class AssessmentsService {
     private readonly orgsService: OrganizationsService,
     private readonly mailService: MailService,
     private readonly screeningService: ScreeningService,
+    private readonly emailTemplatesService: EmailTemplatesService,
   ) {}
 
   // ─── Private helpers ───────────────────────────────────────────────────────
@@ -681,7 +683,12 @@ export class AssessmentsService {
     return { invited: invites.length, invites };
   }
 
-  async getResults(slugOrId: string, assessmentId: string, filter?: string) {
+  async getResults(
+    slugOrId: string,
+    assessmentId: string,
+    filter?: string,
+    viewerRole?: string,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     const assessment = await this.prisma.assessment.findFirst({
       where: { id: assessmentId, orgId },
@@ -710,22 +717,44 @@ export class AssessmentsService {
       );
     }
 
+    // US-G3: Blind review masking — OWNER/ADMIN always see full identity
+    const isPrivileged = viewerRole === 'OWNER' || viewerRole === 'ADMIN';
+    const decidedStages = new Set([
+      'SHORTLISTED',
+      'INTERVIEW',
+      'HIRED',
+      'REJECTED',
+    ]);
+    const shouldBlind = assessment.blindReviewEnabled && !isPrivileged;
+
     // Compute percentile rank for each submitted candidate
     const submitted = invites.filter((i) => i.status === 'SUBMITTED');
     const submittedCount = submitted.length;
     const candidates = invites.map((invite) => {
-      if (invite.status !== 'SUBMITTED' || invite.score == null) {
-        return { ...invite, percentile: null };
+      const withPercentile =
+        invite.status !== 'SUBMITTED' || invite.score == null
+          ? { ...invite, percentile: null }
+          : (() => {
+              const score = Number(invite.score);
+              const below = submitted.filter(
+                (s) => s.score != null && Number(s.score) < score,
+              ).length;
+              const percentile =
+                submittedCount > 1
+                  ? Math.round((below / (submittedCount - 1)) * 100)
+                  : 100;
+              return { ...invite, percentile };
+            })();
+
+      // US-G3: mask PII; use stable ID suffix so identity is consistent across sessions
+      if (shouldBlind && !decidedStages.has(invite.stage as string)) {
+        return {
+          ...withPercentile,
+          candidateName: null,
+          candidateEmail: `Cand-${invite.id.slice(-6).toUpperCase()}`,
+        };
       }
-      const score = Number(invite.score);
-      const below = submitted.filter(
-        (s) => s.score != null && Number(s.score) < score,
-      ).length;
-      const percentile =
-        submittedCount > 1
-          ? Math.round((below / (submittedCount - 1)) * 100)
-          : 100;
-      return { ...invite, percentile };
+      return withPercentile;
     });
 
     const total = invites.length;
@@ -742,6 +771,97 @@ export class AssessmentsService {
       assessment,
       funnel: { total, started, submitted: submittedCount, passed },
       candidates,
+    };
+  }
+
+  // US-G3: Blind review toggle — allowed on DRAFT and ACTIVE, not CLOSED
+  async updateBlindReview(
+    slugOrId: string,
+    assessmentId: string,
+    blindReviewEnabled: boolean,
+  ) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const assessment = await this.prisma.assessment.findFirst({
+      where: { id: assessmentId, orgId },
+    });
+    if (!assessment) throw new NotFoundException('Assessment not found');
+    if (assessment.status === 'CLOSED') {
+      throw new BadRequestException(
+        'Cannot change blind review setting on a closed assessment',
+      );
+    }
+    return this.prisma.assessment.update({
+      where: { id: assessmentId },
+      data: { blindReviewEnabled },
+    });
+  }
+
+  // US-G3: Reveal candidate identity (OWNER/ADMIN only) — writes audit log
+  async revealCandidateIdentity(
+    slugOrId: string,
+    assessmentId: string,
+    inviteId: string,
+    requesterId: string,
+  ) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const invite = await this.prisma.candidateInvite.findFirst({
+      where: { id: inviteId, assessment: { id: assessmentId, orgId } },
+      select: {
+        id: true,
+        candidateName: true,
+        candidateEmail: true,
+        stage: true,
+      },
+    });
+    if (!invite) throw new NotFoundException('Candidate invite not found');
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: requesterId,
+        action: 'candidate_identity_revealed',
+        targetType: 'CandidateInvite',
+        targetId: inviteId,
+        metadata: { inviteId, revealedBy: requesterId },
+      },
+    });
+
+    return {
+      candidateName: invite.candidateName,
+      candidateEmail: invite.candidateEmail,
+      stage: invite.stage,
+    };
+  }
+
+  // US-G2: Mark invite for data erasure — job will anonymise within 24h
+  async requestDeletion(
+    slugOrId: string,
+    assessmentId: string,
+    inviteId: string,
+    requesterId: string,
+  ) {
+    const orgId = await this.orgsService.resolveOrgId(slugOrId);
+    const invite = await this.prisma.candidateInvite.findFirst({
+      where: { id: inviteId, assessment: { id: assessmentId, orgId } },
+    });
+    if (!invite) throw new NotFoundException('Candidate invite not found');
+
+    await this.prisma.candidateInvite.update({
+      where: { id: inviteId },
+      data: { deleteRequestedAt: new Date() },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: requesterId,
+        action: 'candidate_deletion_requested',
+        targetType: 'CandidateInvite',
+        targetId: inviteId,
+        metadata: { requestedBy: requesterId },
+      },
+    });
+
+    return {
+      message: 'Deletion scheduled — PII will be anonymised within 24 hours',
     };
   }
 
@@ -763,12 +883,35 @@ export class AssessmentsService {
     });
     if (!invite) throw new NotFoundException('Candidate invite not found');
 
+    // US-F2: Validate stage transitions
+    if (dto.stage !== undefined && dto.stage !== invite.stage) {
+      const validTransitions: Partial<Record<string, string[]>> = {
+        APPLIED: ['SCREENING', 'SHORTLISTED', 'REJECTED'],
+        SCREENING: ['SHORTLISTED', 'REJECTED'],
+        SHORTLISTED: ['INTERVIEW', 'HIRED', 'REJECTED'],
+        INTERVIEW: ['HIRED', 'REJECTED'],
+      };
+      const allowed = validTransitions[invite.stage as string] ?? [];
+      if (!allowed.includes(dto.stage as string)) {
+        throw new BadRequestException(
+          `Invalid stage transition: ${invite.stage} → ${dto.stage}`,
+        );
+      }
+    }
+
+    // US-F2: Require interviewScheduledAt when moving to INTERVIEW
+    if (dto.stage === CandidateStage.INTERVIEW && !dto.interviewScheduledAt) {
+      throw new BadRequestException(
+        'interviewScheduledAt is required when moving to INTERVIEW stage',
+      );
+    }
+
     const isStageDecision =
       dto.stage === CandidateStage.HIRED ||
       dto.stage === CandidateStage.REJECTED ||
       dto.stage === CandidateStage.SHORTLISTED;
 
-    const data = {
+    const data: Record<string, any> = {
       ...(dto.stage !== undefined && { stage: dto.stage }),
       ...(dto.rating !== undefined && { rating: dto.rating }),
       ...(dto.recruiterNote !== undefined && {
@@ -778,6 +921,10 @@ export class AssessmentsService {
         decidedBy: decidedByUserId,
         decidedAt: new Date(),
       }),
+      ...(dto.stage === CandidateStage.INTERVIEW &&
+        dto.interviewScheduledAt && {
+          interviewScheduledAt: new Date(dto.interviewScheduledAt),
+        }),
     };
 
     // No-op guard — avoid hitting the DB if nothing changed
@@ -788,7 +935,10 @@ export class AssessmentsService {
       data,
     });
 
-    if (isStageDecision && dto.stage) {
+    if (
+      (isStageDecision || dto.stage === CandidateStage.INTERVIEW) &&
+      dto.stage
+    ) {
       await this.screeningService.writeManualDecisionLog(
         inviteId,
         invite.stage,
@@ -796,6 +946,11 @@ export class AssessmentsService {
         decidedByUserId,
         dto.recruiterNote,
       );
+
+      // US-C3: fire-and-forget stage email — do not await to avoid blocking response
+      this.emailTemplatesService
+        .sendForStage({ orgId: slugOrId, inviteId, toStage: dto.stage })
+        .catch(() => undefined);
     }
 
     return updated;

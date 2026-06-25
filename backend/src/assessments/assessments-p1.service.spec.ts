@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { MailService } from '../mail/mail.service';
 import { ScreeningService } from '../screening/screening.service';
+import { EmailTemplatesService } from '../email-templates/email-templates.service';
 
 // ── Minimal prisma mock ──────────────────────────────────────────────────────
 
@@ -71,6 +72,9 @@ const mockOrgsService = {
 
 const mockMailService = { sendAssessmentInvite: jest.fn() };
 const mockScreeningService = { writeManualDecisionLog: jest.fn() };
+const mockEmailTemplatesService = {
+  sendForStage: jest.fn().mockResolvedValue(undefined),
+};
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +90,7 @@ describe('AssessmentsService — P1 Recruiting', () => {
         { provide: OrganizationsService, useValue: mockOrgsService },
         { provide: MailService, useValue: mockMailService },
         { provide: ScreeningService, useValue: mockScreeningService },
+        { provide: EmailTemplatesService, useValue: mockEmailTemplatesService },
       ],
     }).compile();
     service = module.get<AssessmentsService>(AssessmentsService);

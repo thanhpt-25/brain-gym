@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Zap,
   Heart,
+  FolderInput,
 } from "lucide-react";
 import AdminDashboard from "./AdminDashboard";
 import UsersTab from "./UsersTab";
@@ -38,6 +39,7 @@ import { DdsAutoApplyPanel } from "@/components/admin/DdsAutoApplyPanel";
 import { DdsVariantReview } from "@/components/admin/DdsVariantReview";
 import { ReputationTab } from "./ReputationTab";
 import { QuestionsTab } from "./QuestionsTab";
+import { DocumentIngestionTab } from "./DocumentIngestionTab";
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -123,6 +125,9 @@ const AdminPage = () => {
             <TabsTrigger value="reputation" className="font-mono text-xs">
               <Heart className="h-3 w-3 mr-1" /> Reputation
             </TabsTrigger>
+            <TabsTrigger value="ingestion" className="font-mono text-xs">
+              <FolderInput className="h-3 w-3 mr-1" /> Ingestion
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard">
@@ -175,6 +180,9 @@ const AdminPage = () => {
           </TabsContent>
           <TabsContent value="reputation">
             <ReputationTab />
+          </TabsContent>
+          <TabsContent value="ingestion">
+            <DocumentIngestionTab />
           </TabsContent>
         </Tabs>
       </div>

@@ -49,6 +49,10 @@ import { ScorecardModule } from './scorecard/scorecard.module';
 import { CompetencyCertModule } from './competency-cert/competency-cert.module';
 import { IdpModule } from './idp/idp.module';
 import { ExecutiveDashboardModule } from './executive-dashboard/executive-dashboard.module';
+import { InterviewPacketModule } from './interview-packet/interview-packet.module';
+import { EmailTemplatesModule } from './email-templates/email-templates.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { DocumentIngestionModule } from './document-ingestion/document-ingestion.module';
 
 @Module({
   imports: [
@@ -102,6 +106,10 @@ import { ExecutiveDashboardModule } from './executive-dashboard/executive-dashbo
     CompetencyCertModule,
     IdpModule,
     ExecutiveDashboardModule,
+    InterviewPacketModule,
+    EmailTemplatesModule,
+    PrivacyModule,
+    DocumentIngestionModule,
   ],
   controllers: [AppController],
   providers: [
