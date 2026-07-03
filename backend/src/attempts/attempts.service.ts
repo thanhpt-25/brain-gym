@@ -73,10 +73,13 @@ export class AttemptsService {
     // Return questions WITHOUT isCorrect
     const questions = shuffledQuestions.map((eq, index) => {
       const q = eq.question;
-      // Randomize choice order
-      const shuffledChoices = this.shuffle(q.choices).map((c) => ({
+      // Randomize choice order, then relabel positionally (a, b, c, d...) so
+      // the displayed letters always read in order top-to-bottom regardless
+      // of how the underlying choices were shuffled. Grading is keyed on
+      // choice.id, never on label, so this is purely cosmetic.
+      const shuffledChoices = this.shuffle(q.choices).map((c, i) => ({
         id: c.id,
-        label: c.label,
+        label: String.fromCharCode(97 + i),
         content: c.content,
       }));
 

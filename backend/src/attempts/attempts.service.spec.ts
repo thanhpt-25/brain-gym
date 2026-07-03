@@ -62,6 +62,55 @@ describe('AttemptsService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('start', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('relabels shuffled choices positionally so labels always read a, b, c, d in order', async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue({
+        id: 'exam-1',
+        title: 'Test Exam',
+        certification: { id: 'cert-1' },
+        timeLimit: 60,
+        timerMode: 'STRICT',
+        examQuestions: [
+          {
+            question: {
+              id: 'q1',
+              title: 'Q1',
+              description: null,
+              questionType: 'SINGLE',
+              difficulty: 'HARD',
+              domain: { id: 'd1', name: 'Domain A' },
+              tags: [],
+              choices: [
+                { id: 'c-orig-a', label: 'a', content: 'Content A' },
+                { id: 'c-orig-b', label: 'b', content: 'Content B' },
+                { id: 'c-orig-c', label: 'c', content: 'Content C' },
+                { id: 'c-orig-d', label: 'd', content: 'Content D' },
+              ],
+            },
+          },
+        ],
+      });
+      mockPrismaService.examAttempt.create.mockResolvedValue({
+        id: 'attempt-1',
+      });
+
+      const result = await service.start('user-1', 'exam-1');
+
+      const choices = (result.questions[0] as any).choices;
+      expect(choices.map((c: any) => c.label)).toEqual(['a', 'b', 'c', 'd']);
+      expect(choices.map((c: any) => c.id).sort()).toEqual([
+        'c-orig-a',
+        'c-orig-b',
+        'c-orig-c',
+        'c-orig-d',
+      ]);
+    });
+  });
+
   describe('evaluateAnswers (Private Logic)', () => {
     it('should correctly evaluate single choice questions', () => {
       const attemptId = 'att-1';
