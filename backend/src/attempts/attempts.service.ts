@@ -68,21 +68,17 @@ export class AttemptsService {
     });
 
     // Randomize question order
-    const shuffledQuestions = [...exam.examQuestions].sort(
-      () => Math.random() - 0.5,
-    );
+    const shuffledQuestions = this.shuffle(exam.examQuestions);
 
     // Return questions WITHOUT isCorrect
     const questions = shuffledQuestions.map((eq, index) => {
       const q = eq.question;
       // Randomize choice order
-      const shuffledChoices = [...q.choices]
-        .sort(() => Math.random() - 0.5)
-        .map((c) => ({
-          id: c.id,
-          label: c.label,
-          content: c.content,
-        }));
+      const shuffledChoices = this.shuffle(q.choices).map((c) => ({
+        id: c.id,
+        label: c.label,
+        content: c.content,
+      }));
 
       return {
         id: q.id,
@@ -107,6 +103,17 @@ export class AttemptsService {
       totalQuestions: questions.length,
       questions,
     };
+  }
+
+  // Fisher-Yates: array.sort(() => Math.random() - 0.5) is statistically
+  // biased and was leaving some orderings far more likely than others.
+  private shuffle<T>(array: T[]): T[] {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
   }
 
   async saveAnswer(userId: string, attemptId: string, dto: SubmitAnswerDto) {
@@ -139,6 +146,14 @@ export class AttemptsService {
       select: { id: true },
     });
 
+    // Stamp new answers with their position in the save sequence, which
+    // mirrors presentation order in the practice-mode flow (saveAnswer is
+    // called once per question, in the order the user was shown them).
+    // Existing answers keep their original order on update.
+    const questionOrder = existing
+      ? undefined
+      : await this.prisma.answer.count({ where: { attemptId } });
+
     return this.prisma.answer.upsert({
       where: { id: existing?.id ?? '' },
       create: {
@@ -147,6 +162,7 @@ export class AttemptsService {
         selectedChoices: dto.selectedChoices,
         isCorrect,
         isMarked: dto.isMarked ?? false,
+        questionOrder: questionOrder ?? 0,
       },
       update: {
         selectedChoices: dto.selectedChoices,
@@ -320,10 +336,16 @@ export class AttemptsService {
     const domainScores: Record<string, { correct: number; total: number }> = {};
     let totalCorrect = 0;
     const answerRecords: Prisma.AnswerCreateManyInput[] = [];
+    const questionsById = new Map(
+      examQuestions.map((eq) => [eq.question.id, eq.question]),
+    );
+    const gradedQuestionIds = new Set<string>();
 
-    for (const eq of examQuestions) {
-      const q = eq.question;
-      const submitted = dto.answers.find((a) => a.questionId === q.id);
+    const gradeQuestion = (
+      q: QuestionWithChoices,
+      submitted: SubmitAnswerDto | undefined,
+      questionOrder: number,
+    ) => {
       const selectedChoices = submitted?.selectedChoices ?? [];
       const correctChoiceIds = q.choices
         .filter((c) => c.isCorrect)
@@ -347,7 +369,28 @@ export class AttemptsService {
         selectedChoices,
         isCorrect,
         isMarked: submitted?.isMarked ?? false,
+        questionOrder,
       });
+    };
+
+    // Grade in the order the client submitted answers, which mirrors the
+    // per-attempt randomized question order the user was actually shown
+    // (see start()). This keeps the result review in the same order.
+    // Duplicate questionIds in the payload are ignored (first one wins) so a
+    // crafted request can't double-count a question toward totalCorrect.
+    dto.answers.forEach((submitted, index) => {
+      const q = questionsById.get(submitted.questionId);
+      if (!q || gradedQuestionIds.has(q.id)) return;
+      gradedQuestionIds.add(q.id);
+      gradeQuestion(q, submitted, index);
+    });
+
+    // Defensively grade any exam question the client didn't submit an
+    // answer for, so a partial payload can't silently drop questions.
+    let nextOrder = dto.answers.length;
+    for (const eq of examQuestions) {
+      if (gradedQuestionIds.has(eq.question.id)) continue;
+      gradeQuestion(eq.question, undefined, nextOrder++);
     }
 
     return { totalCorrect, domainScores, answerRecords };
@@ -369,6 +412,7 @@ export class AttemptsService {
           },
         },
         answers: {
+          orderBy: { questionOrder: 'asc' },
           include: {
             question: {
               include: {

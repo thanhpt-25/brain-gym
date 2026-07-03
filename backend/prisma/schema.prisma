@@ -565,6 +565,8 @@ model Answer {
   timeSpent       Int?     @map("time_spent")
   answeredAt      DateTime @default(now()) @map("answered_at")
   mistakeType     MistakeType? @map("mistake_type")
+  /// Position of this question within the order it was presented to the user during the attempt (question/choice order is randomized per attempt in AttemptsService.start).
+  questionOrder   Int      @default(0) @map("question_order")
 
   attempt  ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id])
