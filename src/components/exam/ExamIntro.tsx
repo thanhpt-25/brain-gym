@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, Brain, Zap, Clock, Coffee, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Certification, TimerMode } from "@/types/api-types";
+import MarkdownContent from "@/components/ui/MarkdownContent";
 
 interface ExamIntroProps {
   cert: Certification;
@@ -82,7 +83,11 @@ export function ExamIntro({
             · {cert.code}
           </div>
           <h1 className="text-2xl font-mono font-bold mb-2">{cert.name}</h1>
-          <p className="text-muted-foreground mb-6">{cert.description}</p>
+          {cert.description && (
+            <div className="text-muted-foreground mb-6">
+              <MarkdownContent size="text-base">{cert.description}</MarkdownContent>
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="text-center p-3 rounded-lg bg-secondary">
