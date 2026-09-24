@@ -57,7 +57,7 @@ export class AttemptsService {
       },
     });
 
-    if (!exam) throw new NotFoundException('Exam not found');
+    if (!exam || exam.deletedAt) throw new NotFoundException('Exam not found');
 
     const attempt = await this.prisma.examAttempt.create({
       data: {
