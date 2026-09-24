@@ -16,6 +16,13 @@ enum UserRole {
   ADMIN
 }
 
+enum ContributorRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -307,9 +314,35 @@ model User {
   packetTokensCreated        InterviewPacketToken[]
   emailTemplatesCreated      EmailTemplate[]
   documentIngestionJobs      DocumentIngestionJob[]
+  contributorRequests        ContributorRequest[] @relation("ContributorRequestUser")
+  contributorRequestsReviewed ContributorRequest[] @relation("ContributorRequestReviewer")
 
   @@index([status])
   @@map("users")
+}
+
+/// Learner → CONTRIBUTOR role request, reviewed by an ADMIN.
+/// See docs/specs/contributor-role-request-srs.md. At most one PENDING row per
+/// user is enforced by a partial unique index created in the migration SQL.
+model ContributorRequest {
+  id             String                   @id @default(uuid())
+  userId         String                   @map("user_id")
+  status         ContributorRequestStatus @default(PENDING)
+  motivation     String
+  expertise      String[]                 @default([]) // Certification ids
+  sampleUrl      String?                  @map("sample_url")
+  reviewedById   String?                  @map("reviewed_by_id")
+  reviewedAt     DateTime?                @map("reviewed_at")
+  decisionReason String?                  @map("decision_reason")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
+
+  user       User  @relation("ContributorRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("ContributorRequestReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@map("contributor_requests")
 }
 
 model OAuthAccount {

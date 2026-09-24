@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { ModerationAction, Prisma, QuestionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ContributorRequestsService } from '../contributor-requests/contributor-requests.service';
 
 type ExamWhereInput = Prisma.ExamWhereInput;
 type QuestionGenerationJobWhereInput = Prisma.QuestionGenerationJobWhereInput;
@@ -21,7 +22,10 @@ interface BadgeCriteria {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly contributorRequests: ContributorRequestsService,
+  ) {}
 
   async getDashboard() {
     const now = new Date();
@@ -371,7 +375,7 @@ export class AdminService {
     return { updated: result.count };
   }
 
-  async bulkUpdateUserRole(userIds: string[], role: string) {
+  async bulkUpdateUserRole(userIds: string[], role: string, actorId?: string) {
     const result = await this.prisma.user.updateMany({
       where: {
         id: { in: userIds },
@@ -379,6 +383,11 @@ export class AdminService {
       },
       data: { role: role as Prisma.UserUpdateInput['role'] },
     });
+    await this.contributorRequests.cancelPendingOnRoleChange(
+      userIds,
+      role,
+      actorId,
+    );
     return { updated: result.count };
   }
 

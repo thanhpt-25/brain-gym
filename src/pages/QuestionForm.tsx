@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Brain, ArrowLeft, Save, Eye, Plus, X, Tag, Sparkles, BookOpen } from 'lucide-react';
+import { Brain, ArrowLeft, Save, Eye, Plus, X, Tag, Sparkles, BookOpen, PenLine } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth.store';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,6 +28,7 @@ interface ChoiceInput {
 export default function QuestionForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const userRole = useAuthStore((s) => s.user?.role);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -144,6 +146,25 @@ export default function QuestionForm() {
       setIsSubmitting(false);
     }
   };
+
+  // Learners can't create questions yet — point them at the contributor request.
+  if (userRole === 'LEARNER') {
+    return (
+      <div className="min-h-screen bg-background bg-grid flex items-center justify-center px-4">
+        <div className="max-w-md text-center space-y-4">
+          <PenLine className="h-10 w-10 text-primary mx-auto" aria-hidden />
+          <h1 className="font-mono text-xl font-bold">Contributors only</h1>
+          <p className="text-sm text-muted-foreground">
+            Writing questions is open to contributors. Send a request from your profile and an admin will review it.
+          </p>
+          <div className="flex justify-center gap-2">
+            <Button variant="ghost" onClick={() => navigate(-1)}>Back</Button>
+            <Button onClick={() => navigate('/profile#contributor')}>Become a contributor</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background bg-grid">

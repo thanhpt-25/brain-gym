@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth.store";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +22,7 @@ import {
   Zap,
   Heart,
   FolderInput,
+  UserPlus,
 } from "lucide-react";
 import AdminDashboard from "./AdminDashboard";
 import UsersTab from "./UsersTab";
@@ -40,12 +42,21 @@ import { DdsVariantReview } from "@/components/admin/DdsVariantReview";
 import { ReputationTab } from "./ReputationTab";
 import { QuestionsTab } from "./QuestionsTab";
 import { DocumentIngestionTab } from "./DocumentIngestionTab";
+import ContributorRequestsTab from "./ContributorRequestsTab";
+import { getAdminContributorRequestStats } from "@/services/contributorRequests";
 
 const AdminPage = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const isAdmin = user?.role === "ADMIN";
+  const { data: contributorStats } = useQuery({
+    queryKey: ["admin-contributor-request-stats"],
+    queryFn: getAdminContributorRequestStats,
+    enabled: isAdmin,
+  });
+  const pendingContributorRequests = contributorStats?.pending ?? 0;
 
-  if (user?.role !== "ADMIN") {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -82,6 +93,17 @@ const AdminPage = () => {
             </TabsTrigger>
             <TabsTrigger value="users" className="font-mono text-xs">
               <Users className="h-3 w-3 mr-1" /> Users
+            </TabsTrigger>
+            <TabsTrigger value="contributor-requests" className="font-mono text-xs">
+              <UserPlus className="h-3 w-3 mr-1" /> Contributor Requests
+              {pendingContributorRequests > 0 && (
+                <span
+                  className="ml-1.5 rounded-full bg-warning/20 text-warning px-1.5 text-[10px] leading-4"
+                  aria-label={`${pendingContributorRequests} pending`}
+                >
+                  {pendingContributorRequests}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="providers" className="font-mono text-xs">
               <Building2 className="h-3 w-3 mr-1" /> Providers
@@ -135,6 +157,9 @@ const AdminPage = () => {
           </TabsContent>
           <TabsContent value="users">
             <UsersTab />
+          </TabsContent>
+          <TabsContent value="contributor-requests">
+            <ContributorRequestsTab />
           </TabsContent>
           <TabsContent value="providers">
             <ProvidersTab />
