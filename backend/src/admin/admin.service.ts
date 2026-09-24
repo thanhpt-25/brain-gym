@@ -51,7 +51,7 @@ export class AdminService {
         _count: true,
         where: { deletedAt: null },
       }),
-      this.prisma.exam.count(),
+      this.prisma.exam.count({ where: { deletedAt: null } }),
       this.prisma.examAttempt.count(),
       this.prisma.report.count({ where: { status: 'PENDING' } }),
       this.prisma.provider.count({ where: { isActive: true } }),
@@ -117,7 +117,7 @@ export class AdminService {
     visibility?: string;
   }) {
     const { page = 1, limit = 20, visibility } = params;
-    const where: ExamWhereInput = {};
+    const where: ExamWhereInput = { deletedAt: null };
     if (visibility)
       where.visibility = visibility as Prisma.ExamWhereInput['visibility'];
 

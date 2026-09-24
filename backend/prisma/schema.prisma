@@ -510,6 +510,9 @@ model Exam {
   attemptCount    Int            @default(0) @map("attempt_count")
   avgScore        Decimal?       @map("avg_score") @db.Decimal(5, 2)
   createdAt       DateTime       @default(now()) @map("created_at")
+  // Soft-delete marker: exams that already have attempts are hidden instead
+  // of hard-deleted so other users' attempt history and analytics survive.
+  deletedAt       DateTime?      @map("deleted_at")
 
   author        User           @relation(fields: [createdBy], references: [id])
   certification Certification  @relation(fields: [certificationId], references: [id])
@@ -517,6 +520,7 @@ model Exam {
   attempts      ExamAttempt[]
   scenarios     Scenario[]
 
+  @@index([deletedAt])
   @@map("exams")
 }
 

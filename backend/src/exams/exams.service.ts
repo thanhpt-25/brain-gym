@@ -244,7 +244,7 @@ export class ExamsService {
     sort: 'latest' | 'popular' = 'latest',
   ) {
     const skip = (page - 1) * limit;
-    const where: any = { visibility: ExamVisibility.PUBLIC };
+    const where: any = { visibility: ExamVisibility.PUBLIC, deletedAt: null };
     if (certificationId) where.certificationId = certificationId;
 
     const orderBy =
@@ -276,7 +276,7 @@ export class ExamsService {
 
   async findMyExams(userId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
-    const where = { createdBy: userId };
+    const where = { createdBy: userId, deletedAt: null };
 
     const [total, exams] = await Promise.all([
       this.prisma.exam.count({ where }),
@@ -360,7 +360,8 @@ export class ExamsService {
       },
     });
 
-    if (!exam) throw new NotFoundException(`Exam with ID ${id} not found`);
+    if (!exam || exam.deletedAt)
+      throw new NotFoundException(`Exam with ID ${id} not found`);
     return this.stripAnswerKey(exam);
   }
 
@@ -383,13 +384,14 @@ export class ExamsService {
       },
     });
 
-    if (!exam) throw new NotFoundException('Exam not found');
+    if (!exam || exam.deletedAt) throw new NotFoundException('Exam not found');
     return this.stripAnswerKey(exam);
   }
 
   async update(userId: string, id: string, dto: UpdateExamDto) {
     const exam = await this.prisma.exam.findUnique({ where: { id } });
-    if (!exam) throw new NotFoundException(`Exam with ID ${id} not found`);
+    if (!exam || exam.deletedAt)
+      throw new NotFoundException(`Exam with ID ${id} not found`);
     if (exam.createdBy !== userId)
       throw new ForbiddenException('You can only update your own exams');
 
@@ -447,12 +449,26 @@ export class ExamsService {
 
   async remove(userId: string, userRole: UserRole, id: string) {
     const exam = await this.prisma.exam.findUnique({ where: { id } });
-    if (!exam) throw new NotFoundException(`Exam with ID ${id} not found`);
+    if (!exam || exam.deletedAt)
+      throw new NotFoundException(`Exam with ID ${id} not found`);
     if (exam.createdBy !== userId && userRole !== UserRole.ADMIN) {
       throw new ForbiddenException('You can only delete your own exams');
     }
 
-    await this.prisma.exam.delete({ where: { id } });
+    // ExamAttempt -> Exam is ON DELETE RESTRICT, and attempts feed other
+    // users' history and analytics, so exams that have been taken are
+    // soft-deleted. Only never-attempted exams are removed outright.
+    const attemptCount = await this.prisma.examAttempt.count({
+      where: { examId: id },
+    });
+    if (attemptCount > 0) {
+      await this.prisma.exam.update({
+        where: { id },
+        data: { deletedAt: new Date(), shareCode: null },
+      });
+    } else {
+      await this.prisma.exam.delete({ where: { id } });
+    }
     return { deleted: true };
   }
 }

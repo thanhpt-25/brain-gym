@@ -16,6 +16,10 @@ describe('ExamsService', () => {
     exam: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      delete: jest.fn(),
+    },
+    examAttempt: {
+      count: jest.fn(),
     },
     question: {
       findMany: jest.fn(),
@@ -227,6 +231,56 @@ describe('ExamsService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
 
       expect(mockPrismaService.examQuestion.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    const exam = { id: 'exam-1', createdBy: 'user-1', deletedAt: null };
+
+    it('hard-deletes an exam that has never been attempted', async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue(exam);
+      mockPrismaService.examAttempt.count.mockResolvedValue(0);
+
+      await expect(
+        service.remove('user-1', 'USER' as any, 'exam-1'),
+      ).resolves.toEqual({ deleted: true });
+      expect(mockPrismaService.exam.delete).toHaveBeenCalledWith({
+        where: { id: 'exam-1' },
+      });
+      expect(mockPrismaService.exam.update).not.toHaveBeenCalled();
+    });
+
+    it('soft-deletes an exam that already has attempts (FK is RESTRICT)', async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue(exam);
+      mockPrismaService.examAttempt.count.mockResolvedValue(3);
+
+      await expect(
+        service.remove('user-1', 'USER' as any, 'exam-1'),
+      ).resolves.toEqual({ deleted: true });
+      expect(mockPrismaService.exam.delete).not.toHaveBeenCalled();
+      expect(mockPrismaService.exam.update).toHaveBeenCalledWith({
+        where: { id: 'exam-1' },
+        data: { deletedAt: expect.any(Date), shareCode: null },
+      });
+    });
+
+    it('throws NotFoundException for an already soft-deleted exam', async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue({
+        ...exam,
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.remove('user-1', 'USER' as any, 'exam-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when a non-owner non-admin deletes', async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue(exam);
+
+      await expect(
+        service.remove('user-2', 'USER' as any, 'exam-1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
