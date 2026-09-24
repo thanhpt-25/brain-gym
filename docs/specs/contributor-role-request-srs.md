@@ -4,9 +4,9 @@
 |---|---|
 | **Tài liệu** | Software Requirements Specification (SRS) |
 | **Tính năng** | Learner gửi yêu cầu nâng quyền lên CONTRIBUTOR; Admin duyệt/từ chối |
-| **Phiên bản** | 0.1 (Draft) |
+| **Phiên bản** | 0.2 (Draft) |
 | **Ngày** | 2026-09-24 |
-| **Trạng thái** | Draft — chờ review trước khi implement |
+| **Trạng thái** | Draft — đã chốt D1–D3, sẵn sàng implement sau review |
 | **Phụ thuộc** | Không (dùng lại `UserRole`, `AuditService`, `MailService` đã có) |
 | **Module liên quan** | `users`, `admin`, `audit`, `mail` (backend) · `Profile.tsx`, `Navbar.tsx`, `pages/admin/*` (frontend) |
 
@@ -91,7 +91,7 @@ APPROVED / REJECTED / CANCELLED là trạng thái cuối, không chuyển tiếp
 |---|---|
 | LEARNER | Gửi / xem / huỷ request của chính mình |
 | CONTRIBUTOR, REVIEWER | Không thấy CTA; API tạo request trả 409 |
-| ADMIN | Liệt kê, xem chi tiết, duyệt, từ chối mọi request |
+| ADMIN | Liệt kê, xem chi tiết, duyệt, từ chối mọi request (duy nhất role có quyền duyệt — D2) |
 
 ---
 
@@ -261,7 +261,7 @@ Thêm 2 template trong `MailService` (hoặc `email-templates` nếu muốn Admi
 | `contributor-request-approved` | Approve | Chúc mừng, quyền mới (tạo câu hỏi, submit review), link hướng dẫn + link tạo câu hỏi, `note` của Admin nếu có |
 | `contributor-request-rejected` | Reject | Lý do, ngày có thể gửi lại, gợi ý tăng hoạt động |
 
-Không gửi email cho Admin khi có request mới (tránh spam); Admin theo dõi qua badge trên tab. (Xem câu hỏi mở Q3.)
+Không gửi email cho Admin khi có request mới; Admin theo dõi qua badge trên tab (quyết định D3, §8.1).
 
 ---
 
@@ -326,13 +326,20 @@ Không gửi email cho Admin khi có request mới (tránh spam); Admin theo dõ
 
 ---
 
-## 8. Câu hỏi mở
+## 8. Quyết định & câu hỏi mở
+
+### 8.1. Đã chốt (2026-09-24)
+
+| # | Câu hỏi | Quyết định |
+|---|---|---|
+| D1 | Ngưỡng eligibility | Giữ mặc định: tài khoản ≥ 7 ngày, ≥ 3 bài thi hoàn thành, cooldown 30 ngày sau khi bị từ chối (vẫn cấu hình được qua env). Chưa thêm điều kiện reputation |
+| D2 | Ai được duyệt request | **Chỉ ADMIN**. REVIEWER không có quyền duyệt |
+| D3 | Thông báo cho Admin khi có request mới | **Không gửi email** cho Admin; chỉ dùng badge đếm PENDING trên tab Admin |
+
+### 8.2. Còn mở
 
 | # | Câu hỏi | Đề xuất mặc định |
 |---|---|---|
-| Q1 | Ngưỡng eligibility (7 ngày, 3 bài thi) có phù hợp? Có nên thêm điều kiện điểm reputation tối thiểu (ADR-025)? | Giữ 2 điều kiện đơn giản, cấu hình qua env; bổ sung reputation sau khi có dữ liệu |
-| Q2 | REVIEWER có được duyệt request không, hay chỉ ADMIN? | Chỉ ADMIN theo yêu cầu hiện tại |
-| Q3 | Admin có cần email/digest khi có request mới? | Không; chỉ badge. Cân nhắc digest hàng ngày nếu hàng đợi tồn đọng |
 | Q4 | Có SLA xử lý (VD tự nhắc sau 7 ngày PENDING)? | Không trong v1 |
 | Q5 | Có mở rộng cho `requestedRole = REVIEWER` sau này? | Thiết kế model để thêm field `requestedRole UserRole @default(CONTRIBUTOR)` không breaking |
 | Q6 | Contributor mới có cần giai đoạn thử việc (VD 5 câu đầu bắt buộc qua review)? | Hiện mọi câu của Contributor đã phải qua PENDING → REVIEWER/ADMIN approve, nên không cần thêm |
@@ -346,4 +353,4 @@ Không gửi email cho Admin khi có request mới (tránh spam); Admin theo dõ
 - `backend/src/questions/questions.controller.ts`, `questions.service.ts` — quyền Contributor hiện tại
 - `backend/src/auth/strategies/jwt.strategy.ts` — role được load từ DB mỗi request
 - `src/pages/admin/UsersTab.tsx`, `src/pages/admin/index.tsx`, `src/pages/Profile.tsx`, `src/components/Navbar.tsx`
-- `docs/adr/025-reputation-model-tiers.md` — tham khảo cho Q1
+- `docs/adr/025-reputation-model-tiers.md` — tham khảo nếu sau này thêm điều kiện reputation (D1)
