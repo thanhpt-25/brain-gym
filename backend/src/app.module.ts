@@ -24,6 +24,7 @@ import { CaptureModule } from './capture/capture.module';
 import { AiQuestionBankModule } from './ai-question-bank/ai-question-bank.module';
 import { ProvidersModule } from './providers/providers.module';
 import { AdminModule } from './admin/admin.module';
+import { ContributorRequestsModule } from './contributor-requests/contributor-requests.module';
 import { AuditModule } from './audit/audit.module';
 import { MailModule } from './mail/mail.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -82,6 +83,7 @@ import { DocumentIngestionModule } from './document-ingestion/document-ingestion
     CaptureModule,
     AiQuestionBankModule,
     AdminModule,
+    ContributorRequestsModule,
     MailModule,
     OrganizationsModule,
     OrgQuestionsModule,

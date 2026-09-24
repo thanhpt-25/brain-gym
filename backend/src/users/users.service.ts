@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ContributorRequestsService } from '../contributor-requests/contributor-requests.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
@@ -34,7 +35,10 @@ const publicSelect = {
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private contributorRequests: ContributorRequestsService,
+  ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const salt = await bcrypt.genSalt();
@@ -91,15 +95,21 @@ export class UsersService {
     };
   }
 
-  async updateRole(userId: string, role: UserRole) {
+  async updateRole(userId: string, role: UserRole, actorId?: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: { role },
       select: publicSelect,
     });
+    await this.contributorRequests.cancelPendingOnRoleChange(
+      [userId],
+      role,
+      actorId,
+    );
+    return updated;
   }
 
   async updatePlan(userId: string, plan: UserPlan) {

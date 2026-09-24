@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### New Features
+
+#### Contributor Role Request
+
+- Learners can request contributor access from their profile (motivation, optional expertise and link). Requirements: account ≥ 7 days old, ≥ 3 completed exams, 30-day cooldown after a rejection (`CONTRIBUTOR_REQUEST_*` env vars).
+- Admins review requests in the new **Contributor Requests** admin tab (pending badge, activity snapshot, approve with note / reject with reason). Approval promotes the user to `CONTRIBUTOR` immediately; the user is emailed either way.
+- Changing a user's role manually auto-cancels their pending request. All transitions are audit-logged.
+- Migration: `20260925000001_contributor_requests` (new table + enum, additive). Rollback: drop `contributor_requests` and the `ContributorRequestStatus` enum.
+
+---
+
 ## [2.0.0-rc] - 2026-07-04
 
 ### New Features

@@ -19,6 +19,7 @@ import {
   Building2,
   UserCircle,
   LogOut,
+  PenLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -198,6 +199,13 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <UserCircle className="h-4 w-4 mr-2" /> Profile
                   </DropdownMenuItem>
+                  {user?.role === "LEARNER" && (
+                    <DropdownMenuItem
+                      onClick={() => navigate("/profile#contributor")}
+                    >
+                      <PenLine className="h-4 w-4 mr-2" /> Become a contributor
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => logout()}
@@ -269,6 +277,15 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
                     >
                       <Plus className="h-4 w-4" />
                       Add Question
+                    </button>
+                  )}
+                  {user?.role === "LEARNER" && (
+                    <button
+                      onClick={() => handleNav("/profile#contributor")}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <PenLine className="h-4 w-4" />
+                      Become a Contributor
                     </button>
                   )}
 

@@ -84,6 +84,7 @@ erDiagram
 | `UserRole` | `LEARNER`, `CONTRIBUTOR`, `REVIEWER`, `ADMIN` | `User.role` |
 | `UserStatus` | `ACTIVE`, `SUSPENDED`, `BANNED` | `User.status` |
 | `UserPlan` | `FREE`, `PREMIUM`, `ENTERPRISE` | `User.plan` |
+| `ContributorRequestStatus` | `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` | `ContributorRequest.status` |
 
 ### Content Quality & Status
 
@@ -165,6 +166,7 @@ erDiagram
 |-------|-------|-------------|
 | `User` | `users` | All platform actors. Holds role (`UserRole`), status (`UserStatus`), plan (`UserPlan`), gamification `points`, per-user `featureFlags` (JSON), `preferences` (JSON), and `subscriptionTier` string. |
 | `OAuthAccount` | `oauth_accounts` | Third-party OAuth links (Google, etc.) for a user. Composite unique on `(provider, providerUserId)`. Cascades on user delete. |
+| `ContributorRequest` | `contributor_requests` | Learner request to become `CONTRIBUTOR`, reviewed by an admin (`reviewedById`, `decisionReason`). Partial unique index allows one `PENDING` row per user. See `docs/specs/contributor-role-request-srs.md`. |
 
 **Key fields on `User`:**
 - `featureFlags Json` — per-user feature flag overrides, default `{}`.

@@ -2,6 +2,15 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -187,6 +196,44 @@ export class MailService {
   }
 
   // US-C3: Generic send for custom email templates
+  async sendContributorRequestApproved(
+    email: string,
+    displayName: string,
+    note?: string | null,
+  ): Promise<void> {
+    const appUrl = this.config.get('APP_URL', 'http://localhost');
+    await this.sendEmail({
+      to: email,
+      subject: "You're now a Brain Gym contributor",
+      html: `
+        <h2>Welcome aboard, ${escapeHtml(displayName)}!</h2>
+        <p>Your contributor request has been approved. You can now create questions and submit them for review.</p>
+        ${note ? `<p><strong>Note from the admin:</strong> ${escapeHtml(note)}</p>` : ''}
+        <p><a href="${appUrl}/questions/new" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;">Create your first question</a></p>
+      `,
+    });
+  }
+
+  async sendContributorRequestRejected(
+    email: string,
+    displayName: string,
+    reason: string,
+    retryAfter: Date,
+  ): Promise<void> {
+    const appUrl = this.config.get('APP_URL', 'http://localhost');
+    await this.sendEmail({
+      to: email,
+      subject: 'Update on your Brain Gym contributor request',
+      html: `
+        <h2>Hi ${escapeHtml(displayName)},</h2>
+        <p>Thanks for offering to contribute. Unfortunately your request was not approved this time.</p>
+        <p><strong>Reason:</strong> ${escapeHtml(reason)}</p>
+        <p>You can submit a new request from ${retryAfter.toISOString().slice(0, 10)}. Keep practising in the meantime &mdash; more exam activity strengthens your next request.</p>
+        <p><a href="${appUrl}/profile">Go to your profile</a></p>
+      `,
+    });
+  }
+
   async sendRaw(to: string, subject: string, html: string): Promise<void> {
     try {
       await this.transporter.sendMail({ from: this.from, to, subject, html });

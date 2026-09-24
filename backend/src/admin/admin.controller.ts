@@ -411,6 +411,7 @@ export class AdminController {
     const result = await this.adminService.bulkUpdateUserRole(
       body.userIds,
       body.role,
+      adminId,
     );
     await this.auditService.log({
       userId: adminId,

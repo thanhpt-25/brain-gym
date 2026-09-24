@@ -4,9 +4,9 @@
 |---|---|
 | **Tài liệu** | Software Requirements Specification (SRS) |
 | **Tính năng** | Learner gửi yêu cầu nâng quyền lên CONTRIBUTOR; Admin duyệt/từ chối |
-| **Phiên bản** | 0.2 (Draft) |
+| **Phiên bản** | 1.0 (Implemented) |
 | **Ngày** | 2026-09-24 |
-| **Trạng thái** | Draft — đã chốt D1–D3, sẵn sàng implement sau review |
+| **Trạng thái** | Đã triển khai (D1–D3 đã chốt) |
 | **Phụ thuộc** | Không (dùng lại `UserRole`, `AuditService`, `MailService` đã có) |
 | **Module liên quan** | `users`, `admin`, `audit`, `mail` (backend) · `Profile.tsx`, `Navbar.tsx`, `pages/admin/*` (frontend) |
 
@@ -175,7 +175,7 @@ Tất cả yêu cầu `JwtAuthGuard`. Controller mới `ContributorRequestsContr
 
 Response của `GET /me` **không** trả `reviewedById`; trả `decisionReason` cho REJECTED để user biết lý do.
 
-Rate limit: `POST /contributor-requests` tối đa 5 lần/giờ/user (dùng throttler nếu đã cấu hình, nếu chưa thì bỏ qua — cooldown + unique pending đã đủ chống spam).
+Rate limit: không thêm `@Throttle` riêng cho route này — throttler của NestJS đếm theo IP nên sẽ chặn nhầm nhiều learner dùng chung NAT. Chỉ áp dụng throttler toàn cục mặc định; unique PENDING + cooldown đã đủ chống spam.
 
 ### FR-4 — API cho Admin
 

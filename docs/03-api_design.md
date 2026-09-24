@@ -71,6 +71,10 @@ Routes are grouped by functional area. The path column shows the path after `/ap
 | PUT | `/users/:id/reactivate` | JWT + `ADMIN` | Reactivate a suspended or banned user. |
 | PUT | `/users/:id/points` | JWT + `ADMIN` | Adjust a user's points balance. |
 | GET | `/users/:id` | `@Public()` | Get a public user profile with badges and stats. |
+| GET | `/contributor-requests/me/eligibility` | JWT | Check each requirement for requesting contributor access. |
+| GET | `/contributor-requests/me` | JWT | Own latest contributor request plus short history. |
+| POST | `/contributor-requests` | JWT | Request contributor access (`motivation`, optional `expertise`, `sampleUrl`). |
+| DELETE | `/contributor-requests/me` | JWT | Cancel own pending contributor request. |
 
 ---
 
@@ -115,6 +119,11 @@ All routes in this section require `JwtAuthGuard` + `RolesGuard` + `@Roles(ADMIN
 | POST | `/admin/review-queue/:questionId/reject` | Reject a question (requires `reason` ≥ 10 chars). |
 | GET | `/admin/review-queue/:questionId/history` | Get moderation audit history for a question. |
 | GET | `/admin/audit-logs` | List audit log entries; filter by `action`, `targetType`, `userId`, `page`, `limit`. |
+| GET | `/admin/contributor-requests` | List contributor requests with activity snapshot; filter `status` (default `PENDING`), `search`, `page`, `limit`. |
+| GET | `/admin/contributor-requests/stats` | Pending contributor request count. |
+| GET | `/admin/contributor-requests/:id` | Contributor request detail with the user's previous requests. |
+| POST | `/admin/contributor-requests/:id/approve` | Approve (optional `note`); promotes the learner to `CONTRIBUTOR`. |
+| POST | `/admin/contributor-requests/:id/reject` | Reject (requires `reason` ≥ 10 chars); starts the re-apply cooldown. |
 
 ---
 
