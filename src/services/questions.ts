@@ -79,3 +79,29 @@ export const deleteQuestion = async (
   );
   return response.data;
 };
+
+export interface UpdateQuestionPayload {
+  title?: string;
+  description?: string;
+  explanation?: string;
+  referenceUrl?: string;
+  domainId?: string;
+  difficulty?: string;
+  questionType?: string;
+  isScenario?: boolean;
+  isTrapQuestion?: boolean;
+  /** Send `id` for existing choices to keep them (and past answers) linked. */
+  choices?: { id?: string; content: string; isCorrect: boolean }[];
+  tags?: string[];
+}
+
+export const updateQuestion = async (
+  id: string,
+  data: UpdateQuestionPayload,
+): Promise<Question & { status?: string }> => {
+  const response = await api.put<Question & { status?: string }>(
+    `/questions/${id}`,
+    data,
+  );
+  return response.data;
+};

@@ -22,6 +22,7 @@ import { QuestionsService } from './questions.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionStatusDto } from './dto/update-question-status.dto';
 import { AdminUpdateQuestionDto } from './dto/admin-update-question.dto';
+import { UpdateQuestionDto } from './dto/update-question.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -201,6 +202,42 @@ export class QuestionsController {
       metadata: { fields: Object.keys(dto) },
     });
     return result;
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Edit a question (author, or any question for contributor/reviewer/admin)',
+  })
+  async update(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateQuestionDto,
+  ) {
+    const userId = req.user.sub || req.user.id;
+    const userRole = req.user.role;
+    const { question, previous, isOwner } =
+      await this.questionsService.updateByOwnerOrEditor(
+        userId,
+        userRole,
+        id,
+        dto,
+      );
+    await this.auditService.log({
+      userId,
+      action: 'QUESTION_EDITED',
+      targetType: 'Question',
+      targetId: id,
+      metadata: {
+        fields: Object.keys(dto),
+        editedBy: userRole,
+        isOwner,
+        previous,
+      },
+    });
+    return question;
   }
 
   @Delete(':id')

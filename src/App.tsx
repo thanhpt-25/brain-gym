@@ -153,6 +153,16 @@ const AnimatedRoutes = () => {
           }
         />
         <Route
+          path="/questions/:id/edit"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <QuestionForm />
+              </ProtectedRoute>
+            </PageTransition>
+          }
+        />
+        <Route
           path="/questions/:id"
           element={
             <PageTransition>

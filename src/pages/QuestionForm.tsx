@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { difficultyColor } from '@/lib/question-utils';
-import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCertifications } from '@/services/certifications';
-import { createQuestion, updateQuestionStatus } from '@/services/questions';
+import { createQuestion, updateQuestionStatus, getQuestionById, updateQuestion } from '@/services/questions';
+import { canEditQuestion } from '@/lib/question-permissions';
 import { getTags } from '@/services/tags';
 import { Difficulty, QuestionType } from '@/types/exam';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { LivePreview } from '@/components/questions/LivePreview';
 
 interface ChoiceInput {
+  /** Set for choices loaded from an existing question (edit mode). */
+  id?: string;
   label: string;
   content: string;
   isCorrect: boolean;
@@ -28,7 +31,11 @@ interface ChoiceInput {
 export default function QuestionForm() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const userRole = useAuthStore((s) => s.user?.role);
+  const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
+  const userRole = user?.role;
+  const { id: editId } = useParams<{ id: string }>();
+  const isEdit = !!editId;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -50,6 +57,39 @@ export default function QuestionForm() {
     { label: 'c', content: '', isCorrect: false },
     { label: 'd', content: '', isCorrect: false },
   ]);
+
+  const { data: existingQuestion, isLoading: isLoadingQuestion } = useQuery({
+    queryKey: ['question', editId],
+    queryFn: () => getQuestionById(editId!),
+    enabled: isEdit,
+  });
+
+  // Prefill the form once the question to edit is loaded.
+  const [prefilled, setPrefilled] = useState(false);
+  useEffect(() => {
+    if (!existingQuestion || prefilled) return;
+    const q: any = existingQuestion;
+    setTitle(q.title ?? '');
+    setDescription(q.description ?? '');
+    setIsScenario(!!q.isScenario);
+    setIsTrapQuestion(!!q.isTrapQuestion);
+    setExplanation(q.explanation ?? '');
+    setReferenceUrl(q.referenceUrl ?? '');
+    setCertificationId(q.certificationId ?? '');
+    setDomainId(q.domainId ?? '');
+    setDifficulty((q.difficulty as Difficulty) ?? '');
+    setQuestionType((q.questionType as QuestionType) ?? QuestionType.SINGLE);
+    setTags((q.tags ?? []).map((t: any) => (typeof t === 'string' ? t : t.tag?.name ?? t.name)).filter(Boolean));
+    setChoices(
+      (q.choices ?? []).map((c: any, i: number) => ({
+        id: c.id,
+        label: String.fromCharCode(97 + i),
+        content: c.content,
+        isCorrect: !!c.isCorrect,
+      })),
+    );
+    setPrefilled(true);
+  }, [existingQuestion, prefilled]);
 
   const { data: certifications = [] } = useQuery({
     queryKey: ['certifications'],
@@ -124,7 +164,37 @@ export default function QuestionForm() {
       return;
     }
 
+    if (questionType === QuestionType.SINGLE && choices.filter(c => c.isCorrect).length !== 1) {
+      toast({ title: 'Too Many Correct Answers', description: 'Single-answer questions must have exactly one correct answer.', variant: 'destructive' });
+      return;
+    }
+
     setIsSubmitting(true);
+    if (isEdit) {
+      try {
+        const updated = await updateQuestion(editId!, {
+          title, description, explanation, referenceUrl,
+          domainId: domainId || undefined, difficulty: difficulty as Difficulty, questionType,
+          choices: choices.map((c) => ({ id: c.id, content: c.content, isCorrect: c.isCorrect })),
+          tags,
+          isScenario,
+          isTrapQuestion,
+        });
+        // A rejected question edited by its author comes back as DRAFT — resubmit it for review.
+        if (updated.status === 'DRAFT' && userRole !== 'LEARNER') {
+          await updateQuestionStatus(editId!, 'PENDING');
+        }
+        queryClient.invalidateQueries({ queryKey: ['question', editId] });
+        queryClient.invalidateQueries({ queryKey: ['questions'] });
+        toast({ title: '✅ Saved!', description: 'Question updated.' });
+        navigate(`/questions/${editId}`);
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.response?.data?.message || 'Failed to update question.', variant: 'destructive' });
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
     try {
       const q = await createQuestion({
         title, description: description || undefined, explanation, referenceUrl: referenceUrl || undefined,
@@ -147,8 +217,35 @@ export default function QuestionForm() {
     }
   };
 
+  if (isEdit && isLoadingQuestion) {
+    return (
+      <div className="min-h-screen bg-background bg-grid flex items-center justify-center px-4">
+        <p className="text-sm text-muted-foreground font-mono">Loading question...</p>
+      </div>
+    );
+  }
+
+  if (isEdit && (!existingQuestion || !canEditQuestion(user, existingQuestion as any))) {
+    return (
+      <div className="min-h-screen bg-background bg-grid flex items-center justify-center px-4">
+        <div className="max-w-md text-center space-y-4">
+          <PenLine className="h-10 w-10 text-primary mx-auto" aria-hidden />
+          <h1 className="font-mono text-xl font-bold">
+            {existingQuestion ? 'You cannot edit this question' : 'Question not found'}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Only the author, contributors, reviewers and admins can edit questions.
+          </p>
+          <div className="flex justify-center gap-2">
+            <Button variant="ghost" onClick={() => navigate(-1)}>Back</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Learners can't create questions yet — point them at the contributor request.
-  if (userRole === 'LEARNER') {
+  if (!isEdit && userRole === 'LEARNER') {
     return (
       <div className="min-h-screen bg-background bg-grid flex items-center justify-center px-4">
         <div className="max-w-md text-center space-y-4">
@@ -184,7 +281,7 @@ export default function QuestionForm() {
             >
               <Eye className="w-4 h-4 mr-1" /> Preview
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/')} className="font-mono text-xs">
+            <Button variant="ghost" size="sm" onClick={() => navigate(isEdit ? `/questions/${editId}` : '/')} className="font-mono text-xs">
               <ArrowLeft className="w-4 h-4 mr-1" /> Back
             </Button>
           </div>
@@ -195,9 +292,11 @@ export default function QuestionForm() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold font-mono">
             <Sparkles className="inline h-5 w-5 text-primary mr-2" />
-            Contribute Question
+            {isEdit ? 'Edit Question' : 'Contribute Question'}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Create new questions for the exam prep community.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isEdit ? 'Update this question. Past exam results keep their recorded scores.' : 'Create new questions for the exam prep community.'}
+          </p>
         </div>
 
         <div className={`grid gap-6 ${showPreview ? 'lg:grid-cols-2' : 'max-w-3xl'}`}>
@@ -207,7 +306,7 @@ export default function QuestionForm() {
             <div className="glass-card p-5 space-y-4">
               <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">Certification</div>
               <div className="grid grid-cols-2 gap-3">
-                <Select value={certificationId || undefined} onValueChange={(v) => { setCertificationId(v); setDomainId(''); }}>
+                <Select value={certificationId || undefined} onValueChange={(v) => { setCertificationId(v); setDomainId(''); }} disabled={isEdit}>
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder="Select Certificate" />
                   </SelectTrigger>
@@ -422,7 +521,7 @@ export default function QuestionForm() {
 
             {/* Submit */}
             <Button type="submit" className="w-full glow-cyan font-mono" size="lg" disabled={isSubmitting}>
-              <Save className="w-4 h-4 mr-2" /> {isSubmitting ? 'Submitting...' : 'Submit for Review'}
+              <Save className="w-4 h-4 mr-2" /> {isEdit ? (isSubmitting ? 'Saving...' : 'Save Changes') : (isSubmitting ? 'Submitting...' : 'Submit for Review')}
             </Button>
           </form>
 
