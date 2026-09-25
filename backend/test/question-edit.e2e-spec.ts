@@ -44,6 +44,8 @@ describe('Question edit (e2e)', () => {
   });
 
   afterAll(async () => {
+    // Leave no questions behind: later suites (e.g. digest) delete users directly.
+    if (prisma) await cleanDb(prisma as any);
     if (app) await app.close();
   });
 
