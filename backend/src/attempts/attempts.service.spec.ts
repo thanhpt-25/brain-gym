@@ -388,6 +388,90 @@ describe('AttemptsService', () => {
       expect(call.where).toEqual({ id: 'ans-1' });
       expect(call.update).not.toHaveProperty('questionOrder');
     });
+
+    it('does not return isCorrect in the saved answer payload', async () => {
+      mockPrismaService.answer.findFirst.mockResolvedValue(null);
+      mockPrismaService.answer.count.mockResolvedValue(0);
+
+      await service.saveAnswer(userId, attemptId, {
+        questionId: 'q1',
+        selectedChoices: ['c1'],
+      });
+
+      const call = mockPrismaService.answer.upsert.mock.calls[0][0];
+      expect(call.select).toBeDefined();
+      expect(call.select).not.toHaveProperty('isCorrect');
+      // isCorrect is still persisted for grading
+      expect(call.create.isCorrect).toBe(true);
+    });
+  });
+
+  describe('findResult', () => {
+    const ownerId = 'user-1';
+    const attemptId = 'att-1';
+
+    const attemptRecord = {
+      id: attemptId,
+      userId: ownerId,
+      examId: 'exam-1',
+      status: AttemptStatus.IN_PROGRESS,
+      score: null,
+      totalCorrect: null,
+      totalQuestions: 1,
+      domainScores: null,
+      timeSpent: null,
+      startedAt: new Date('2026-01-01T00:00:00Z'),
+      submittedAt: null,
+      exam: { title: 'Exam', certification: { id: 'cert-1' } },
+      answers: [
+        {
+          id: 'ans-1',
+          questionId: 'q1',
+          isCorrect: true,
+          selectedChoices: ['c1'],
+          mistakeType: null,
+          question: {
+            title: 'Q1',
+            description: null,
+            explanation: 'Because',
+            domain: { name: 'Domain A' },
+            choices: [
+              { id: 'c1', label: 'A', content: 'a', isCorrect: true },
+              { id: 'c2', label: 'B', content: 'b', isCorrect: false },
+            ],
+          },
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('returns the result to the attempt owner', async () => {
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue(attemptRecord);
+
+      const result = await service.findResult(attemptId, ownerId);
+
+      expect(result.attemptId).toBe(attemptId);
+      expect(result.questionResults[0].correctAnswers).toEqual(['c1']);
+    });
+
+    it('throws ForbiddenException when the requester does not own the attempt', async () => {
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue(attemptRecord);
+
+      await expect(
+        service.findResult(attemptId, 'someone-else'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it('throws NotFoundException when the attempt does not exist', async () => {
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.findResult(attemptId, ownerId),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
   describe('saveAnswer on a checked (locked) answer', () => {
     beforeEach(() => {
