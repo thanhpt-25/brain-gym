@@ -30,12 +30,12 @@ Hiện chưa có cách nào để người dùng sửa câu hỏi đã tạo. Mu
 | Frontend | **Không có** nút hay trang Edit. `adminUpdateQuestion()` trong `src/services/admin.ts` được khai báo nhưng không có màn hình nào gọi tới |
 | Route | Chỉ có `/questions/new` và `/questions/:id`, không có `/questions/:id/edit` |
 
-**Rủi ro dữ liệu của endpoint admin hiện tại:** `adminUpdate` xoá hết `Choice` rồi tạo lại (`deleteMany` + `createMany`), nên mọi choice id đều đổi. Trong khi đó `Answer.selectedChoices` lưu **choice id** và việc chấm điểm dùng choice id (`AttemptsService`). Hệ quả:
+**Rủi ro dữ liệu của endpoint admin (trước khi sửa):** `adminUpdate` xoá hết `Choice` rồi tạo lại (`deleteMany` + `createMany`), nên mọi choice id đều đổi. Trong khi đó `Answer.selectedChoices` lưu **choice id** và việc chấm điểm dùng choice id (`AttemptsService`). Hệ quả:
 
 - Trang kết quả của các lượt thi cũ không còn khớp được đáp án người học đã chọn.
 - Lượt thi đang làm dở sẽ bị lỗi 400 khi nộp, vì choice id cũ không còn tồn tại.
 
-Tính năng mới **không dùng cách xoá rồi tạo lại** (xem §4.3).
+Tính năng mới **không dùng cách xoá rồi tạo lại** (xem §4.3). `adminUpdate` cũng đã được sửa để dùng chung cách đồng bộ này (xem §6).
 
 ### 1.3. Phạm vi
 
@@ -51,7 +51,6 @@ Tính năng mới **không dùng cách xoá rồi tạo lại** (xem §4.3).
 - Đổi `status` qua endpoint này (vẫn dùng `PUT /questions/:id/status`).
 - Lịch sử phiên bản, diff hay rollback trên UI. Audit log đã giữ snapshot cũ nên có thể làm tiếp sau này.
 - Câu hỏi của tổ chức (`OrgQuestion`), vì đã có luồng sửa riêng tại `/org/:slug/questions/:id/edit`.
-- Sửa lại `adminUpdate` để nó cũng giữ choice id (đề xuất ở §8).
 
 ---
 
@@ -199,7 +198,12 @@ Luồng tạo câu hỏi mới giữ nguyên, trừ một điểm: có thêm ki�
 ## 6. Tương thích ngược
 
 - **Không có migration DB.** Dữ liệu hiện có không bị ghi lại.
-- `PUT /questions/:id/admin`, `PUT /questions/:id/status`, `DELETE /questions/:id` và `POST /questions` giữ nguyên hành vi.
+- `PUT /questions/:id/status`, `DELETE /questions/:id` và `POST /questions` giữ nguyên hành vi.
+- `PUT /questions/:id/admin` giữ nguyên request/response, chỉ đổi cách lưu choices: dùng chung helper `syncChoices` ở §4.3 và chạy trong một transaction. Nhờ đó admin sửa câu hỏi không còn làm đổi choice id. Có hai thay đổi nhỏ về hành vi:
+  - choice gửi lên kèm `id` không thuộc câu hỏi (hoặc bị trùng) → 400. Trước đây `id` bị bỏ qua.
+  - `label` được gán lại theo vị trí (`a, b, c…`) thay vì lấy `label` client gửi lên.
+
+  Choice gửi lên **không** kèm `id` vẫn được tạo mới như trước, nên client cũ không gửi id vẫn chạy được.
 - Route mới `PUT /questions/:id` không trùng với `:id/status` hay `:id/admin`.
 - Endpoint cũ không thay đổi nên các client khác (MCP, org, AI generator) không bị ảnh hưởng.
 
@@ -211,12 +215,13 @@ Luồng tạo câu hỏi mới giữ nguyên, trừ một điểm: có thêm ki�
 |---|---|---|
 | Unit (backend) | `backend/src/questions/question-edit.spec.ts` | Ma trận quyền; đồng bộ choice (update / create / delete, gán lại label); từ chối choice id lạ hoặc trùng; validate đáp án đúng với SINGLE/MULTIPLE; tags; domain khác cert; recompute KG; giữ status / reset REJECTED→DRAFT; snapshot `previous` |
 | E2E (backend, Postgres thật) | `backend/test/question-edit.e2e-spec.ts` | Tác giả sửa, choice id được giữ và câu trả lời cũ vẫn trỏ đúng choice; CONTRIBUTOR/REVIEWER/ADMIN sửa câu của người khác; LEARNER nhận 403, chưa đăng nhập nhận 401; payload sai → 400 và dữ liệu không đổi; REJECTED→DRAFT→PENDING; câu đã xoá → 404; có ghi audit log |
+| Unit (backend) | `question-edit.spec.ts` (`adminUpdate — choice sync`) | `adminUpdate` giữ id, tạo mới choice không có id, từ chối id lạ trước khi ghi |
+| E2E (backend) | `question-edit.e2e-spec.ts` | `PUT /questions/:id/admin` giữ choice id, câu trả lời cũ vẫn trỏ đúng choice |
 | Unit (frontend) | `src/test/question-permissions.test.ts` | `canEditQuestion` |
 
 ---
 
 ## 8. Đề xuất tiếp theo
 
-1. Cho `adminUpdate` (`PUT /questions/:id/admin`) dùng lại cách đồng bộ choice theo id ở §4.3, để admin sửa không làm hỏng lịch sử làm bài.
-2. Cân nhắc đưa câu hỏi APPROVED về `PENDING` khi **người không phải tác giả** sửa đáp án đúng. Hiện tại hệ thống giữ APPROVED để không ảnh hưởng tới đề thi đang dùng, và dựa vào audit log để truy vết.
-3. UI lịch sử chỉnh sửa, đọc từ `AuditLog` với action `QUESTION_EDITED`.
+1. Cân nhắc đưa câu hỏi APPROVED về `PENDING` khi **người không phải tác giả** sửa đáp án đúng. Hiện tại hệ thống giữ APPROVED để không ảnh hưởng tới đề thi đang dùng, và dựa vào audit log để truy vết.
+2. UI lịch sử chỉnh sửa, đọc từ `AuditLog` với action `QUESTION_EDITED`.

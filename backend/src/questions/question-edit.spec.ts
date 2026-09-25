@@ -404,3 +404,50 @@ describe('QuestionsService.updateByOwnerOrEditor', () => {
     });
   });
 });
+
+describe('QuestionsService.adminUpdate — choice sync', () => {
+  it('keeps ids of sent choices instead of delete+recreate', async () => {
+    const { service, prisma } = await build(makeQuestion());
+    await service.adminUpdate(QUESTION_ID, {
+      choices: [
+        { id: 'c-a', label: 'a', content: 'A edited', isCorrect: true },
+        { label: 'b', content: 'New', isCorrect: false },
+      ],
+    });
+    const tx = prisma._tx;
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(tx.choice.deleteMany).toHaveBeenCalledWith({
+      where: { questionId: QUESTION_ID, id: { notIn: ['c-a'] } },
+    });
+    expect(tx.choice.update).toHaveBeenCalledWith({
+      where: { id: 'c-a' },
+      data: { label: 'a', content: 'A edited', isCorrect: true, sortOrder: 0 },
+    });
+    expect(tx.choice.create).toHaveBeenCalledWith({
+      data: {
+        label: 'b',
+        content: 'New',
+        isCorrect: false,
+        sortOrder: 1,
+        questionId: QUESTION_ID,
+      },
+    });
+  });
+
+  it('rejects a choice id from another question before writing', async () => {
+    const { service, prisma } = await build(makeQuestion());
+    await expect(
+      service.adminUpdate(QUESTION_ID, {
+        choices: [{ id: 'foreign', label: 'a', content: 'X', isCorrect: true }],
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not touch choices when they are not sent', async () => {
+    const { service, prisma } = await build(makeQuestion());
+    await service.adminUpdate(QUESTION_ID, { title: 'Only title' });
+    expect(prisma._tx.choice.deleteMany).not.toHaveBeenCalled();
+    expect(prisma._tx.choice.create).not.toHaveBeenCalled();
+  });
+});

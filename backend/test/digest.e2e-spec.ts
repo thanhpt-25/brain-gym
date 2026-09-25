@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { DigestGenerationService } from '../src/mail/digest/digest-generation.service';
+import { cleanDb } from './helpers';
 
 describe('Digest E2E Tests', () => {
   let app: INestApplication;
@@ -31,9 +32,9 @@ describe('Digest E2E Tests', () => {
   });
 
   beforeEach(async () => {
-    // Clean up in correct dependency order
-    await prisma.orgMember.deleteMany({});
-    await prisma.user.deleteMany({});
+    // TRUNCATE ... CASCADE: a plain user.deleteMany() fails on FKs (e.g.
+    // questions_created_by_fkey) when an earlier suite left rows behind.
+    await cleanDb(prisma as any);
     const user = await prisma.user.create({
       data: {
         id: 'test-user-digest',

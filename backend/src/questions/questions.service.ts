@@ -16,6 +16,7 @@ import {
   AttemptStatus,
   ReportStatus,
   QuestionType,
+  Prisma,
 } from '@prisma/client';
 import {
   GamificationService,
@@ -38,6 +39,57 @@ const EDIT_ANY_ROLES: UserRole[] = [
 
 export function canEditAnyQuestion(role?: UserRole): boolean {
   return !!role && EDIT_ANY_ROLES.includes(role);
+}
+
+interface ChoiceInput {
+  id?: string;
+  content: string;
+  isCorrect?: boolean;
+}
+
+/** Every sent choice id must be unique and belong to the question. */
+function assertChoiceIdsBelong(
+  existing: { id: string }[],
+  choices: ChoiceInput[],
+): void {
+  const existingIds = new Set(existing.map((c) => c.id));
+  const sentIds = choices.filter((c) => c.id).map((c) => c.id as string);
+  if (new Set(sentIds).size !== sentIds.length) {
+    throw new BadRequestException('Duplicate choice id');
+  }
+  if (sentIds.some((id) => !existingIds.has(id))) {
+    throw new BadRequestException('Choice id does not belong to this question');
+  }
+}
+
+/**
+ * Sync a question's choices by id instead of delete+recreate:
+ * Answer.selectedChoices stores choice ids, so kept choices must keep theirs.
+ * Choices with an id are updated in place, without one are created, and
+ * existing choices not sent are deleted. Labels/sortOrder follow array order.
+ */
+async function syncChoices(
+  tx: Prisma.TransactionClient,
+  questionId: string,
+  choices: ChoiceInput[],
+): Promise<void> {
+  const keepIds = choices.filter((c) => c.id).map((c) => c.id as string);
+  await tx.choice.deleteMany({
+    where: { questionId, id: { notIn: keepIds } },
+  });
+  for (const [index, c] of choices.entries()) {
+    const data = {
+      label: String.fromCharCode(97 + index),
+      content: c.content,
+      isCorrect: c.isCorrect ?? false,
+      sortOrder: index,
+    };
+    if (c.id) {
+      await tx.choice.update({ where: { id: c.id }, data });
+    } else {
+      await tx.choice.create({ data: { ...data, questionId } });
+    }
+  }
 }
 
 @Injectable()
@@ -445,43 +497,14 @@ export class QuestionsService {
       );
     }
 
-    if (choices) {
-      const existingIds = new Set(question.choices.map((c) => c.id));
-      const sentIds = choices.filter((c) => c.id).map((c) => c.id as string);
-      if (new Set(sentIds).size !== sentIds.length) {
-        throw new BadRequestException('Duplicate choice id');
-      }
-      if (sentIds.some((id) => !existingIds.has(id))) {
-        throw new BadRequestException(
-          'Choice id does not belong to this question',
-        );
-      }
-    }
+    if (choices) assertChoiceIdsBelong(question.choices, choices);
 
     // A REJECTED question edited by its author goes back to DRAFT so it can be
     // resubmitted (contributors may only move DRAFT → PENDING).
     const resetToDraft = isOwner && question.status === QuestionStatus.REJECTED;
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      if (choices) {
-        const keepIds = choices.filter((c) => c.id).map((c) => c.id as string);
-        await tx.choice.deleteMany({
-          where: { questionId, id: { notIn: keepIds } },
-        });
-        for (const [index, c] of choices.entries()) {
-          const data = {
-            label: String.fromCharCode(97 + index),
-            content: c.content,
-            isCorrect: c.isCorrect ?? false,
-            sortOrder: index,
-          };
-          if (c.id) {
-            await tx.choice.update({ where: { id: c.id }, data });
-          } else {
-            await tx.choice.create({ data: { ...data, questionId } });
-          }
-        }
-      }
+      if (choices) await syncChoices(tx, questionId, choices);
 
       if (tags) {
         await tx.questionTag.deleteMany({ where: { questionId } });
@@ -561,6 +584,7 @@ export class QuestionsService {
   async adminUpdate(questionId: string, dto: AdminUpdateQuestionDto) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
+      include: { choices: true },
     });
     if (!question) throw new NotFoundException('Question not found');
     if (question.deletedAt)
@@ -568,61 +592,54 @@ export class QuestionsService {
 
     const { choices, tags, ...questionData } = dto;
 
-    // Replace choices if provided
-    if (choices) {
-      await this.prisma.choice.deleteMany({ where: { questionId } });
-      await this.prisma.choice.createMany({
-        data: choices.map((c, index) => ({
-          questionId,
-          label: c.label,
-          content: c.content,
-          isCorrect: c.isCorrect ?? false,
-          sortOrder: index,
-        })),
-      });
-    }
-
-    // Replace tags if provided
-    if (tags) {
-      await this.prisma.questionTag.deleteMany({ where: { questionId } });
-      if (tags.length > 0) {
-        const certId = dto.certificationId || question.certificationId;
-        const tagRecords = await Promise.all(
-          tags.map((tagName) =>
-            this.prisma.tag.upsert({
-              where: {
-                name_certificationId: {
-                  name: tagName.toLowerCase().trim(),
-                  certificationId: certId,
-                },
-              },
-              update: {},
-              create: {
-                name: tagName.toLowerCase().trim(),
-                certificationId: certId,
-              },
-            }),
-          ),
-        );
-        await this.prisma.questionTag.createMany({
-          data: tagRecords.map((t) => ({ questionId, tagId: t.id })),
-        });
-      }
-    }
+    if (choices) assertChoiceIdsBelong(question.choices ?? [], choices);
 
     const domainChanged =
       dto.domainId !== undefined && dto.domainId !== question.domainId;
 
-    const updated = await this.prisma.question.update({
-      where: { id: questionId },
-      data: questionData,
-      include: {
-        author: { select: { id: true, displayName: true, avatarUrl: true } },
-        certification: { select: { id: true, name: true, code: true } },
-        domain: true,
-        choices: { orderBy: { sortOrder: 'asc' } },
-        tags: { include: { tag: true } },
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Sync choices by id (not delete+recreate) so past answers keep valid ids.
+      if (choices) await syncChoices(tx, questionId, choices);
+
+      // Replace tags if provided
+      if (tags) {
+        await tx.questionTag.deleteMany({ where: { questionId } });
+        if (tags.length > 0) {
+          const certId = dto.certificationId || question.certificationId;
+          const tagRecords = await Promise.all(
+            tags.map((tagName) =>
+              tx.tag.upsert({
+                where: {
+                  name_certificationId: {
+                    name: tagName.toLowerCase().trim(),
+                    certificationId: certId,
+                  },
+                },
+                update: {},
+                create: {
+                  name: tagName.toLowerCase().trim(),
+                  certificationId: certId,
+                },
+              }),
+            ),
+          );
+          await tx.questionTag.createMany({
+            data: tagRecords.map((t) => ({ questionId, tagId: t.id })),
+          });
+        }
+      }
+
+      return tx.question.update({
+        where: { id: questionId },
+        data: questionData,
+        include: {
+          author: { select: { id: true, displayName: true, avatarUrl: true } },
+          certification: { select: { id: true, name: true, code: true } },
+          domain: true,
+          choices: { orderBy: { sortOrder: 'asc' } },
+          tags: { include: { tag: true } },
+        },
+      });
     });
 
     // US-1103: debounced overlap recompute when domain changes

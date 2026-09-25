@@ -229,4 +229,50 @@ describe('Question edit (e2e)', () => {
     });
     await edit(q.id, owner.token, { title: 'x' }).expect(404);
   });
+
+  it('admin full edit (PUT /questions/:id/admin) keeps choice ids so past answers still resolve', async () => {
+    const admin = await createAdminUser(app, 'qe-admin-full');
+    const q = await createQuestion();
+    const [a, b] = q.choices;
+    const exam = await prisma.exam.create({
+      data: {
+        createdBy: owner.userId,
+        certificationId: certId,
+        title: 'Exam',
+        questionCount: 1,
+        timeLimit: 10,
+        examQuestions: { create: [{ questionId: q.id, sortOrder: 0 }] },
+      },
+    });
+    const attempt = await prisma.examAttempt.create({
+      data: { userId: owner.userId, examId: exam.id, totalQuestions: 1 },
+    });
+    await prisma.answer.create({
+      data: {
+        attemptId: attempt.id,
+        questionId: q.id,
+        selectedChoices: [b.id],
+        isCorrect: true,
+      },
+    });
+
+    const res = await request(app.getHttpServer())
+      .put(`/questions/${q.id}/admin`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({
+        choices: [
+          { id: a.id, label: 'a', content: 'Wrong', isCorrect: false },
+          { id: b.id, label: 'b', content: 'Right (admin)', isCorrect: true },
+        ],
+      })
+      .expect(200);
+
+    expect(res.body.choices.map((x: any) => x.id)).toEqual([a.id, b.id]);
+    const selected = await prisma.choice.findUnique({ where: { id: b.id } });
+    expect(selected!.content).toBe('Right (admin)');
+    const answer = await prisma.answer.findFirst({
+      where: { attemptId: attempt.id },
+    });
+    expect(answer!.selectedChoices).toEqual([b.id]);
+  });
 });
