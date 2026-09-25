@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New **Feedback** option when starting an exam (ExamIntro and shared exam pages): **Exam** (default, unchanged) or **Interactive**. In Interactive mode, learners press **Check answer** to see right/wrong plus the question's explanation immediately; the button then becomes **Next question** (**Finish exam** on the last one).
 - A checked answer is locked in the UI and on the server (`POST /attempts/:id/check`); submit grades checked questions from the stored answer.
+- Submitting the same attempt twice at once now grades it only once (the second request gets `400 Attempt already submitted`).
 - Not available with the Time Pressure timer, org catalog exams or candidate assessments. Interactive attempts count toward score, points and exam averages as usual; `feedbackMode` is stored so they can be separated later.
 - Migration: `20260926000001_exam_interactive_mode` (adds `exam_attempts.feedback_mode`, `answers.checked_at` and the `FeedbackMode` enum; additive, existing attempts default to `END_OF_EXAM`). Rollback: drop both columns and the enum.
 

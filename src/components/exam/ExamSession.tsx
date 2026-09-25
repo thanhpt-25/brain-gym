@@ -185,6 +185,7 @@ export function ExamSession({
               size="sm"
               variant="destructive"
               onClick={onSubmit}
+              disabled={!!checkingId}
               className="font-mono"
             >
               Submit
@@ -355,16 +356,29 @@ export function ExamSession({
                   <ChevronLeft className="h-4 w-4 mr-1" /> Prev
                 </Button>
                 {isInteractive && !currentFeedback ? (
-                  <Button
-                    disabled={!hasSelection || !!checkingId}
-                    onClick={() => onCheck?.(currentQuestion.id)}
-                    className="font-mono"
-                  >
-                    {checkingId === currentQuestion.id && (
-                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  <div className="flex items-center gap-2">
+                    {/* The navigator is desktop-only, so this is how a
+                        learner moves past a question without locking it. */}
+                    {!isLastQuestion && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setCurrentIndex((i) => i + 1)}
+                        className="font-mono text-muted-foreground"
+                      >
+                        Skip
+                      </Button>
                     )}
-                    Check answer
-                  </Button>
+                    <Button
+                      disabled={!hasSelection || !!checkingId}
+                      onClick={() => onCheck?.(currentQuestion.id)}
+                      className="font-mono"
+                    >
+                      {checkingId === currentQuestion.id && (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      )}
+                      Check answer
+                    </Button>
+                  </div>
                 ) : isInteractive && isLastQuestion ? (
                   <Button onClick={onSubmit} className="font-mono">
                     Finish exam

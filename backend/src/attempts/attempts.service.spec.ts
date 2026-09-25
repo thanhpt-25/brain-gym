@@ -417,6 +417,23 @@ describe('AttemptsService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
       expect(mockPrismaService.answer.upsert).not.toHaveBeenCalled();
     });
+
+    it('rejects INTERACTIVE attempts, which must use /check', async () => {
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+        id: 'att-1',
+        userId: 'user-1',
+        status: AttemptStatus.IN_PROGRESS,
+        feedbackMode: FeedbackMode.INTERACTIVE,
+      });
+
+      await expect(
+        service.saveAnswer('user-1', 'att-1', {
+          questionId: 'q1',
+          selectedChoices: ['c1'],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrismaService.answer.upsert).not.toHaveBeenCalled();
+    });
   });
 
   describe('isAnswerCorrect', () => {
@@ -671,13 +688,31 @@ describe('AttemptsService', () => {
       expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
     });
 
-    it('409 when the question was already checked', async () => {
+    it('409 when the question was already checked, carrying the stored result', async () => {
+      const checkedAt = new Date('2026-09-25T00:00:00Z');
       tx.answer.findFirst.mockResolvedValue({
         id: 'ans-1',
-        checkedAt: new Date(),
+        checkedAt,
+        selectedChoices: ['c1'],
+        isCorrect: false,
       });
-      await expect(check(['c2', 'c3'])).rejects.toBeInstanceOf(
-        ConflictException,
+
+      const err = await check(['c2', 'c3']).catch((e) => e);
+
+      expect(err).toBeInstanceOf(ConflictException);
+      // The stored (first) answer is returned, not the new selection.
+      expect(err.getResponse()).toEqual(
+        expect.objectContaining({
+          message: 'Answer already checked',
+          result: {
+            questionId: 'q1',
+            isCorrect: false,
+            selectedChoiceIds: ['c1'],
+            correctChoiceIds: ['c2', 'c3'],
+            explanation: 'Because **B** is right.',
+            checkedAt,
+          },
+        }),
       );
       expect(tx.answer.update).not.toHaveBeenCalled();
       expect(tx.answer.create).not.toHaveBeenCalled();
@@ -787,10 +822,23 @@ describe('AttemptsService', () => {
       status: AttemptStatus.IN_PROGRESS,
       startedAt: new Date(),
     };
+    const tx = {
+      $queryRaw: jest.fn(),
+      answer: {
+        findMany: jest.fn(),
+        deleteMany: jest.fn(),
+        createMany: jest.fn(),
+      },
+      examAttempt: { update: jest.fn() },
+      exam: { update: jest.fn() },
+    };
 
     beforeEach(() => {
       jest.clearAllMocks();
-      mockPrismaService.$transaction.mockImplementation((cb: any) => cb);
+      mockPrismaService.$transaction.mockImplementation((arg: any) =>
+        typeof arg === 'function' ? arg(tx) : arg,
+      );
+      tx.$queryRaw.mockResolvedValue([{ status: AttemptStatus.IN_PROGRESS }]);
       mockPrismaService.examQuestion.findMany.mockResolvedValue([
         {
           question: {
@@ -806,7 +854,11 @@ describe('AttemptsService', () => {
       jest.spyOn(service, 'findResult').mockResolvedValue({} as any);
     });
 
-    it('does not read stored answers for END_OF_EXAM attempts (unchanged behaviour)', async () => {
+    afterAll(() => {
+      mockPrismaService.$transaction.mockImplementation((cb: any) => cb);
+    });
+
+    it('grades END_OF_EXAM attempts from the payload without reading stored answers', async () => {
       mockPrismaService.examAttempt.findUnique.mockResolvedValue({
         ...attemptBase,
         feedbackMode: FeedbackMode.END_OF_EXAM,
@@ -816,15 +868,26 @@ describe('AttemptsService', () => {
         answers: [{ questionId: 'q1', selectedChoices: ['c1a'] }],
       });
 
-      expect(mockPrismaService.answer.findMany).not.toHaveBeenCalled();
-      expect(mockPrismaService.answer.createMany).toHaveBeenCalledWith({
+      expect(tx.answer.findMany).not.toHaveBeenCalled();
+      expect(tx.answer.deleteMany).toHaveBeenCalledWith({
+        where: { attemptId: 'att-1' },
+      });
+      expect(tx.answer.createMany).toHaveBeenCalledWith({
         data: [expect.objectContaining({ questionId: 'q1', isCorrect: true })],
       });
-      expect(mockPrismaService.examAttempt.update).toHaveBeenCalledWith(
+      expect(tx.examAttempt.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ totalCorrect: 1, score: 100 }),
+          data: expect.objectContaining({
+            status: AttemptStatus.SUBMITTED,
+            totalCorrect: 1,
+            score: 100,
+          }),
         }),
       );
+      expect(tx.exam.update).toHaveBeenCalledWith({
+        where: { id: 'exam-1' },
+        data: { attemptCount: { increment: 1 } },
+      });
       expect(mockGamificationService.awardPoints).toHaveBeenCalled();
       expect(mockExamsService.updateAvgScore).toHaveBeenCalledWith('exam-1');
     });
@@ -834,7 +897,7 @@ describe('AttemptsService', () => {
         ...attemptBase,
         feedbackMode: FeedbackMode.INTERACTIVE,
       });
-      mockPrismaService.answer.findMany.mockResolvedValue([
+      tx.answer.findMany.mockResolvedValue([
         {
           questionId: 'q1',
           selectedChoices: ['c1b'],
@@ -847,12 +910,12 @@ describe('AttemptsService', () => {
         answers: [{ questionId: 'q1', selectedChoices: ['c1a'] }],
       });
 
-      expect(mockPrismaService.answer.findMany).toHaveBeenCalledWith(
+      expect(tx.answer.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { attemptId: 'att-1', checkedAt: { not: null } },
         }),
       );
-      expect(mockPrismaService.answer.createMany).toHaveBeenCalledWith({
+      expect(tx.answer.createMany).toHaveBeenCalledWith({
         data: [
           expect.objectContaining({
             questionId: 'q1',
@@ -861,11 +924,28 @@ describe('AttemptsService', () => {
           }),
         ],
       });
-      expect(mockPrismaService.examAttempt.update).toHaveBeenCalledWith(
+      expect(tx.examAttempt.update).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ totalCorrect: 0, score: 0 }),
         }),
       );
+    });
+
+    it('refuses to grade twice when the attempt was submitted while waiting for the row lock', async () => {
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+        ...attemptBase,
+        feedbackMode: FeedbackMode.END_OF_EXAM,
+      });
+      tx.$queryRaw.mockResolvedValue([{ status: AttemptStatus.SUBMITTED }]);
+
+      await expect(
+        service.submit('user-1', 'att-1', {
+          answers: [{ questionId: 'q1', selectedChoices: ['c1a'] }],
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(tx.answer.deleteMany).not.toHaveBeenCalled();
+      expect(tx.exam.update).not.toHaveBeenCalled();
+      expect(mockGamificationService.awardPoints).not.toHaveBeenCalled();
     });
   });
 });

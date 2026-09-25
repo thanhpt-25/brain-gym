@@ -232,6 +232,47 @@ describe("ExamPage feedback modes", () => {
     expect(await screen.findByText("Interactive")).toBeInTheDocument();
   });
 
+  it("restores the stored verdict when the server says the question was already checked", async () => {
+    vi.mocked(attemptsService.startAttempt).mockResolvedValue(
+      startResponse("INTERACTIVE"),
+    );
+    // e.g. the page was reloaded after checking q1 with "EC2".
+    vi.mocked(attemptsService.checkAnswer).mockRejectedValueOnce({
+      response: {
+        status: 409,
+        data: {
+          message: "Answer already checked",
+          result: {
+            questionId: "q1",
+            isCorrect: false,
+            selectedChoiceIds: ["c1"],
+            correctChoiceIds: ["c2"],
+            explanation: "S3 is object storage.",
+            checkedAt: "2026-09-25T00:00:10.000Z",
+          },
+        },
+      },
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /interactive/i }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /start exam/i }));
+    await screen.findByText("Which service stores objects?");
+    await userEvent.click(screen.getByRole("button", { name: /S3/ }));
+    await userEvent.click(screen.getByRole("button", { name: /check answer/i }));
+
+    const panel = await screen.findByTestId("answer-feedback");
+    expect(within(panel).getByText("Incorrect")).toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
+    // The locked answer (EC2) replaces the local selection.
+    expect(screen.getByLabelText("Your answer")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /next question/i }),
+    ).toBeInTheDocument();
+  });
+
   it("Time Pressure always starts in Exam mode even if Interactive was remembered", async () => {
     localStorage.setItem("exam.feedbackMode", "INTERACTIVE");
     vi.mocked(attemptsService.startAttempt).mockResolvedValue(

@@ -187,13 +187,26 @@ const ExamPage = () => {
       });
       setFeedback((prev) => ({ ...prev, [questionId]: res }));
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response
-        ?.status;
-      toast.error(
-        status === 409
-          ? "This answer was already checked"
-          : "Could not check answer. Please try again.",
-      );
+      const response = (
+        err as {
+          response?: {
+            status?: number;
+            data?: { result?: CheckAnswerResponse };
+          };
+        }
+      )?.response;
+      const stored = response?.data?.result;
+      if (response?.status === 409 && stored) {
+        // Already checked (e.g. the page was reloaded): restore the verdict
+        // and the answer the server locked.
+        setFeedback((prev) => ({ ...prev, [questionId]: stored }));
+        setAnswers((prev) => ({
+          ...prev,
+          [questionId]: stored.selectedChoiceIds,
+        }));
+      } else {
+        toast.error("Could not check answer. Please try again.");
+      }
     } finally {
       setCheckingId(null);
     }

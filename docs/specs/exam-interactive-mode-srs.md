@@ -157,9 +157,9 @@ class StartAttemptDto {
 | C4 | `attempt.feedbackMode === INTERACTIVE` | 403 `Interactive feedback is not enabled for this attempt` |
 | C5 | `questionId` thuộc `exam.examQuestions` của attempt | 400 `Question is not part of this exam` |
 | C6 | `selectedChoices` không rỗng và mọi id thuộc `question.choices` | 400 |
-| C7 | Chưa có `Answer` với `checkedAt != null` cho câu này | 409 `Answer already checked` |
+| C7 | Chưa có `Answer` với `checkedAt != null` cho câu này | 409 `Answer already checked`, body kèm `result` (kết quả đã khoá, cùng dạng `CheckAnswerResponse`) để client khôi phục sau khi reload |
 
-**Xử lý:** tính `isCorrect` (cùng công thức `evaluateAnswers`, tách ra helper dùng chung `isAnswerCorrect(correctIds, selected)`), upsert `Answer` với `checkedAt = now()`, `questionOrder` như `saveAnswer`. Chống race hai request check song song cho cùng câu: thực hiện trong `$transaction` và điều kiện update `checkedAt: null` (updateMany count = 0 ⇒ 409).
+**Xử lý:** tính `isCorrect` (cùng công thức `evaluateAnswers`, tách ra helper dùng chung `isAnswerCorrect(correctIds, selected)`), upsert `Answer` với `checkedAt = now()`, `questionOrder` như `saveAnswer`. Chống race hai request check song song cho cùng câu: thực hiện trong `$transaction` và khoá dòng attempt bằng `SELECT status FROM exam_attempts WHERE id = … FOR UPDATE` (kiểm tra lại `IN_PROGRESS` sau khi có khoá), rồi mới kiểm tra C7 và ghi.
 
 **Response `200`:**
 
@@ -179,15 +179,15 @@ interface CheckAnswerResponse {
 
 ### FR-4 — Submit / Finish với câu đã khoá
 
-- `submit()`: đọc các `Answer` có `checkedAt != null` của attempt **trước** khi xoá. Trong `evaluateAnswers`, với câu đã khoá: bỏ qua `selectedChoices` trong payload, dùng `selectedChoices` + `isCorrect` + `checkedAt` đã lưu. `isMarked` vẫn lấy từ payload (flag không ảnh hưởng điểm).
+- `submit()`: toàn bộ phần ghi chạy trong một `$transaction` giữ **cùng row lock** như `/check` (kiểm tra lại `IN_PROGRESS` sau khi có khoá ⇒ đồng thời chặn submit hai lần). Trong transaction, đọc các `Answer` có `checkedAt != null` **trước** khi xoá. Trong `evaluateAnswers`, với câu đã khoá: bỏ qua `selectedChoices` trong payload, dùng `selectedChoices` + `isCorrect` + `checkedAt` đã lưu. `isMarked` vẫn lấy từ payload (flag không ảnh hưởng điểm).
 - Thứ tự `questionOrder` vẫn theo payload như hiện tại (không đổi hành vi review).
 - Câu chưa check (kể cả trong Interactive) chấm từ payload như Exam Mode.
 - `finish()` không đổi (đã dùng answers đã lưu).
-- Với attempt `END_OF_EXAM` luồng submit **không đổi gì** (không có answer nào có `checkedAt`).
+- Với attempt `END_OF_EXAM` kết quả chấm **không đổi** (không có answer nào có `checkedAt`); chỉ khác là hai submit đồng thời giờ chỉ một cái được chấm (cái còn lại `400 Attempt already submitted`) thay vì cả hai cùng cộng `attemptCount`/điểm thưởng.
 
 ### FR-5 — `saveAnswer` không được ghi đè câu đã khoá
 
-`POST /attempts/:id/answer` trên câu đã có `checkedAt` → `409 Answer already checked`. (Không ảnh hưởng `PracticeSession` vì attempt training không bao giờ có `checkedAt`.)
+`POST /attempts/:id/answer` trên attempt `INTERACTIVE` → `400` (attempt Interactive chỉ trả lời qua `/check`, vốn chạy dưới row lock; upsert của `/answer` không có khoá nên không được phép chạy song song với nó). Thêm vào đó, câu đã có `checkedAt` → `409 Answer already checked` (phòng thủ). Không ảnh hưởng `PracticeSession`: attempt training luôn là `END_OF_EXAM` và không bao giờ có `checkedAt`.
 
 ### FR-6 — Kết quả & lịch sử
 
@@ -220,7 +220,9 @@ Khi `attemptData.feedbackMode === "INTERACTIVE"`:
    - **Feedback panel**: icon `CheckCircle2`/`XCircle`, tiêu đề "Correct!" / "Incorrect", dòng "Correct answer: B, D" (label hiển thị theo thứ tự đang thấy), và `<MarkdownContent>{explanation}</MarkdownContent>`; nếu `explanation` rỗng: "No explanation available for this question yet."
    - Panel có `role="status"` + `aria-live="polite"` để screen reader đọc kết quả; focus chuyển tới tiêu đề panel.
    - Nút **Check answer** đổi thành **Next question** (primary) để sang câu tiếp theo (D6). Ở câu cuối, nút đổi thành **Finish exam** và mở cùng luồng Submit hiện có.
-3. Lỗi mạng khi check → toast "Could not check answer. Please try again.", câu vẫn ở trạng thái ANSWERED, cho thử lại. `409` → toast "This answer was already checked" (chỉ xảy ra nếu request bị gửi lặp; nút Check đã bị disable trong lúc gọi API).
+3. Lỗi mạng khi check → toast "Could not check answer. Please try again.", câu vẫn ở trạng thái ANSWERED, cho thử lại. `409` có `result` (VD sau khi reload trang, state client bị mất) → không báo lỗi, hiển thị lại kết quả đã khoá và thay lựa chọn cục bộ bằng đáp án server đã khoá.
+   - Khi câu chưa check và không phải câu cuối, có thêm nút **Skip** để sang câu tiếp mà không khoá câu (Question Navigator chỉ hiện trên màn hình ≥ lg, nên trên mobile đây là cách duy nhất để bỏ qua câu).
+   - Nút **Submit** trên top bar bị disable trong lúc đang gọi `/check`.
 4. Question Navigator thêm 2 trạng thái (chỉ trong Interactive): **Correct** (`bg-accent`) và **Incorrect** (`bg-destructive/20 text-destructive`); legend cập nhật tương ứng. Ưu tiên hiển thị: Current > Flagged > Checked > Answered > Unanswered.
 5. Top bar hiển thị bộ đếm live `✓ n · ✗ m` (số câu đã check).
 6. Mark-for-review, word capture (`WordCaptureTooltip`), timer, auto-submit khi hết giờ, nút Submit — giữ nguyên.
@@ -247,8 +249,8 @@ Khi `attemptData.feedbackMode === "INTERACTIVE"`:
 |---|---|---|
 | POST | `/exams/:examId/start` | Body tuỳ chọn `{ feedbackMode }`; response thêm `feedbackMode` |
 | POST | `/attempts/:id/check` | **Mới** — chấm 1 câu (Interactive) |
-| POST | `/attempts/:id/answer` | `409` nếu câu đã check |
-| POST | `/attempts/:id/submit` | Câu đã check dùng đáp án đã lưu |
+| POST | `/attempts/:id/answer` | `400` cho attempt INTERACTIVE; `409` nếu câu đã check |
+| POST | `/attempts/:id/submit` | Câu đã check dùng đáp án đã lưu; chạy dưới row lock (submit trùng ⇒ `400`) |
 | GET | `/attempts/:id`, `/attempts/me` | Thêm `feedbackMode` (+ `checkedAt` trong `questionResults`) |
 | POST | `/organizations/:orgId/catalog/:cid/start` | Response thêm `feedbackMode: 'END_OF_EXAM'` |
 
@@ -262,7 +264,7 @@ Khi `attemptData.feedbackMode === "INTERACTIVE"`:
 | AC-2 | Chọn 1 đáp án đúng rồi bấm *Check answer* ⇒ hiện "Correct!", choice được tô xanh, giải thích markdown hiển thị; navigator ô câu đó màu Correct. |
 | AC-3 | Chọn đáp án sai ⇒ hiện "Incorrect", choice đã chọn tô đỏ, choice đúng tô xanh, dòng "Correct answer: …" và giải thích. |
 | AC-4 | Câu MULTIPLE: chỉ đúng khi chọn đủ và không thừa đáp án (giống quy tắc chấm hiện tại). |
-| AC-5 | Sau khi check, click choice khác không đổi lựa chọn; gọi `POST /check` hoặc `/answer` lần 2 cho câu đó ⇒ `409`. |
+| AC-5 | Sau khi check, click choice khác không đổi lựa chọn; gọi `POST /check` lần 2 cho câu đó ⇒ `409` kèm kết quả đã khoá; `/answer` trên attempt Interactive ⇒ `400`. |
 | AC-6 | Câu không có `explanation` ⇒ hiển thị "No explanation available for this question yet.", không lỗi. |
 | AC-7 | Submit với payload cố tình đổi đáp án câu đã check ⇒ điểm dùng đáp án đã check. |
 | AC-8 | Interactive: câu đã chọn nhưng chưa check vẫn được chấm khi submit; câu bỏ trống tính sai (như cũ). |
@@ -286,7 +288,7 @@ Thứ tự đề xuất — mỗi bước build + test xanh trước khi sang b�
 | 1 | Schema + migration `FeedbackMode`, `ExamAttempt.feedbackMode`, `Answer.checkedAt`; `npm install` (prisma generate) | `backend/prisma/schema.prisma`, `backend/prisma/migrations/*` |
 | 2 | Tách helper `isAnswerCorrect`; `StartAttemptDto`; `start()` nhận `feedbackMode` + chặn TIME_PRESSURE | `attempts.service.ts`, `attempts.controller.ts`, `dto/start-attempt.dto.ts` |
 | 3 | `checkAnswer()` + route `POST /attempts/:id/check` + `CheckAnswerResponse` DTO | `attempts.service.ts`, `attempts.controller.ts`, `dto/check-answer.dto.ts` |
-| 4 | `submit()` tôn trọng câu khoá; `saveAnswer()` trả 409 cho câu khoá; `findResult`/`findMyAttempts` thêm field | `attempts.service.ts`, `dto/attempt-result.dto.ts` |
+| 4 | `submit()` tôn trọng câu khoá (row lock); `saveAnswer()` từ chối attempt Interactive; `findResult`/`findMyAttempts` thêm field | `attempts.service.ts`, `dto/attempt-result.dto.ts` |
 | 5 | Catalog response thêm `feedbackMode` | `exam-catalog.service.ts` |
 | 6 | Types + service FE: `FeedbackMode`, `CheckAnswerResponse`, `startAttempt(examId, opts?)`, `checkAnswer()` | `src/types/api-types.ts`, `src/services/attempts.ts` |
 | 7 | `ExamIntro` selector + `ExamPage` state/handler `handleCheck`, khoá `selectAnswer` | `ExamIntro.tsx`, `ExamPage.tsx` |
@@ -302,15 +304,16 @@ Thứ tự đề xuất — mỗi bước build + test xanh trước khi sang b�
 ### 8.1. Backend unit (Jest — `backend/src/attempts/attempts.service.spec.ts`)
 
 - `start`: mặc định `END_OF_EXAM`; lưu `INTERACTIVE`; `TIME_PRESSURE + INTERACTIVE` ⇒ `BadRequestException`; response không chứa `isCorrect`/`explanation` (test hiện có về relabel vẫn xanh).
-- `checkAnswer`: happy path đúng / sai; MULTIPLE thiếu, thừa, đủ; C1–C7 mỗi điều kiện một case; race — `updateMany` count 0 ⇒ `ConflictException`; `explanation = null` ⇒ trả `null`; `questionOrder` gán đúng cho answer mới.
+- `checkAnswer`: happy path đúng / sai; MULTIPLE thiếu, thừa, đủ; C1–C7 mỗi điều kiện một case; attempt đã submit trong lúc chờ row lock ⇒ `BadRequestException`; 409 mang `result` đã lưu; `explanation = null` ⇒ trả `null`; `questionOrder` gán đúng cho answer mới.
 - `submit`: câu đã khoá dùng đáp án đã lưu khi payload khác; câu chưa khoá chấm từ payload; attempt `END_OF_EXAM` cho kết quả **y hệt** trước (các test `evaluateAnswers` hiện có giữ nguyên, không sửa kỳ vọng).
-- `saveAnswer`: câu đã khoá ⇒ `409`; các test `questionOrder` hiện có vẫn xanh.
+- `saveAnswer`: attempt Interactive ⇒ `400`; câu đã khoá ⇒ `409`; các test `questionOrder` hiện có vẫn xanh.
+- `submit`: attempt đã submit trong lúc chờ row lock ⇒ `400`, không ghi gì và không cộng điểm.
 - `isAnswerCorrect`: bảng test (rỗng, đủ, thiếu, thừa, trùng id).
 
 ### 8.2. Backend E2E (`backend/test/exam-interactive.e2e-spec.ts`, `npm run test:e2e`)
 
 - Luồng đầy đủ: start INTERACTIVE → check 2 câu (1 đúng, 1 sai) → submit với payload giả mạo cho câu đã check → điểm đúng theo đáp án đã check.
-- `check` trên attempt END_OF_EXAM ⇒ 403; attempt của user khác ⇒ 403; câu ngoài exam ⇒ 400; check lần 2 ⇒ 409; sau submit ⇒ 400.
+- `check` trên attempt END_OF_EXAM ⇒ 403; attempt của user khác ⇒ 403; câu ngoài exam ⇒ 400; check lần 2 ⇒ 409 kèm `result`; `/answer` trên attempt Interactive ⇒ 400; sau submit ⇒ 400; hai `/check` song song cùng câu ⇒ đúng một 201; hai submit song song ⇒ đúng một được chấm (`attemptCount` +1).
 - Start không body ⇒ END_OF_EXAM (tương thích ngược). `exam-catalog.e2e-spec.ts` hiện có vẫn xanh.
 
 ### 8.3. Frontend (Vitest + Testing Library)

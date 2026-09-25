@@ -160,6 +160,13 @@ export class AttemptsService {
     if (attempt.status !== AttemptStatus.IN_PROGRESS) {
       throw new BadRequestException('Attempt already submitted');
     }
+    // Interactive answers go through checkAnswer(), which locks them under a
+    // row lock; this unlocked upsert must never race with it.
+    if (attempt.feedbackMode === FeedbackMode.INTERACTIVE) {
+      throw new BadRequestException(
+        'Interactive attempts are answered via /attempts/:id/check',
+      );
+    }
 
     const question = await this.prisma.question.findUnique({
       where: { id: dto.questionId },
@@ -267,10 +274,30 @@ export class AttemptsService {
 
       const existing = await tx.answer.findFirst({
         where: { attemptId, questionId: dto.questionId },
-        select: { id: true, checkedAt: true },
+        select: {
+          id: true,
+          checkedAt: true,
+          selectedChoices: true,
+          isCorrect: true,
+        },
       });
       if (existing?.checkedAt) {
-        throw new ConflictException('Answer already checked');
+        // Hand back what was revealed so a client that lost its state (e.g.
+        // after a reload) can show the verdict again instead of getting stuck.
+        const result: CheckAnswerResponse = {
+          questionId: question.id,
+          isCorrect: existing.isCorrect === true,
+          selectedChoiceIds: existing.selectedChoices,
+          correctChoiceIds,
+          explanation: question.explanation ?? null,
+          checkedAt: existing.checkedAt,
+        };
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'Answer already checked',
+          result,
+        });
       }
 
       if (existing) {
@@ -338,44 +365,49 @@ export class AttemptsService {
       },
     });
 
-    // Answers revealed in INTERACTIVE mode are final: grade them from what
-    // was stored at check time, never from the submit payload.
-    const lockedAnswers = new Map<string, LockedAnswer>();
-    if (attempt.feedbackMode === FeedbackMode.INTERACTIVE) {
-      const checked = await this.prisma.answer.findMany({
-        where: { attemptId, checkedAt: { not: null } },
-        select: {
-          questionId: true,
-          selectedChoices: true,
-          isCorrect: true,
-          checkedAt: true,
-        },
-      });
-      for (const a of checked) lockedAnswers.set(a.questionId, a);
-    }
-
-    const { totalCorrect, domainScores, answerRecords } = this.evaluateAnswers(
-      attemptId,
-      dto,
-      examQuestions,
-      lockedAnswers,
-    );
-
     const totalQuestions = examQuestions.length;
-    const score =
-      totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
     const timeSpent = Math.floor(
       (Date.now() - attempt.startedAt.getTime()) / 1000,
     );
 
     // Transaction: save answers + update attempt + update exam stats
-    await this.prisma.$transaction([
+    await this.prisma.$transaction(async (tx) => {
+      // Same row lock as checkAnswer(): a check can't slip in between reading
+      // the locked answers and rewriting them, and a double submit can't
+      // grade (and count) the attempt twice.
+      const locked = await tx.$queryRaw<{ status: AttemptStatus }[]>`
+        SELECT status FROM exam_attempts WHERE id = ${attemptId} FOR UPDATE`;
+      if (locked[0]?.status !== AttemptStatus.IN_PROGRESS) {
+        throw new BadRequestException('Attempt already submitted');
+      }
+
+      // Answers revealed in INTERACTIVE mode are final: grade them from what
+      // was stored at check time, never from the submit payload.
+      const lockedAnswers = new Map<string, LockedAnswer>();
+      if (attempt.feedbackMode === FeedbackMode.INTERACTIVE) {
+        const checked = await tx.answer.findMany({
+          where: { attemptId, checkedAt: { not: null } },
+          select: {
+            questionId: true,
+            selectedChoices: true,
+            isCorrect: true,
+            checkedAt: true,
+          },
+        });
+        for (const a of checked) lockedAnswers.set(a.questionId, a);
+      }
+
+      const { totalCorrect, domainScores, answerRecords } =
+        this.evaluateAnswers(attemptId, dto, examQuestions, lockedAnswers);
+      const score =
+        totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
+
       // Delete any previously saved answers for this attempt
-      this.prisma.answer.deleteMany({ where: { attemptId } }),
+      await tx.answer.deleteMany({ where: { attemptId } });
       // Create all answer records
-      this.prisma.answer.createMany({ data: answerRecords }),
+      await tx.answer.createMany({ data: answerRecords });
       // Update attempt
-      this.prisma.examAttempt.update({
+      await tx.examAttempt.update({
         where: { id: attemptId },
         data: {
           status: AttemptStatus.SUBMITTED,
@@ -386,13 +418,13 @@ export class AttemptsService {
           domainScores,
           timeSpent,
         },
-      }),
+      });
       // Increment exam attempt count
-      this.prisma.exam.update({
+      await tx.exam.update({
         where: { id: attempt.examId },
         data: { attemptCount: { increment: 1 } },
-      }),
-    ]);
+      });
+    });
 
     await this.gamification.awardPoints(userId, POINTS.COMPLETE_EXAM);
     await this.examsService.updateAvgScore(attempt.examId);

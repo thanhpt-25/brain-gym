@@ -98,6 +98,10 @@ describe("ExamSession — Exam mode (unchanged behaviour)", () => {
       expect(screen.queryByTestId("answer-feedback")).not.toBeInTheDocument();
       expect(screen.queryByTestId("interactive-score")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^next/i })).toBeEnabled();
+      expect(
+        screen.queryByRole("button", { name: /^skip$/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^submit$/i })).toBeEnabled();
       expect(screen.queryByText("Correct")).not.toBeInTheDocument();
     },
   );
@@ -119,11 +123,26 @@ describe("ExamSession — Interactive mode", () => {
     expect(props.onCheck).toHaveBeenCalledWith("q1");
   });
 
-  it("disables Check answer while a check is in flight", () => {
+  it("disables Check answer and Submit while a check is in flight", () => {
     renderSession({ answers: { q1: ["c2"] }, checkingId: "q1" });
     expect(
       screen.getByRole("button", { name: /check answer/i }),
     ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^submit$/i })).toBeDisabled();
+  });
+
+  it("lets the learner skip an unchecked question without locking it", async () => {
+    const props = renderSession();
+    await userEvent.click(screen.getByRole("button", { name: /^skip$/i }));
+    expect(props.setCurrentIndex).toHaveBeenCalled();
+    expect(props.onCheck).not.toHaveBeenCalled();
+  });
+
+  it("has no Skip on the last question", () => {
+    renderSession({ currentIndex: 1 });
+    expect(
+      screen.queryByRole("button", { name: /^skip$/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the verdict, correct answer and explanation after checking", () => {

@@ -146,16 +146,25 @@ describe('Exam interactive mode (e2e)', () => {
     }).expect(201);
     expect(right.body).toMatchObject({ isCorrect: true, explanation: null });
 
-    // Checked answers are locked, via /check and via /answer.
-    await check(attemptId, {
+    // Checked answers are locked. A repeated check returns the stored
+    // verdict (so a client that lost its state can recover) with a 409.
+    const again = await check(attemptId, {
       questionId: q1.id,
       selectedChoices: [q1.correct],
     }).expect(409);
+    expect(again.body.result).toMatchObject({
+      questionId: q1.id,
+      isCorrect: false,
+      selectedChoiceIds: [q1.wrong],
+      correctChoiceIds: [q1.correct],
+      explanation: 'Because **b** is right.',
+    });
+    // Interactive attempts never go through the unlocked /answer upsert.
     await request(server)
       .post(`/attempts/${attemptId}/answer`)
       .set('Authorization', `Bearer ${learner.token}`)
       .send({ questionId: q1.id, selectedChoices: [q1.correct] })
-      .expect(409);
+      .expect(400);
 
     // A tampered submit payload cannot flip the revealed wrong answer.
     const result = await request(server)
@@ -185,17 +194,67 @@ describe('Exam interactive mode (e2e)', () => {
     }).expect(400);
   });
 
-  it('start without a body stays END_OF_EXAM and /check is refused', async () => {
-    const start = await request(app.getHttpServer())
+  it('start without a body stays END_OF_EXAM: /check refused, submit grades the payload', async () => {
+    const server = app.getHttpServer();
+    const start = await request(server)
       .post(`/exams/${examId}/start`)
       .set('Authorization', `Bearer ${learner.token}`)
       .expect(201);
     expect(start.body.feedbackMode).toBe('END_OF_EXAM');
+    const attemptId = start.body.attemptId;
 
-    await check(start.body.attemptId, {
+    await check(attemptId, {
       questionId: q1.id,
       selectedChoices: [q1.correct],
     }).expect(403);
+
+    const result = await request(server)
+      .post(`/attempts/${attemptId}/submit`)
+      .set('Authorization', `Bearer ${learner.token}`)
+      .send({
+        answers: [
+          { questionId: q2.id, selectedChoices: [q2.wrong] },
+          { questionId: q1.id, selectedChoices: [q1.correct], isMarked: true },
+        ],
+      })
+      .expect(201);
+    expect(result.body).toMatchObject({
+      feedbackMode: 'END_OF_EXAM',
+      totalCorrect: 1,
+      totalQuestions: 2,
+      percentage: 50,
+    });
+    // Review keeps the order the answers were submitted in.
+    expect(result.body.questionResults.map((r: any) => r.questionId)).toEqual(
+      [q2.id, q1.id],
+    );
+    expect(result.body.questionResults[1].checkedAt).toBeUndefined();
+
+    const exam = await prisma.exam.findUnique({ where: { id: examId } });
+    expect(exam!.attemptCount).toBe(1);
+  });
+
+  it('two concurrent submits of one attempt: exactly one is graded', async () => {
+    const attempt = await createAttempt(
+      learner.userId,
+      FeedbackMode.END_OF_EXAM,
+    );
+    const submit = () =>
+      request(app.getHttpServer())
+        .post(`/attempts/${attempt.id}/submit`)
+        .set('Authorization', `Bearer ${learner.token}`)
+        .send({
+          answers: [{ questionId: q1.id, selectedChoices: [q1.correct] }],
+        });
+
+    const [a, b] = await Promise.all([submit(), submit()]);
+
+    expect([a.status, b.status].sort()).toEqual([201, 400]);
+    const exam = await prisma.exam.findUnique({ where: { id: examId } });
+    expect(exam!.attemptCount).toBe(1);
+    expect(
+      await prisma.answer.count({ where: { attemptId: attempt.id } }),
+    ).toBe(2);
   });
 
   it('rejects an unknown feedbackMode and INTERACTIVE on Time Pressure exams', async () => {
