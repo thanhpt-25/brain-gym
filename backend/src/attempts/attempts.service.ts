@@ -172,6 +172,14 @@ export class AttemptsService {
         isCorrect,
         isMarked: dto.isMarked ?? false,
       },
+      // Never echo isCorrect back mid-exam: in end-of-exam mode the client
+      // must not learn whether an answer is right until the attempt is graded.
+      select: {
+        id: true,
+        questionId: true,
+        selectedChoices: true,
+        isMarked: true,
+      },
     });
   }
 
@@ -246,7 +254,7 @@ export class AttemptsService {
     await this.gamification.awardPoints(userId, POINTS.COMPLETE_EXAM);
     await this.examsService.updateAvgScore(attempt.examId);
 
-    return this.findResult(attemptId);
+    return this.findResult(attemptId, userId);
   }
 
   async finish(
@@ -328,7 +336,7 @@ export class AttemptsService {
     await this.gamification.awardPoints(userId, POINTS.COMPLETE_EXAM);
     await this.examsService.updateAvgScore(attempt.examId);
 
-    return this.findResult(attemptId);
+    return this.findResult(attemptId, userId);
   }
 
   private evaluateAnswers(
@@ -399,7 +407,10 @@ export class AttemptsService {
     return { totalCorrect, domainScores, answerRecords };
   }
 
-  async findResult(attemptId: string): Promise<AttemptResultResponse> {
+  async findResult(
+    attemptId: string,
+    userId: string,
+  ): Promise<AttemptResultResponse> {
     const attempt = await this.prisma.examAttempt.findUnique({
       where: { id: attemptId },
       include: {
@@ -429,6 +440,8 @@ export class AttemptsService {
     });
 
     if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId)
+      throw new ForbiddenException('Not your attempt');
 
     const questionResults: QuestionResultResponse[] = attempt.answers.map(
       (a) => ({
