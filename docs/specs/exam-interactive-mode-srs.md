@@ -4,9 +4,9 @@
 |---|---|
 | **Tài liệu** | Software Requirements Specification (SRS) + kế hoạch triển khai & kiểm thử |
 | **Tính năng** | Chế độ thi **Interactive**: sau mỗi câu, người dùng biết ngay câu trả lời đúng hay sai và đọc được giải thích chi tiết |
-| **Phiên bản** | 0.1 (Draft — chờ chốt các câu hỏi ở §10) |
+| **Phiên bản** | 1.0 (Đã chốt D1–D6) |
 | **Ngày** | 2026-09-25 |
-| **Trạng thái** | Draft |
+| **Trạng thái** | Đang triển khai |
 | **Phụ thuộc** | Không (dùng lại `Question.explanation`, `AttemptsService`, `MarkdownContent` đã có) |
 | **Module liên quan** | `attempts`, `exam-catalog` (backend) · `ExamPage.tsx`, `components/exam/*`, `ExamShare.tsx`, `ExamLibrary.tsx` (frontend) |
 
@@ -29,7 +29,7 @@ Hiện tại luồng thi (`/exam/:certId`) chỉ cho người dùng biết kết
 - `POST /exams/:examId/start` nhận tuỳ chọn `feedbackMode`.
 - API mới `POST /attempts/:id/check` — chấm một câu, trả đúng/sai + đáp án đúng + giải thích.
 - `submit()` tôn trọng các câu đã khoá (không cho sửa đáp án sau khi đã xem lời giải).
-- Frontend: chọn chế độ ở `ExamIntro` (và `ExamShare`, xem Q4), panel phản hồi trong `ExamSession`, trạng thái đúng/sai trên Question Navigator.
+- Frontend: chọn chế độ ở `ExamIntro` (và `ExamShare`, D4), panel phản hồi trong `ExamSession`, trạng thái đúng/sai trên Question Navigator.
 - Unit test, component test, E2E test và checklist hồi quy (§8, §9).
 
 **Ngoài phạm vi:**
@@ -124,7 +124,7 @@ model Answer {
 ```
 
 - Migration chỉ **thêm cột** có default / nullable → dữ liệu cũ hợp lệ, mọi attempt cũ là `END_OF_EXAM`.
-- Chọn attempt-level (không phải exam-level như `timerMode`) vì cùng một exam (VD exam public trong Library) có thể được người này thi Interactive, người khác thi Exam Mode — xem Q1.
+- Chọn attempt-level (không phải exam-level như `timerMode`) vì cùng một exam (VD exam public trong Library) có thể được người này thi Interactive, người khác thi Exam Mode (D1).
 
 ### FR-2 — Bắt đầu attempt với `feedbackMode`
 
@@ -139,7 +139,7 @@ class StartAttemptDto {
 
 - Body rỗng / thiếu field → `END_OF_EXAM` (tương thích ngược với `ExamLibrary`, `ExamShare`, e2e cũ).
 - Giá trị không hợp lệ → `400`.
-- Nếu `exam.timerMode === TIME_PRESSURE` và client gửi `INTERACTIVE` → `400 "Interactive mode is not available for Time Pressure exams"` (xem Q3).
+- Nếu `exam.timerMode === TIME_PRESSURE` và client gửi `INTERACTIVE` → `400 "Interactive mode is not available for Time Pressure exams"` (D3).
 - Response `StartAttemptResponse` bổ sung `feedbackMode`. Câu hỏi vẫn **không** chứa `isCorrect` / `explanation`.
 - `exam-catalog.service.ts#startCatalogExam` và `training.service.ts` không đổi: attempt tạo ra nhận default `END_OF_EXAM`; response catalog bổ sung `feedbackMode: 'END_OF_EXAM'` để frontend đọc nhất quán.
 
@@ -194,7 +194,7 @@ interface CheckAnswerResponse {
 - `AttemptResultResponse` và item của `GET /attempts/me` bổ sung `feedbackMode`.
 - `QuestionResultResponse` bổ sung `checkedAt?` (để sau này phân tích "đã xem lời giải giữa bài").
 - `ExamResult.tsx` hiển thị badge nhỏ "Interactive" cạnh điểm khi `feedbackMode === INTERACTIVE`; phần review câu hỏi giữ nguyên.
-- Điểm, domain breakdown, gamification (`COMPLETE_EXAM`), `attemptCount`, `avgScore` tính như cũ (xem Q5).
+- Điểm, domain breakdown, gamification (`COMPLETE_EXAM`), `attemptCount`, `avgScore` tính như cũ (D5).
 
 ### FR-7 — Frontend: chọn chế độ
 
@@ -204,7 +204,7 @@ interface CheckAnswerResponse {
 - Khi chọn Timer `TIME_PRESSURE`, nút Interactive bị disable kèm tooltip, và nếu đang chọn Interactive thì tự chuyển về Exam.
 - `ExamPage.startExam()` truyền `feedbackMode` vào `startAttempt(exam.id, { feedbackMode })`.
 - `services/attempts.ts#startAttempt(examId, opts?)` — tham số thứ hai tuỳ chọn, gọi cũ vẫn hợp lệ.
-- `ExamShare.tsx`: thêm toggle Exam / Interactive cạnh nút Start (xem Q4). `ExamLibrary.tsx`: giữ nguyên (Exam Mode) trong v1.
+- `ExamShare.tsx`: thêm toggle Exam / Interactive cạnh nút Start (D4). `ExamLibrary.tsx`: giữ nguyên (Exam Mode) trong v1.
 - Lựa chọn gần nhất được nhớ trong `localStorage` key `exam.feedbackMode` (bọc try/catch; lỗi ⇒ mặc định Exam).
 
 ### FR-8 — Frontend: phiên thi Interactive (`ExamSession.tsx`)
@@ -213,13 +213,13 @@ State mới trong `ExamPage`: `feedback: Record<questionId, CheckAnswerResponse>
 
 Khi `attemptData.feedbackMode === "INTERACTIVE"`:
 
-1. Dưới danh sách lựa chọn có nút **Check answer** — disable khi chưa chọn đáp án hoặc đang gọi API; phím tắt `Enter`.
+1. Dưới danh sách lựa chọn có nút **Check answer** — disable khi chưa chọn đáp án hoặc đang gọi API. Câu SINGLE cũng **không** tự check khi click (D6).
 2. Sau khi check thành công:
    - Các nút choice bị `disabled`; `selectAnswer` bỏ qua câu đã có `feedback` (chặn cả ở `ExamPage`, không chỉ UI).
    - Choice đúng: viền/nền `accent` + ✓; choice đã chọn nhưng sai: `destructive` + ✗; choice còn lại: muted. Dùng cùng quy ước màu với `ExamResult`.
    - **Feedback panel**: icon `CheckCircle2`/`XCircle`, tiêu đề "Correct!" / "Incorrect", dòng "Correct answer: B, D" (label hiển thị theo thứ tự đang thấy), và `<MarkdownContent>{explanation}</MarkdownContent>`; nếu `explanation` rỗng: "No explanation available for this question yet."
    - Panel có `role="status"` + `aria-live="polite"` để screen reader đọc kết quả; focus chuyển tới tiêu đề panel.
-   - Nút **Next** được nhấn mạnh (primary) để đi tiếp.
+   - Nút **Check answer** đổi thành **Next question** (primary) để sang câu tiếp theo (D6). Ở câu cuối, nút đổi thành **Finish exam** và mở cùng luồng Submit hiện có.
 3. Lỗi mạng khi check → toast "Could not check answer", câu vẫn ở trạng thái ANSWERED, cho thử lại. `409` → gọi lại không được; hiển thị toast và khoá câu ở UI (đáp án đã được server ghi nhận).
 4. Question Navigator thêm 2 trạng thái (chỉ trong Interactive): **Correct** (`bg-accent`) và **Incorrect** (`bg-destructive/20 text-destructive`); legend cập nhật tương ứng. Ưu tiên hiển thị: Current > Flagged > Checked > Answered > Unanswered.
 5. Top bar hiển thị bộ đếm live `✓ n · ✗ m` (số câu đã check).
@@ -282,7 +282,7 @@ Thứ tự đề xuất — mỗi bước build + test xanh trước khi sang b�
 
 | Bước | Việc | File chính |
 |---|---|---|
-| 0 | Chốt Q1–Q6 (§10), cập nhật SRS lên v1.0 | `docs/specs/exam-interactive-mode-srs.md` |
+| 0 | Chốt D1–D6 (§10), cập nhật SRS lên v1.0 ✅ | `docs/specs/exam-interactive-mode-srs.md` |
 | 1 | Schema + migration `FeedbackMode`, `ExamAttempt.feedbackMode`, `Answer.checkedAt`; `npm install` (prisma generate) | `backend/prisma/schema.prisma`, `backend/prisma/migrations/*` |
 | 2 | Tách helper `isAnswerCorrect`; `StartAttemptDto`; `start()` nhận `feedbackMode` + chặn TIME_PRESSURE | `attempts.service.ts`, `attempts.controller.ts`, `dto/start-attempt.dto.ts` |
 | 3 | `checkAnswer()` + route `POST /attempts/:id/check` + `CheckAnswerResponse` DTO | `attempts.service.ts`, `attempts.controller.ts`, `dto/check-answer.dto.ts` |
@@ -357,22 +357,24 @@ npm run lint && npm run test && npm run build
 
 ---
 
-## 10. Quyết định & câu hỏi mở
+## 10. Quyết định
 
-| # | Câu hỏi | Đề xuất mặc định |
+### 10.1. Đã chốt (2026-09-25)
+
+| # | Câu hỏi | Quyết định |
 |---|---|---|
-| Q1 | Mode lưu ở mức attempt hay exam? | **Attempt** (`ExamAttempt.feedbackMode`) — người thi chọn mỗi lần, không cần tạo exam mới |
-| Q2 | Sau khi xem đáp án có được sửa lại không? | **Không** — khoá câu (`checkedAt`), cả UI lẫn server; tránh điểm "ảo" |
-| Q3 | Interactive có dùng được với mọi timer mode? | Được với RELAXED / STRICT / ACCELERATED; **không** với TIME_PRESSURE (mô phỏng thi thật). Timer vẫn chạy khi đọc giải thích |
-| Q4 | Điểm vào nào được chọn Interactive? | v1: `ExamIntro` + `ExamShare`. `ExamLibrary` (nút Start trực tiếp trong list) giữ Exam Mode; org catalog / assessment luôn Exam Mode |
-| Q5 | Attempt Interactive có tính vào `avgScore` của exam, điểm thưởng, readiness? | Tính như bình thường trong v1; đã lưu `feedbackMode` để tách sau nếu số liệu bị lệch |
-| Q6 | Câu SINGLE có tự check ngay khi click không? | **Không** — luôn cần bấm *Check answer* (tránh click nhầm, thống nhất với MULTIPLE) |
+| D1 | Mode lưu ở mức attempt hay exam? | **Attempt** (`ExamAttempt.feedbackMode`): người thi chọn mỗi lần, không cần tạo exam mới |
+| D2 | Sau khi xem đáp án có được sửa lại không? | **Không**: câu bị khoá (`checkedAt`) ở cả UI lẫn server |
+| D3 | Interactive có dùng được với TIME_PRESSURE? | **Không**. Được với RELAXED / STRICT / ACCELERATED; timer vẫn chạy khi đọc giải thích |
+| D4 | Điểm vào nào được chọn Interactive? | `ExamIntro` + `ExamShare`. `ExamLibrary` giữ Exam Mode; org catalog / assessment luôn Exam Mode |
+| D5 | Attempt Interactive có tính vào `avgScore`, điểm thưởng, readiness? | **Tính như bình thường**; lưu `feedbackMode` để tách riêng về sau |
+| D6 | Tương tác nút Check | Phải bấm **Check answer** mới chấm (kể cả câu SINGLE). Sau khi check, hiện đúng/sai + giải thích ngay, và nút đổi thành **Next question** để sang câu tiếp (câu cuối: **Finish exam**) |
 
 ---
 
 ## 11. Definition of Done
 
-- [ ] Q1–Q6 được chốt và ghi lại trong §10.
+- [x] D1–D6 được chốt và ghi lại trong §10.
 - [ ] Toàn bộ FR-1 → FR-8 được triển khai; AC-1 → AC-15 được test (tự động, hoặc thủ công với ghi chú trong PR khi Playwright bị skip do thiếu credential).
 - [ ] Lệnh ở §8.5 chạy xanh; không test cũ nào bị sửa kỳ vọng để "cho qua".
 - [ ] Checklist hồi quy §9 được tick trong mô tả PR.
