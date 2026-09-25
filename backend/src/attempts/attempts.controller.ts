@@ -85,8 +85,9 @@ export class AttemptsController {
   @ApiBearerAuth()
   @SkipThrottle()
   @ApiOperation({ summary: 'Get attempt result with question review' })
-  findResult(@Param('id') attemptId: string) {
-    return this.attemptsService.findResult(attemptId);
+  findResult(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
+    const userId = req.user.id;
+    return this.attemptsService.findResult(attemptId, userId);
   }
 
   @Get('attempts/me')
