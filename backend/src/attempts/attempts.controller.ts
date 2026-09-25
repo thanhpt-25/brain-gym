@@ -19,6 +19,7 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { AttemptsService } from './attempts.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
+import { StartAttemptDto } from './dto/start-attempt.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../common/interfaces/request.interface';
 
@@ -35,9 +36,13 @@ export class AttemptsController {
     summary:
       'Start an exam attempt — returns questions without correct answers',
   })
-  start(@Req() req: AuthenticatedRequest, @Param('examId') examId: string) {
+  start(
+    @Req() req: AuthenticatedRequest,
+    @Param('examId') examId: string,
+    @Body() dto: StartAttemptDto,
+  ) {
     const userId = req.user.id;
-    return this.attemptsService.start(userId, examId);
+    return this.attemptsService.start(userId, examId, dto?.feedbackMode);
   }
 
   @Post('attempts/:id/answer')
@@ -52,6 +57,22 @@ export class AttemptsController {
   ) {
     const userId = req.user.id;
     return this.attemptsService.saveAnswer(userId, attemptId, dto);
+  }
+
+  @Post('attempts/:id/check')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'INTERACTIVE mode: lock one answer and reveal correctness + explanation',
+  })
+  checkAnswer(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') attemptId: string,
+    @Body() dto: SubmitAnswerDto,
+  ) {
+    const userId = req.user.id;
+    return this.attemptsService.checkAnswer(userId, attemptId, dto);
   }
 
   @Post('attempts/:id/submit')

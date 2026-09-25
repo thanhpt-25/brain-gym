@@ -180,6 +180,8 @@ export interface StartAttemptResponse {
   };
   timeLimit: number;
   timerMode?: TimerMode;
+  /** Missing on responses from older backends — treat as END_OF_EXAM. */
+  feedbackMode?: FeedbackMode;
   totalQuestions: number;
   questions: AttemptQuestion[];
 }
@@ -207,6 +209,16 @@ export interface SubmitAttemptPayload {
   answers: SubmitAnswerPayload[];
 }
 
+/** Response of POST /attempts/:id/check (INTERACTIVE mode). */
+export interface CheckAnswerResponse {
+  questionId: string;
+  isCorrect: boolean;
+  selectedChoiceIds: string[];
+  correctChoiceIds: string[];
+  explanation: string | null;
+  checkedAt: string;
+}
+
 export interface AttemptResult {
   attemptId: string;
   examId: string;
@@ -218,6 +230,7 @@ export interface AttemptResult {
     provider?: { id: string; name: string; slug: string };
   };
   status: string;
+  feedbackMode?: FeedbackMode;
   score: number;
   totalCorrect: number;
   totalQuestions: number;
@@ -233,6 +246,7 @@ export interface AttemptResult {
     explanation?: string;
     domain: string;
     correct: boolean;
+    checkedAt?: string;
     selectedAnswers: string[];
     correctAnswers: string[];
     choices: Choice[];
@@ -251,6 +265,9 @@ export interface ReviewSchedule {
 }
 
 export type TimerMode = "STRICT" | "ACCELERATED" | "RELAXED" | "TIME_PRESSURE";
+
+/** END_OF_EXAM: grade on submit. INTERACTIVE: reveal each answer + explanation on check. */
+export type FeedbackMode = "END_OF_EXAM" | "INTERACTIVE";
 
 export type ExamMode = "STANDARD" | "TIME_PRESSURE";
 

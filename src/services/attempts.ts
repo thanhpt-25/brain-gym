@@ -4,18 +4,31 @@ import {
     AttemptQuestion,
     SubmitAnswerPayload,
     SubmitAttemptPayload,
-    AttemptResult
+    AttemptResult,
+    CheckAnswerResponse,
+    FeedbackMode
 } from '@/types/api-types';
 
-export type { StartAttemptResponse, AttemptQuestion, SubmitAnswerPayload, SubmitAttemptPayload, AttemptResult };
+export type { StartAttemptResponse, AttemptQuestion, SubmitAnswerPayload, SubmitAttemptPayload, AttemptResult, CheckAnswerResponse, FeedbackMode };
 
-export const startAttempt = async (examId: string): Promise<StartAttemptResponse> => {
-    const response = await api.post<StartAttemptResponse>(`/exams/${examId}/start`);
+export const startAttempt = async (
+    examId: string,
+    opts?: { feedbackMode?: FeedbackMode },
+): Promise<StartAttemptResponse> => {
+    const response = await api.post<StartAttemptResponse>(
+        `/exams/${examId}/start`,
+        opts?.feedbackMode ? { feedbackMode: opts.feedbackMode } : undefined,
+    );
     return response.data;
 };
 
 export const saveAnswer = async (attemptId: string, data: SubmitAnswerPayload) => {
     const response = await api.post(`/attempts/${attemptId}/answer`, data);
+    return response.data;
+};
+
+export const checkAnswer = async (attemptId: string, data: SubmitAnswerPayload): Promise<CheckAnswerResponse> => {
+    const response = await api.post<CheckAnswerResponse>(`/attempts/${attemptId}/check`, data);
     return response.data;
 };
 

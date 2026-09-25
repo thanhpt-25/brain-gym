@@ -6,7 +6,7 @@
 | **Tính năng** | Chế độ thi **Interactive**: sau mỗi câu, người dùng biết ngay câu trả lời đúng hay sai và đọc được giải thích chi tiết |
 | **Phiên bản** | 1.0 (Đã chốt D1–D6) |
 | **Ngày** | 2026-09-25 |
-| **Trạng thái** | Đang triển khai |
+| **Trạng thái** | Đã triển khai |
 | **Phụ thuộc** | Không (dùng lại `Question.explanation`, `AttemptsService`, `MarkdownContent` đã có) |
 | **Module liên quan** | `attempts`, `exam-catalog` (backend) · `ExamPage.tsx`, `components/exam/*`, `ExamShare.tsx`, `ExamLibrary.tsx` (frontend) |
 
@@ -220,7 +220,7 @@ Khi `attemptData.feedbackMode === "INTERACTIVE"`:
    - **Feedback panel**: icon `CheckCircle2`/`XCircle`, tiêu đề "Correct!" / "Incorrect", dòng "Correct answer: B, D" (label hiển thị theo thứ tự đang thấy), và `<MarkdownContent>{explanation}</MarkdownContent>`; nếu `explanation` rỗng: "No explanation available for this question yet."
    - Panel có `role="status"` + `aria-live="polite"` để screen reader đọc kết quả; focus chuyển tới tiêu đề panel.
    - Nút **Check answer** đổi thành **Next question** (primary) để sang câu tiếp theo (D6). Ở câu cuối, nút đổi thành **Finish exam** và mở cùng luồng Submit hiện có.
-3. Lỗi mạng khi check → toast "Could not check answer", câu vẫn ở trạng thái ANSWERED, cho thử lại. `409` → gọi lại không được; hiển thị toast và khoá câu ở UI (đáp án đã được server ghi nhận).
+3. Lỗi mạng khi check → toast "Could not check answer. Please try again.", câu vẫn ở trạng thái ANSWERED, cho thử lại. `409` → toast "This answer was already checked" (chỉ xảy ra nếu request bị gửi lặp; nút Check đã bị disable trong lúc gọi API).
 4. Question Navigator thêm 2 trạng thái (chỉ trong Interactive): **Correct** (`bg-accent`) và **Incorrect** (`bg-destructive/20 text-destructive`); legend cập nhật tương ứng. Ưu tiên hiển thị: Current > Flagged > Checked > Answered > Unanswered.
 5. Top bar hiển thị bộ đếm live `✓ n · ✗ m` (số câu đã check).
 6. Mark-for-review, word capture (`WordCaptureTooltip`), timer, auto-submit khi hết giờ, nút Submit — giữ nguyên.
@@ -320,10 +320,11 @@ Thứ tự đề xuất — mỗi bước build + test xanh trước khi sang b�
   - Interactive: nút Check disable khi chưa chọn; sau khi có `feedback` ⇒ panel Correct/Incorrect, explanation render, fallback khi không có explanation, choice bị disable, navigator hiển thị trạng thái Correct/Incorrect, `aria-live` có nội dung.
 - `src/components/exam/__tests__/ExamIntro.test.tsx`: chọn Interactive gọi callback; TIME_PRESSURE disable Interactive và reset về Exam.
 - `src/pages/__tests__/ExamPage.interactive.test.tsx` (mock `services/attempts`): `startAttempt` được gọi với `{ feedbackMode: 'INTERACTIVE' }`; `handleCheck` gọi `checkAnswer` đúng payload; `selectAnswer` bị chặn sau check; lỗi mạng ⇒ toast + cho thử lại; submit payload vẫn gửi đủ câu.
+- `src/pages/__tests__/ExamShare.test.tsx`: start với mode đã chọn; exam TIME_PRESSURE luôn là Exam Mode.
 
 ### 8.4. Playwright (`e2e/exam-interactive.spec.ts`)
 
-Theo mẫu `e2e/time-pressure.spec.ts` (route mock, skip khi thiếu `E2E_USER_*`): chọn Interactive → trả lời → Check → thấy "Correct!"/"Incorrect" + giải thích → Submit → trang kết quả có badge. Thêm trang Interactive vào `e2e/a11y.spec.ts` nếu cấu trúc spec cho phép.
+Mock toàn bộ API bằng `page.route` và seed auth store trong `localStorage`, nên chạy được không cần backend/credential và đã được thêm vào `npm run test:e2e` (job `e2e-smoke` trên CI): chọn Interactive → trả lời → Check → thấy "Correct!"/"Incorrect" + giải thích → Next question → Finish exam → trang kết quả có badge; và một case Exam Mode không có nút Check.
 
 ### 8.5. Lệnh bắt buộc chạy trước khi coi là xong
 

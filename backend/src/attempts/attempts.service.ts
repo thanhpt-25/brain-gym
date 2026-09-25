@@ -3,11 +3,17 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
-import { AttemptStatus, Prisma } from '@prisma/client';
+import {
+  AttemptStatus,
+  FeedbackMode,
+  Prisma,
+  TimerMode,
+} from '@prisma/client';
 import {
   GamificationService,
   POINTS,
@@ -17,10 +23,19 @@ import {
   AttemptResultResponse,
   QuestionResultResponse,
 } from './dto/attempt-result.dto';
+import { CheckAnswerResponse } from './dto/check-answer.dto';
+import { isAnswerCorrect } from './grading';
 
 interface QuestionWithChoices extends Prisma.QuestionGetPayload<{
   include: { choices: true; domain: true };
 }> {}
+
+/** An answer already revealed in INTERACTIVE mode; it can no longer change. */
+interface LockedAnswer {
+  selectedChoices: string[];
+  isCorrect: boolean | null;
+  checkedAt: Date | null;
+}
 
 @Injectable()
 export class AttemptsService {
@@ -30,7 +45,11 @@ export class AttemptsService {
     private readonly examsService: ExamsService,
   ) {}
 
-  async start(userId: string, examId: string) {
+  async start(
+    userId: string,
+    examId: string,
+    feedbackMode: FeedbackMode = FeedbackMode.END_OF_EXAM,
+  ) {
     const exam = await this.prisma.exam.findUnique({
       where: { id: examId },
       include: {
@@ -59,11 +78,22 @@ export class AttemptsService {
 
     if (!exam || exam.deletedAt) throw new NotFoundException('Exam not found');
 
+    // Time Pressure simulates the real exam, so answers stay hidden until the end.
+    if (
+      feedbackMode === FeedbackMode.INTERACTIVE &&
+      exam.timerMode === TimerMode.TIME_PRESSURE
+    ) {
+      throw new BadRequestException(
+        'Interactive mode is not available for Time Pressure exams',
+      );
+    }
+
     const attempt = await this.prisma.examAttempt.create({
       data: {
         userId,
         examId,
         totalQuestions: exam.examQuestions.length,
+        feedbackMode,
       },
     });
 
@@ -103,6 +133,7 @@ export class AttemptsService {
       certification: exam.certification,
       timeLimit: exam.timeLimit,
       timerMode: exam.timerMode,
+      feedbackMode: attempt.feedbackMode ?? feedbackMode,
       totalQuestions: questions.length,
       questions,
     };
@@ -140,14 +171,15 @@ export class AttemptsService {
     const correctChoices = question.choices
       .filter((c) => c.isCorrect)
       .map((c) => c.id);
-    const isCorrect =
-      correctChoices.length === dto.selectedChoices.length &&
-      correctChoices.every((id) => dto.selectedChoices.includes(id));
+    const isCorrect = isAnswerCorrect(correctChoices, dto.selectedChoices);
 
     const existing = await this.prisma.answer.findFirst({
       where: { attemptId, questionId: dto.questionId },
-      select: { id: true },
+      select: { id: true, checkedAt: true },
     });
+    if (existing?.checkedAt) {
+      throw new ConflictException('Answer already checked');
+    }
 
     // Stamp new answers with their position in the save sequence, which
     // mirrors presentation order in the practice-mode flow (saveAnswer is
@@ -173,6 +205,108 @@ export class AttemptsService {
         isMarked: dto.isMarked ?? false,
       },
     });
+  }
+
+  /**
+   * INTERACTIVE mode: grade one question, lock it and reveal the correct
+   * choices + explanation. Each question can be checked exactly once.
+   */
+  async checkAnswer(
+    userId: string,
+    attemptId: string,
+    dto: SubmitAnswerDto,
+  ): Promise<CheckAnswerResponse> {
+    const attempt = await this.prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+    });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId)
+      throw new ForbiddenException('Not your attempt');
+    if (attempt.status !== AttemptStatus.IN_PROGRESS) {
+      throw new BadRequestException('Attempt already submitted');
+    }
+    if (attempt.feedbackMode !== FeedbackMode.INTERACTIVE) {
+      throw new ForbiddenException(
+        'Interactive feedback is not enabled for this attempt',
+      );
+    }
+
+    const examQuestion = await this.prisma.examQuestion.findFirst({
+      where: { examId: attempt.examId, questionId: dto.questionId },
+      include: { question: { include: { choices: true } } },
+    });
+    if (!examQuestion) {
+      throw new BadRequestException('Question is not part of this exam');
+    }
+    const question = examQuestion.question;
+
+    const choiceIds = new Set(question.choices.map((c) => c.id));
+    const selectedChoices = dto.selectedChoices;
+    if (
+      selectedChoices.length === 0 ||
+      new Set(selectedChoices).size !== selectedChoices.length ||
+      selectedChoices.some((id) => !choiceIds.has(id))
+    ) {
+      throw new BadRequestException('Invalid selected choices');
+    }
+
+    const correctChoiceIds = question.choices
+      .filter((c) => c.isCorrect)
+      .map((c) => c.id);
+    const isCorrect = isAnswerCorrect(correctChoiceIds, selectedChoices);
+    const checkedAt = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      // Serialize checks within one attempt so two concurrent requests for
+      // the same question can't both pass the "not yet checked" test.
+      const locked = await tx.$queryRaw<{ status: AttemptStatus }[]>`
+        SELECT status FROM exam_attempts WHERE id = ${attemptId} FOR UPDATE`;
+      if (locked[0]?.status !== AttemptStatus.IN_PROGRESS) {
+        throw new BadRequestException('Attempt already submitted');
+      }
+
+      const existing = await tx.answer.findFirst({
+        where: { attemptId, questionId: dto.questionId },
+        select: { id: true, checkedAt: true },
+      });
+      if (existing?.checkedAt) {
+        throw new ConflictException('Answer already checked');
+      }
+
+      if (existing) {
+        await tx.answer.update({
+          where: { id: existing.id },
+          data: {
+            selectedChoices,
+            isCorrect,
+            isMarked: dto.isMarked ?? false,
+            checkedAt,
+          },
+        });
+      } else {
+        const questionOrder = await tx.answer.count({ where: { attemptId } });
+        await tx.answer.create({
+          data: {
+            attemptId,
+            questionId: dto.questionId,
+            selectedChoices,
+            isCorrect,
+            isMarked: dto.isMarked ?? false,
+            questionOrder,
+            checkedAt,
+          },
+        });
+      }
+    });
+
+    return {
+      questionId: question.id,
+      isCorrect,
+      selectedChoiceIds: selectedChoices,
+      correctChoiceIds,
+      explanation: question.explanation ?? null,
+      checkedAt,
+    };
   }
 
   async submit(
@@ -204,10 +338,27 @@ export class AttemptsService {
       },
     });
 
+    // Answers revealed in INTERACTIVE mode are final: grade them from what
+    // was stored at check time, never from the submit payload.
+    const lockedAnswers = new Map<string, LockedAnswer>();
+    if (attempt.feedbackMode === FeedbackMode.INTERACTIVE) {
+      const checked = await this.prisma.answer.findMany({
+        where: { attemptId, checkedAt: { not: null } },
+        select: {
+          questionId: true,
+          selectedChoices: true,
+          isCorrect: true,
+          checkedAt: true,
+        },
+      });
+      for (const a of checked) lockedAnswers.set(a.questionId, a);
+    }
+
     const { totalCorrect, domainScores, answerRecords } = this.evaluateAnswers(
       attemptId,
       dto,
       examQuestions,
+      lockedAnswers,
     );
 
     const totalQuestions = examQuestions.length;
@@ -335,6 +486,7 @@ export class AttemptsService {
     attemptId: string,
     dto: SubmitAttemptDto,
     examQuestions: { question: QuestionWithChoices }[],
+    lockedAnswers: Map<string, LockedAnswer> = new Map(),
   ) {
     const domainScores: Record<string, { correct: number; total: number }> = {};
     let totalCorrect = 0;
@@ -349,14 +501,16 @@ export class AttemptsService {
       submitted: SubmitAnswerDto | undefined,
       questionOrder: number,
     ) => {
-      const selectedChoices = submitted?.selectedChoices ?? [];
+      const locked = lockedAnswers.get(q.id);
+      const selectedChoices =
+        locked?.selectedChoices ?? submitted?.selectedChoices ?? [];
       const correctChoiceIds = q.choices
         .filter((c) => c.isCorrect)
         .map((c) => c.id);
 
-      const isCorrect =
-        correctChoiceIds.length === selectedChoices.length &&
-        correctChoiceIds.every((id: string) => selectedChoices.includes(id));
+      const isCorrect = locked
+        ? locked.isCorrect === true
+        : isAnswerCorrect(correctChoiceIds, selectedChoices);
 
       if (isCorrect) totalCorrect++;
 
@@ -373,6 +527,7 @@ export class AttemptsService {
         isCorrect,
         isMarked: submitted?.isMarked ?? false,
         questionOrder,
+        ...(locked ? { checkedAt: locked.checkedAt } : {}),
       });
     };
 
@@ -439,6 +594,7 @@ export class AttemptsService {
         explanation: a.question.explanation ?? undefined,
         domain: a.question.domain?.name ?? 'Unknown',
         correct: a.isCorrect ?? false,
+        checkedAt: a.checkedAt ?? undefined,
         mistakeType: a.mistakeType ?? undefined,
         selectedAnswers: a.selectedChoices,
         correctAnswers: a.question.choices
@@ -459,6 +615,7 @@ export class AttemptsService {
       examTitle: attempt.exam.title,
       certification: attempt.exam.certification,
       status: attempt.status,
+      feedbackMode: attempt.feedbackMode,
       score: Number(attempt.score ?? 0),
       totalCorrect: attempt.totalCorrect ?? 0,
       totalQuestions: attempt.totalQuestions ?? 0,
@@ -511,6 +668,7 @@ export class AttemptsService {
         totalCorrect: a.totalCorrect,
         totalQuestions: a.totalQuestions,
         status: a.status,
+        feedbackMode: a.feedbackMode,
         timeSpent: a.timeSpent,
         startedAt: a.startedAt,
         submittedAt: a.submittedAt,

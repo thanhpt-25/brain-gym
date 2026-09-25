@@ -128,6 +128,13 @@ enum ExamType {
   TIME_PRESSURE
 }
 
+/// When the learner sees per-question correctness during an attempt
+/// (docs/specs/exam-interactive-mode-srs.md).
+enum FeedbackMode {
+  END_OF_EXAM
+  INTERACTIVE
+}
+
 enum FlashcardMastery {
   NEW
   LEARNING
@@ -581,6 +588,7 @@ model ExamAttempt {
   totalQuestions Int?          @map("total_questions")
   domainScores   Json?         @map("domain_scores")
   examType       ExamType      @default(STANDARD) @map("exam_type")
+  feedbackMode   FeedbackMode  @default(END_OF_EXAM) @map("feedback_mode")
   status         AttemptStatus @default(IN_PROGRESS)
 
   user    User     @relation(fields: [userId], references: [id])
@@ -604,6 +612,8 @@ model Answer {
   mistakeType     MistakeType? @map("mistake_type")
   /// Position of this question within the order it was presented to the user during the attempt (question/choice order is randomized per attempt in AttemptsService.start).
   questionOrder   Int      @default(0) @map("question_order")
+  /// Set when the learner revealed the answer in INTERACTIVE mode; the answer is locked from then on.
+  checkedAt       DateTime? @map("checked_at")
 
   attempt  ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question Question    @relation(fields: [questionId], references: [id])

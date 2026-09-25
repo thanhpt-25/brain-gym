@@ -104,6 +104,7 @@ erDiagram
 | `ExamVisibility` | `PUBLIC`, `PRIVATE`, `LINK` | `Exam.visibility` |
 | `AttemptStatus` | `IN_PROGRESS`, `SUBMITTED`, `ABANDONED` | `ExamAttempt.status` |
 | `ExamType` | `STANDARD`, `TIME_PRESSURE` | `ExamAttempt.examType` |
+| `FeedbackMode` | `END_OF_EXAM`, `INTERACTIVE` | `ExamAttempt.feedbackMode` |
 | `TimerMode` | `STRICT`, `ACCELERATED`, `RELAXED`, `TIME_PRESSURE` | `Exam.timerMode`, `ExamCatalogItem.timerMode` |
 | `MistakeType` | `CONCEPT`, `CARELESS`, `TRAP`, `TIME_PRESSURE` | `Answer.mistakeType` |
 
@@ -211,8 +212,8 @@ erDiagram
 |-------|-------|-------------|
 | `Exam` | `exams` | A named set of questions forming a practice exam. Has `visibility` (`ExamVisibility`), `timerMode` (`TimerMode`), optional `shareCode` (unique), `isAdaptive`, and aggregate stats (`attemptCount`, `avgScore`). |
 | `ExamQuestion` | `exam_questions` | Junction table linking `Exam` to `Question` with `sortOrder`. Composite PK `(examId, questionId)`. Exam-side cascades on delete. |
-| `ExamAttempt` | `exam_attempts` | A single user run of an exam. Tracks `status` (`AttemptStatus`), `examType` (`ExamType`), `score`, `timeSpent`, `totalCorrect`, `totalQuestions`, and `domainScores Json`. |
-| `Answer` | `answers` | Per-question response within an attempt. `selectedChoices String[]` stores choice IDs. `mistakeType` (`MistakeType`) is set post-grading. Cascades on attempt delete. |
+| `ExamAttempt` | `exam_attempts` | A single user run of an exam. Tracks `status` (`AttemptStatus`), `examType` (`ExamType`), `feedbackMode` (`FeedbackMode`, default `END_OF_EXAM`), `score`, `timeSpent`, `totalCorrect`, `totalQuestions`, and `domainScores Json`. |
+| `Answer` | `answers` | Per-question response within an attempt. `selectedChoices String[]` stores choice IDs. `mistakeType` (`MistakeType`) is set post-grading. `checkedAt` is set when the answer was revealed in interactive mode; the answer is locked from then on. Cascades on attempt delete. |
 | `AttemptEvent` | `attempt_events` | Fine-grained event log for an attempt (tab focus, question navigation, etc.). `payload Json` + `clientTs` for client-side timestamps. Cascades on attempt delete. |
 
 ---
