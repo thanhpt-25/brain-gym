@@ -6,9 +6,11 @@ import { getQuestions } from "@/services/questions";
 import {
   startAttempt,
   submitAttempt,
+  checkAnswer,
   StartAttemptResponse,
   AttemptResult,
   AttemptQuestion,
+  CheckAnswerResponse,
 } from "@/services/attempts";
 import { createExam } from "@/services/exams";
 import { captureWord } from "@/services/flashcards";
@@ -20,7 +22,12 @@ import { ExamResult } from "@/components/exam/ExamResult";
 import { WordCaptureTooltip } from "@/components/exam/WordCaptureTooltip";
 import { useTimer } from "@/hooks/useTimer";
 import { useTextSelection } from "@/hooks/useTextSelection";
-import type { TimerMode } from "@/types/api-types";
+import type { FeedbackMode, TimerMode } from "@/types/api-types";
+import {
+  loadFeedbackModePreference,
+  saveFeedbackModePreference,
+  supportsInteractive,
+} from "@/lib/exam-feedback-mode";
 
 type ExamPhase = "intro" | "loading" | "exam" | "result";
 
@@ -57,10 +64,24 @@ const ExamPage = () => {
   );
   const [selectedTimerMode, setSelectedTimerMode] =
     useState<TimerMode>("STRICT");
+  const [selectedFeedbackMode, setSelectedFeedbackMode] =
+    useState<FeedbackMode>(loadFeedbackModePreference);
+  // Interactive is unavailable with Time Pressure; the stored preference is
+  // kept so it comes back when another timer mode is picked.
+  const effectiveFeedbackMode: FeedbackMode = supportsInteractive(
+    selectedTimerMode,
+  )
+    ? selectedFeedbackMode
+    : "END_OF_EXAM";
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<AttemptResult | null>(null);
+  // INTERACTIVE mode: revealed answers (locked) keyed by questionId.
+  const [feedback, setFeedback] = useState<
+    Record<string, CheckAnswerResponse>
+  >({});
+  const [checkingId, setCheckingId] = useState<string | null>(null);
 
   const questions: AttemptQuestion[] = attemptData?.questions ?? [];
   const questionCount = questionsData?.meta?.total ?? 0;
@@ -93,7 +114,10 @@ const ExamPage = () => {
 
   const { selection, clearSelection } = useTextSelection(phase === "exam");
 
-  const startExam = async (timerMode: TimerMode = selectedTimerMode) => {
+  const startExam = async (
+    timerMode: TimerMode = selectedTimerMode,
+    feedbackMode: FeedbackMode = effectiveFeedbackMode,
+  ) => {
     if (!cert) return;
     setPhase("loading");
     try {
@@ -109,13 +133,14 @@ const ExamPage = () => {
         examType: isTimePressure ? "TIME_PRESSURE" : "STANDARD",
       });
 
-      const attempt = await startAttempt(exam.id);
+      const attempt = await startAttempt(exam.id, { feedbackMode });
       setAttemptData(attempt);
       const secs = attempt.timeLimit * 60;
       setTotalSeconds(secs);
       setTimeLeft(secs);
       setAnswers({});
       setMarked(new Set());
+      setFeedback({});
       setCurrentIndex(0);
       setResult(null);
       setPhase("exam");
@@ -126,6 +151,8 @@ const ExamPage = () => {
   };
 
   const selectAnswer = (questionId: string, choiceId: string) => {
+    // A checked answer is locked (the server rejects changes too).
+    if (feedback[questionId]) return;
     setAnswers((prev) => {
       const current = prev[questionId] || [];
       const question = questions.find((q) => q.id === questionId);
@@ -140,6 +167,54 @@ const ExamPage = () => {
       }
       return { ...prev, [questionId]: [choiceId] };
     });
+  };
+
+  const handleCheck = async (questionId: string) => {
+    const selectedChoices = answers[questionId] || [];
+    if (
+      !attemptData ||
+      checkingId ||
+      feedback[questionId] ||
+      selectedChoices.length === 0
+    )
+      return;
+    setCheckingId(questionId);
+    try {
+      const res = await checkAnswer(attemptData.attemptId, {
+        questionId,
+        selectedChoices,
+        isMarked: marked.has(questionId),
+      });
+      setFeedback((prev) => ({ ...prev, [questionId]: res }));
+    } catch (err: unknown) {
+      const response = (
+        err as {
+          response?: {
+            status?: number;
+            data?: { result?: CheckAnswerResponse };
+          };
+        }
+      )?.response;
+      const stored = response?.data?.result;
+      if (response?.status === 409 && stored) {
+        // Already checked (e.g. the page was reloaded): restore the verdict
+        // and the answer the server locked.
+        setFeedback((prev) => ({ ...prev, [questionId]: stored }));
+        setAnswers((prev) => ({
+          ...prev,
+          [questionId]: stored.selectedChoiceIds,
+        }));
+      } else {
+        toast.error("Could not check answer. Please try again.");
+      }
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
+  const handleFeedbackModeChange = (mode: FeedbackMode) => {
+    setSelectedFeedbackMode(mode);
+    saveFeedbackModePreference(mode);
   };
 
   const toggleMark = (questionId: string) => {
@@ -208,8 +283,10 @@ const ExamPage = () => {
         questionCount={questionCount}
         timerMode={selectedTimerMode}
         onTimerModeChange={setSelectedTimerMode}
+        feedbackMode={effectiveFeedbackMode}
+        onFeedbackModeChange={handleFeedbackModeChange}
         onBack={() => navigate("/")}
-        onStart={() => startExam(selectedTimerMode)}
+        onStart={() => startExam(selectedTimerMode, effectiveFeedbackMode)}
       />
     );
   }
@@ -242,6 +319,9 @@ const ExamPage = () => {
           timeLeft={timeLeft}
           totalSeconds={totalSeconds}
           onSubmit={handleSubmit}
+          feedback={feedback}
+          checkingId={checkingId}
+          onCheck={handleCheck}
         />
       )}
 

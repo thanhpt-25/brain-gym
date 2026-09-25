@@ -9,12 +9,22 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth.store";
 import { useState } from "react";
+import type { FeedbackMode } from "@/types/api-types";
+import { FeedbackModeSelector } from "@/components/exam/FeedbackModeSelector";
+import {
+  loadFeedbackModePreference,
+  saveFeedbackModePreference,
+  supportsInteractive,
+} from "@/lib/exam-feedback-mode";
 
 const ExamShare = () => {
   const { shareCode, id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
   const [starting, setStarting] = useState(false);
+  const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>(
+    loadFeedbackModePreference,
+  );
 
   const {
     data: exam,
@@ -31,6 +41,11 @@ const ExamShare = () => {
     ? `/exams/share/${shareCode}`
     : `/exams/${id}`;
 
+  const interactiveAllowed = supportsInteractive(exam?.timerMode);
+  const effectiveFeedbackMode: FeedbackMode = interactiveAllowed
+    ? feedbackMode
+    : "END_OF_EXAM";
+
   const handleStart = async () => {
     if (!isAuthenticated) {
       navigate("/auth", { state: { from: loginRedirectPath } });
@@ -39,7 +54,9 @@ const ExamShare = () => {
     if (!exam) return;
     setStarting(true);
     try {
-      const attempt = await startAttempt(exam.id);
+      const attempt = await startAttempt(exam.id, {
+        feedbackMode: effectiveFeedbackMode,
+      });
       navigate(`/exam/${attempt.certification.id}`, {
         state: { attemptData: attempt },
       });
@@ -114,6 +131,17 @@ const ExamShare = () => {
             <span className="flex items-center gap-1.5">
               <Clock className="h-4 w-4" /> {exam.timeLimit} min
             </span>
+          </div>
+
+          <div className="text-left">
+            <FeedbackModeSelector
+              value={effectiveFeedbackMode}
+              onChange={(mode) => {
+                setFeedbackMode(mode);
+                saveFeedbackModePreference(mode);
+              }}
+              interactiveDisabled={!interactiveAllowed}
+            />
           </div>
 
           <Button

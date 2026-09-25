@@ -6,14 +6,19 @@ import {
   ChevronRight,
   Zap,
   BookOpen,
+  Check,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AttemptQuestion,
+  CheckAnswerResponse,
   StartAttemptResponse,
   TimerMode,
 } from "@/types/api-types";
 import { formatTime } from "@/lib/time";
+import { AnswerFeedbackPanel } from "@/components/exam/AnswerFeedbackPanel";
 
 interface ExamSessionProps {
   attemptData: StartAttemptResponse;
@@ -27,6 +32,10 @@ interface ExamSessionProps {
   timeLeft: number;
   totalSeconds: number;
   onSubmit: () => void;
+  /** INTERACTIVE mode only: revealed answers keyed by questionId. */
+  feedback?: Record<string, CheckAnswerResponse>;
+  checkingId?: string | null;
+  onCheck?: (qId: string) => void;
 }
 
 function getTimerClass(
@@ -57,7 +66,7 @@ function getTimerClass(
     : "text-foreground";
 }
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export function ExamSession({
   attemptData,
@@ -71,11 +80,25 @@ export function ExamSession({
   timeLeft,
   totalSeconds,
   onSubmit,
+  feedback = {},
+  checkingId = null,
+  onCheck,
 }: ExamSessionProps) {
   const currentQuestion = questions[currentIndex];
   const timerMode = attemptData?.timerMode;
+  const isInteractive = attemptData?.feedbackMode === "INTERACTIVE";
+  const currentFeedback = currentQuestion
+    ? feedback[currentQuestion.id]
+    : undefined;
 
   const [announcement, setAnnouncement] = useState("");
+  const feedbackHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // Move focus to the verdict once an answer is revealed.
+  const currentCheckedAt = currentFeedback?.checkedAt;
+  useEffect(() => {
+    if (currentCheckedAt) feedbackHeadingRef.current?.focus();
+  }, [currentCheckedAt]);
 
   useEffect(() => {
     if (timerMode !== "TIME_PRESSURE" || totalSeconds <= 0) return;
@@ -102,6 +125,12 @@ export function ExamSession({
     totalSeconds > 0 &&
     timeLeft / totalSeconds <= 0.5 &&
     timeLeft / totalSeconds > 0.25;
+
+  const checkedResults = Object.values(feedback);
+  const checkedCorrect = checkedResults.filter((f) => f.isCorrect).length;
+  const checkedIncorrect = checkedResults.length - checkedCorrect;
+  const isLastQuestion = currentIndex === questions.length - 1;
+  const hasSelection = !!answers[currentQuestion.id]?.length;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -134,6 +163,16 @@ export function ExamSession({
             <span className="text-sm font-mono text-foreground">
               Q{currentIndex + 1}/{questions.length}
             </span>
+            {isInteractive && (
+              <span
+                className="text-xs font-mono text-muted-foreground"
+                data-testid="interactive-score"
+                aria-label={`${checkedCorrect} correct, ${checkedIncorrect} incorrect`}
+              >
+                <span className="text-accent">✓ {checkedCorrect}</span> ·{" "}
+                <span className="text-destructive">✗ {checkedIncorrect}</span>
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <div
@@ -146,6 +185,7 @@ export function ExamSession({
               size="sm"
               variant="destructive"
               onClick={onSubmit}
+              disabled={!!checkingId}
               className="font-mono"
             >
               Submit
@@ -224,6 +264,44 @@ export function ExamSession({
                     const isSelected = (
                       answers[currentQuestion.id] || []
                     ).includes(choice.id);
+                    if (currentFeedback) {
+                      const isRight =
+                        currentFeedback.correctChoiceIds.includes(choice.id);
+                      const isWrongPick =
+                        !isRight &&
+                        currentFeedback.selectedChoiceIds.includes(choice.id);
+                      return (
+                        <button
+                          key={choice.id}
+                          disabled
+                          aria-pressed={isSelected}
+                          className={`w-full text-left p-4 rounded-lg border text-sm flex items-start cursor-default ${
+                            isRight
+                              ? "border-accent bg-accent/10 text-foreground"
+                              : isWrongPick
+                                ? "border-destructive bg-destructive/10 text-foreground"
+                                : "border-border bg-secondary/30 text-muted-foreground"
+                          }`}
+                        >
+                          <span className="font-mono font-semibold mr-3 text-muted-foreground">
+                            {choice.label.toUpperCase()}
+                          </span>
+                          <span className="flex-1">{choice.content}</span>
+                          {isRight && (
+                            <Check
+                              className="h-4 w-4 text-accent shrink-0 ml-2"
+                              aria-label="Correct answer"
+                            />
+                          )}
+                          {isWrongPick && (
+                            <X
+                              className="h-4 w-4 text-destructive shrink-0 ml-2"
+                              aria-label="Your answer"
+                            />
+                          )}
+                        </button>
+                      );
+                    }
                     return (
                       <button
                         key={choice.id}
@@ -244,6 +322,14 @@ export function ExamSession({
                     );
                   })}
                 </div>
+
+                {currentFeedback && (
+                  <AnswerFeedbackPanel
+                    ref={feedbackHeadingRef}
+                    feedback={currentFeedback}
+                    choices={currentQuestion.choices}
+                  />
+                )}
 
                 {currentQuestion.tags && currentQuestion.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-6">
@@ -269,14 +355,51 @@ export function ExamSession({
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" /> Prev
                 </Button>
-                <Button
-                  variant="outline"
-                  disabled={currentIndex === questions.length - 1}
-                  onClick={() => setCurrentIndex((i) => i + 1)}
-                  className="font-mono"
-                >
-                  Next <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
+                {isInteractive && !currentFeedback ? (
+                  <div className="flex items-center gap-2">
+                    {/* The navigator is desktop-only, so this is how a
+                        learner moves past a question without locking it. */}
+                    {!isLastQuestion && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setCurrentIndex((i) => i + 1)}
+                        className="font-mono text-muted-foreground"
+                      >
+                        Skip
+                      </Button>
+                    )}
+                    <Button
+                      disabled={!hasSelection || !!checkingId}
+                      onClick={() => onCheck?.(currentQuestion.id)}
+                      className="font-mono"
+                    >
+                      {checkingId === currentQuestion.id && (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      )}
+                      Check answer
+                    </Button>
+                  </div>
+                ) : isInteractive && isLastQuestion ? (
+                  <Button onClick={onSubmit} className="font-mono">
+                    Finish exam
+                  </Button>
+                ) : isInteractive ? (
+                  <Button
+                    onClick={() => setCurrentIndex((i) => i + 1)}
+                    className="font-mono"
+                  >
+                    Next question <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    disabled={currentIndex === questions.length - 1}
+                    onClick={() => setCurrentIndex((i) => i + 1)}
+                    className="font-mono"
+                  >
+                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
               </div>
             </motion.div>
           </AnimatePresence>
@@ -293,18 +416,30 @@ export function ExamSession({
                 const isAnswered = !!answers[q.id]?.length;
                 const isMarkedQ = marked.has(q.id);
                 const isCurrent = i === currentIndex;
+                const checked = feedback[q.id];
                 return (
                   <button
                     key={q.id}
                     onClick={() => setCurrentIndex(i)}
+                    data-state={
+                      checked
+                        ? checked.isCorrect
+                          ? "correct"
+                          : "incorrect"
+                        : undefined
+                    }
                     className={`w-8 h-8 rounded text-xs font-mono font-semibold transition-all ${
                       isCurrent
                         ? "bg-primary text-primary-foreground"
                         : isMarkedQ
                           ? "bg-warning/20 text-warning border border-warning/30"
-                          : isAnswered
-                            ? "bg-accent/20 text-accent"
-                            : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                          : checked
+                            ? checked.isCorrect
+                              ? "bg-accent text-accent-foreground"
+                              : "bg-destructive/20 text-destructive border border-destructive/30"
+                            : isAnswered
+                              ? "bg-accent/20 text-accent"
+                              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                     }`}
                   >
                     {i + 1}
@@ -313,6 +448,17 @@ export function ExamSession({
               })}
             </div>
             <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
+              {isInteractive && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-accent" /> Correct
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded bg-destructive/20 border border-destructive/30" />{" "}
+                    Incorrect
+                  </div>
+                </>
+              )}
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded bg-accent/20" /> Answered
               </div>

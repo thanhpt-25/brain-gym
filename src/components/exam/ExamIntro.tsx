@@ -1,14 +1,18 @@
 import { motion } from "framer-motion";
 import { ChevronLeft, Brain, Zap, Clock, Coffee, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Certification, TimerMode } from "@/types/api-types";
+import { Certification, FeedbackMode, TimerMode } from "@/types/api-types";
 import MarkdownContent from "@/components/ui/MarkdownContent";
+import { FeedbackModeSelector } from "@/components/exam/FeedbackModeSelector";
+import { supportsInteractive } from "@/lib/exam-feedback-mode";
 
 interface ExamIntroProps {
   cert: Certification;
   questionCount: number;
   timerMode: TimerMode;
   onTimerModeChange: (mode: TimerMode) => void;
+  feedbackMode: FeedbackMode;
+  onFeedbackModeChange: (mode: FeedbackMode) => void;
   onBack: () => void;
   onStart: () => void;
 }
@@ -55,6 +59,8 @@ export function ExamIntro({
   questionCount,
   timerMode,
   onTimerModeChange,
+  feedbackMode,
+  onFeedbackModeChange,
   onBack,
   onStart,
 }: ExamIntroProps) {
@@ -137,6 +143,12 @@ export function ExamIntro({
               ))}
             </div>
           </div>
+
+          <FeedbackModeSelector
+            value={feedbackMode}
+            onChange={onFeedbackModeChange}
+            interactiveDisabled={!supportsInteractive(timerMode)}
+          />
 
           {cert.domains && cert.domains.length > 0 && (
             <div className="mb-6">

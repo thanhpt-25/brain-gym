@@ -37,6 +37,11 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
             <div className="text-sm text-muted-foreground">
               {result.totalCorrect}/{result.totalQuestions} correct · {formatTime(result.timeSpent)}
             </div>
+            {result.feedbackMode === 'INTERACTIVE' && (
+              <span className="inline-block mt-3 text-xs px-2 py-0.5 rounded-full font-mono bg-primary/10 text-primary border border-primary/20">
+                Interactive
+              </span>
+            )}
           </div>
 
           {/* Domain Breakdown */}

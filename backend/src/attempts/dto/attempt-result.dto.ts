@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { AttemptStatus, MistakeType } from '@prisma/client';
+import { AttemptStatus, FeedbackMode, MistakeType } from '@prisma/client';
 
 export class ChoiceResponse {
   @ApiProperty()
@@ -37,6 +37,12 @@ export class QuestionResultResponse {
   @ApiProperty()
   correct: boolean;
 
+  @ApiProperty({
+    required: false,
+    description: 'When the answer was revealed during an INTERACTIVE attempt',
+  })
+  checkedAt?: Date;
+
   @ApiProperty({ enum: MistakeType, required: false })
   mistakeType?: MistakeType;
 
@@ -65,6 +71,9 @@ export class AttemptResultResponse {
 
   @ApiProperty({ enum: AttemptStatus })
   status: AttemptStatus;
+
+  @ApiProperty({ enum: FeedbackMode })
+  feedbackMode: FeedbackMode;
 
   @ApiProperty()
   score: number;
