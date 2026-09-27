@@ -455,23 +455,30 @@ export class AnalyticsService {
   }
 
   async getPlatformStats() {
-    const [totalQuestions, totalCertifications, totalExamAttempts] =
+    const [totalQuestions, totalCertifications, submittedAttempts] =
       await Promise.all([
         this.prisma.question.count({
           where: { status: QuestionStatus.APPROVED },
         }),
         this.prisma.certification.count(),
-        this.prisma.examAttempt.count({
+        this.prisma.examAttempt.findMany({
           where: { status: AttemptStatus.SUBMITTED },
+          select: {
+            score: true,
+            exam: { select: { certification: { select: { passingScore: true } } } },
+          },
         }),
       ]);
 
-    const passedAttempts = await this.prisma.examAttempt.count({
-      where: {
-        status: AttemptStatus.SUBMITTED,
-        score: { gte: 70 },
-      },
-    });
+    const totalExamAttempts = submittedAttempts.length;
+    // Judge each attempt against its own certification's passing score (falling
+    // back to DEFAULT_PASSING_SCORE when unset) so the platform-wide rate isn't
+    // skewed by certs whose real cutoff differs from a flat 70%.
+    const passedAttempts = submittedAttempts.filter(
+      (a) =>
+        Number(a.score ?? 0) >=
+        (a.exam?.certification?.passingScore ?? DEFAULT_PASSING_SCORE),
+    ).length;
 
     const averagePassRate =
       totalExamAttempts > 0
