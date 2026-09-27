@@ -24,5 +24,8 @@ Disallow: /knowledge-graph
 Disallow: /profile
 Disallow: /squads/
 Disallow: /assess/
+Disallow: /apply/
+Disallow: /packet/
+Disallow: /auth
 
 Sitemap: https://brain-gym.biz/sitemap.xml

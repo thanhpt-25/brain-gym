@@ -70,7 +70,16 @@ const Leaderboard = () => {
     <div className="min-h-screen bg-background">
       <SEO
         title="Certification Exam Leaderboard"
-        description="See top performers across AWS, Azure, GCP, and Kubernetes certification practice exams. Compete with the community and track your rank."
+        description="See top performers across AWS, Azure, GCP, Kubernetes, CompTIA, PMP, and CISSP certification practice exams. Compete with the community and track your rank."
+        keywords={[
+          "certification exam leaderboard",
+          "AWS certification ranking",
+          "Azure certification ranking",
+          "GCP certification ranking",
+          "Kubernetes certification community",
+          "exam prep community",
+          "gamified learning",
+        ]}
         canonical="/leaderboard"
       />
       <Navbar title="Leaderboard" />

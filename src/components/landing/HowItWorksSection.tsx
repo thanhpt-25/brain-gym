@@ -6,7 +6,7 @@ const steps = [
     step: "01",
     icon: Rocket,
     title: "Pick your cert",
-    desc: "Choose from AWS, Azure, GCP, Kubernetes and dozens more community-curated tracks.",
+    desc: "Choose from AWS, Azure, GCP, Kubernetes, CompTIA, PMP, CISSP, Cisco, and dozens more community-curated tracks.",
   },
   {
     step: "02",
