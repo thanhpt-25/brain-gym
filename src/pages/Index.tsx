@@ -37,7 +37,30 @@ const Index = () => {
     <main id="main-content" className="min-h-screen bg-background">
       <SEO
         title="Certification Exam Prep — Practice Tests & Flashcards"
-        description="Community-driven platform for AWS, Azure, GCP, and Kubernetes certification prep. Free practice exams, AI-powered flashcards, adaptive learning, and detailed analytics."
+        description="Community-driven platform for AWS, Azure, GCP, Kubernetes, CompTIA, PMP, and CISSP certification prep. Free practice exams, mock tests, AI-powered flashcards, adaptive learning, and detailed analytics."
+        keywords={[
+          "certification exam prep",
+          "practice exam",
+          "mock exam",
+          "free practice test",
+          "AWS certification exam prep",
+          "AWS Solutions Architect Associate practice exam",
+          "Azure certification exam prep",
+          "AZ-900 practice test",
+          "Google Cloud certification exam prep",
+          "GCP Associate Cloud Engineer practice exam",
+          "Kubernetes certification exam prep",
+          "CKA practice exam",
+          "CKAD practice exam",
+          "CompTIA Security+ practice test",
+          "CompTIA Network+ practice test",
+          "PMP exam prep",
+          "CISSP practice questions",
+          "Cisco CCNA practice exam",
+          "IT certification flashcards",
+          "spaced repetition flashcards",
+          "adaptive learning exam prep",
+        ]}
         canonical="/"
         jsonLd={[
           {
