@@ -12,7 +12,7 @@ export const landingFAQs: FAQItem[] = [
   {
     question: "Which certifications are covered?",
     answer:
-      "The community-curated library spans AWS, Azure, GCP, and Kubernetes tracks today, with more added as contributors submit and review questions.",
+      "The community-curated library spans AWS (Solutions Architect, Cloud Practitioner), Azure (AZ-900, AZ-104), Google Cloud (Associate Cloud Engineer), Kubernetes (CKA, CKAD), CompTIA (Security+, Network+), PMP, CISSP, and Cisco CCNA today, with more added as contributors submit and review questions.",
   },
   {
     question: "Are the questions real exam dumps?",

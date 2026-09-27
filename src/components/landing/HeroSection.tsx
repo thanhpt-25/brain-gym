@@ -116,6 +116,12 @@ export function HeroSection({ certifications }: HeroSectionProps) {
                   <span key={p}>{p}</span>
                 ))}
               </div>
+              <p className="mt-4 text-xs text-muted-foreground max-w-2xl mx-auto">
+                Practice exams for AWS Solutions Architect (SAA-C03), Azure
+                Fundamentals (AZ-900), Google Cloud Associate Cloud Engineer,
+                Kubernetes CKA/CKAD, CompTIA Security+/Network+, PMP, CISSP,
+                and Cisco CCNA.
+              </p>
             </motion.div>
           )}
         </motion.div>

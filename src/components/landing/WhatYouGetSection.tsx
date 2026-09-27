@@ -16,7 +16,7 @@ const features = [
   {
     icon: Target,
     title: "Exam Simulation",
-    desc: "Timer, navigation, mark for review — like real exams.",
+    desc: "Timer, navigation, mark for review — like the real AWS, Azure, GCP, and CompTIA exams.",
     href: "/exams",
   },
   {
