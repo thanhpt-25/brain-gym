@@ -2392,10 +2392,12 @@ describe('AttemptsService', () => {
       ]);
       const close = jest
         .spyOn(service as any, 'closeFromStoredAnswers')
-        .mockImplementation(async (id: any) =>
-          id === 'expired-empty'
-            ? AttemptStatus.ABANDONED
-            : AttemptStatus.SUBMITTED,
+        .mockImplementation((id: any) =>
+          Promise.resolve(
+            id === 'expired-empty'
+              ? AttemptStatus.ABANDONED
+              : AttemptStatus.SUBMITTED,
+          ),
         );
 
       const res = await service.closeExpiredBatch(now, 10);
@@ -2431,10 +2433,11 @@ describe('AttemptsService', () => {
       ]);
       jest
         .spyOn(service as any, 'closeFromStoredAnswers')
-        .mockImplementation(async (id: any) => {
-          if (id === 'broken') throw new Error('boom');
-          return AttemptStatus.SUBMITTED;
-        });
+        .mockImplementation((id: any) =>
+          id === 'broken'
+            ? Promise.reject(new Error('boom'))
+            : Promise.resolve(AttemptStatus.SUBMITTED),
+        );
 
       await expect(service.closeExpiredBatch(now)).resolves.toEqual({
         submitted: 1,
