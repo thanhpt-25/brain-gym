@@ -47,7 +47,12 @@ describe('JobRolesService', () => {
 
   describe('create', () => {
     it('creates a job role with required fields', async () => {
-      const created = { id: 'r1', title: 'Designer', department: null, isActive: true };
+      const created = {
+        id: 'r1',
+        title: 'Designer',
+        department: null,
+        isActive: true,
+      };
       mockPrisma.jobRole.create.mockResolvedValue(created);
       const result = await service.create('my-org', { title: 'Designer' });
       expect(result).toEqual(created);
@@ -62,21 +67,27 @@ describe('JobRolesService', () => {
   describe('update', () => {
     it('throws NotFoundException when role not found', async () => {
       mockPrisma.jobRole.findFirst.mockResolvedValue(null);
-      await expect(service.update('my-org', 'bad-id', { title: 'X' })).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.update('my-org', 'bad-id', { title: 'X' }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('updates job role when found', async () => {
       mockPrisma.jobRole.findFirst.mockResolvedValue({ id: 'r1' });
-      mockPrisma.jobRole.update.mockResolvedValue({ id: 'r1', title: 'Updated' });
+      mockPrisma.jobRole.update.mockResolvedValue({
+        id: 'r1',
+        title: 'Updated',
+      });
       const result = await service.update('my-org', 'r1', { title: 'Updated' });
       expect(result).toEqual({ id: 'r1', title: 'Updated' });
     });
 
     it('can toggle isActive', async () => {
       mockPrisma.jobRole.findFirst.mockResolvedValue({ id: 'r1' });
-      mockPrisma.jobRole.update.mockResolvedValue({ id: 'r1', isActive: false });
+      mockPrisma.jobRole.update.mockResolvedValue({
+        id: 'r1',
+        isActive: false,
+      });
       const result = await service.update('my-org', 'r1', { isActive: false });
       expect(mockPrisma.jobRole.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -89,14 +100,18 @@ describe('JobRolesService', () => {
   describe('remove', () => {
     it('throws NotFoundException when role not found', async () => {
       mockPrisma.jobRole.findFirst.mockResolvedValue(null);
-      await expect(service.remove('my-org', 'bad-id')).rejects.toThrow(NotFoundException);
+      await expect(service.remove('my-org', 'bad-id')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('deletes the role when found', async () => {
       mockPrisma.jobRole.findFirst.mockResolvedValue({ id: 'r1' });
       mockPrisma.jobRole.delete.mockResolvedValue({ id: 'r1' });
       await service.remove('my-org', 'r1');
-      expect(mockPrisma.jobRole.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
+      expect(mockPrisma.jobRole.delete).toHaveBeenCalledWith({
+        where: { id: 'r1' },
+      });
     });
   });
 });

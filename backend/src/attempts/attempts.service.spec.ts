@@ -771,9 +771,7 @@ describe('AttemptsService', () => {
       ['unknown choice id', ['c-unknown']],
       ['duplicate choice ids', ['c2', 'c2']],
     ])('400 for %s', async (_label, selected) => {
-      await expect(check(selected as string[])).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
+      await expect(check(selected)).rejects.toBeInstanceOf(BadRequestException);
       expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
     });
 

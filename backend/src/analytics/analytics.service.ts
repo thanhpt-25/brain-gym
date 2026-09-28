@@ -465,7 +465,9 @@ export class AnalyticsService {
           where: { status: AttemptStatus.SUBMITTED },
           select: {
             score: true,
-            exam: { select: { certification: { select: { passingScore: true } } } },
+            exam: {
+              select: { certification: { select: { passingScore: true } } },
+            },
           },
         }),
       ]);

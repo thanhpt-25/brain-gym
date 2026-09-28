@@ -94,9 +94,13 @@ describe('AuthService', () => {
 
     it('throws NotFoundException for unsupported provider', async () => {
       oauthRegistry.get.mockImplementation(() => {
-        throw new NotFoundException('OAuth provider "facebook" is not supported');
+        throw new NotFoundException(
+          'OAuth provider "facebook" is not supported',
+        );
       });
-      await expect(service.socialLogin('facebook', 'token')).rejects.toThrow(NotFoundException);
+      await expect(service.socialLogin('facebook', 'token')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('returns tokens for existing linked account', async () => {
@@ -150,22 +154,34 @@ describe('AuthService', () => {
         user: { ...mockUser, status: UserStatus.BANNED },
       });
 
-      await expect(service.socialLogin('google', 'token')).rejects.toThrow(ForbiddenException);
+      await expect(service.socialLogin('google', 'token')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws ForbiddenException for SUSPENDED user within suspension period', async () => {
       const futureDate = new Date(Date.now() + 86400000); // tomorrow
       prisma.oAuthAccount.findUnique.mockResolvedValue({
-        user: { ...mockUser, status: UserStatus.SUSPENDED, suspendedUntil: futureDate },
+        user: {
+          ...mockUser,
+          status: UserStatus.SUSPENDED,
+          suspendedUntil: futureDate,
+        },
       });
 
-      await expect(service.socialLogin('google', 'token')).rejects.toThrow(ForbiddenException);
+      await expect(service.socialLogin('google', 'token')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('reactivates SUSPENDED user whose suspension has expired', async () => {
       const pastDate = new Date(Date.now() - 86400000); // yesterday
       prisma.oAuthAccount.findUnique.mockResolvedValue({
-        user: { ...mockUser, status: UserStatus.SUSPENDED, suspendedUntil: pastDate },
+        user: {
+          ...mockUser,
+          status: UserStatus.SUSPENDED,
+          suspendedUntil: pastDate,
+        },
       });
       (usersService.reactivateUser as jest.Mock).mockResolvedValue(undefined);
       (usersService.findById as jest.Mock).mockResolvedValue(mockUser);

@@ -495,7 +495,7 @@ export class DdsService {
    * This allows env-var-driven tests to work without mocking DB write calls.
    */
   private async getOrInitCohortConfig(cohortName: string = 'default') {
-    let config = await this.prisma.ddsConfig.findUnique({
+    const config = await this.prisma.ddsConfig.findUnique({
       where: { cohortName },
     });
 

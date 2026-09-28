@@ -24,17 +24,29 @@ export class CompetencyService {
     }
     try {
       return await this.prisma.competency.create({
-        data: { orgId, name: dto.name, description: dto.description, scaleMin, scaleMax },
+        data: {
+          orgId,
+          name: dto.name,
+          description: dto.description,
+          scaleMin,
+          scaleMax,
+        },
       });
     } catch (e: any) {
-      if (e?.code === 'P2002') throw new ConflictException('Competency name already exists in this org');
+      if (e?.code === 'P2002')
+        throw new ConflictException(
+          'Competency name already exists in this org',
+        );
       throw e;
     }
   }
 
   findAll(orgId: string, query: ListCompetenciesDto) {
     return this.prisma.competency.findMany({
-      where: { orgId, ...(query.isActive !== undefined ? { isActive: query.isActive } : {}) },
+      where: {
+        orgId,
+        ...(query.isActive !== undefined ? { isActive: query.isActive } : {}),
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -58,7 +70,10 @@ export class CompetencyService {
     try {
       return await this.prisma.competency.update({ where: { id }, data: dto });
     } catch (e: any) {
-      if (e?.code === 'P2002') throw new ConflictException('Competency name already exists in this org');
+      if (e?.code === 'P2002')
+        throw new ConflictException(
+          'Competency name already exists in this org',
+        );
       throw e;
     }
   }
@@ -88,23 +103,39 @@ export class CompetencyService {
     });
   }
 
-  async linkQuestion(orgId: string, competencyId: string, dto: LinkQuestionDto) {
+  async linkQuestion(
+    orgId: string,
+    competencyId: string,
+    dto: LinkQuestionDto,
+  ) {
     await this.findOne(orgId, competencyId);
     const question = await this.prisma.orgQuestion.findFirst({
       where: { id: dto.orgQuestionId, orgId },
     });
-    if (!question) throw new BadRequestException('Question not found in this org');
+    if (!question)
+      throw new BadRequestException('Question not found in this org');
     try {
       return await this.prisma.questionCompetency.create({
-        data: { competencyId, orgQuestionId: dto.orgQuestionId, weight: dto.weight ?? 1 },
+        data: {
+          competencyId,
+          orgQuestionId: dto.orgQuestionId,
+          weight: dto.weight ?? 1,
+        },
       });
     } catch (e: any) {
-      if (e?.code === 'P2002') throw new ConflictException('Question already linked to this competency');
+      if (e?.code === 'P2002')
+        throw new ConflictException(
+          'Question already linked to this competency',
+        );
       throw e;
     }
   }
 
-  async unlinkQuestion(orgId: string, competencyId: string, questionId: string) {
+  async unlinkQuestion(
+    orgId: string,
+    competencyId: string,
+    questionId: string,
+  ) {
     await this.findOne(orgId, competencyId);
     const link = await this.prisma.questionCompetency.findFirst({
       where: { competencyId, orgQuestionId: questionId },
@@ -128,7 +159,8 @@ export class CompetencyService {
         data: { competencyId, domainName: dto.domainName, source },
       });
     } catch (e: any) {
-      if (e?.code === 'P2002') throw new ConflictException('Domain already mapped to this competency');
+      if (e?.code === 'P2002')
+        throw new ConflictException('Domain already mapped to this competency');
       throw e;
     }
   }

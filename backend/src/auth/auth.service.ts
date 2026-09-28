@@ -27,7 +27,11 @@ export class AuthService {
 
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.usersService.findByEmail(email);
-    if (user && user.passwordHash && (await bcrypt.compare(pass, user.passwordHash))) {
+    if (
+      user &&
+      user.passwordHash &&
+      (await bcrypt.compare(pass, user.passwordHash))
+    ) {
       const { passwordHash, ...result } = user;
       return result;
     }
@@ -77,7 +81,7 @@ export class AuthService {
     const info = await provider.verify(token);
 
     // Find existing OAuth account link
-    let oauthAccount = await this.prisma.oAuthAccount.findUnique({
+    const oauthAccount = await this.prisma.oAuthAccount.findUnique({
       where: {
         provider_providerUserId: {
           provider: providerName,

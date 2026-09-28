@@ -55,7 +55,9 @@ export class IngestionService {
 
     if (FILE_CONTENT_TYPES.has(dto.contentType)) {
       if (!fileBuffer || !originalFilename) {
-        throw new BadRequestException('A file is required for this content type');
+        throw new BadRequestException(
+          'A file is required for this content type',
+        );
       }
       return this.queueFileMaterial(userId, dto, fileBuffer, originalFilename);
     }

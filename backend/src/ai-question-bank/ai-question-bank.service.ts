@@ -300,7 +300,11 @@ export class AiQuestionBankService {
 
   // ─── MCP Intake ──────────────────────────────────────────────────────────────
 
-  async mcpIntake(userId: string, keyId: string | undefined, dto: McpIntakeDto) {
+  async mcpIntake(
+    userId: string,
+    keyId: string | undefined,
+    dto: McpIntakeDto,
+  ) {
     if (keyId) await this.mcpKeys.checkRateLimit(keyId);
 
     const saved: string[] = [];

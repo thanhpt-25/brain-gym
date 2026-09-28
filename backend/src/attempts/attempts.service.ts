@@ -530,7 +530,6 @@ export class AttemptsService {
 
     const totalQuestions = examQuestions.length;
     const timeSpent = this.elapsedSeconds(attempt);
-    const presentation = readPresentation(attempt.presentation);
 
     // Transaction: save answers + update attempt + update exam stats
     await this.prisma.$transaction(async (tx) => {
@@ -560,13 +559,7 @@ export class AttemptsService {
       }
 
       const { totalCorrect, domainScores, answerRecords } =
-        this.evaluateAnswers(
-          attemptId,
-          dto,
-          examQuestions,
-          lockedAnswers,
-          presentation?.questionIds,
-        );
+        this.evaluateAnswers(attemptId, dto, examQuestions, lockedAnswers);
       const score =
         totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
 
@@ -948,7 +941,6 @@ export class AttemptsService {
     dto: SubmitAttemptDto,
     examQuestions: { question: QuestionWithChoices }[],
     lockedAnswers: Map<string, LockedAnswer> = new Map(),
-    presentationOrder?: string[],
   ) {
     const domainScores: Record<string, { correct: number; total: number }> = {};
     let totalCorrect = 0;
@@ -993,35 +985,24 @@ export class AttemptsService {
       });
     };
 
-    // The review lists questions in the order the learner was shown them:
-    // the stored presentation order when the attempt has one, otherwise the
-    // order the client submitted answers (which mirrors it).
-    const presentationIndex = new Map(
-      (presentationOrder ?? []).map((id, i) => [id, i]),
-    );
-    let nextOrder = Math.max(presentationIndex.size, dto.answers.length);
-    const orderOf = (questionId: string, fallback: number) =>
-      presentationIndex.get(questionId) ??
-      (presentationIndex.size > 0 ? nextOrder++ : fallback);
-
+    // Grade in the order the client submitted answers, which mirrors the
+    // per-attempt randomized question order the user was actually shown
+    // (see start()). This keeps the result review in the same order.
     // Duplicate questionIds in the payload are ignored (first one wins) so a
     // crafted request can't double-count a question toward totalCorrect.
     dto.answers.forEach((submitted, index) => {
       const q = questionsById.get(submitted.questionId);
       if (!q || gradedQuestionIds.has(q.id)) return;
       gradedQuestionIds.add(q.id);
-      gradeQuestion(q, submitted, orderOf(q.id, index));
+      gradeQuestion(q, submitted, index);
     });
 
     // Defensively grade any exam question the client didn't submit an
     // answer for, so a partial payload can't silently drop questions.
+    let nextOrder = dto.answers.length;
     for (const eq of examQuestions) {
       if (gradedQuestionIds.has(eq.question.id)) continue;
-      gradeQuestion(
-        eq.question,
-        undefined,
-        orderOf(eq.question.id, nextOrder++),
-      );
+      gradeQuestion(eq.question, undefined, nextOrder++);
     }
 
     return { totalCorrect, domainScores, answerRecords };
