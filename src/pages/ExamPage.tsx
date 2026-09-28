@@ -17,7 +17,7 @@ import {
   AttemptQuestion,
   CheckAnswerResponse,
 } from "@/services/attempts";
-import { createExam } from "@/services/exams";
+import { createPracticeExam } from "@/services/exams";
 import { captureWord } from "@/services/flashcards";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ import { ExamResult } from "@/components/exam/ExamResult";
 import { WordCaptureTooltip } from "@/components/exam/WordCaptureTooltip";
 import { useTimer } from "@/hooks/useTimer";
 import { useAutosave } from "@/hooks/useAutosave";
+import { useQuestionTimer } from "@/hooks/useQuestionTimer";
 import { useTextSelection } from "@/hooks/useTextSelection";
 import { attemptDeadline, getPracticeExamPlan } from "@/lib/exam-plan";
 import type { FeedbackMode, TimerMode } from "@/types/api-types";
@@ -116,6 +117,12 @@ const ExamPage = () => {
     phase === "exam" && !isInteractive,
   );
 
+  // Time actually spent on each question (for the pace analysis).
+  const { secondsOn, seed: seedQuestionTimes } = useQuestionTimer(
+    questions[currentIndex]?.id ?? null,
+    phase === "exam",
+  );
+
   const { data: activeAttempt, refetch: refetchActive } = useQuery({
     queryKey: ["active-attempt", cert?.id],
     queryFn: async () => (await getActiveAttempt(cert!.id)) ?? null,
@@ -127,10 +134,13 @@ const ExamPage = () => {
     (attempt: StartAttemptResponse, saved?: AttemptState) => {
       const restoredAnswers: Record<string, string[]> = {};
       const restoredMarks = new Set<string>();
+      const restoredTimes: Record<string, number> = {};
       for (const a of saved?.answers ?? []) {
         if (a.selectedChoices.length) restoredAnswers[a.questionId] = a.selectedChoices;
         if (a.isMarked) restoredMarks.add(a.questionId);
+        if (a.timeSpent) restoredTimes[a.questionId] = a.timeSpent;
       }
+      seedQuestionTimes(restoredTimes);
       const restoredFeedback: Record<string, CheckAnswerResponse> = {};
       for (const c of saved?.checked ?? []) {
         restoredFeedback[c.questionId] = c;
@@ -151,7 +161,7 @@ const ExamPage = () => {
       setResult(null);
       setPhase("exam");
     },
-    [],
+    [seedQuestionTimes],
   );
 
   /**
@@ -211,6 +221,7 @@ const ExamPage = () => {
           questionId: q.id,
           selectedChoices: answers[q.id] || [],
           isMarked: marked.has(q.id),
+          timeSpent: secondsOn(q.id),
         })),
       };
       const res = await submitAttempt(attemptData.attemptId, payload);
@@ -221,7 +232,7 @@ const ExamPage = () => {
       toast.error("Failed to submit exam");
       setPhase("exam");
     }
-  }, [attemptData, answers, questions, marked, cancelSaves, queryClient]);
+  }, [attemptData, answers, questions, marked, cancelSaves, queryClient, secondsOn]);
 
   const handleExpire = useCallback(() => {
     toast.info("Time's up — submitting your exam.");
@@ -259,15 +270,14 @@ const ExamPage = () => {
       if (activeAttempt) {
         await abandonAttempt(activeAttempt.attemptId).catch(() => undefined);
       }
-      const isTimePressure = timerMode === "TIME_PRESSURE";
       const examPlan = getPracticeExamPlan(poolSize, timerMode);
-      const exam = await createExam({
-        title: `${cert.code} ${isTimePressure ? "Time Pressure" : "Practice"} Exam`,
+      // A private draw weighted by the certification's domains, favouring
+      // questions the learner hasn't seen or got wrong.
+      const exam = await createPracticeExam({
         certificationId: cert.id,
         questionCount: examPlan.questionCount,
         timeLimit: examPlan.timeLimit,
         timerMode,
-        examType: isTimePressure ? "TIME_PRESSURE" : "STANDARD",
       });
 
       const attempt = await startAttempt(exam.id, { feedbackMode });
@@ -329,7 +339,30 @@ const ExamPage = () => {
       questionId,
       selectedChoices: next,
       isMarked: marked.has(questionId),
+      timeSpent: secondsOn(questionId),
     });
+  };
+
+  /**
+   * Move to another question. The one being left is saved with its time so
+   * far when it already has an answer or flag (unanswered questions are not
+   * written, so an untouched attempt still counts as abandoned).
+   */
+  const goToQuestion = (value: number | ((prev: number) => number)) => {
+    const leaving = questions[currentIndex];
+    if (
+      leaving &&
+      !isInteractive &&
+      (answers[leaving.id]?.length || marked.has(leaving.id))
+    ) {
+      queueSave({
+        questionId: leaving.id,
+        selectedChoices: answers[leaving.id] || [],
+        isMarked: marked.has(leaving.id),
+        timeSpent: secondsOn(leaving.id),
+      });
+    }
+    setCurrentIndex(value);
   };
 
   const handleCheck = async (questionId: string) => {
@@ -347,6 +380,7 @@ const ExamPage = () => {
         questionId,
         selectedChoices,
         isMarked: marked.has(questionId),
+        timeSpent: secondsOn(questionId),
       });
       setFeedback((prev) => ({ ...prev, [questionId]: res }));
     } catch (err: unknown) {
@@ -392,6 +426,7 @@ const ExamPage = () => {
       questionId,
       selectedChoices: answers[questionId] || [],
       isMarked,
+      timeSpent: secondsOn(questionId),
     });
   };
 
@@ -484,7 +519,7 @@ const ExamPage = () => {
           attemptData={attemptData}
           questions={questions}
           currentIndex={currentIndex}
-          setCurrentIndex={setCurrentIndex}
+          setCurrentIndex={goToQuestion}
           answers={answers}
           selectAnswer={selectAnswer}
           marked={marked}

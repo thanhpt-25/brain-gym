@@ -43,6 +43,9 @@ export class SavedAnswerState {
 
   @ApiProperty()
   isMarked: boolean;
+
+  @ApiProperty({ description: 'Seconds spent on the question so far' })
+  timeSpent: number;
 }
 
 /**

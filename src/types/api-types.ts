@@ -211,7 +211,12 @@ export interface AttemptQuestion {
 export interface AttemptState extends Partial<StartAttemptResponse> {
   attemptId: string;
   status: "IN_PROGRESS" | "SUBMITTED" | "ABANDONED";
-  answers?: { questionId: string; selectedChoices: string[]; isMarked: boolean }[];
+  answers?: {
+    questionId: string;
+    selectedChoices: string[];
+    isMarked: boolean;
+    timeSpent?: number;
+  }[];
   checked?: CheckAnswerResponse[];
 }
 
@@ -233,6 +238,8 @@ export interface SubmitAnswerPayload {
   questionId: string;
   selectedChoices: string[];
   isMarked?: boolean;
+  /** Total seconds spent on the question so far. */
+  timeSpent?: number;
 }
 
 export interface SubmitAttemptPayload {
@@ -248,6 +255,8 @@ export interface CheckAnswerResponse {
   explanation: string | null;
   checkedAt: string;
 }
+
+export type MistakeType = "CONCEPT" | "CARELESS" | "TRAP" | "TIME_PRESSURE";
 
 export interface AttemptResult {
   attemptId: string;
@@ -268,6 +277,8 @@ export interface AttemptResult {
   /** Certification pass mark (%). Missing on older backends. */
   passingScore?: number;
   passed?: boolean;
+  /** Seconds per question needed to finish on time. */
+  targetSecondsPerQuestion?: number | null;
   domainScores: Record<string, { correct: number; total: number }>;
   timeSpent: number;
   startedAt: string;
@@ -282,6 +293,10 @@ export interface AttemptResult {
     domain: string;
     correct: boolean;
     checkedAt?: string;
+    timeSpent?: number;
+    mistakeType?: MistakeType;
+    /** Hint from the time spent on a wrong answer. */
+    suggestedMistakeType?: MistakeType;
     selectedAnswers: string[];
     correctAnswers: string[];
     choices: Choice[];

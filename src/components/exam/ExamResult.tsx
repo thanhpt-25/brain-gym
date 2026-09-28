@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Check, Share2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Check, Share2, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { AttemptResult } from '@/types/api-types';
+import { AttemptResult, MistakeType } from '@/types/api-types';
 import { toast } from 'sonner';
 import MarkdownContent from '@/components/ui/MarkdownContent';
 
@@ -10,6 +10,91 @@ interface ExamResultProps {
   result: AttemptResult;
   onRetry: () => void;
   onHome: () => void;
+}
+
+const MISTAKE_HINTS: Partial<Record<MistakeType, string>> = {
+  CARELESS: 'Likely careless — answered very quickly',
+  TIME_PRESSURE: 'Likely time pressure — well over the target pace',
+};
+
+/** 75 → "1m 15s", 42 → "42s". */
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return m > 0 ? `${m}m ${s.toString().padStart(2, '0')}s` : `${s}s`;
+}
+
+/**
+ * Where the time went: average pace against the pace needed to finish on
+ * time, and the questions that took longest.
+ */
+function TimeAnalysis({ result }: { result: AttemptResult }) {
+  const timed = result.questionResults
+    .map((qr, index) => ({ qr, index }))
+    .filter(({ qr }) => typeof qr.timeSpent === 'number');
+  if (timed.length === 0) return null;
+
+  const total = timed.reduce((sum, { qr }) => sum + (qr.timeSpent ?? 0), 0);
+  const average = total / timed.length;
+  const target = result.targetSecondsPerQuestion ?? null;
+  const slowest = [...timed]
+    .sort((a, b) => (b.qr.timeSpent ?? 0) - (a.qr.timeSpent ?? 0))
+    .slice(0, 3)
+    .filter(({ qr }) => (qr.timeSpent ?? 0) > 0);
+  const quickWrong = timed.filter(
+    ({ qr }) => qr.suggestedMistakeType === 'CARELESS',
+  ).length;
+  const overPace = target
+    ? timed.filter(({ qr }) => (qr.timeSpent ?? 0) > target).length
+    : 0;
+
+  return (
+    <section className="glass-card p-6 mb-6" aria-labelledby="time-analysis">
+      <h3 id="time-analysis" className="font-mono font-semibold mb-4 flex items-center gap-2">
+        <Timer className="h-4 w-4" aria-hidden="true" /> Time Analysis
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div className="text-lg font-mono font-bold">{formatDuration(average)}</div>
+          <div className="text-xs text-muted-foreground">Avg per question</div>
+        </div>
+        {target !== null && (
+          <div className="p-3 rounded-lg bg-secondary text-center">
+            <div className="text-lg font-mono font-bold">{formatDuration(target)}</div>
+            <div className="text-xs text-muted-foreground">Target pace</div>
+          </div>
+        )}
+        {target !== null && (
+          <div className="p-3 rounded-lg bg-secondary text-center">
+            <div className={`text-lg font-mono font-bold ${overPace > 0 ? 'text-warning' : ''}`}>
+              {overPace}
+            </div>
+            <div className="text-xs text-muted-foreground">Over target pace</div>
+          </div>
+        )}
+      </div>
+      {slowest.length > 0 && (
+        <div className="text-sm">
+          <div className="text-muted-foreground mb-1">Took longest:</div>
+          <ul className="space-y-1">
+            {slowest.map(({ qr, index }) => (
+              <li key={qr.questionId} className="flex gap-2">
+                <span className="font-mono text-muted-foreground w-10">Q{index + 1}</span>
+                <span className="flex-1 truncate">{qr.title}</span>
+                <span className="font-mono">{formatDuration(qr.timeSpent ?? 0)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {quickWrong > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {quickWrong} wrong answer{quickWrong > 1 ? 's were' : ' was'} given in under 10 seconds —
+          slowing down may win easy points.
+        </p>
+      )}
+    </section>
+  );
 }
 
 export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
@@ -74,6 +159,8 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
             </div>
           )}
 
+          <TimeAnalysis result={result} />
+
           {/* Question Review */}
           <div className="glass-card p-6 mb-6">
             <h3 className="font-mono font-semibold mb-4">Question Review</h3>
@@ -90,7 +177,17 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
                       <div className="text-sm font-medium mb-2">
                         <span className="text-muted-foreground mr-2">Q{i + 1}.</span>
                         {qr.title}
+                        {typeof qr.timeSpent === 'number' && (
+                          <span className="ml-2 text-xs font-mono text-muted-foreground" title="Time spent">
+                            · {formatDuration(qr.timeSpent)}
+                          </span>
+                        )}
                       </div>
+                      {!qr.correct && !qr.mistakeType && qr.suggestedMistakeType && MISTAKE_HINTS[qr.suggestedMistakeType] && (
+                        <div className="mb-2 inline-block text-[11px] px-2 py-0.5 rounded-full font-mono bg-warning/10 text-warning border border-warning/20">
+                          {MISTAKE_HINTS[qr.suggestedMistakeType]}
+                        </div>
+                      )}
                       {qr.codeSnippet && (
                         <pre className="p-3 rounded bg-secondary/80 text-xs font-mono overflow-x-auto mb-2">
                           <code>{qr.codeSnippet}</code>

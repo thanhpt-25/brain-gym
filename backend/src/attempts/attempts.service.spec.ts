@@ -12,7 +12,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { isAnswerCorrect } from './grading';
-import { DEADLINE_GRACE_MS, effectiveTimeLimit } from './attempts.service';
+import {
+  DEADLINE_GRACE_MS,
+  effectiveTimeLimit,
+  suggestMistakeType,
+} from './attempts.service';
 
 describe('AttemptsService', () => {
   let service: AttemptsService;
@@ -1463,7 +1467,12 @@ describe('AttemptsService', () => {
           { id: 'c1', label: 'b', content: 'Content c1' },
         ]);
         expect(state.answers).toEqual([
-          { questionId: 'q1', selectedChoices: ['c2'], isMarked: true },
+          {
+            questionId: 'q1',
+            selectedChoices: ['c2'],
+            isMarked: true,
+            timeSpent: 0,
+          },
         ]);
         expect(state.checked).toEqual([
           expect.objectContaining({
@@ -1610,6 +1619,183 @@ describe('AttemptsService', () => {
         expect(res.passingScore).toBe(85);
         expect(res.passed).toBe(false);
       });
+    });
+  });
+
+  describe('Sprint 2: per-question time and practice exams', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    describe('suggestMistakeType', () => {
+      it('suggests CARELESS for a wrong answer given in a few seconds', () => {
+        expect(suggestMistakeType(false, true, 4, 80)).toBe('CARELESS');
+      });
+
+      it('suggests TIME_PRESSURE for a wrong answer far over the target pace', () => {
+        expect(suggestMistakeType(false, true, 200, 80)).toBe('TIME_PRESSURE');
+      });
+
+      it('suggests nothing for correct, skipped, untimed or normally paced answers', () => {
+        expect(suggestMistakeType(true, true, 2, 80)).toBeUndefined();
+        expect(suggestMistakeType(false, false, 2, 80)).toBeUndefined();
+        expect(suggestMistakeType(false, true, null, 80)).toBeUndefined();
+        expect(suggestMistakeType(false, true, 60, 80)).toBeUndefined();
+        expect(suggestMistakeType(false, true, 500, null)).toBeUndefined();
+      });
+    });
+
+    describe('saveAnswer timeSpent', () => {
+      beforeEach(() => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          id: 'att-1',
+          userId: 'user-1',
+          status: AttemptStatus.IN_PROGRESS,
+          startedAt: new Date(Date.now() - 120_000),
+          expiresAt: new Date(Date.now() + 600_000),
+        });
+        mockPrismaService.examQuestion.findFirst.mockResolvedValue({
+          question: { id: 'q1', choices: [{ id: 'c1', isCorrect: true }] },
+        });
+        mockPrismaService.answer.findFirst.mockResolvedValue(null);
+        mockPrismaService.answer.count.mockResolvedValue(0);
+      });
+
+      it('stores the time spent on the question', async () => {
+        await service.saveAnswer('user-1', 'att-1', {
+          questionId: 'q1',
+          selectedChoices: ['c1'],
+          timeSpent: 42,
+        });
+        const call = mockPrismaService.answer.upsert.mock.calls[0][0];
+        expect(call.create.timeSpent).toBe(42);
+        expect(call.update.timeSpent).toBe(42);
+      });
+
+      it('caps it at how long the attempt has been running', async () => {
+        await service.saveAnswer('user-1', 'att-1', {
+          questionId: 'q1',
+          selectedChoices: ['c1'],
+          timeSpent: 5_000,
+        });
+        const { create } = mockPrismaService.answer.upsert.mock.calls[0][0];
+        expect(create.timeSpent).toBeGreaterThanOrEqual(119);
+        expect(create.timeSpent).toBeLessThanOrEqual(121);
+      });
+
+      it('leaves the stored time alone when none is sent', async () => {
+        await service.saveAnswer('user-1', 'att-1', {
+          questionId: 'q1',
+          selectedChoices: ['c1'],
+        });
+        const call = mockPrismaService.answer.upsert.mock.calls[0][0];
+        expect(call.create).not.toHaveProperty('timeSpent');
+        expect(call.update).not.toHaveProperty('timeSpent');
+      });
+    });
+
+    it('records submitted per-question times with the graded answers', () => {
+      const { answerRecords } = (service as any).evaluateAnswers(
+        'att-1',
+        {
+          answers: [
+            { questionId: 'q1', selectedChoices: ['c1'], timeSpent: 30 },
+          ],
+        },
+        [
+          {
+            question: {
+              id: 'q1',
+              choices: [{ id: 'c1', isCorrect: true }],
+              domain: null,
+            },
+          },
+          {
+            question: {
+              id: 'q2',
+              choices: [{ id: 'c2', isCorrect: true }],
+              domain: null,
+            },
+          },
+        ],
+      );
+      expect(answerRecords.map((r: any) => r.timeSpent)).toEqual([30, null]);
+    });
+
+    it('returns per-question time, the target pace and mistake hints', async () => {
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+        id: 'att-1',
+        userId: 'user-1',
+        examId: 'exam-1',
+        status: AttemptStatus.SUBMITTED,
+        score: 0,
+        totalQuestions: 2,
+        startedAt: new Date(),
+        exam: {
+          title: 'Exam',
+          timeLimit: 4,
+          timerMode: 'STRICT',
+          certification: { id: 'cert-1' },
+        },
+        answers: [
+          {
+            id: 'a1',
+            questionId: 'q1',
+            isCorrect: false,
+            selectedChoices: ['c2'],
+            timeSpent: 3,
+            question: {
+              title: 'Q1',
+              domain: null,
+              choices: [
+                { id: 'c1', label: 'a', content: 'x', isCorrect: true },
+                { id: 'c2', label: 'b', content: 'y', isCorrect: false },
+              ],
+            },
+          },
+          {
+            id: 'a2',
+            questionId: 'q2',
+            isCorrect: false,
+            selectedChoices: ['c2'],
+            timeSpent: 400,
+            question: {
+              title: 'Q2',
+              domain: null,
+              choices: [
+                { id: 'c1', label: 'a', content: 'x', isCorrect: true },
+                { id: 'c2', label: 'b', content: 'y', isCorrect: false },
+              ],
+            },
+          },
+        ],
+      });
+
+      const res = await service.findResult('att-1', 'user-1');
+
+      expect(res.targetSecondsPerQuestion).toBe(120);
+      expect(
+        res.questionResults.map((r) => [r.timeSpent, r.suggestedMistakeType]),
+      ).toEqual([
+        [3, 'CARELESS'],
+        [400, 'TIME_PRESSURE'],
+      ]);
+    });
+
+    it("refuses to start someone else's practice exam", async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue({
+        id: 'exam-1',
+        isPractice: true,
+        createdBy: 'user-2',
+        deletedAt: null,
+        timeLimit: 10,
+        timerMode: 'STRICT',
+        certification: { id: 'cert-1' },
+        examQuestions: [],
+      });
+      await expect(service.start('user-1', 'exam-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
   });
 });

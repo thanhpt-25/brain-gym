@@ -547,6 +547,9 @@ model Exam {
   shareCode       String?        @unique @map("share_code")
   isAdaptive      Boolean        @default(false) @map("is_adaptive")
   timerMode       TimerMode      @default(STRICT) @map("timer_mode")
+  /// Auto-generated per-learner practice draw (POST /exams/practice): always
+  /// PRIVATE and hidden from exam lists.
+  isPractice      Boolean        @default(false) @map("is_practice")
   attemptCount    Int            @default(0) @map("attempt_count")
   avgScore        Decimal?       @map("avg_score") @db.Decimal(5, 2)
   createdAt       DateTime       @default(now()) @map("created_at")

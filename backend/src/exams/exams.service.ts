@@ -9,7 +9,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { BlueprintDto } from './dto/blueprint.dto';
+import { CreatePracticeExamDto } from './dto/create-practice-exam.dto';
+import { QuestionHistory, selectPracticeQuestions } from './practice-selection';
 import {
+  AttemptStatus,
   ExamVisibility,
   QuestionStatus,
   UserRole,
@@ -193,18 +196,21 @@ export class ExamsService {
       // Manual (pick) mode: use the provided list as-is.
       questionIds = dto.questionIds;
     } else {
-      // Random mode: shuffle all approved questions and slice.
+      // Random mode: shuffle all approved, non-deleted questions and slice.
+      // Fisher-Yates: sort(() => Math.random() - 0.5) is biased.
       const questions = await this.prisma.question.findMany({
         where: {
           certificationId: dto.certificationId,
           status: QuestionStatus.APPROVED,
+          deletedAt: null,
         },
         select: { id: true },
-        orderBy: { createdAt: 'desc' },
       });
-
-      const shuffled = questions.sort(() => Math.random() - 0.5);
-      questionIds = shuffled.slice(0, dto.questionCount).map((q) => q.id);
+      for (let i = questions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questions[i], questions[j]] = [questions[j], questions[i]];
+      }
+      questionIds = questions.slice(0, dto.questionCount).map((q) => q.id);
     }
 
     const shareCode =
@@ -235,6 +241,111 @@ export class ExamsService {
         examQuestions: { include: { question: true } },
       },
     });
+  }
+
+  /**
+   * A fresh practice draw for one learner: follows the certification's domain
+   * weights and favours questions they haven't seen or got wrong (see
+   * practice-selection.ts). The exam is PRIVATE and flagged isPractice so it
+   * never shows up in the public library or "My exams".
+   */
+  async createPractice(userId: string, dto: CreatePracticeExamDto) {
+    const certification = await this.prisma.certification.findUnique({
+      where: { id: dto.certificationId },
+      include: { domains: { select: { id: true, weight: true } } },
+    });
+    if (!certification) throw new NotFoundException('Certification not found');
+
+    const [candidates, history] = await Promise.all([
+      this.prisma.question.findMany({
+        where: {
+          certificationId: dto.certificationId,
+          status: QuestionStatus.APPROVED,
+          deletedAt: null,
+        },
+        select: { id: true, domainId: true },
+      }),
+      this.questionHistory(userId, dto.certificationId),
+    ]);
+    if (candidates.length === 0) {
+      throw new UnprocessableEntityException(
+        'No approved questions available for this certification yet',
+      );
+    }
+
+    const questionIds = selectPracticeQuestions(
+      candidates,
+      certification.domains.map((d) => ({
+        id: d.id,
+        weight: d.weight === null ? null : Number(d.weight),
+      })),
+      history,
+      dto.questionCount,
+    );
+    const isTimePressure = dto.timerMode === 'TIME_PRESSURE';
+
+    return this.prisma.exam.create({
+      data: {
+        title: `${certification.code} ${isTimePressure ? 'Time Pressure' : 'Practice'} Exam`,
+        certificationId: dto.certificationId,
+        createdBy: userId,
+        questionCount: questionIds.length,
+        timeLimit: dto.timeLimit,
+        visibility: ExamVisibility.PRIVATE,
+        isPractice: true,
+        timerMode: dto.timerMode,
+        examQuestions: {
+          create: questionIds.map((questionId, index) => ({
+            questionId,
+            sortOrder: index,
+          })),
+        },
+      },
+      select: { id: true, questionCount: true, timeLimit: true },
+    });
+  }
+
+  /** Number of the learner's latest attempts whose questions count as "recent". */
+  static readonly RECENT_ATTEMPTS = 2;
+
+  /**
+   * The learner's last result per question of this certification, from
+   * submitted attempts, and which questions came up in their latest attempts.
+   */
+  private async questionHistory(
+    userId: string,
+    certificationId: string,
+  ): Promise<Map<string, QuestionHistory>> {
+    const attempts = await this.prisma.examAttempt.findMany({
+      where: {
+        userId,
+        status: AttemptStatus.SUBMITTED,
+        exam: { certificationId },
+      },
+      orderBy: { submittedAt: 'desc' },
+      select: {
+        id: true,
+        answers: { select: { questionId: true, isCorrect: true } },
+      },
+    });
+
+    const history = new Map<string, QuestionHistory>();
+    attempts.forEach((attempt, index) => {
+      const recent = index < ExamsService.RECENT_ATTEMPTS;
+      for (const a of attempt.answers) {
+        // Attempts are newest first: the first result seen is the latest.
+        const known = history.get(a.questionId);
+        if (known) {
+          known.recent ||= recent;
+        } else {
+          history.set(a.questionId, {
+            lastCorrect: a.isCorrect === true,
+            recent,
+          });
+        }
+      }
+    });
+    return history;
   }
 
   async findAll(
@@ -276,7 +387,7 @@ export class ExamsService {
 
   async findMyExams(userId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
-    const where = { createdBy: userId, deletedAt: null };
+    const where = { createdBy: userId, deletedAt: null, isPractice: false };
 
     const [total, exams] = await Promise.all([
       this.prisma.exam.count({ where }),

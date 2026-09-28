@@ -17,9 +17,16 @@ describe('ExamsService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
     },
     examAttempt: {
       count: jest.fn(),
+      findMany: jest.fn(),
+    },
+    certification: {
+      findUnique: jest.fn(),
     },
     question: {
       findMany: jest.fn(),
@@ -390,6 +397,146 @@ describe('ExamsService', () => {
       await expect(
         resolve({ byDomain: { 'dom-a': 201 } }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('createPractice', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockPrismaService.certification.findUnique.mockResolvedValue({
+        id: 'cert-1',
+        code: 'SAA',
+        domains: [
+          { id: 'd1', weight: '75.00' },
+          { id: 'd2', weight: '25.00' },
+        ],
+      });
+      mockPrismaService.question.findMany.mockResolvedValue([
+        ...Array.from({ length: 10 }, (_, i) => ({
+          id: `d1-${i}`,
+          domainId: 'd1',
+        })),
+        ...Array.from({ length: 10 }, (_, i) => ({
+          id: `d2-${i}`,
+          domainId: 'd2',
+        })),
+      ]);
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+      mockPrismaService.exam.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'exam-1', ...data }),
+      );
+    });
+
+    it('creates a private practice exam following the domain weights', async () => {
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 8,
+        timeLimit: 12,
+        timerMode: 'TIME_PRESSURE' as any,
+      });
+
+      const { data } = mockPrismaService.exam.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        title: 'SAA Time Pressure Exam',
+        visibility: 'PRIVATE',
+        isPractice: true,
+        createdBy: 'user-1',
+        questionCount: 8,
+        timeLimit: 12,
+      });
+      const ids = data.examQuestions.create.map((q: any) => q.questionId);
+      expect(ids.filter((id: string) => id.startsWith('d1'))).toHaveLength(6);
+      expect(ids.filter((id: string) => id.startsWith('d2'))).toHaveLength(2);
+      expect(mockPrismaService.question.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'APPROVED',
+            deletedAt: null,
+          }),
+        }),
+      );
+    });
+
+    it("skips the questions from the learner's latest attempts when it can", async () => {
+      mockPrismaService.question.findMany.mockResolvedValue([
+        { id: 'a', domainId: 'd1' },
+        { id: 'b', domainId: 'd1' },
+        { id: 'c', domainId: 'd1' },
+      ]);
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([
+        { id: 'att-2', answers: [{ questionId: 'a', isCorrect: true }] },
+        { id: 'att-1', answers: [{ questionId: 'b', isCorrect: true }] },
+        { id: 'att-0', answers: [{ questionId: 'c', isCorrect: false }] },
+      ]);
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 1,
+        timeLimit: 5,
+      });
+
+      const { data } = mockPrismaService.exam.create.mock.calls[0][0];
+      // a and b were in the 2 latest attempts; c was missed longer ago.
+      expect(data.examQuestions.create).toEqual([
+        { questionId: 'c', sortOrder: 0 },
+      ]);
+    });
+
+    it('404s for an unknown certification and 422s for an empty pool', async () => {
+      mockPrismaService.certification.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.createPractice('user-1', {
+          certificationId: 'nope',
+          questionCount: 1,
+          timeLimit: 5,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      mockPrismaService.question.findMany.mockResolvedValue([]);
+      await expect(
+        service.createPractice('user-1', {
+          certificationId: 'cert-1',
+          questionCount: 1,
+          timeLimit: 5,
+        }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+  });
+
+  describe('create (random mode)', () => {
+    it('only draws approved, non-deleted questions', async () => {
+      jest.clearAllMocks();
+      mockPrismaService.question.findMany.mockResolvedValue([{ id: 'q1' }]);
+      mockPrismaService.exam.create.mockResolvedValue({ id: 'exam-1' });
+
+      await service.create('user-1', {
+        title: 'T',
+        certificationId: 'cert-1',
+        questionCount: 1,
+        timeLimit: 5,
+      });
+
+      expect(mockPrismaService.question.findMany).toHaveBeenCalledWith({
+        where: {
+          certificationId: 'cert-1',
+          status: 'APPROVED',
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+    });
+  });
+
+  describe('findMyExams', () => {
+    it('hides auto-generated practice exams', async () => {
+      mockPrismaService.exam.count.mockResolvedValue(0);
+      mockPrismaService.exam.findMany.mockResolvedValue([]);
+      await service.findMyExams('user-1');
+      expect(mockPrismaService.exam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { createdBy: 'user-1', deletedAt: null, isPractice: false },
+        }),
+      );
     });
   });
 });

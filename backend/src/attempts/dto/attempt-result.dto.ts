@@ -52,6 +52,19 @@ export class QuestionResultResponse {
   @ApiProperty({ enum: MistakeType, required: false })
   mistakeType?: MistakeType;
 
+  @ApiProperty({
+    required: false,
+    description: 'Seconds spent on the question',
+  })
+  timeSpent?: number;
+
+  @ApiProperty({
+    enum: MistakeType,
+    required: false,
+    description: 'Hint derived from the time spent on a wrong answer',
+  })
+  suggestedMistakeType?: MistakeType;
+
   @ApiProperty({ type: [String] })
   selectedAnswers: string[];
 
@@ -100,6 +113,13 @@ export class AttemptResultResponse {
 
   @ApiProperty()
   passed: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description: 'Seconds per question needed to finish within the time limit',
+  })
+  targetSecondsPerQuestion: number | null;
 
   @ApiProperty()
   domainScores: Record<string, { correct: number; total: number }>;

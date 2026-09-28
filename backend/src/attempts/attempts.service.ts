@@ -8,7 +8,13 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
 import { SubmitAttemptDto } from './dto/submit-attempt.dto';
-import { AttemptStatus, FeedbackMode, Prisma, TimerMode } from '@prisma/client';
+import {
+  AttemptStatus,
+  FeedbackMode,
+  MistakeType,
+  Prisma,
+  TimerMode,
+} from '@prisma/client';
 import {
   GamificationService,
   POINTS,
@@ -55,6 +61,35 @@ export function effectiveTimeLimit(exam: {
     return Math.max(1, Math.round(exam.timeLimit * ACCELERATED_TIME_FACTOR));
   }
   return exam.timeLimit;
+}
+
+/** Answering a wrong question faster than this (seconds) looks careless. */
+export const CARELESS_MAX_SECONDS = 10;
+/** Spending more than this multiple of the target pace looks like time pressure. */
+export const SLOW_PACE_FACTOR = 2;
+
+/**
+ * A hint for the mistake type of a wrong answer from the time spent on it:
+ * very quick → CARELESS, far over the target pace → TIME_PRESSURE. Only a
+ * suggestion; the learner's own tag (Answer.mistakeType) always wins.
+ */
+export function suggestMistakeType(
+  correct: boolean,
+  answered: boolean,
+  timeSpent: number | null | undefined,
+  targetSecondsPerQuestion: number | null,
+): MistakeType | undefined {
+  if (correct || !answered || timeSpent === null || timeSpent === undefined) {
+    return undefined;
+  }
+  if (timeSpent < CARELESS_MAX_SECONDS) return MistakeType.CARELESS;
+  if (
+    targetSecondsPerQuestion &&
+    timeSpent > targetSecondsPerQuestion * SLOW_PACE_FACTOR
+  ) {
+    return MistakeType.TIME_PRESSURE;
+  }
+  return undefined;
 }
 
 function readPresentation(value: Prisma.JsonValue | null | undefined) {
@@ -120,6 +155,10 @@ export class AttemptsService {
     });
 
     if (!exam || exam.deletedAt) throw new NotFoundException('Exam not found');
+    // A practice draw is personal (it is built from the learner's history).
+    if (exam.isPractice && exam.createdBy !== userId) {
+      throw new NotFoundException('Exam not found');
+    }
 
     // Time Pressure simulates the real exam, so answers stay hidden until the end.
     if (
@@ -268,6 +307,21 @@ export class AttemptsService {
     return result;
   }
 
+  /**
+   * Per-question time reported by the client, capped at how long the attempt
+   * has been running so a crafted value can't skew the pace analysis.
+   */
+  private clampTimeSpent(
+    value: number | undefined,
+    attempt: Parameters<AttemptsService['elapsedSeconds']>[0],
+  ): number | undefined {
+    if (value === undefined || value === null) return undefined;
+    return Math.max(
+      0,
+      Math.min(Math.floor(value), this.elapsedSeconds(attempt)),
+    );
+  }
+
   /** Position of a question in the attempt's presentation order. */
   private async questionOrderFor(
     attempt: { id: string; presentation?: Prisma.JsonValue | null },
@@ -336,6 +390,8 @@ export class AttemptsService {
       ? undefined
       : await this.questionOrderFor(attempt, dto.questionId, this.prisma);
 
+    const timeSpent = this.clampTimeSpent(dto.timeSpent, attempt);
+
     return this.prisma.answer.upsert({
       where: { id: existing?.id ?? '' },
       create: {
@@ -345,11 +401,13 @@ export class AttemptsService {
         isCorrect,
         isMarked: dto.isMarked ?? false,
         questionOrder: questionOrder ?? 0,
+        ...(timeSpent !== undefined ? { timeSpent } : {}),
       },
       update: {
         selectedChoices: dto.selectedChoices,
         isCorrect,
         isMarked: dto.isMarked ?? false,
+        ...(timeSpent !== undefined ? { timeSpent } : {}),
       },
       // Never echo isCorrect back mid-exam: in end-of-exam mode the client
       // must not learn whether an answer is right until the attempt is graded.
@@ -414,6 +472,8 @@ export class AttemptsService {
       .map((c) => c.id);
     const isCorrect = isAnswerCorrect(correctChoiceIds, selectedChoices);
     const checkedAt = new Date();
+    const timeSpent = this.clampTimeSpent(dto.timeSpent, attempt);
+    const timeData = timeSpent !== undefined ? { timeSpent } : {};
 
     await this.prisma.$transaction(async (tx) => {
       // Serialize checks within one attempt so two concurrent requests for
@@ -460,6 +520,7 @@ export class AttemptsService {
             isCorrect,
             isMarked: dto.isMarked ?? false,
             checkedAt,
+            ...timeData,
           },
         });
       } else {
@@ -477,6 +538,7 @@ export class AttemptsService {
             isMarked: dto.isMarked ?? false,
             questionOrder,
             checkedAt,
+            ...timeData,
           },
         });
       }
@@ -559,7 +621,17 @@ export class AttemptsService {
       }
 
       const { totalCorrect, domainScores, answerRecords } =
-        this.evaluateAnswers(attemptId, dto, examQuestions, lockedAnswers);
+        this.evaluateAnswers(
+          attemptId,
+          {
+            answers: dto.answers.map((a) => ({
+              ...a,
+              timeSpent: this.clampTimeSpent(a.timeSpent, attempt),
+            })),
+          },
+          examQuestions,
+          lockedAnswers,
+        );
       const score =
         totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
 
@@ -911,6 +983,7 @@ export class AttemptsService {
         questionId: a.questionId,
         selectedChoices: a.selectedChoices,
         isMarked: a.isMarked,
+        timeSpent: a.timeSpent ?? 0,
       })),
       checked,
     };
@@ -981,6 +1054,7 @@ export class AttemptsService {
         isCorrect,
         isMarked: submitted?.isMarked ?? false,
         questionOrder,
+        timeSpent: submitted?.timeSpent ?? null,
         ...(locked ? { checkedAt: locked.checkedAt } : {}),
       });
     };
@@ -1064,6 +1138,13 @@ export class AttemptsService {
       }));
     };
 
+    // Pace the learner needed to finish on time, for the time analysis.
+    const totalQuestions = attempt.totalQuestions ?? attempt.answers.length;
+    const targetSecondsPerQuestion =
+      attempt.exam.timeLimit && totalQuestions > 0
+        ? Math.round((effectiveTimeLimit(attempt.exam) * 60) / totalQuestions)
+        : null;
+
     const questionResults: QuestionResultResponse[] = attempt.answers.map(
       (a) => ({
         answerId: a.id,
@@ -1077,6 +1158,13 @@ export class AttemptsService {
         correct: a.isCorrect ?? false,
         checkedAt: a.checkedAt ?? undefined,
         mistakeType: a.mistakeType ?? undefined,
+        timeSpent: a.timeSpent ?? undefined,
+        suggestedMistakeType: suggestMistakeType(
+          a.isCorrect === true,
+          a.selectedChoices.length > 0,
+          a.timeSpent,
+          targetSecondsPerQuestion,
+        ),
         selectedAnswers: a.selectedChoices,
         correctAnswers: a.question.choices
           .filter((c) => c.isCorrect)
@@ -1106,6 +1194,7 @@ export class AttemptsService {
       totalCorrect: attempt.totalCorrect ?? 0,
       totalQuestions: attempt.totalQuestions ?? 0,
       percentage: Math.round(Number(attempt.score ?? 0)),
+      targetSecondsPerQuestion,
       passingScore,
       passed: Number(attempt.score ?? 0) >= passingScore,
       domainScores: attempt.domainScores as Record<

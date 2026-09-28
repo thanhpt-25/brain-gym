@@ -67,7 +67,11 @@ function startResponse(
     attemptId: "att-1",
     examId: "exam-1",
     title: "AWS-SAA Practice Exam",
-    certification: { id: "cert-1", name: "Solutions Architect", code: "AWS-SAA" },
+    certification: {
+      id: "cert-1",
+      name: "Solutions Architect",
+      code: "AWS-SAA",
+    },
     timeLimit: 5,
     timerMode: "STRICT",
     feedbackMode: "END_OF_EXAM",
@@ -128,7 +132,7 @@ describe("ExamPage — server timer, autosave and resume", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    vi.mocked(examsService.createExam).mockResolvedValue({
+    vi.mocked(examsService.createPracticeExam).mockResolvedValue({
       id: "exam-1",
     } as never);
     vi.mocked(attemptsService.getActiveAttempt).mockResolvedValue(null);
@@ -145,9 +149,12 @@ describe("ExamPage — server timer, autosave and resume", () => {
     expect(screen.getByText("72%")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /start exam/i }));
 
-    expect(examsService.createExam).toHaveBeenCalledWith(
-      expect.objectContaining({ questionCount: 2, timeLimit: 5 }),
-    );
+    expect(examsService.createPracticeExam).toHaveBeenCalledWith({
+      certificationId: "cert-1",
+      questionCount: 2,
+      timeLimit: 5,
+      timerMode: "STRICT",
+    });
   });
 
   it("autosaves answers and flags while the exam is in progress", async () => {
@@ -159,11 +166,15 @@ describe("ExamPage — server timer, autosave and resume", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /S3/ }));
     await waitFor(() =>
-      expect(attemptsService.saveAnswer).toHaveBeenCalledWith("att-1", {
-        questionId: "q1",
-        selectedChoices: ["c2"],
-        isMarked: false,
-      }),
+      expect(attemptsService.saveAnswer).toHaveBeenCalledWith(
+        "att-1",
+        expect.objectContaining({
+          questionId: "q1",
+          selectedChoices: ["c2"],
+          isMarked: false,
+          timeSpent: expect.any(Number),
+        }),
+      ),
     );
     expect(await screen.findByTestId("save-status")).toHaveTextContent("Saved");
   });
@@ -231,13 +242,26 @@ describe("ExamPage — server timer, autosave and resume", () => {
     expect(
       await screen.findByText("Pick the managed database"),
     ).toBeInTheDocument();
-    expect(examsService.createExam).not.toHaveBeenCalled();
+    expect(examsService.createPracticeExam).not.toHaveBeenCalled();
 
     await userEvent.click(screen.getByRole("button", { name: /^submit$/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^submit exam$/i }),
+    );
     expect(attemptsService.submitAttempt).toHaveBeenCalledWith("att-9", {
       answers: [
-        { questionId: "q1", selectedChoices: ["c2"], isMarked: true },
-        { questionId: "q2", selectedChoices: [], isMarked: false },
+        expect.objectContaining({
+          questionId: "q1",
+          selectedChoices: ["c2"],
+          isMarked: true,
+          timeSpent: expect.any(Number),
+        }),
+        expect.objectContaining({
+          questionId: "q2",
+          selectedChoices: [],
+          isMarked: false,
+          timeSpent: expect.any(Number),
+        }),
       ],
     });
   });
@@ -274,4 +298,34 @@ describe("ExamPage — server timer, autosave and resume", () => {
       await screen.findByText("Which service stores objects?"),
     ).toBeInTheDocument();
   });
+
+  it("saves an answered question with its time when moving on", async () => {
+    vi.mocked(attemptsService.startAttempt).mockResolvedValue(startResponse());
+    renderPage();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /start exam/i }),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /S3/ }));
+    await waitFor(() => expect(attemptsService.saveAnswer).toHaveBeenCalled());
+    vi.mocked(attemptsService.saveAnswer).mockClear();
+
+    await userEvent.click(screen.getByRole("button", { name: /next/i }));
+    await waitFor(() =>
+      expect(attemptsService.saveAnswer).toHaveBeenCalledWith(
+        "att-1",
+        expect.objectContaining({
+          questionId: "q1",
+          selectedChoices: ["c2"],
+          timeSpent: expect.any(Number),
+        }),
+      ),
+    );
+
+    // Leaving an unanswered question writes nothing.
+    vi.mocked(attemptsService.saveAnswer).mockClear();
+    await userEvent.click(screen.getByRole("button", { name: /prev/i }));
+    await new Promise((r) => setTimeout(r, 800));
+    expect(attemptsService.saveAnswer).not.toHaveBeenCalled();
+  });
 });
+
