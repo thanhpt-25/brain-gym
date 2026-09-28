@@ -104,53 +104,37 @@ export class AiQuestionBankController {
   }
 
   @Post('materials/file')
-  @ApiOperation({
-    summary: 'Upload a file study material (PDF, DOCX, PPTX, XLSX)',
-  })
+  @ApiOperation({ summary: 'Upload a file study material (PDF, DOCX, PPTX, XLSX)' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      fileFilter: (_req, file, cb) => {
-        const allowed = /\.(pdf|docx|pptx|xlsx)$/i;
-        cb(null, allowed.test(file.originalname));
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', {
+    fileFilter: (_req, file, cb) => {
+      const allowed = /\.(pdf|docx|pptx|xlsx)$/i;
+      cb(null, allowed.test(file.originalname));
+    },
+  }))
   uploadFileMaterial(
     @Req() req: AuthenticatedRequest,
     @Body() dto: UploadMaterialDto,
     @UploadedFile() file: { buffer: Buffer; originalname: string } | undefined,
   ) {
-    return this.ingestion.uploadMaterial(
-      req.user.id,
-      dto,
-      file?.buffer,
-      file?.originalname,
-    );
+    return this.ingestion.uploadMaterial(req.user.id, dto, file?.buffer, file?.originalname);
   }
 
   /** @deprecated Use /materials/file instead */
   @Post('materials/pdf')
   @ApiOperation({ summary: '[Deprecated] Use /materials/file' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      fileFilter: (_req, file, cb) => {
-        cb(null, /\.pdf$/i.test(file.originalname));
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', {
+    fileFilter: (_req, file, cb) => {
+      cb(null, /\.pdf$/i.test(file.originalname));
+    },
+  }))
   uploadPdfMaterial(
     @Req() req: AuthenticatedRequest,
     @Body() dto: UploadMaterialDto,
     @UploadedFile() file: { buffer: Buffer; originalname: string } | undefined,
   ) {
-    return this.ingestion.uploadMaterial(
-      req.user.id,
-      dto,
-      file?.buffer,
-      file?.originalname,
-    );
+    return this.ingestion.uploadMaterial(req.user.id, dto, file?.buffer, file?.originalname);
   }
 
   @Get('materials/:id')
@@ -160,14 +144,8 @@ export class AiQuestionBankController {
   }
 
   @Get('materials/:id/chunks')
-  @ApiOperation({
-    summary:
-      'Return ordered text chunks for a material (used by local LLM generation)',
-  })
-  async getMaterialChunks(
-    @Req() req: AuthenticatedRequest,
-    @Param('id') id: string,
-  ) {
+  @ApiOperation({ summary: 'Return ordered text chunks for a material (used by local LLM generation)' })
+  async getMaterialChunks(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
     // Ownership check via getMaterial — throws 403/404 if not allowed.
     await this.ingestion.getMaterial(req.user.id, id);
     const chunks = await this.ingestion.getChunksForMaterial(id);

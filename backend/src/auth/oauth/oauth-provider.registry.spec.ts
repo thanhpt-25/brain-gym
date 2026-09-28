@@ -27,8 +27,6 @@ describe('OAuthProviderRegistry', () => {
 
   it('throws NotFoundException for unsupported provider', () => {
     expect(() => registry.get('facebook')).toThrow(NotFoundException);
-    expect(() => registry.get('facebook')).toThrow(
-      '"facebook" is not supported',
-    );
+    expect(() => registry.get('facebook')).toThrow('"facebook" is not supported');
   });
 });

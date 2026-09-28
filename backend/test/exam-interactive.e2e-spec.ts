@@ -26,9 +26,7 @@ describe('Exam interactive mode (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
-    );
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     prisma = app.get<PrismaService>(PrismaService);
   });
@@ -227,10 +225,9 @@ describe('Exam interactive mode (e2e)', () => {
       percentage: 50,
     });
     // Review keeps the order the answers were submitted in.
-    expect(result.body.questionResults.map((r: any) => r.questionId)).toEqual([
-      q2.id,
-      q1.id,
-    ]);
+    expect(result.body.questionResults.map((r: any) => r.questionId)).toEqual(
+      [q2.id, q1.id],
+    );
     expect(result.body.questionResults[1].checkedAt).toBeUndefined();
 
     const exam = await prisma.exam.findUnique({ where: { id: examId } });

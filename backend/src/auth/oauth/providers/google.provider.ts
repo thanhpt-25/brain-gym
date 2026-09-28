@@ -19,9 +19,7 @@ export class GoogleOAuthProvider implements OAuthProvider {
     }
     const data: any = await response.json();
     if (!data.id || !data.email) {
-      throw new UnauthorizedException(
-        'Google did not return required user info',
-      );
+      throw new UnauthorizedException('Google did not return required user info');
     }
     return {
       providerUserId: data.id,

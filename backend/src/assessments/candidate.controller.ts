@@ -29,7 +29,10 @@ export class CandidateController {
   @Public()
   @SkipThrottle({ default: false })
   @Throttle({ default: { limit: 10, ttl: 600_000 } })
-  verifyOtp(@Param('token') token: string, @Body('code') code: string) {
+  verifyOtp(
+    @Param('token') token: string,
+    @Body('code') code: string,
+  ) {
     return this.service.verifyOtp(token, code);
   }
 

@@ -296,11 +296,7 @@ describe('ExamsService', () => {
       mockPrismaService.question.findMany.mockImplementation(
         ({ where }: any) => {
           if (where.difficulty === 'EASY')
-            return Promise.resolve([
-              { id: 'e-1' },
-              { id: 'e-2' },
-              { id: 'e-3' },
-            ]);
+            return Promise.resolve([{ id: 'e-1' }, { id: 'e-2' }, { id: 'e-3' }]);
           if (where.difficulty === 'HARD')
             return Promise.resolve([{ id: 'h-1' }, { id: 'h-2' }]);
           return Promise.resolve([]);
@@ -319,11 +315,7 @@ describe('ExamsService', () => {
       mockPrismaService.question.findMany.mockImplementation(
         ({ where }: any) => {
           if (where.domainId === 'dom-a')
-            return Promise.resolve([
-              { id: 'a-1' },
-              { id: 'a-2' },
-              { id: 'a-3' },
-            ]);
+            return Promise.resolve([{ id: 'a-1' }, { id: 'a-2' }, { id: 'a-3' }]);
           if (where.domainId === 'dom-b')
             return Promise.resolve([{ id: 'b-1' }, { id: 'b-2' }]);
           return Promise.resolve([]);
@@ -355,8 +347,7 @@ describe('ExamsService', () => {
     it('throws 422 with shortage detail when a domain bucket is under-filled', async () => {
       mockPrismaService.question.findMany.mockImplementation(
         ({ where }: any) => {
-          if (where.domainId === 'dom-a')
-            return Promise.resolve([{ id: 'a-1' }]);
+          if (where.domainId === 'dom-a') return Promise.resolve([{ id: 'a-1' }]);
           return Promise.resolve([]);
         },
       );

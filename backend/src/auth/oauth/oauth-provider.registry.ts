@@ -20,9 +20,7 @@ export class OAuthProviderRegistry implements OnModuleInit {
   get(providerName: string): OAuthProvider {
     const provider = this.providers.get(providerName);
     if (!provider) {
-      throw new NotFoundException(
-        `OAuth provider "${providerName}" is not supported`,
-      );
+      throw new NotFoundException(`OAuth provider "${providerName}" is not supported`);
     }
     return provider;
   }

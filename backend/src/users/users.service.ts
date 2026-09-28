@@ -436,9 +436,7 @@ export class UsersService {
       })),
     ];
 
-    return items
-      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
-      .slice(0, 10);
+    return items.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()).slice(0, 10);
   }
 
   private async getCertProgress(userId: string) {
@@ -457,9 +455,7 @@ export class UsersService {
 
     if (reviews.length === 0) return [];
 
-    const certIds = Array.from(
-      new Set(reviews.map((r) => r.question.certificationId)),
-    );
+    const certIds = Array.from(new Set(reviews.map((r) => r.question.certificationId)));
 
     const certTotals = await this.prisma.question.groupBy({
       by: ['certificationId'],
@@ -469,13 +465,7 @@ export class UsersService {
 
     const certMap = new Map<
       string,
-      {
-        code: string;
-        name: string;
-        reviewed: number;
-        total: number;
-        masteryLevels: string[];
-      }
+      { code: string; name: string; reviewed: number; total: number; masteryLevels: string[] }
     >();
 
     for (const r of reviews) {
@@ -509,22 +499,14 @@ export class UsersService {
         },
         {} as Record<string, number>,
       );
-      const domMastery =
-        Object.entries(masteryFreq).sort(([, a], [, b]) => b - a)[0]?.[0] ||
-        'NEW';
+      const domMastery = Object.entries(masteryFreq).sort(([, a], [, b]) => b - a)[0]?.[0] || 'NEW';
 
       return {
         certificationId: certId,
         code: data.code,
         name: data.name,
-        progress:
-          data.total > 0 ? Math.round((data.reviewed / data.total) * 100) : 0,
-        mastery:
-          domMastery === 'MASTERED'
-            ? 'Mastered'
-            : domMastery === 'REVIEW'
-              ? 'Review'
-              : 'Learning',
+        progress: data.total > 0 ? Math.round((data.reviewed / data.total) * 100) : 0,
+        mastery: domMastery === 'MASTERED' ? 'Mastered' : domMastery === 'REVIEW' ? 'Review' : 'Learning',
       };
     });
 

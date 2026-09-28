@@ -66,11 +66,7 @@ export class ExamsService {
       );
     }
 
-    let buckets: {
-      label: string;
-      count: number;
-      where: Prisma.QuestionWhereInput;
-    }[];
+    let buckets: { label: string; count: number; where: Prisma.QuestionWhereInput }[];
 
     if (hasDomain) {
       // byDomain is a free-form Record, so it needs explicit bounds the typed
@@ -127,11 +123,7 @@ export class ExamsService {
    * any bucket cannot be filled.
    */
   private async resolveBuckets(
-    buckets: {
-      label: string;
-      count: number;
-      where: Prisma.QuestionWhereInput;
-    }[],
+    buckets: { label: string; count: number; where: Prisma.QuestionWhereInput }[],
   ): Promise<string[]> {
     const bucketResults = await Promise.all(
       buckets.map(async (bucket) => {
@@ -403,21 +395,13 @@ export class ExamsService {
     if (exam.createdBy !== userId)
       throw new ForbiddenException('You can only update your own exams');
 
-    const {
-      questionIds: rawQuestionIds,
-      selectionStrategy,
-      blueprint,
-      ...scalarData
-    } = dto;
+    const { questionIds: rawQuestionIds, selectionStrategy, blueprint, ...scalarData } = dto;
 
     let questionIds = rawQuestionIds;
 
     // Blueprint mode on update: resolve quota into IDs for this exam's cert.
     if (selectionStrategy === 'BLUEPRINT' && blueprint) {
-      questionIds = await this.resolveBlueprint(
-        exam.certificationId,
-        blueprint,
-      );
+      questionIds = await this.resolveBlueprint(exam.certificationId, blueprint);
     }
 
     // Metadata-only update: no question set change.
@@ -435,10 +419,7 @@ export class ExamsService {
     //  still validate MANUAL/PICK questionIds for safety.)
     if (selectionStrategy !== 'BLUEPRINT') {
       const validQuestions = await this.prisma.question.findMany({
-        where: {
-          id: { in: questionIds },
-          certificationId: exam.certificationId,
-        },
+        where: { id: { in: questionIds }, certificationId: exam.certificationId },
         select: { id: true },
       });
       if (validQuestions.length !== questionIds.length) {

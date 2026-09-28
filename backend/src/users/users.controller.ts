@@ -57,9 +57,7 @@ export class UsersController {
   @Get('me/overview')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Get profile overview with stats, badges, activity, and certs',
-  })
+  @ApiOperation({ summary: 'Get profile overview with stats, badges, activity, and certs' })
   getOverview(@Req() req: any) {
     const userId = req.user.sub || req.user.id;
     return this.usersService.getOverview(userId);

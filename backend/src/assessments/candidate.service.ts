@@ -266,7 +266,7 @@ export class CandidateService {
 
     // Load questions for scoring (mode-aware)
     const scoringQuestions = await this.loadQuestionsForScoring(
-      assessment.selectionMode,
+      assessment.selectionMode as AssessmentSelectionMode,
       invite.assessmentId,
       invite.id,
     );
@@ -587,7 +587,7 @@ export class CandidateService {
     let ids: string[] = invite?.drawnQuestionIds ?? [];
 
     if (ids.length === 0) {
-      const config = assessment.selectionConfig;
+      const config = assessment.selectionConfig as any;
       const drawn = await this.assessmentsService.drawFromPool(
         assessment.orgId,
         config,

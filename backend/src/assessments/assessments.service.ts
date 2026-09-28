@@ -424,7 +424,7 @@ export class AssessmentsService {
       );
     }
 
-    const mode = assessment.selectionMode;
+    const mode = assessment.selectionMode as AssessmentSelectionMode;
 
     return this.prisma.$transaction(async (tx) => {
       // ── BLUEPRINT: rebuild question list ──
