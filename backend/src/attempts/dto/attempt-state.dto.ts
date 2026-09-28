@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { AttemptStatus, FeedbackMode, TimerMode } from '@prisma/client';
+import {
+  AttemptStatus,
+  FeedbackMode,
+  PracticeMode,
+  TimerMode,
+} from '@prisma/client';
 import { CheckAnswerResponse } from './check-answer.dto';
 
 export class ActiveAttemptSummary {
@@ -73,6 +78,9 @@ export class AttemptStateResponse {
 
   @ApiPropertyOptional({ enum: TimerMode })
   timerMode?: TimerMode;
+
+  @ApiPropertyOptional({ enum: PracticeMode, nullable: true })
+  practiceMode?: PracticeMode | null;
 
   @ApiPropertyOptional({ enum: FeedbackMode })
   feedbackMode?: FeedbackMode;

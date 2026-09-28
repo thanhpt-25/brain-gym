@@ -6,6 +6,8 @@ interface FeedbackModeSelectorProps {
   onChange: (mode: FeedbackMode) => void;
   /** Interactive is unavailable (e.g. Time Pressure timer). */
   interactiveDisabled?: boolean;
+  /** What makes it unavailable, e.g. "Time Pressure" or "a full mock". */
+  disabledReason?: string;
 }
 
 const OPTIONS: {
@@ -32,6 +34,7 @@ export function FeedbackModeSelector({
   value,
   onChange,
   interactiveDisabled = false,
+  disabledReason = "Time Pressure",
 }: FeedbackModeSelectorProps) {
   return (
     <div className="mb-6">
@@ -55,7 +58,7 @@ export function FeedbackModeSelector({
               disabled={disabled}
               title={
                 disabled
-                  ? "Interactive mode is not available for Time Pressure exams"
+                  ? `Interactive mode is not available with ${disabledReason}`
                   : undefined
               }
               onClick={() => onChange(opt.value)}
@@ -71,7 +74,7 @@ export function FeedbackModeSelector({
               </div>
               <div className="text-xs opacity-70 leading-tight">
                 {disabled
-                  ? "Not available with Time Pressure"
+                  ? `Not available with ${disabledReason}`
                   : opt.description}
               </div>
             </button>

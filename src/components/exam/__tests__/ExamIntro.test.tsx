@@ -118,3 +118,82 @@ describe("ExamIntro exam details and resume", () => {
   });
 });
 
+
+describe("ExamIntro practice modes and accessibility", () => {
+  const baseSetup = {
+    mode: "STANDARD" as const,
+    sessionSize: 10,
+    domainIds: [],
+    difficulties: [],
+    timeMultiplier: 1,
+  };
+  const certWithDomains = {
+    ...cert,
+    domains: [
+      { id: "d1", name: "Networking" },
+      { id: "d2", name: "Security" },
+    ],
+  } as unknown as Certification;
+
+  function renderWithSetup(setup = baseSetup) {
+    const onSetupChange = vi.fn();
+    const onFontScaleChange = vi.fn();
+    render(
+      <ExamIntro
+        cert={certWithDomains}
+        questionCount={10}
+        timeLimitMinutes={14}
+        setup={setup}
+        onSetupChange={onSetupChange}
+        fontScale="md"
+        onFontScaleChange={onFontScaleChange}
+        timerMode="STRICT"
+        onTimerModeChange={vi.fn()}
+        feedbackMode="END_OF_EXAM"
+        onFeedbackModeChange={vi.fn()}
+        onBack={vi.fn()}
+        onStart={vi.fn()}
+      />,
+    );
+    return { onSetupChange, onFontScaleChange };
+  }
+
+  it("switches the practice mode", async () => {
+    const { onSetupChange } = renderWithSetup();
+    await userEvent.click(screen.getByRole("radio", { name: /quick drill/i }));
+    expect(onSetupChange).toHaveBeenCalledWith({ ...baseSetup, mode: "QUICK_DRILL" });
+  });
+
+  it("offers size, domain and difficulty filters for a quick drill", async () => {
+    const { onSetupChange } = renderWithSetup({ ...baseSetup, mode: "QUICK_DRILL" });
+    await userEvent.click(screen.getByRole("button", { name: "20" }));
+    expect(onSetupChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sessionSize: 20 }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Security" }));
+    expect(onSetupChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ domainIds: ["d2"] }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "HARD" }));
+    expect(onSetupChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ difficulties: ["HARD"] }),
+    );
+  });
+
+  it("a full mock hides the timer choice and disables Interactive", () => {
+    renderWithSetup({ ...baseSetup, mode: "FULL_MOCK" });
+    expect(screen.queryByText("Timer Mode")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /interactive/i })).toBeDisabled();
+    expect(screen.getByText("Not available with a full mock")).toBeInTheDocument();
+  });
+
+  it("sets extra time and text size", async () => {
+    const { onSetupChange, onFontScaleChange } = renderWithSetup();
+    await userEvent.click(screen.getByRole("button", { name: "×1.5" }));
+    expect(onSetupChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ timeMultiplier: 1.5 }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /text size large/i }));
+    expect(onFontScaleChange).toHaveBeenCalledWith("lg");
+  });
+});

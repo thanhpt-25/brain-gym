@@ -311,7 +311,7 @@ describe("ExamPage feedback modes", () => {
       await screen.findByRole("button", { name: /^time pressure/i }),
     );
     expect(screen.getByRole("radio", { name: /interactive/i })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: /exam/i })).toHaveAttribute(
+    expect(screen.getByRole("radio", { name: /^exam/i })).toHaveAttribute(
       "aria-checked",
       "true",
     );

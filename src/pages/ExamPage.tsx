@@ -29,7 +29,16 @@ import { useTimer } from "@/hooks/useTimer";
 import { useAutosave } from "@/hooks/useAutosave";
 import { useQuestionTimer } from "@/hooks/useQuestionTimer";
 import { useTextSelection } from "@/hooks/useTextSelection";
-import { attemptDeadline, getPracticeExamPlan } from "@/lib/exam-plan";
+import {
+  attemptDeadline,
+  DEFAULT_SETUP,
+  effectiveTimerMode,
+  FontScale,
+  getPracticeExamPlan,
+  loadFontScale,
+  PracticeSetup,
+  saveFontScale,
+} from "@/lib/exam-plan";
 import type { FeedbackMode, TimerMode } from "@/types/api-types";
 import {
   loadFeedbackModePreference,
@@ -83,13 +92,16 @@ const ExamPage = () => {
     useState<TimerMode>("STRICT");
   const [selectedFeedbackMode, setSelectedFeedbackMode] =
     useState<FeedbackMode>(loadFeedbackModePreference);
-  // Interactive is unavailable with Time Pressure; the stored preference is
-  // kept so it comes back when another timer mode is picked.
-  const effectiveFeedbackMode: FeedbackMode = supportsInteractive(
-    selectedTimerMode,
-  )
-    ? selectedFeedbackMode
-    : "END_OF_EXAM";
+  const [setup, setSetup] = useState<PracticeSetup>(DEFAULT_SETUP);
+  const [fontScale, setFontScale] = useState<FontScale>(loadFontScale);
+  // A full mock always runs with a strict timer.
+  const timerModeToUse = effectiveTimerMode(setup, selectedTimerMode);
+  // Interactive is unavailable with Time Pressure and in a full mock; the
+  // stored preference is kept so it comes back in another setup.
+  const effectiveFeedbackMode: FeedbackMode =
+    supportsInteractive(timerModeToUse) && setup.mode !== "FULL_MOCK"
+      ? selectedFeedbackMode
+      : "END_OF_EXAM";
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
@@ -102,7 +114,12 @@ const ExamPage = () => {
 
   const questions: AttemptQuestion[] = attemptData?.questions ?? [];
   const poolSize = questionsData?.meta?.total ?? 0;
-  const plan = getPracticeExamPlan(poolSize, selectedTimerMode);
+  const plan = getPracticeExamPlan(
+    poolSize,
+    selectedTimerMode,
+    setup,
+    cert?.examFormat,
+  );
   const isInteractive = attemptData?.feedbackMode === "INTERACTIVE";
 
   // Answers/flags are saved as the learner goes (END_OF_EXAM only;
@@ -260,17 +277,26 @@ const ExamPage = () => {
   const { selection, clearSelection } = useTextSelection(phase === "exam");
 
   const startExam = async (
-    timerMode: TimerMode = selectedTimerMode,
-    feedbackMode: FeedbackMode = effectiveFeedbackMode,
+    practice: PracticeSetup & { sourceAttemptId?: string } = setup,
   ) => {
     if (!cert) return;
+    const timerMode = effectiveTimerMode(practice, selectedTimerMode);
+    const feedbackMode: FeedbackMode =
+      supportsInteractive(timerMode) && practice.mode !== "FULL_MOCK"
+        ? selectedFeedbackMode
+        : "END_OF_EXAM";
     setPhase("loading");
     try {
       // Starting over replaces the attempt that was left unfinished.
       if (activeAttempt) {
         await abandonAttempt(activeAttempt.attemptId).catch(() => undefined);
       }
-      const examPlan = getPracticeExamPlan(poolSize, timerMode);
+      const examPlan = getPracticeExamPlan(
+        poolSize,
+        selectedTimerMode,
+        practice,
+        cert.examFormat,
+      );
       // A private draw weighted by the certification's domains, favouring
       // questions the learner hasn't seen or got wrong.
       const exam = await createPracticeExam({
@@ -278,14 +304,46 @@ const ExamPage = () => {
         questionCount: examPlan.questionCount,
         timeLimit: examPlan.timeLimit,
         timerMode,
+        ...(practice.mode !== "STANDARD" ? { mode: practice.mode } : {}),
+        ...(practice.mode === "QUICK_DRILL" && practice.domainIds.length
+          ? { domainIds: practice.domainIds }
+          : {}),
+        ...(practice.mode === "QUICK_DRILL" && practice.difficulties.length
+          ? { difficulties: practice.difficulties }
+          : {}),
+        ...(practice.sourceAttemptId
+          ? { sourceAttemptId: practice.sourceAttemptId }
+          : {}),
       });
 
       const attempt = await startAttempt(exam.id, { feedbackMode });
       applyAttempt(attempt);
     } catch (err: unknown) {
-      toast.error("Failed to start exam");
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      toast.error(
+        status === 422
+          ? practice.mode === "REVIEW"
+            ? "Nothing to review yet — no missed or flagged questions."
+            : "No questions match this setup."
+          : "Failed to start exam",
+      );
       setPhase("intro");
     }
+  };
+
+  /** Start a follow-up session from the result screen (retry missed, drill a domain). */
+  const startFollowUp = (
+    patch: Partial<PracticeSetup> & { sourceAttemptId?: string },
+  ) => {
+    const next = { ...DEFAULT_SETUP, ...patch };
+    setSetup({ ...next });
+    startExam(next);
+  };
+
+  const handleFontScaleChange = (scale: FontScale) => {
+    setFontScale(scale);
+    saveFontScale(scale);
   };
 
   const resumeExam = async () => {
@@ -489,12 +547,16 @@ const ExamPage = () => {
         activeAttempt={activeAttempt ?? null}
         onResume={resumeExam}
         onDiscardActive={discardActive}
-        timerMode={selectedTimerMode}
+        setup={setup}
+        onSetupChange={setSetup}
+        fontScale={fontScale}
+        onFontScaleChange={handleFontScaleChange}
+        timerMode={timerModeToUse}
         onTimerModeChange={setSelectedTimerMode}
         feedbackMode={effectiveFeedbackMode}
         onFeedbackModeChange={handleFeedbackModeChange}
         onBack={() => navigate("/")}
-        onStart={() => startExam(selectedTimerMode, effectiveFeedbackMode)}
+        onStart={() => startExam()}
       />
     );
   }
@@ -508,6 +570,7 @@ const ExamPage = () => {
           setResult(null);
         }}
         onHome={() => navigate("/")}
+        onStartPractice={startFollowUp}
       />
     );
   }
@@ -531,6 +594,7 @@ const ExamPage = () => {
           feedback={feedback}
           checkingId={checkingId}
           onCheck={handleCheck}
+          fontScale={fontScale}
         />
       )}
 

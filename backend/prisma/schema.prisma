@@ -123,6 +123,15 @@ enum TimerMode {
   TIME_PRESSURE
 }
 
+/// Kind of auto-generated practice exam (POST /exams/practice).
+enum PracticeMode {
+  STANDARD
+  QUICK_DRILL
+  FULL_MOCK
+  REVIEW
+  ADAPTIVE
+}
+
 enum ExamType {
   STANDARD
   TIME_PRESSURE
@@ -550,6 +559,7 @@ model Exam {
   /// Auto-generated per-learner practice draw (POST /exams/practice): always
   /// PRIVATE and hidden from exam lists.
   isPractice      Boolean        @default(false) @map("is_practice")
+  practiceMode    PracticeMode?  @map("practice_mode")
   attemptCount    Int            @default(0) @map("attempt_count")
   avgScore        Decimal?       @map("avg_score") @db.Decimal(5, 2)
   createdAt       DateTime       @default(now()) @map("created_at")

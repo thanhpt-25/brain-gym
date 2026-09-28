@@ -105,6 +105,12 @@ export function selectPracticeQuestions(
   history: Map<string, QuestionHistory>,
   count: number,
   rng: Rng = Math.random,
+  /**
+   * Adaptive draws: distance of each question from the learner's target
+   * difficulty (lower is better). When given it replaces the unseen/missed
+   * preference; questions from recent attempts still go last.
+   */
+  adaptiveRank?: Map<string, number>,
 ): string[] {
   const byDomain = new Map<string, PracticeCandidate[]>();
   for (const c of candidates) {
@@ -131,10 +137,18 @@ export function selectPracticeQuestions(
   const picked: string[] = [];
   for (const [key, items] of byDomain) {
     const quota = quotas.get(key) ?? 0;
-    const ordered = shuffle(items, rng).sort(
-      (a, b) =>
-        priorityTier(history.get(a.id)) - priorityTier(history.get(b.id)),
-    );
+    const ordered = shuffle(items, rng).sort((a, b) => {
+      if (adaptiveRank) {
+        const recentA = history.get(a.id)?.recent ? 1 : 0;
+        const recentB = history.get(b.id)?.recent ? 1 : 0;
+        return (
+          recentA - recentB ||
+          (adaptiveRank.get(a.id) ?? Infinity) -
+            (adaptiveRank.get(b.id) ?? Infinity)
+        );
+      }
+      return priorityTier(history.get(a.id)) - priorityTier(history.get(b.id));
+    });
     picked.push(...ordered.slice(0, quota).map((c) => c.id));
   }
   return shuffle(picked, rng);

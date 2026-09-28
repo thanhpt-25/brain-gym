@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -8,7 +10,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { TimerMode } from '@prisma/client';
+import { Difficulty, PracticeMode, TimerMode } from '@prisma/client';
 
 export class CreatePracticeExamDto {
   @ApiProperty()
@@ -32,4 +34,42 @@ export class CreatePracticeExamDto {
   @IsEnum(TimerMode)
   @IsOptional()
   timerMode?: TimerMode;
+
+  @ApiPropertyOptional({
+    enum: PracticeMode,
+    default: PracticeMode.STANDARD,
+    description:
+      'QUICK_DRILL filters by domain/difficulty, FULL_MOCK hides labels and feedback, REVIEW redoes missed/flagged questions, ADAPTIVE targets the learner level',
+  })
+  @IsEnum(PracticeMode)
+  @IsOptional()
+  mode?: PracticeMode;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Only these domains (QUICK_DRILL / REVIEW)',
+  })
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @IsOptional()
+  domainIds?: string[];
+
+  @ApiPropertyOptional({
+    enum: Difficulty,
+    isArray: true,
+    description: 'Only these difficulties (QUICK_DRILL)',
+  })
+  @IsArray()
+  @IsEnum(Difficulty, { each: true })
+  @IsOptional()
+  difficulties?: Difficulty[];
+
+  @ApiPropertyOptional({
+    description:
+      'REVIEW: redo the wrong, skipped and flagged questions of this (own, submitted) attempt',
+  })
+  @IsString()
+  @IsOptional()
+  sourceAttemptId?: string;
 }

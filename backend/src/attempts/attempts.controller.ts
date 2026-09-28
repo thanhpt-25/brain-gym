@@ -156,6 +156,31 @@ export class AttemptsController {
     return this.attemptsService.abandon(req.user.id, attemptId);
   }
 
+  @Get('attempts/:id/insights')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @ApiOperation({
+    summary:
+      'Next steps after an attempt: missed count, weakest domain, trend and pass likelihood',
+  })
+  insights(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
+    return this.attemptsService.insights(req.user.id, attemptId);
+  }
+
+  @Post('attempts/:id/review-missed')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Add the attempt's wrong/skipped questions to the review queue",
+  })
+  addMissedToReview(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') attemptId: string,
+  ) {
+    return this.attemptsService.addMissedToReview(req.user.id, attemptId);
+  }
+
   @Get('attempts/:id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

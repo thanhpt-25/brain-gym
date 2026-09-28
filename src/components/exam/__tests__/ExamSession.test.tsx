@@ -410,3 +410,22 @@ describe("ExamSession — review, navigation and shortcuts", () => {
     expect(props.setCurrentIndex).toHaveBeenCalledWith(1);
   });
 });
+
+describe("ExamSession — full mock and text size", () => {
+  it("hides difficulty and domain when the exam hides them", () => {
+    renderSession({
+      attemptData: attempt("END_OF_EXAM"),
+      questions: [{ ...questions[0], difficulty: null, domain: null }],
+    });
+    expect(screen.queryByText("EASY")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
+  });
+
+  it("enlarges the question text", () => {
+    renderSession({ attemptData: attempt("END_OF_EXAM"), fontScale: "lg" });
+    expect(
+      screen.getByRole("heading", { name: "Which service stores objects?" }),
+    ).toHaveClass("text-xl");
+    expect(screen.getByRole("button", { name: /EC2/ })).toHaveClass("text-base");
+  });
+});

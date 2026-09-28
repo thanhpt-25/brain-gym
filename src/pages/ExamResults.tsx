@@ -28,6 +28,8 @@ const ExamResults = () => {
   const [filter, setFilter] = useState<FilterType>('all');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [expandAll, setExpandAll] = useState(false);
+  // Mistake types tagged on this page, by answer id (never mutate the result).
+  const [mistakeTypes, setMistakeTypes] = useState<Record<string, string>>({});
 
   const result = state?.result;
   const questions = state?.questions || [];
@@ -381,15 +383,13 @@ const ExamResults = () => {
                                 <Button
                                   key={type.id}
                                   size="sm"
-                                  variant={qr.mistakeType === type.id ? 'default' : 'outline'}
+                                  variant={(mistakeTypes[qr.answerId!] ?? qr.mistakeType) === type.id ? 'default' : 'outline'}
                                   className="text-[10px] font-mono h-7 px-2"
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
                                       await updateMistakeType(qr.answerId!, type.id);
-                                      // Local state update would be nice, but for now we trust the backend
-                                      qr.mistakeType = type.id;
-                                      setExpandedIds(new Set(expandedIds)); // Trigger re-render
+                                      setMistakeTypes((prev) => ({ ...prev, [qr.answerId!]: type.id }));
                                     } catch (err) {
                                       console.error(err);
                                     }

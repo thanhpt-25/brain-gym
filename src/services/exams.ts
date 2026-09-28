@@ -6,6 +6,7 @@ import {
   ExamBlueprint,
   ExamSelectionStrategy,
   TimerMode,
+  PracticeMode,
 } from "@/types/api-types";
 
 export type { ExamSummary, CreateExamPayload };
@@ -79,6 +80,13 @@ export interface CreatePracticeExamPayload {
   /** Minutes (before the ACCELERATED factor, which the backend applies). */
   timeLimit: number;
   timerMode?: TimerMode;
+  mode?: PracticeMode;
+  /** QUICK_DRILL / REVIEW: only these domains. */
+  domainIds?: string[];
+  /** QUICK_DRILL: only these difficulties. */
+  difficulties?: ("EASY" | "MEDIUM" | "HARD")[];
+  /** REVIEW: redo the missed/flagged questions of this attempt. */
+  sourceAttemptId?: string;
 }
 
 /**

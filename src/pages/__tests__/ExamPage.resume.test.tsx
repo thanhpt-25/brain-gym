@@ -327,5 +327,106 @@ describe("ExamPage — server timer, autosave and resume", () => {
     await new Promise((r) => setTimeout(r, 800));
     expect(attemptsService.saveAnswer).not.toHaveBeenCalled();
   });
-});
 
+  it("starts a quick drill with the chosen size and domains", async () => {
+    vi.mocked(attemptsService.startAttempt).mockResolvedValue(startResponse());
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /quick drill/i }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "20" }));
+    await userEvent.click(screen.getByRole("button", { name: /start exam/i }));
+
+    expect(examsService.createPracticeExam).toHaveBeenCalledWith({
+      certificationId: "cert-1",
+      // Only 2 questions in the pool.
+      questionCount: 2,
+      timeLimit: 5,
+      timerMode: "STRICT",
+      mode: "QUICK_DRILL",
+    });
+  });
+
+  it("runs a full mock on a strict timer in Exam mode", async () => {
+    localStorage.setItem("exam.feedbackMode", "INTERACTIVE");
+    vi.mocked(attemptsService.startAttempt).mockResolvedValue(startResponse());
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /full mock/i }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /start exam/i }));
+
+    expect(examsService.createPracticeExam).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "FULL_MOCK", timerMode: "STRICT" }),
+    );
+    expect(attemptsService.startAttempt).toHaveBeenCalledWith("exam-1", {
+      feedbackMode: "END_OF_EXAM",
+    });
+  });
+
+  it("explains an empty review instead of a generic error", async () => {
+    const { toast } = await import("sonner");
+    vi.mocked(examsService.createPracticeExam).mockRejectedValue({
+      response: { status: 422 },
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /review mistakes/i }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /start exam/i }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Nothing to review yet — no missed or flagged questions.",
+      ),
+    );
+    expect(
+      await screen.findByRole("button", { name: /start exam/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("retries the missed questions straight from the result screen", async () => {
+    vi.mocked(attemptsService.startAttempt).mockResolvedValue(startResponse());
+    vi.mocked(attemptsService.getAttemptInsights).mockResolvedValue({
+      attemptId: "att-1",
+      certificationId: "cert-1",
+      missedCount: 1,
+      skippedCount: 0,
+      flaggedCount: 0,
+      domains: [],
+      weakestDomain: null,
+      trend: [],
+      readiness: {
+        ability: 0,
+        standardError: 1,
+        basedOnQuestions: 0,
+        passLikelihood: null,
+        passingScore: 72,
+        examLength: 65,
+      },
+    });
+    renderPage();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /start exam/i }),
+    );
+    await screen.findByText("Which service stores objects?");
+    await userEvent.click(screen.getByRole("button", { name: /^submit$/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^submit exam$/i }),
+    );
+
+    vi.mocked(examsService.createPracticeExam).mockClear();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /retry missed \(1\)/i }),
+    );
+    expect(examsService.createPracticeExam).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "REVIEW",
+        sourceAttemptId: "att-1",
+      }),
+    );
+  });
+});

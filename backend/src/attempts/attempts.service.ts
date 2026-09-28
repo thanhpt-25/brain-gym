@@ -12,6 +12,7 @@ import {
   AttemptStatus,
   FeedbackMode,
   MistakeType,
+  PracticeMode,
   Prisma,
   TimerMode,
 } from '@prisma/client';
@@ -30,6 +31,11 @@ import {
   ActiveAttemptSummary,
   AttemptStateResponse,
 } from './dto/attempt-state.dto';
+import { AttemptInsightsResponse } from './dto/attempt-insights.dto';
+import { passProbability } from '../exams/ability';
+
+/** Length of the exam the pass likelihood is computed for. */
+export const READINESS_EXAM_LENGTH = 65;
 
 interface QuestionWithChoices extends Prisma.QuestionGetPayload<{
   include: { choices: true; domain: true };
@@ -169,6 +175,15 @@ export class AttemptsService {
         'Interactive mode is not available for Time Pressure exams',
       );
     }
+    // So does a full mock exam.
+    if (
+      feedbackMode === FeedbackMode.INTERACTIVE &&
+      exam.practiceMode === PracticeMode.FULL_MOCK
+    ) {
+      throw new BadRequestException(
+        'Interactive mode is not available for full mock exams',
+      );
+    }
 
     // Randomize question order, and choice order within each question. The
     // order is stored so a resumed attempt looks the same and the result
@@ -200,9 +215,12 @@ export class AttemptsService {
       },
     });
 
+    // Real exams don't say how hard a question is or which domain it tests.
+    const hideLabels = exam.practiceMode === PracticeMode.FULL_MOCK;
+
     // Return questions WITHOUT isCorrect
     const questions = shuffledQuestions.map((q, index) =>
-      this.toAttemptQuestion(q, index),
+      this.toAttemptQuestion(q, index, hideLabels),
     );
 
     return {
@@ -212,6 +230,7 @@ export class AttemptsService {
       certification: exam.certification,
       timeLimit,
       timerMode: exam.timerMode,
+      practiceMode: exam.practiceMode,
       feedbackMode: attempt.feedbackMode ?? feedbackMode,
       totalQuestions: questions.length,
       expiresAt,
@@ -235,6 +254,7 @@ export class AttemptsService {
       };
     }>,
     index: number,
+    hideLabels = false,
   ) {
     const correctCount = q.choices.filter((c) => c.isCorrect).length;
     return {
@@ -242,14 +262,14 @@ export class AttemptsService {
       title: q.title,
       description: q.description,
       questionType: q.questionType,
-      difficulty: q.difficulty,
+      difficulty: hideLabels ? null : q.difficulty,
       isScenario: q.isScenario,
       codeSnippet: q.codeSnippet,
       imageUrl: q.imageUrl,
       // "Choose N" — real exams state how many answers a multi-select needs.
       ...(q.questionType === 'MULTIPLE' ? { selectCount: correctCount } : {}),
-      domain: q.domain,
-      tags: q.tags.map((t) => t.tag.name),
+      domain: hideLabels ? null : q.domain,
+      tags: hideLabels ? [] : q.tags.map((t) => t.tag.name),
       choices: q.choices.map((c, i) => ({
         id: c.id,
         label: String.fromCharCode(97 + i),
@@ -943,6 +963,7 @@ export class AttemptsService {
           choices: orderByIds(q.choices, presentation?.choiceIds[q.id]),
         },
         index,
+        attempt.exam.practiceMode === PracticeMode.FULL_MOCK,
       ),
     );
     const questionsById = new Map(
@@ -973,6 +994,7 @@ export class AttemptsService {
       certification: attempt.exam.certification,
       timeLimit: effectiveTimeLimit(attempt.exam),
       timerMode: attempt.exam.timerMode,
+      practiceMode: attempt.exam.practiceMode,
       feedbackMode: attempt.feedbackMode,
       totalQuestions: questions.length,
       startedAt: attempt.startedAt,
@@ -1206,6 +1228,187 @@ export class AttemptsService {
       submittedAt: attempt.submittedAt ?? undefined,
       questionResults,
     };
+  }
+
+  /**
+   * What to do after an attempt: missed/flagged counts, the weakest domain,
+   * the learner's recent per-domain trend on this certification and an
+   * estimate of their chance to pass (see exams/ability.ts).
+   */
+  async insights(
+    userId: string,
+    attemptId: string,
+  ): Promise<AttemptInsightsResponse> {
+    const attempt = await this.prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        exam: {
+          select: {
+            certificationId: true,
+            certification: { select: { passingScore: true } },
+          },
+        },
+        answers: {
+          select: {
+            isCorrect: true,
+            isMarked: true,
+            selectedChoices: true,
+            question: {
+              select: { domain: { select: { id: true, name: true } } },
+            },
+          },
+        },
+      },
+    });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId)
+      throw new ForbiddenException('Not your attempt');
+    if (attempt.status !== AttemptStatus.SUBMITTED) {
+      throw new BadRequestException('Attempt is not submitted');
+    }
+    const certificationId = attempt.exam.certificationId;
+
+    const domains = new Map<
+      string,
+      { domainId: string; name: string; correct: number; total: number }
+    >();
+    for (const a of attempt.answers) {
+      const d = a.question.domain;
+      if (!d) continue;
+      const entry = domains.get(d.id) ?? {
+        domainId: d.id,
+        name: d.name,
+        correct: 0,
+        total: 0,
+      };
+      entry.total++;
+      if (a.isCorrect) entry.correct++;
+      domains.set(d.id, entry);
+    }
+    const domainResults = [...domains.values()].map((d) => ({
+      ...d,
+      percentage: Math.round((d.correct / d.total) * 100),
+    }));
+    const weakest =
+      [...domainResults].sort(
+        (a, b) => a.percentage - b.percentage || b.total - a.total,
+      )[0] ?? null;
+
+    const [recent, ability, pool] = await Promise.all([
+      this.prisma.examAttempt.findMany({
+        where: {
+          userId,
+          status: AttemptStatus.SUBMITTED,
+          exam: { certificationId },
+        },
+        orderBy: { submittedAt: 'desc' },
+        take: AttemptsService.TREND_ATTEMPTS,
+        select: {
+          id: true,
+          submittedAt: true,
+          score: true,
+          domainScores: true,
+        },
+      }),
+      this.examsService.abilityFor(userId, certificationId),
+      this.prisma.question.findMany({
+        where: {
+          certificationId,
+          status: 'APPROVED',
+          deletedAt: null,
+        },
+        select: { id: true, difficulty: true },
+      }),
+    ]);
+
+    const passingScore = attempt.exam.certification?.passingScore ?? 70;
+    const difficulty = await this.examsService.questionDifficulties(pool);
+    const examLength = Math.min(pool.length, READINESS_EXAM_LENGTH);
+    const passLikelihood =
+      ability.answered > 0
+        ? passProbability(
+            ability.theta,
+            ability.se,
+            [...difficulty.values()],
+            examLength,
+            passingScore,
+          )
+        : null;
+
+    return {
+      attemptId,
+      certificationId,
+      missedCount: attempt.answers.filter((a) => a.isCorrect !== true).length,
+      skippedCount: attempt.answers.filter(
+        (a) => a.selectedChoices.length === 0,
+      ).length,
+      flaggedCount: attempt.answers.filter((a) => a.isMarked).length,
+      domains: domainResults,
+      weakestDomain: weakest && weakest.percentage < 100 ? weakest : null,
+      trend: recent.reverse().map((r) => ({
+        attemptId: r.id,
+        submittedAt: r.submittedAt,
+        score: Math.round(Number(r.score ?? 0)),
+        domainScores: (r.domainScores ?? {}) as Record<
+          string,
+          { correct: number; total: number }
+        >,
+      })),
+      readiness: {
+        ability: Math.round(ability.theta * 100) / 100,
+        standardError: Math.round(ability.se * 100) / 100,
+        basedOnQuestions: ability.answered,
+        passLikelihood:
+          passLikelihood === null ? null : Math.round(passLikelihood * 100),
+        passingScore,
+        examLength,
+      },
+    };
+  }
+
+  /** Submitted attempts shown in the per-domain trend. */
+  static readonly TREND_ATTEMPTS = 5;
+
+  /**
+   * Put the wrong and skipped questions of an attempt into the learner's
+   * spaced-repetition queue (due now). Existing schedules are reset as a
+   * lapse instead of being duplicated.
+   */
+  async addMissedToReview(userId: string, attemptId: string) {
+    const attempt = await this.prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      select: {
+        userId: true,
+        status: true,
+        answers: { select: { questionId: true, isCorrect: true } },
+      },
+    });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId)
+      throw new ForbiddenException('Not your attempt');
+    if (attempt.status !== AttemptStatus.SUBMITTED) {
+      throw new BadRequestException('Attempt is not submitted');
+    }
+
+    const missed = attempt.answers
+      .filter((a) => a.isCorrect !== true)
+      .map((a) => a.questionId);
+    const now = new Date();
+    await this.prisma.$transaction(
+      missed.map((questionId) =>
+        this.prisma.reviewSchedule.upsert({
+          where: { userId_questionId: { userId, questionId } },
+          create: { userId, questionId, nextReviewDate: now },
+          update: {
+            nextReviewDate: now,
+            intervalDays: 0,
+            repetitions: 0,
+            lapses: { increment: 1 },
+          },
+        }),
+      ),
+    );
+    return { added: missed.length };
   }
 
   async findMyAttempts(userId: string, page = 1, limit = 10) {

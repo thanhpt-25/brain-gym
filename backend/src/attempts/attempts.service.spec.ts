@@ -37,6 +37,10 @@ describe('AttemptsService', () => {
     },
     question: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+    },
+    reviewSchedule: {
+      upsert: jest.fn(),
     },
     answer: {
       findFirst: jest.fn(),
@@ -59,6 +63,8 @@ describe('AttemptsService', () => {
 
   const mockExamsService = {
     updateAvgScore: jest.fn(),
+    abilityFor: jest.fn(),
+    questionDifficulties: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -1796,6 +1802,214 @@ describe('AttemptsService', () => {
       await expect(service.start('user-1', 'exam-1')).rejects.toBeInstanceOf(
         NotFoundException,
       );
+    });
+  });
+
+  describe('Sprint 3: modes, insights and review queue', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    const mockExam = {
+      id: 'exam-1',
+      title: 'Mock',
+      practiceMode: 'FULL_MOCK',
+      isPractice: true,
+      createdBy: 'user-1',
+      deletedAt: null,
+      timeLimit: 30,
+      timerMode: 'STRICT',
+      certification: { id: 'cert-1' },
+      examQuestions: [
+        {
+          question: {
+            id: 'q1',
+            title: 'Q1',
+            description: null,
+            questionType: 'SINGLE',
+            difficulty: 'HARD',
+            domain: { id: 'd1', name: 'Networking' },
+            tags: [{ tag: { name: 'vpc' } }],
+            choices: [{ id: 'c1', content: 'A', isCorrect: true }],
+          },
+        },
+      ],
+    };
+
+    it('a full mock hides difficulty, domain and tags, like the real exam', async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue(mockExam);
+      mockPrismaService.examAttempt.create.mockImplementation(({ data }) =>
+        Promise.resolve({ id: 'att-1', ...data }),
+      );
+
+      const res = await service.start('user-1', 'exam-1');
+
+      expect(res.practiceMode).toBe('FULL_MOCK');
+      expect(res.questions[0]).toMatchObject({
+        difficulty: null,
+        domain: null,
+        tags: [],
+      });
+    });
+
+    it('a full mock cannot be taken in Interactive mode', async () => {
+      mockPrismaService.exam.findUnique.mockResolvedValue(mockExam);
+      await expect(
+        service.start('user-1', 'exam-1', FeedbackMode.INTERACTIVE),
+      ).rejects.toThrow('full mock');
+    });
+
+    describe('insights', () => {
+      const attempt = {
+        id: 'att-1',
+        userId: 'user-1',
+        status: AttemptStatus.SUBMITTED,
+        exam: {
+          certificationId: 'cert-1',
+          certification: { passingScore: 72 },
+        },
+        answers: [
+          {
+            isCorrect: true,
+            isMarked: false,
+            selectedChoices: ['x'],
+            question: { domain: { id: 'd1', name: 'Networking' } },
+          },
+          {
+            isCorrect: false,
+            isMarked: true,
+            selectedChoices: ['y'],
+            question: { domain: { id: 'd2', name: 'Security' } },
+          },
+          {
+            isCorrect: false,
+            isMarked: false,
+            selectedChoices: [],
+            question: { domain: { id: 'd2', name: 'Security' } },
+          },
+        ],
+      };
+
+      beforeEach(() => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue(attempt);
+        mockPrismaService.examAttempt.findMany.mockResolvedValue([
+          {
+            id: 'att-1',
+            submittedAt: new Date(2),
+            score: 33.3,
+            domainScores: {},
+          },
+          {
+            id: 'att-0',
+            submittedAt: new Date(1),
+            score: 50,
+            domainScores: {},
+          },
+        ]);
+        mockPrismaService.question.findMany.mockResolvedValue(
+          Array.from({ length: 100 }, (_, i) => ({
+            id: `q${i}`,
+            difficulty: 'MEDIUM',
+          })),
+        );
+        mockExamsService.questionDifficulties.mockResolvedValue(
+          new Map(Array.from({ length: 100 }, (_, i) => [`q${i}`, 0])),
+        );
+      });
+
+      it('summarises missed work, the weakest domain and the trend', async () => {
+        mockExamsService.abilityFor.mockResolvedValue({
+          theta: 1.5,
+          se: 0.3,
+          answered: 40,
+        });
+
+        const res = await service.insights('user-1', 'att-1');
+
+        expect(res).toMatchObject({
+          missedCount: 2,
+          skippedCount: 1,
+          flaggedCount: 1,
+          weakestDomain: { domainId: 'd2', name: 'Security', percentage: 0 },
+        });
+        // Oldest first for charting.
+        expect(res.trend.map((t) => t.attemptId)).toEqual(['att-0', 'att-1']);
+        expect(res.trend[1].score).toBe(33);
+        expect(res.readiness).toMatchObject({
+          passingScore: 72,
+          examLength: 65,
+          basedOnQuestions: 40,
+        });
+        expect(res.readiness.passLikelihood).toBeGreaterThan(50);
+      });
+
+      it('gives no pass likelihood without any history', async () => {
+        mockExamsService.abilityFor.mockResolvedValue({
+          theta: 0,
+          se: 1,
+          answered: 0,
+        });
+        const res = await service.insights('user-1', 'att-1');
+        expect(res.readiness.passLikelihood).toBeNull();
+      });
+
+      it("refuses another user's or an unsubmitted attempt", async () => {
+        await expect(
+          service.insights('user-2', 'att-1'),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          ...attempt,
+          status: AttemptStatus.IN_PROGRESS,
+        });
+        await expect(
+          service.insights('user-1', 'att-1'),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+    });
+
+    describe('addMissedToReview', () => {
+      it('queues wrong and skipped questions for review now', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          userId: 'user-1',
+          status: AttemptStatus.SUBMITTED,
+          answers: [
+            { questionId: 'q1', isCorrect: true },
+            { questionId: 'q2', isCorrect: false },
+            { questionId: 'q3', isCorrect: null },
+          ],
+        });
+        mockPrismaService.$transaction.mockImplementation((arg: any) =>
+          Array.isArray(arg) ? Promise.all(arg) : arg,
+        );
+
+        const res = await service.addMissedToReview('user-1', 'att-1');
+
+        expect(res).toEqual({ added: 2 });
+        const calls = mockPrismaService.reviewSchedule.upsert.mock.calls.map(
+          (c) => c[0],
+        );
+        expect(calls.map((c) => c.where.userId_questionId.questionId)).toEqual([
+          'q2',
+          'q3',
+        ]);
+        expect(calls[0].update).toMatchObject({
+          intervalDays: 0,
+          repetitions: 0,
+          lapses: { increment: 1 },
+        });
+        mockPrismaService.$transaction.mockImplementation((cb: any) => cb);
+      });
+
+      it("refuses another user's attempt", async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          userId: 'user-2',
+          status: AttemptStatus.SUBMITTED,
+          answers: [],
+        });
+        await expect(
+          service.addMissedToReview('user-1', 'att-1'),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
     });
   });
 });

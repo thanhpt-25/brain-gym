@@ -35,6 +35,17 @@ import {
 import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
 import { ExamReviewDialog } from "@/components/exam/ExamReviewDialog";
 import type { SaveStatus } from "@/hooks/useAutosave";
+import type { FontScale } from "@/lib/exam-plan";
+
+/** Tailwind sizes for the question title, body and choices per text size. */
+const TEXT_SIZES: Record<
+  FontScale,
+  { title: string; body: "text-xs" | "text-sm" | "text-base"; choice: string }
+> = {
+  sm: { title: "text-base", body: "text-xs", choice: "text-xs" },
+  md: { title: "text-lg", body: "text-sm", choice: "text-sm" },
+  lg: { title: "text-xl", body: "text-base", choice: "text-base" },
+};
 
 interface ExamSessionProps {
   attemptData: StartAttemptResponse;
@@ -54,6 +65,8 @@ interface ExamSessionProps {
   feedback?: Record<string, CheckAnswerResponse>;
   checkingId?: string | null;
   onCheck?: (qId: string) => void;
+  /** Reading size of the question text (accessibility). */
+  fontScale?: FontScale;
 }
 
 function getTimerClass(
@@ -102,7 +115,9 @@ export function ExamSession({
   feedback = {},
   checkingId = null,
   onCheck,
+  fontScale = "md",
 }: ExamSessionProps) {
+  const sizes = TEXT_SIZES[fontScale];
   const currentQuestion = questions[currentIndex];
   const timerMode = attemptData?.timerMode;
   const isInteractive = attemptData?.feedbackMode === "INTERACTIVE";
@@ -321,21 +336,26 @@ export function ExamSession({
             >
               <div className="glass-card p-6">
                 <div className="flex items-center justify-between mb-4">
+                  {/* A full mock hides these, like the real exam. */}
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-                        currentQuestion.difficulty === "EASY"
-                          ? "bg-accent/10 text-accent"
-                          : currentQuestion.difficulty === "MEDIUM"
-                            ? "bg-warning/10 text-warning"
-                            : "bg-destructive/10 text-destructive"
-                      }`}
-                    >
-                      {currentQuestion.difficulty}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {currentQuestion.domain?.name || "Unknown"}
-                    </span>
+                    {currentQuestion.difficulty && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-mono ${
+                          currentQuestion.difficulty === "EASY"
+                            ? "bg-accent/10 text-accent"
+                            : currentQuestion.difficulty === "MEDIUM"
+                              ? "bg-warning/10 text-warning"
+                              : "bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {currentQuestion.difficulty}
+                      </span>
+                    )}
+                    {currentQuestion.domain !== null && (
+                      <span className="text-xs text-muted-foreground">
+                        {currentQuestion.domain?.name || "Unknown"}
+                      </span>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -351,7 +371,7 @@ export function ExamSession({
                   </Button>
                 </div>
 
-                <h2 className="text-lg font-medium mb-2">
+                <h2 className={`${sizes.title} font-medium mb-2`}>
                   {currentQuestion.title}
                 </h2>
                 {currentQuestion.isScenario && currentQuestion.description ? (
@@ -364,12 +384,16 @@ export function ExamSession({
                       Technical Context / Scenario
                     </div>
                     <div className="text-foreground/90 relative z-10">
-                      <MarkdownContent>{currentQuestion.description}</MarkdownContent>
+                      <MarkdownContent size={sizes.body}>
+                        {currentQuestion.description}
+                      </MarkdownContent>
                     </div>
                   </div>
                 ) : currentQuestion.description ? (
                   <div className="text-muted-foreground mb-4">
-                    <MarkdownContent>{currentQuestion.description}</MarkdownContent>
+                    <MarkdownContent size={sizes.body}>
+                        {currentQuestion.description}
+                      </MarkdownContent>
                   </div>
                 ) : null}
 
@@ -418,7 +442,7 @@ export function ExamSession({
                           key={choice.id}
                           disabled
                           aria-pressed={isSelected}
-                          className={`w-full text-left p-4 rounded-lg border text-sm flex items-start cursor-default ${
+                          className={`w-full text-left p-4 rounded-lg border ${sizes.choice} flex items-start cursor-default ${
                             isRight
                               ? "border-accent bg-accent/10 text-foreground"
                               : isWrongPick
@@ -467,7 +491,7 @@ export function ExamSession({
                           aria-pressed={isMultiple ? undefined : isSelected}
                           aria-disabled={isBlocked || undefined}
                           data-eliminated={isEliminated || undefined}
-                          className={`flex-1 text-left p-4 rounded-lg border transition-all text-sm ${
+                          className={`flex-1 text-left p-4 rounded-lg border transition-all ${sizes.choice} ${
                             isSelected
                               ? "border-primary bg-primary/10 text-foreground"
                               : isBlocked

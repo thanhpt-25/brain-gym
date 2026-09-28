@@ -71,6 +71,8 @@ export interface Certification {
   questionCount?: number;
   timeLimit?: number;
   passingScore?: number;
+  /** Vendor exam format, e.g. { questionCount, durationMinutes }. */
+  examFormat?: { questionCount?: number; durationMinutes?: number } | null;
   icon?: string;
   color?: string;
   isActive: boolean;
@@ -180,6 +182,8 @@ export interface StartAttemptResponse {
   };
   timeLimit: number;
   timerMode?: TimerMode;
+  /** Practice exams only; FULL_MOCK hides difficulty/domain labels. */
+  practiceMode?: PracticeMode | null;
   /** Missing on responses from older backends — treat as END_OF_EXAM. */
   feedbackMode?: FeedbackMode;
   totalQuestions: number;
@@ -200,8 +204,9 @@ export interface AttemptQuestion {
   /** MULTIPLE questions only: how many choices the answer needs ("Choose 2"). */
   selectCount?: number;
   questionType: string;
-  difficulty: string;
-  domain?: Domain;
+  /** null in a full mock exam, which hides labels like the real exam. */
+  difficulty: string | null;
+  domain?: Domain | null;
   tags: string[];
   choices: { id: string; label: string; content: string }[];
   sortOrder: number;
@@ -318,6 +323,51 @@ export type TimerMode = "STRICT" | "ACCELERATED" | "RELAXED" | "TIME_PRESSURE";
 
 /** END_OF_EXAM: grade on submit. INTERACTIVE: reveal each answer + explanation on check. */
 export type FeedbackMode = "END_OF_EXAM" | "INTERACTIVE";
+
+/** Kind of auto-generated practice exam. */
+export type PracticeMode =
+  | "STANDARD"
+  | "QUICK_DRILL"
+  | "FULL_MOCK"
+  | "REVIEW"
+  | "ADAPTIVE";
+
+/** GET /attempts/:id/insights — next steps after an attempt. */
+export interface AttemptInsights {
+  attemptId: string;
+  certificationId: string;
+  missedCount: number;
+  skippedCount: number;
+  flaggedCount: number;
+  domains: {
+    domainId: string;
+    name: string;
+    correct: number;
+    total: number;
+    percentage: number;
+  }[];
+  weakestDomain: {
+    domainId: string;
+    name: string;
+    percentage: number;
+  } | null;
+  /** Oldest first. */
+  trend: {
+    attemptId: string;
+    submittedAt: string | null;
+    score: number;
+    domainScores: Record<string, { correct: number; total: number }>;
+  }[];
+  readiness: {
+    ability: number;
+    standardError: number;
+    basedOnQuestions: number;
+    /** Estimated % chance to pass; null without history. */
+    passLikelihood: number | null;
+    passingScore: number;
+    examLength: number;
+  };
+}
 
 export type ExamMode = "STANDARD" | "TIME_PRESSURE";
 

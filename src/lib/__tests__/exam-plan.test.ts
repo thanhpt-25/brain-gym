@@ -54,3 +54,41 @@ describe("attemptDeadline", () => {
     );
   });
 });
+
+describe("getPracticeExamPlan modes", () => {
+  it("a short session uses the chosen size at the full exam's pace", () => {
+    expect(
+      getPracticeExamPlan(500, "STRICT", {
+        mode: "QUICK_DRILL",
+        sessionSize: 20,
+      }),
+    ).toEqual({ questionCount: 20, timeLimit: 28, effectiveMinutes: 28 });
+  });
+
+  it("a full mock uses the certification's real format, or 65 / 90", () => {
+    expect(
+      getPracticeExamPlan(
+        500,
+        "RELAXED",
+        { mode: "FULL_MOCK" },
+        {
+          questionCount: 50,
+          durationMinutes: 100,
+        },
+      ),
+    ).toEqual({ questionCount: 50, timeLimit: 100, effectiveMinutes: 100 });
+    // ACCELERATED is ignored: a mock always runs on a strict timer.
+    expect(
+      getPracticeExamPlan(500, "ACCELERATED", { mode: "FULL_MOCK" }),
+    ).toEqual({ questionCount: 65, timeLimit: 90, effectiveMinutes: 90 });
+  });
+
+  it("applies the extra-time accommodation", () => {
+    expect(
+      getPracticeExamPlan(500, "STRICT", {
+        mode: "FULL_MOCK",
+        timeMultiplier: 1.5,
+      }),
+    ).toEqual({ questionCount: 65, timeLimit: 135, effectiveMinutes: 135 });
+  });
+});
