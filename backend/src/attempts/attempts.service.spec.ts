@@ -2179,11 +2179,14 @@ describe('AttemptsService', () => {
         Promise.resolve(q(where.id)),
       );
 
+      // Randomesque picks among the top 3; take the most informative one.
+      const random = jest.spyOn(Math, 'random').mockReturnValue(0);
       const res = await service.answerCat('user-1', 'att-1', {
         questionId: 'q2',
         selectedChoices: ['q2-ok'],
         timeSpent: 20,
       });
+      random.mockRestore();
 
       expect(tx.answer.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
@@ -2355,6 +2358,88 @@ describe('AttemptsService', () => {
       expect(res.cat!.passLikelihood).toBeGreaterThan(50);
       // 50% correct would fail on percentage, but the measured level passes.
       expect(res.passed).toBe(true);
+    });
+  });
+
+  describe('closeExpiredBatch (cleanup job)', () => {
+    const now = new Date('2026-09-28T12:00:00Z');
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('closes every attempt past its deadline, counting the outcomes', async () => {
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([
+        {
+          id: 'expired-with-answers',
+          startedAt: new Date('2026-09-28T09:00:00Z'),
+          expiresAt: new Date('2026-09-28T10:00:00Z'),
+          exam: { timeLimit: 60 },
+        },
+        {
+          id: 'expired-empty',
+          startedAt: new Date('2026-09-28T09:00:00Z'),
+          expiresAt: new Date('2026-09-28T10:00:00Z'),
+          exam: { timeLimit: 60 },
+        },
+        {
+          // Legacy attempt without expiresAt, still inside startedAt + 3h.
+          id: 'legacy-running',
+          startedAt: new Date('2026-09-28T11:00:00Z'),
+          expiresAt: null,
+          exam: { timeLimit: 180 },
+        },
+      ]);
+      const close = jest
+        .spyOn(service as any, 'closeFromStoredAnswers')
+        .mockImplementation(async (id: any) =>
+          id === 'expired-empty'
+            ? AttemptStatus.ABANDONED
+            : AttemptStatus.SUBMITTED,
+        );
+
+      const res = await service.closeExpiredBatch(now, 10);
+
+      expect(res).toEqual({ submitted: 1, abandoned: 1 });
+      expect(close).toHaveBeenCalledTimes(2);
+      expect(close).not.toHaveBeenCalledWith(
+        'legacy-running',
+        expect.anything(),
+      );
+      expect(mockPrismaService.examAttempt.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: AttemptStatus.IN_PROGRESS }),
+          take: 10,
+        }),
+      );
+    });
+
+    it('keeps going when one attempt fails to close', async () => {
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([
+        {
+          id: 'broken',
+          startedAt: new Date('2026-09-28T09:00:00Z'),
+          expiresAt: new Date('2026-09-28T10:00:00Z'),
+          exam: { timeLimit: 60 },
+        },
+        {
+          id: 'ok',
+          startedAt: new Date('2026-09-28T09:00:00Z'),
+          expiresAt: new Date('2026-09-28T10:00:00Z'),
+          exam: { timeLimit: 60 },
+        },
+      ]);
+      jest
+        .spyOn(service as any, 'closeFromStoredAnswers')
+        .mockImplementation(async (id: any) => {
+          if (id === 'broken') throw new Error('boom');
+          return AttemptStatus.SUBMITTED;
+        });
+
+      await expect(service.closeExpiredBatch(now)).resolves.toEqual({
+        submitted: 1,
+        abandoned: 0,
+      });
     });
   });
 });

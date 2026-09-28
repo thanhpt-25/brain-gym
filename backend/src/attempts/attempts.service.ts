@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmitAnswerDto } from './dto/submit-answer.dto';
@@ -134,6 +135,8 @@ interface LockedAnswer {
 
 @Injectable()
 export class AttemptsService {
+  private readonly logger = new Logger(AttemptsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gamification: GamificationService,
@@ -1157,6 +1160,54 @@ export class AttemptsService {
         await this.closeFromStoredAnswers(attempt.id, { expired: true });
       }
     }
+  }
+
+  /**
+   * Sweep for the cleanup job: close IN_PROGRESS attempts of any user whose
+   * deadline (+ grace) has passed — graded from their saved answers, or
+   * ABANDONED when nothing was answered. Handles at most `limit` attempts per
+   * run, oldest first. Returns how many were closed, by outcome.
+   */
+  async closeExpiredBatch(
+    now = new Date(),
+    limit = 500,
+  ): Promise<{ submitted: number; abandoned: number }> {
+    const cutoff = new Date(now.getTime() - DEADLINE_GRACE_MS);
+    const candidates = await this.prisma.examAttempt.findMany({
+      where: {
+        status: AttemptStatus.IN_PROGRESS,
+        OR: [
+          { expiresAt: { lt: cutoff } },
+          // Attempts from before expiresAt existed: check their deadline
+          // (startedAt + time limit) below.
+          { expiresAt: null, startedAt: { lt: cutoff } },
+        ],
+      },
+      orderBy: { startedAt: 'asc' },
+      take: limit,
+      select: {
+        id: true,
+        startedAt: true,
+        expiresAt: true,
+        exam: { select: { timeLimit: true, timerMode: true } },
+      },
+    });
+
+    const counts = { submitted: 0, abandoned: 0 };
+    for (const attempt of candidates) {
+      if (!this.isPastDeadline(attempt, now.getTime())) continue;
+      try {
+        const status = await this.closeFromStoredAnswers(attempt.id, {
+          expired: true,
+        });
+        if (status === AttemptStatus.SUBMITTED) counts.submitted++;
+        if (status === AttemptStatus.ABANDONED) counts.abandoned++;
+      } catch (err) {
+        // One broken attempt must not stop the sweep.
+        this.logger.warn(`Could not close attempt ${attempt.id}: ${err}`);
+      }
+    }
+    return counts;
   }
 
   /**
