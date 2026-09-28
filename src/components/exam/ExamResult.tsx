@@ -14,7 +14,11 @@ interface ExamResultProps {
 
 export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
   const [copied, setCopied] = useState(false);
-  const passed = result.percentage >= 70;
+  const passingScore =
+    result.passingScore ??
+    (result.certification as { passingScore?: number } | undefined)?.passingScore ??
+    70;
+  const passed = result.passed ?? result.percentage >= passingScore;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -35,7 +39,7 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
               {passed ? '✅ PASSED' : '❌ NOT PASSED'}
             </div>
             <div className="text-sm text-muted-foreground">
-              {result.totalCorrect}/{result.totalQuestions} correct · {formatTime(result.timeSpent)}
+              {result.totalCorrect}/{result.totalQuestions} correct · {formatTime(result.timeSpent)} · Pass mark {passingScore}%
             </div>
             {result.feedbackMode === 'INTERACTIVE' && (
               <span className="inline-block mt-3 text-xs px-2 py-0.5 rounded-full font-mono bg-primary/10 text-primary border border-primary/20">
@@ -55,11 +59,11 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
                     <div key={domain}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-foreground">{domain}</span>
-                        <span className={`font-mono ${pct >= 70 ? 'text-accent' : 'text-destructive'}`}>{pct}%</span>
+                        <span className={`font-mono ${pct >= passingScore ? 'text-accent' : 'text-destructive'}`}>{pct}%</span>
                       </div>
                       <div className="h-2 rounded-full bg-secondary overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${pct >= 70 ? 'bg-accent' : 'bg-destructive'}`}
+                          className={`h-full rounded-full transition-all ${pct >= passingScore ? 'bg-accent' : 'bg-destructive'}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -87,6 +91,19 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
                         <span className="text-muted-foreground mr-2">Q{i + 1}.</span>
                         {qr.title}
                       </div>
+                      {qr.codeSnippet && (
+                        <pre className="p-3 rounded bg-secondary/80 text-xs font-mono overflow-x-auto mb-2">
+                          <code>{qr.codeSnippet}</code>
+                        </pre>
+                      )}
+                      {qr.imageUrl && (
+                        <img
+                          src={qr.imageUrl}
+                          alt="Question illustration"
+                          loading="lazy"
+                          className="max-w-full max-h-64 rounded border border-border mb-2"
+                        />
+                      )}
                       <div className="space-y-1">
                         {qr.choices.map(c => {
                           const isSelected = qr.selectedAnswers.includes(c.id || '');

@@ -12,6 +12,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { isAnswerCorrect } from './grading';
+import { DEADLINE_GRACE_MS, effectiveTimeLimit } from './attempts.service';
 
 describe('AttemptsService', () => {
   let service: AttemptsService;
@@ -20,8 +21,11 @@ describe('AttemptsService', () => {
   const mockPrismaService = {
     examAttempt: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     exam: {
       findUnique: jest.fn(),
@@ -347,12 +351,14 @@ describe('AttemptsService', () => {
         userId,
         status: AttemptStatus.IN_PROGRESS,
       });
-      mockPrismaService.question.findUnique.mockResolvedValue({
-        id: 'q1',
-        choices: [
-          { id: 'c1', isCorrect: true },
-          { id: 'c2', isCorrect: false },
-        ],
+      mockPrismaService.examQuestion.findFirst.mockResolvedValue({
+        question: {
+          id: 'q1',
+          choices: [
+            { id: 'c1', isCorrect: true },
+            { id: 'c2', isCorrect: false },
+          ],
+        },
       });
     });
 
@@ -481,9 +487,8 @@ describe('AttemptsService', () => {
         userId: 'user-1',
         status: AttemptStatus.IN_PROGRESS,
       });
-      mockPrismaService.question.findUnique.mockResolvedValue({
-        id: 'q1',
-        choices: [{ id: 'c1', isCorrect: true }],
+      mockPrismaService.examQuestion.findFirst.mockResolvedValue({
+        question: { id: 'q1', choices: [{ id: 'c1', isCorrect: true }] },
       });
     });
 
@@ -1030,6 +1035,583 @@ describe('AttemptsService', () => {
       expect(tx.answer.deleteMany).not.toHaveBeenCalled();
       expect(tx.exam.update).not.toHaveBeenCalled();
       expect(mockGamificationService.awardPoints).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Sprint 1: timer, resume and presentation order', () => {
+    const tx = {
+      $queryRaw: jest.fn(),
+      answer: {
+        findMany: jest.fn(),
+        deleteMany: jest.fn(),
+        createMany: jest.fn(),
+      },
+      examAttempt: { update: jest.fn() },
+      exam: { update: jest.fn() },
+    };
+
+    const question = (id: string, choiceIds: string[], correct: string[]) => ({
+      id,
+      title: `Title ${id}`,
+      description: null,
+      explanation: `Why ${id}`,
+      questionType: correct.length > 1 ? 'MULTIPLE' : 'SINGLE',
+      difficulty: 'EASY',
+      isScenario: false,
+      codeSnippet: 'print(1)',
+      imageUrl: null,
+      domain: { id: 'd1', name: 'Domain A' },
+      tags: [],
+      choices: choiceIds.map((cid, i) => ({
+        id: cid,
+        label: String.fromCharCode(97 + i),
+        content: `Content ${cid}`,
+        isCorrect: correct.includes(cid),
+        sortOrder: i,
+      })),
+    });
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockPrismaService.$transaction.mockImplementation((arg: any) =>
+        typeof arg === 'function' ? arg(tx) : arg,
+      );
+      tx.$queryRaw.mockResolvedValue([{ status: AttemptStatus.IN_PROGRESS }]);
+    });
+
+    afterAll(() => {
+      mockPrismaService.$transaction.mockImplementation((cb: any) => cb);
+    });
+
+    describe('effectiveTimeLimit', () => {
+      it('scales ACCELERATED exams to 0.75x and leaves other modes alone', () => {
+        expect(
+          effectiveTimeLimit({
+            timeLimit: 180,
+            timerMode: 'ACCELERATED' as any,
+          }),
+        ).toBe(135);
+        expect(
+          effectiveTimeLimit({ timeLimit: 180, timerMode: 'STRICT' as any }),
+        ).toBe(180);
+        expect(
+          effectiveTimeLimit({ timeLimit: 1, timerMode: 'ACCELERATED' as any }),
+        ).toBe(1);
+      });
+    });
+
+    describe('start', () => {
+      const exam = (timerMode: string) => ({
+        id: 'exam-1',
+        title: 'Exam',
+        certification: { id: 'cert-1' },
+        timeLimit: 100,
+        timerMode,
+        deletedAt: null,
+        examQuestions: [
+          { question: question('q1', ['c1', 'c2', 'c3'], ['c1', 'c3']) },
+          { question: question('q2', ['d1', 'd2'], ['d2']) },
+        ],
+      });
+
+      beforeEach(() => {
+        mockPrismaService.examAttempt.create.mockImplementation(({ data }) =>
+          Promise.resolve({ id: 'att-1', ...data }),
+        );
+      });
+
+      it('stores a server deadline from the effective (accelerated) time limit', async () => {
+        mockPrismaService.exam.findUnique.mockResolvedValue(
+          exam('ACCELERATED'),
+        );
+        const before = Date.now();
+
+        const res = await service.start('user-1', 'exam-1');
+
+        const data = mockPrismaService.examAttempt.create.mock.calls[0][0].data;
+        expect(res.timeLimit).toBe(75);
+        const ms = data.expiresAt.getTime() - data.startedAt.getTime();
+        expect(ms).toBe(75 * 60_000);
+        expect(data.startedAt.getTime()).toBeGreaterThanOrEqual(before);
+        expect(res.expiresAt).toEqual(data.expiresAt);
+        expect(res.serverNow).toBeInstanceOf(Date);
+      });
+
+      it('stores the presented question and choice order and returns it', async () => {
+        mockPrismaService.exam.findUnique.mockResolvedValue(exam('STRICT'));
+
+        const res = await service.start('user-1', 'exam-1');
+
+        const { presentation } =
+          mockPrismaService.examAttempt.create.mock.calls[0][0].data;
+        expect(presentation.questionIds).toEqual(
+          res.questions.map((q) => q.id),
+        );
+        for (const q of res.questions) {
+          expect(presentation.choiceIds[q.id]).toEqual(
+            q.choices.map((c) => c.id),
+          );
+        }
+      });
+
+      it('returns scenario/code/image fields and "choose N" for multi-select, never the answer', async () => {
+        mockPrismaService.exam.findUnique.mockResolvedValue(exam('STRICT'));
+
+        const res = await service.start('user-1', 'exam-1');
+        const q1 = res.questions.find((q) => q.id === 'q1') as any;
+        const q2 = res.questions.find((q) => q.id === 'q2') as any;
+
+        expect(q1).toMatchObject({
+          codeSnippet: 'print(1)',
+          isScenario: false,
+          selectCount: 2,
+        });
+        expect(q2).not.toHaveProperty('selectCount');
+        expect(q1).not.toHaveProperty('explanation');
+        expect(q1.choices[0]).not.toHaveProperty('isCorrect');
+      });
+    });
+
+    describe('deadline enforcement', () => {
+      const expired = {
+        id: 'att-1',
+        userId: 'user-1',
+        examId: 'exam-1',
+        status: AttemptStatus.IN_PROGRESS,
+        feedbackMode: FeedbackMode.END_OF_EXAM,
+        startedAt: new Date(Date.now() - 3_600_000),
+        expiresAt: new Date(Date.now() - DEADLINE_GRACE_MS - 1_000),
+        exam: { timeLimit: 30, timerMode: 'STRICT' },
+      };
+
+      it('rejects autosaves after the deadline', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue(expired);
+        await expect(
+          service.saveAnswer('user-1', 'att-1', {
+            questionId: 'q1',
+            selectedChoices: [],
+          }),
+        ).rejects.toThrow('Time is up');
+        expect(mockPrismaService.answer.upsert).not.toHaveBeenCalled();
+      });
+
+      it('still accepts an autosave within the grace period', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          ...expired,
+          expiresAt: new Date(Date.now() - DEADLINE_GRACE_MS / 2),
+        });
+        mockPrismaService.examQuestion.findFirst.mockResolvedValue({
+          question: question('q1', ['c1'], ['c1']),
+        });
+        mockPrismaService.answer.findFirst.mockResolvedValue(null);
+        mockPrismaService.answer.count.mockResolvedValue(0);
+
+        await service.saveAnswer('user-1', 'att-1', {
+          questionId: 'q1',
+          selectedChoices: ['c1'],
+        });
+        expect(mockPrismaService.answer.upsert).toHaveBeenCalled();
+      });
+
+      it('rejects interactive checks after the deadline', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          ...expired,
+          feedbackMode: FeedbackMode.INTERACTIVE,
+        });
+        await expect(
+          service.checkAnswer('user-1', 'att-1', {
+            questionId: 'q1',
+            selectedChoices: ['c1'],
+          }),
+        ).rejects.toThrow('Time is up');
+      });
+
+      it('grades a late submit from autosaved answers, ignoring the payload', async () => {
+        mockPrismaService.examAttempt.findUnique
+          .mockResolvedValueOnce(expired) // submit()
+          .mockResolvedValueOnce({
+            ...expired,
+            presentation: {
+              questionIds: ['q1'],
+              choiceIds: { q1: ['c1', 'c2'] },
+            },
+            exam: {
+              ...expired.exam,
+              examQuestions: [
+                { question: question('q1', ['c1', 'c2'], ['c1']) },
+              ],
+            },
+          }); // closeFromStoredAnswers()
+        tx.answer.findMany.mockResolvedValue([
+          { questionId: 'q1', selectedChoices: ['c2'], isCorrect: false },
+        ]);
+        jest.spyOn(service, 'findResult').mockResolvedValue({} as any);
+
+        await service.submit('user-1', 'att-1', {
+          answers: [{ questionId: 'q1', selectedChoices: ['c1'] }],
+        });
+
+        expect(tx.answer.deleteMany).not.toHaveBeenCalled();
+        expect(tx.examAttempt.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              status: AttemptStatus.SUBMITTED,
+              totalCorrect: 0,
+              // capped at the 30 minute limit, not the hour that passed
+              timeSpent: expect.any(Number),
+            }),
+          }),
+        );
+        const { timeSpent } = tx.examAttempt.update.mock.calls[0][0].data;
+        expect(timeSpent).toBeLessThanOrEqual(3_600 - DEADLINE_GRACE_MS / 1000);
+      });
+    });
+
+    describe('closeExpiredAttempts', () => {
+      it('abandons an expired attempt with no answers instead of scoring it 0%', async () => {
+        const attempt = {
+          id: 'att-1',
+          userId: 'user-1',
+          examId: 'exam-1',
+          startedAt: new Date(Date.now() - 7_200_000),
+          expiresAt: new Date(Date.now() - 3_600_000),
+          presentation: null,
+          exam: {
+            timeLimit: 60,
+            timerMode: 'STRICT',
+            examQuestions: [{ question: question('q1', ['c1'], ['c1']) }],
+          },
+        };
+        mockPrismaService.examAttempt.findMany.mockResolvedValue([attempt]);
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue(attempt);
+        tx.answer.findMany.mockResolvedValue([]);
+
+        await service.closeExpiredAttempts('user-1');
+
+        expect(tx.examAttempt.update).toHaveBeenCalledWith({
+          where: { id: 'att-1' },
+          data: expect.objectContaining({ status: AttemptStatus.ABANDONED }),
+        });
+        expect(tx.exam.update).not.toHaveBeenCalled();
+        expect(mockGamificationService.awardPoints).not.toHaveBeenCalled();
+      });
+
+      it('grades an expired attempt with answers and records skipped questions', async () => {
+        const attempt = {
+          id: 'att-1',
+          userId: 'user-1',
+          examId: 'exam-1',
+          startedAt: new Date(Date.now() - 7_200_000),
+          expiresAt: new Date(Date.now() - 3_600_000),
+          presentation: { questionIds: ['q2', 'q1'], choiceIds: {} },
+          exam: {
+            timeLimit: 60,
+            timerMode: 'STRICT',
+            examQuestions: [
+              { question: question('q1', ['c1'], ['c1']) },
+              { question: question('q2', ['d1'], ['d1']) },
+            ],
+          },
+        };
+        mockPrismaService.examAttempt.findMany.mockResolvedValue([attempt]);
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue(attempt);
+        tx.answer.findMany.mockResolvedValue([
+          { questionId: 'q2', selectedChoices: ['d1'], isCorrect: true },
+        ]);
+
+        await service.closeExpiredAttempts('user-1');
+
+        expect(tx.answer.createMany).toHaveBeenCalledWith({
+          data: [
+            expect.objectContaining({
+              questionId: 'q1',
+              selectedChoices: [],
+              questionOrder: 1,
+            }),
+          ],
+        });
+        expect(tx.examAttempt.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              status: AttemptStatus.SUBMITTED,
+              totalCorrect: 1,
+              score: 50,
+              timeSpent: 3_600,
+            }),
+          }),
+        );
+        expect(mockGamificationService.awardPoints).toHaveBeenCalled();
+      });
+
+      it('leaves attempts that are still running alone', async () => {
+        mockPrismaService.examAttempt.findMany.mockResolvedValue([
+          {
+            id: 'att-1',
+            startedAt: new Date(),
+            expiresAt: new Date(Date.now() + 60_000),
+            exam: { timeLimit: 60 },
+          },
+        ]);
+        await service.closeExpiredAttempts('user-1');
+        expect(mockPrismaService.$transaction).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('saveAnswer ordering and validation', () => {
+      beforeEach(() => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          id: 'att-1',
+          userId: 'user-1',
+          status: AttemptStatus.IN_PROGRESS,
+          presentation: { questionIds: ['q2', 'q1'], choiceIds: {} },
+        });
+        mockPrismaService.examQuestion.findFirst.mockResolvedValue({
+          question: question('q1', ['c1', 'c2'], ['c1']),
+        });
+        mockPrismaService.answer.findFirst.mockResolvedValue(null);
+      });
+
+      it('uses the presented position as questionOrder', async () => {
+        await service.saveAnswer('user-1', 'att-1', {
+          questionId: 'q1',
+          selectedChoices: ['c1'],
+        });
+        expect(mockPrismaService.answer.count).not.toHaveBeenCalled();
+        expect(
+          mockPrismaService.answer.upsert.mock.calls[0][0].create.questionOrder,
+        ).toBe(1);
+      });
+
+      it('rejects questions that are not part of the exam', async () => {
+        mockPrismaService.examQuestion.findFirst.mockResolvedValue(null);
+        await expect(
+          service.saveAnswer('user-1', 'att-1', {
+            questionId: 'qx',
+            selectedChoices: [],
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('rejects choices that do not belong to the question', async () => {
+        await expect(
+          service.saveAnswer('user-1', 'att-1', {
+            questionId: 'q1',
+            selectedChoices: ['zz'],
+          }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      });
+
+      it('saves a flag with no selection', async () => {
+        await service.saveAnswer('user-1', 'att-1', {
+          questionId: 'q1',
+          selectedChoices: [],
+          isMarked: true,
+        });
+        expect(
+          mockPrismaService.answer.upsert.mock.calls[0][0].create,
+        ).toMatchObject({
+          selectedChoices: [],
+          isMarked: true,
+          isCorrect: false,
+        });
+      });
+    });
+
+    describe('getState', () => {
+      const attempt = {
+        id: 'att-1',
+        userId: 'user-1',
+        examId: 'exam-1',
+        status: AttemptStatus.IN_PROGRESS,
+        feedbackMode: FeedbackMode.INTERACTIVE,
+        startedAt: new Date(),
+        expiresAt: new Date(Date.now() + 600_000),
+        presentation: {
+          questionIds: ['q2', 'q1'],
+          choiceIds: { q1: ['c2', 'c1'], q2: ['d1', 'd2'] },
+        },
+        exam: {
+          title: 'Exam',
+          timeLimit: 40,
+          timerMode: 'ACCELERATED',
+          certification: { id: 'cert-1' },
+          examQuestions: [
+            { question: question('q1', ['c1', 'c2'], ['c1']) },
+            { question: question('q2', ['d1', 'd2'], ['d2']) },
+          ],
+        },
+        answers: [
+          {
+            questionId: 'q1',
+            selectedChoices: ['c2'],
+            isMarked: true,
+            isCorrect: false,
+            checkedAt: new Date(),
+          },
+        ],
+      };
+
+      it('restores the presented order, labels, saved answers and revealed verdicts', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue(attempt);
+
+        const state = await service.getState('user-1', 'att-1');
+
+        expect(state.status).toBe(AttemptStatus.IN_PROGRESS);
+        expect(state.timeLimit).toBe(30);
+        expect(state.expiresAt).toEqual(attempt.expiresAt);
+        expect(state.questions!.map((q) => q.id)).toEqual(['q2', 'q1']);
+        expect(state.questions![1].choices).toEqual([
+          { id: 'c2', label: 'a', content: 'Content c2' },
+          { id: 'c1', label: 'b', content: 'Content c1' },
+        ]);
+        expect(state.answers).toEqual([
+          { questionId: 'q1', selectedChoices: ['c2'], isMarked: true },
+        ]);
+        expect(state.checked).toEqual([
+          expect.objectContaining({
+            questionId: 'q1',
+            isCorrect: false,
+            correctChoiceIds: ['c1'],
+            explanation: 'Why q1',
+          }),
+        ]);
+      });
+
+      it('only reports the status of an attempt that is no longer in progress', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          ...attempt,
+          status: AttemptStatus.SUBMITTED,
+        });
+        expect(await service.getState('user-1', 'att-1')).toEqual({
+          attemptId: 'att-1',
+          status: AttemptStatus.SUBMITTED,
+        });
+      });
+
+      it("403 on another user's attempt", async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue(attempt);
+        await expect(
+          service.getState('user-2', 'att-1'),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+      });
+    });
+
+    describe('findActive', () => {
+      it('returns the latest resumable attempt for the certification', async () => {
+        mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+        const expiresAt = new Date(Date.now() + 60_000);
+        mockPrismaService.examAttempt.findFirst.mockResolvedValue({
+          id: 'att-1',
+          examId: 'exam-1',
+          feedbackMode: FeedbackMode.END_OF_EXAM,
+          totalQuestions: 10,
+          startedAt: new Date(),
+          expiresAt,
+          exam: {
+            title: 'Exam',
+            timeLimit: 60,
+            timerMode: 'STRICT',
+            certificationId: 'cert-1',
+          },
+          _count: { answers: 3 },
+        });
+
+        const { active } = await service.findActive('user-1', 'cert-1');
+
+        expect(mockPrismaService.examAttempt.findFirst).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              userId: 'user-1',
+              status: AttemptStatus.IN_PROGRESS,
+              exam: { deletedAt: null, certificationId: 'cert-1' },
+            }),
+          }),
+        );
+        expect(active).toMatchObject({
+          attemptId: 'att-1',
+          answeredCount: 3,
+          totalQuestions: 10,
+          expiresAt,
+        });
+      });
+
+      it('returns null when nothing is in progress', async () => {
+        mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+        mockPrismaService.examAttempt.findFirst.mockResolvedValue(null);
+        expect(await service.findActive('user-1')).toEqual({ active: null });
+      });
+    });
+
+    describe('abandon', () => {
+      it('marks an in-progress attempt ABANDONED', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          userId: 'user-1',
+          status: AttemptStatus.IN_PROGRESS,
+        });
+        mockPrismaService.examAttempt.updateMany.mockResolvedValue({
+          count: 1,
+        });
+
+        await expect(service.abandon('user-1', 'att-1')).resolves.toEqual({
+          attemptId: 'att-1',
+          status: AttemptStatus.ABANDONED,
+        });
+      });
+
+      it('refuses to abandon a submitted attempt', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          userId: 'user-1',
+          status: AttemptStatus.SUBMITTED,
+        });
+        await expect(service.abandon('user-1', 'att-1')).rejects.toBeInstanceOf(
+          BadRequestException,
+        );
+      });
+    });
+
+    describe('findResult', () => {
+      it('shows choices in the presented order with the letters the learner saw, and the pass mark', async () => {
+        mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+          id: 'att-1',
+          userId: 'user-1',
+          examId: 'exam-1',
+          status: AttemptStatus.SUBMITTED,
+          score: 80,
+          totalCorrect: 4,
+          totalQuestions: 5,
+          startedAt: new Date(),
+          presentation: {
+            questionIds: ['q1'],
+            choiceIds: { q1: ['c3', 'c1', 'c2'] },
+          },
+          exam: {
+            title: 'Exam',
+            certification: { id: 'cert-1', passingScore: 85 },
+          },
+          answers: [
+            {
+              id: 'ans-1',
+              questionId: 'q1',
+              isCorrect: true,
+              selectedChoices: ['c1'],
+              question: question('q1', ['c1', 'c2', 'c3'], ['c1']),
+            },
+          ],
+        });
+
+        const res = await service.findResult('att-1', 'user-1');
+
+        expect(
+          res.questionResults[0].choices.map((c) => [c.id, c.label]),
+        ).toEqual([
+          ['c3', 'a'],
+          ['c1', 'b'],
+          ['c2', 'c'],
+        ]);
+        expect(res.questionResults[0].codeSnippet).toBe('print(1)');
+        expect(res.passingScore).toBe(85);
+        expect(res.passed).toBe(false);
+      });
     });
   });
 });

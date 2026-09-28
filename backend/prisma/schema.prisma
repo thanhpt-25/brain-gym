@@ -590,6 +590,12 @@ model ExamAttempt {
   examType       ExamType      @default(STANDARD) @map("exam_type")
   feedbackMode   FeedbackMode  @default(END_OF_EXAM) @map("feedback_mode")
   status         AttemptStatus @default(IN_PROGRESS)
+  /// Server-authoritative deadline (startedAt + effective time limit). The
+  /// client counts down to this; answers/submits after it (+ grace) are not accepted.
+  expiresAt      DateTime?     @map("expires_at")
+  /// Per-attempt presentation order: { questionIds: string[], choiceIds: Record<questionId, string[]> }.
+  /// Lets a resumed attempt show the same shuffled order and the result review use the same labels.
+  presentation   Json?
 
   user    User     @relation(fields: [userId], references: [id])
   exam    Exam     @relation(fields: [examId], references: [id])
@@ -597,6 +603,7 @@ model ExamAttempt {
   capturedWords  CapturedWord[]
   attemptEvents  AttemptEvent[]
 
+  @@index([userId, status])
   @@map("exam_attempts")
 }
 

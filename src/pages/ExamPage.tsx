@@ -1,12 +1,17 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCertificationById } from "@/services/certifications";
 import { getQuestions } from "@/services/questions";
 import {
   startAttempt,
   submitAttempt,
   checkAnswer,
+  getActiveAttempt,
+  getAttemptState,
+  getAttemptResult,
+  abandonAttempt,
+  AttemptState,
   StartAttemptResponse,
   AttemptResult,
   AttemptQuestion,
@@ -21,7 +26,9 @@ import { ExamSession } from "@/components/exam/ExamSession";
 import { ExamResult } from "@/components/exam/ExamResult";
 import { WordCaptureTooltip } from "@/components/exam/WordCaptureTooltip";
 import { useTimer } from "@/hooks/useTimer";
+import { useAutosave } from "@/hooks/useAutosave";
 import { useTextSelection } from "@/hooks/useTextSelection";
+import { attemptDeadline, getPracticeExamPlan } from "@/lib/exam-plan";
 import type { FeedbackMode, TimerMode } from "@/types/api-types";
 import {
   loadFeedbackModePreference,
@@ -53,6 +60,8 @@ const ExamPage = () => {
     enabled: !!certId,
   });
 
+  const queryClient = useQueryClient();
+
   const [phase, setPhase] = useState<ExamPhase>(
     passedAttempt ? "exam" : "intro",
   );
@@ -61,6 +70,13 @@ const ExamPage = () => {
   );
   const [totalSeconds, setTotalSeconds] = useState<number>(
     passedAttempt ? passedAttempt.timeLimit * 60 : 0,
+  );
+  const [deadline, setDeadline] = useState<number | null>(() =>
+    // location.state survives reloads, so its serverNow may be stale: skip
+    // the skew correction until the server sync below refreshes it.
+    passedAttempt
+      ? attemptDeadline({ ...passedAttempt, serverNow: undefined })
+      : null,
   );
   const [selectedTimerMode, setSelectedTimerMode] =
     useState<TimerMode>("STRICT");
@@ -84,12 +100,112 @@ const ExamPage = () => {
   const [checkingId, setCheckingId] = useState<string | null>(null);
 
   const questions: AttemptQuestion[] = attemptData?.questions ?? [];
-  const questionCount = questionsData?.meta?.total ?? 0;
+  const poolSize = questionsData?.meta?.total ?? 0;
+  const plan = getPracticeExamPlan(poolSize, selectedTimerMode);
+  const isInteractive = attemptData?.feedbackMode === "INTERACTIVE";
+
+  // Answers/flags are saved as the learner goes (END_OF_EXAM only;
+  // INTERACTIVE answers are saved when checked).
+  const {
+    status: saveStatus,
+    queue: queueSave,
+    flush: flushSaves,
+    cancel: cancelSaves,
+  } = useAutosave(
+    attemptData?.attemptId ?? null,
+    phase === "exam" && !isInteractive,
+  );
+
+  const { data: activeAttempt, refetch: refetchActive } = useQuery({
+    queryKey: ["active-attempt", cert?.id],
+    queryFn: async () => (await getActiveAttempt(cert!.id)) ?? null,
+    enabled: !!cert?.id && phase === "intro",
+  });
+
+  /** Load an attempt (fresh or resumed) into the exam screen. */
+  const applyAttempt = useCallback(
+    (attempt: StartAttemptResponse, saved?: AttemptState) => {
+      const restoredAnswers: Record<string, string[]> = {};
+      const restoredMarks = new Set<string>();
+      for (const a of saved?.answers ?? []) {
+        if (a.selectedChoices.length) restoredAnswers[a.questionId] = a.selectedChoices;
+        if (a.isMarked) restoredMarks.add(a.questionId);
+      }
+      const restoredFeedback: Record<string, CheckAnswerResponse> = {};
+      for (const c of saved?.checked ?? []) {
+        restoredFeedback[c.questionId] = c;
+        restoredAnswers[c.questionId] = c.selectedChoiceIds;
+      }
+      // Pick up at the first question not answered yet.
+      const firstOpen = attempt.questions.findIndex(
+        (q) => !restoredAnswers[q.id]?.length,
+      );
+
+      setAttemptData(attempt);
+      setTotalSeconds(attempt.timeLimit * 60);
+      setDeadline(attemptDeadline(attempt));
+      setAnswers(restoredAnswers);
+      setMarked(restoredMarks);
+      setFeedback(restoredFeedback);
+      setCurrentIndex(saved && firstOpen > 0 ? firstOpen : 0);
+      setResult(null);
+      setPhase("exam");
+    },
+    [],
+  );
+
+  /**
+   * Continue an attempt from the server's copy. Returns false when the
+   * attempt can't be continued (it was submitted, expired or abandoned).
+   */
+  const loadSavedAttempt = useCallback(
+    async (attemptId: string): Promise<boolean> => {
+      const state = await getAttemptState(attemptId);
+      if (!state) throw new Error("No attempt state");
+      if (state.status === "IN_PROGRESS" && state.questions) {
+        applyAttempt(state as StartAttemptResponse, state);
+        return true;
+      }
+      if (state.status === "SUBMITTED") {
+        // Time ran out while away: the server graded the saved answers.
+        const res = await getAttemptResult(attemptId);
+        setResult(res);
+        setPhase("result");
+        toast.info("Time ran out — your saved answers were graded.");
+        return true;
+      }
+      return false;
+    },
+    [applyAttempt],
+  );
+
+  // Arriving with an attempt in the location state (exam library, share
+  // link) — also after a reload: sync with the server so saved answers and
+  // the real deadline are restored.
+  const syncedPassedAttempt = useRef(false);
+  useEffect(() => {
+    if (!passedAttempt || syncedPassedAttempt.current) return;
+    syncedPassedAttempt.current = true;
+    loadSavedAttempt(passedAttempt.attemptId)
+      .then((ok) => {
+        if (!ok) {
+          toast.info("This attempt has already ended.");
+          setAttemptData(null);
+          setPhase("intro");
+        }
+      })
+      .catch(() => {
+        // Keep the attempt we were handed; autosave/submit still work.
+      });
+  }, [passedAttempt, loadSavedAttempt]);
 
   const handleSubmit = useCallback(async () => {
     if (!attemptData) return;
     setPhase("loading");
     try {
+      // The payload carries every answer; drop pending autosaves so none
+      // lands after the attempt is graded.
+      await cancelSaves();
       const payload = {
         answers: questions.map((q) => ({
           questionId: q.id,
@@ -100,17 +216,35 @@ const ExamPage = () => {
       const res = await submitAttempt(attemptData.attemptId, payload);
       setResult(res);
       setPhase("result");
+      queryClient.invalidateQueries({ queryKey: ["active-attempt"] });
     } catch (err: unknown) {
       toast.error("Failed to submit exam");
       setPhase("exam");
     }
-  }, [attemptData, answers, questions, marked]);
+  }, [attemptData, answers, questions, marked, cancelSaves, queryClient]);
 
-  const { timeLeft, setTimeLeft } = useTimer({
-    initialSeconds: passedAttempt ? passedAttempt.timeLimit * 60 : 0,
+  const handleExpire = useCallback(() => {
+    toast.info("Time's up — submitting your exam.");
+    handleSubmit();
+  }, [handleSubmit]);
+
+  const { timeLeft } = useTimer({
+    deadline,
     isActive: phase === "exam",
-    onExpire: handleSubmit,
+    onExpire: handleExpire,
   });
+
+  // Leaving mid-exam: ask first (answers are saved, but the clock keeps running).
+  useEffect(() => {
+    if (phase !== "exam") return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      void flushSaves();
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [phase, flushSaves]);
 
   const { selection, clearSelection } = useTextSelection(phase === "exam");
 
@@ -121,51 +255,80 @@ const ExamPage = () => {
     if (!cert) return;
     setPhase("loading");
     try {
+      // Starting over replaces the attempt that was left unfinished.
+      if (activeAttempt) {
+        await abandonAttempt(activeAttempt.attemptId).catch(() => undefined);
+      }
       const isTimePressure = timerMode === "TIME_PRESSURE";
+      const examPlan = getPracticeExamPlan(poolSize, timerMode);
       const exam = await createExam({
         title: `${cert.code} ${isTimePressure ? "Time Pressure" : "Practice"} Exam`,
         certificationId: cert.id,
-        questionCount: isTimePressure
-          ? Math.min(questionCount, 65)
-          : Math.min(questionCount, 130),
-        timeLimit: isTimePressure ? 90 : 180,
+        questionCount: examPlan.questionCount,
+        timeLimit: examPlan.timeLimit,
         timerMode,
         examType: isTimePressure ? "TIME_PRESSURE" : "STANDARD",
       });
 
       const attempt = await startAttempt(exam.id, { feedbackMode });
-      setAttemptData(attempt);
-      const secs = attempt.timeLimit * 60;
-      setTotalSeconds(secs);
-      setTimeLeft(secs);
-      setAnswers({});
-      setMarked(new Set());
-      setFeedback({});
-      setCurrentIndex(0);
-      setResult(null);
-      setPhase("exam");
+      applyAttempt(attempt);
     } catch (err: unknown) {
       toast.error("Failed to start exam");
       setPhase("intro");
     }
   };
 
+  const resumeExam = async () => {
+    if (!activeAttempt) return;
+    setPhase("loading");
+    try {
+      if (!(await loadSavedAttempt(activeAttempt.attemptId))) {
+        toast.info("This attempt has already ended.");
+        setPhase("intro");
+        refetchActive();
+      }
+    } catch {
+      toast.error("Could not resume the exam");
+      setPhase("intro");
+    }
+  };
+
+  const discardActive = async () => {
+    if (!activeAttempt) return;
+    try {
+      await abandonAttempt(activeAttempt.attemptId);
+    } catch {
+      // Already closed — the refetch below reflects that.
+    }
+    refetchActive();
+  };
+
   const selectAnswer = (questionId: string, choiceId: string) => {
     // A checked answer is locked (the server rejects changes too).
     if (feedback[questionId]) return;
-    setAnswers((prev) => {
-      const current = prev[questionId] || [];
-      const question = questions.find((q) => q.id === questionId);
-      const isMultiple = question?.questionType === "MULTIPLE";
-      if (isMultiple) {
-        return {
-          ...prev,
-          [questionId]: current.includes(choiceId)
-            ? current.filter((id) => id !== choiceId)
-            : [...current, choiceId],
-        };
+    const current = answers[questionId] || [];
+    const question = questions.find((q) => q.id === questionId);
+    let next: string[];
+    if (question?.questionType === "MULTIPLE") {
+      if (current.includes(choiceId)) {
+        next = current.filter((id) => id !== choiceId);
+      } else if (
+        question.selectCount &&
+        current.length >= question.selectCount
+      ) {
+        // "Choose N": deselect one before picking another.
+        return;
+      } else {
+        next = [...current, choiceId];
       }
-      return { ...prev, [questionId]: [choiceId] };
+    } else {
+      next = [choiceId];
+    }
+    setAnswers((prev) => ({ ...prev, [questionId]: next }));
+    queueSave({
+      questionId,
+      selectedChoices: next,
+      isMarked: marked.has(questionId),
     });
   };
 
@@ -218,11 +381,17 @@ const ExamPage = () => {
   };
 
   const toggleMark = (questionId: string) => {
+    const isMarked = !marked.has(questionId);
     setMarked((prev) => {
       const next = new Set(prev);
-      if (next.has(questionId)) next.delete(questionId);
-      else next.add(questionId);
+      if (isMarked) next.add(questionId);
+      else next.delete(questionId);
       return next;
+    });
+    queueSave({
+      questionId,
+      selectedChoices: answers[questionId] || [],
+      isMarked,
     });
   };
 
@@ -280,7 +449,11 @@ const ExamPage = () => {
     return (
       <ExamIntro
         cert={cert}
-        questionCount={questionCount}
+        questionCount={plan.questionCount}
+        timeLimitMinutes={plan.effectiveMinutes}
+        activeAttempt={activeAttempt ?? null}
+        onResume={resumeExam}
+        onDiscardActive={discardActive}
         timerMode={selectedTimerMode}
         onTimerModeChange={setSelectedTimerMode}
         feedbackMode={effectiveFeedbackMode}
@@ -319,6 +492,7 @@ const ExamPage = () => {
           timeLeft={timeLeft}
           totalSeconds={totalSeconds}
           onSubmit={handleSubmit}
+          saveStatus={isInteractive ? undefined : saveStatus}
           feedback={feedback}
           checkingId={checkingId}
           onCheck={handleCheck}

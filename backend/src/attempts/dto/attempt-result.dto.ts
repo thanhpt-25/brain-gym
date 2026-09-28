@@ -29,6 +29,12 @@ export class QuestionResultResponse {
   description?: string;
 
   @ApiProperty({ required: false })
+  codeSnippet?: string;
+
+  @ApiProperty({ required: false })
+  imageUrl?: string;
+
+  @ApiProperty({ required: false })
   explanation?: string;
 
   @ApiProperty()
@@ -86,6 +92,14 @@ export class AttemptResultResponse {
 
   @ApiProperty()
   percentage: number;
+
+  @ApiProperty({
+    description: 'Pass mark (%) of the certification, 70 when unset',
+  })
+  passingScore: number;
+
+  @ApiProperty()
+  passed: boolean;
 
   @ApiProperty()
   domainScores: Record<string, { correct: number; total: number }>;

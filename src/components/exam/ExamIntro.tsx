@@ -1,14 +1,34 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, Brain, Zap, Clock, Coffee, Flame } from "lucide-react";
+import {
+  ChevronLeft,
+  Brain,
+  Zap,
+  Clock,
+  Coffee,
+  Flame,
+  History,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Certification, FeedbackMode, TimerMode } from "@/types/api-types";
+import {
+  ActiveAttemptSummary,
+  Certification,
+  FeedbackMode,
+  TimerMode,
+} from "@/types/api-types";
 import MarkdownContent from "@/components/ui/MarkdownContent";
 import { FeedbackModeSelector } from "@/components/exam/FeedbackModeSelector";
 import { supportsInteractive } from "@/lib/exam-feedback-mode";
 
 interface ExamIntroProps {
   cert: Certification;
+  /** Questions in the exam that Start creates for the selected timer mode. */
   questionCount: number;
+  /** Minutes the learner gets for the selected timer mode. */
+  timeLimitMinutes: number;
+  /** An unfinished attempt for this certification, if any. */
+  activeAttempt?: ActiveAttemptSummary | null;
+  onResume?: () => void;
+  onDiscardActive?: () => void;
   timerMode: TimerMode;
   onTimerModeChange: (mode: TimerMode) => void;
   feedbackMode: FeedbackMode;
@@ -57,6 +77,10 @@ const TIMER_MODES: {
 export function ExamIntro({
   cert,
   questionCount,
+  timeLimitMinutes,
+  activeAttempt,
+  onResume,
+  onDiscardActive,
   timerMode,
   onTimerModeChange,
   feedbackMode,
@@ -64,8 +88,13 @@ export function ExamIntro({
   onBack,
   onStart,
 }: ExamIntroProps) {
-  const effectiveTimeLimit =
-    timerMode === "ACCELERATED" ? Math.round(130 * 0.75) : 130;
+  const passingScore = cert.passingScore ?? 70;
+  const minutesLeft = activeAttempt?.expiresAt
+    ? Math.max(
+        0,
+        Math.round((Date.parse(activeAttempt.expiresAt) - Date.now()) / 60_000),
+      )
+    : null;
 
   return (
     <div className="min-h-screen bg-background bg-grid">
@@ -95,6 +124,38 @@ export function ExamIntro({
             </div>
           )}
 
+          {activeAttempt && (
+            <div
+              role="region"
+              aria-label="Unfinished exam"
+              className="mb-6 p-4 rounded-lg border border-primary/30 bg-primary/5"
+            >
+              <div className="flex items-center gap-2 text-sm font-mono font-semibold text-primary mb-1">
+                <History className="h-4 w-4" aria-hidden="true" />
+                You have an unfinished exam
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                {activeAttempt.answeredCount}/{activeAttempt.totalQuestions}{" "}
+                answered
+                {minutesLeft !== null && ` · ${minutesLeft}m left`} — your
+                answers are saved and the timer keeps running.
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" className="font-mono" onClick={onResume}>
+                  Resume exam
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="font-mono text-muted-foreground"
+                  onClick={onDiscardActive}
+                >
+                  Discard
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="text-center p-3 rounded-lg bg-secondary">
               <div className="text-xl font-mono font-bold text-foreground">
@@ -104,13 +165,13 @@ export function ExamIntro({
             </div>
             <div className="text-center p-3 rounded-lg bg-secondary">
               <div className="text-xl font-mono font-bold text-foreground">
-                {effectiveTimeLimit}m
+                {timeLimitMinutes}m
               </div>
               <div className="text-xs text-muted-foreground">Time Limit</div>
             </div>
             <div className="text-center p-3 rounded-lg bg-secondary">
               <div className="text-xl font-mono font-bold text-foreground">
-                70%
+                {passingScore}%
               </div>
               <div className="text-xs text-muted-foreground">Pass Score</div>
             </div>
@@ -178,7 +239,8 @@ export function ExamIntro({
               size="lg"
               onClick={onStart}
             >
-              <Brain className="h-4 w-4 mr-2" /> Start Exam
+              <Brain className="h-4 w-4 mr-2" />{" "}
+              {activeAttempt ? "Start New Exam" : "Start Exam"}
             </Button>
           )}
         </motion.div>

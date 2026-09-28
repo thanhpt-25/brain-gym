@@ -261,3 +261,65 @@ describe("ExamSession — Interactive mode", () => {
     );
   });
 });
+
+describe("ExamSession question content", () => {
+  const rich: AttemptQuestion = {
+    id: "q9",
+    title: "What does this print?",
+    description: "Given the **snippet** below:",
+    questionType: "MULTIPLE",
+    selectCount: 2,
+    codeSnippet: "print(1 + 1)",
+    imageUrl: "https://example.com/diagram.png",
+    difficulty: "HARD",
+    tags: [],
+    sortOrder: 0,
+    choices: [
+      { id: "m1", label: "a", content: "2" },
+      { id: "m2", label: "b", content: "Two" },
+      { id: "m3", label: "c", content: "11" },
+    ],
+  };
+
+  it("renders markdown, the code snippet and the image", () => {
+    renderSession({
+      attemptData: attempt("END_OF_EXAM"),
+      questions: [rich],
+    });
+    expect(screen.getByText("snippet").tagName).toBe("STRONG");
+    expect(screen.getByTestId("question-code")).toHaveTextContent(
+      "print(1 + 1)",
+    );
+    expect(screen.getByRole("img", { name: /question illustration/i })).toHaveAttribute(
+      "src",
+      "https://example.com/diagram.png",
+    );
+  });
+
+  it('shows "Choose N" and blocks extra picks once N are selected', async () => {
+    const selectAnswer = vi.fn();
+    renderSession({
+      attemptData: attempt("END_OF_EXAM"),
+      questions: [rich],
+      answers: { q9: ["m1", "m2"] },
+      selectAnswer,
+    });
+    expect(screen.getByText("Choose 2 · 2/2 selected")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /11/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("checkbox", { name: /Two/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("shows the autosave status", () => {
+    renderSession({ attemptData: attempt("END_OF_EXAM"), saveStatus: "error" });
+    expect(screen.getByTestId("save-status")).toHaveTextContent(
+      "Offline — retrying",
+    );
+  });
+});
+

@@ -183,6 +183,10 @@ export interface StartAttemptResponse {
   /** Missing on responses from older backends — treat as END_OF_EXAM. */
   feedbackMode?: FeedbackMode;
   totalQuestions: number;
+  /** Server deadline (ISO). Missing on older backends — fall back to timeLimit. */
+  expiresAt?: string | null;
+  /** Server clock when the response was built, to correct client clock skew. */
+  serverNow?: string;
   questions: AttemptQuestion[];
 }
 
@@ -191,12 +195,38 @@ export interface AttemptQuestion {
   title: string;
   description?: string;
   isScenario?: boolean;
+  codeSnippet?: string | null;
+  imageUrl?: string | null;
+  /** MULTIPLE questions only: how many choices the answer needs ("Choose 2"). */
+  selectCount?: number;
   questionType: string;
   difficulty: string;
   domain?: Domain;
   tags: string[];
   choices: { id: string; label: string; content: string }[];
   sortOrder: number;
+}
+
+/** GET /attempts/:id/state — everything needed to resume an attempt. */
+export interface AttemptState extends Partial<StartAttemptResponse> {
+  attemptId: string;
+  status: "IN_PROGRESS" | "SUBMITTED" | "ABANDONED";
+  answers?: { questionId: string; selectedChoices: string[]; isMarked: boolean }[];
+  checked?: CheckAnswerResponse[];
+}
+
+/** GET /attempts/active — the attempt the learner can pick back up. */
+export interface ActiveAttemptSummary {
+  attemptId: string;
+  examId: string;
+  certificationId: string;
+  title: string;
+  timerMode: TimerMode;
+  feedbackMode: FeedbackMode;
+  answeredCount: number;
+  totalQuestions: number;
+  startedAt: string;
+  expiresAt: string | null;
 }
 
 export interface SubmitAnswerPayload {
@@ -235,6 +265,9 @@ export interface AttemptResult {
   totalCorrect: number;
   totalQuestions: number;
   percentage: number;
+  /** Certification pass mark (%). Missing on older backends. */
+  passingScore?: number;
+  passed?: boolean;
   domainScores: Record<string, { correct: number; total: number }>;
   timeSpent: number;
   startedAt: string;
@@ -243,6 +276,8 @@ export interface AttemptResult {
     questionId: string;
     title: string;
     description?: string;
+    codeSnippet?: string;
+    imageUrl?: string;
     explanation?: string;
     domain: string;
     correct: boolean;

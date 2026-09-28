@@ -9,6 +9,9 @@ import {
   Check,
   X,
   Loader2,
+  CloudOff,
+  CloudUpload,
+  Cloud,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +22,8 @@ import {
 } from "@/types/api-types";
 import { formatTime } from "@/lib/time";
 import { AnswerFeedbackPanel } from "@/components/exam/AnswerFeedbackPanel";
+import MarkdownContent from "@/components/ui/MarkdownContent";
+import type { SaveStatus } from "@/hooks/useAutosave";
 
 interface ExamSessionProps {
   attemptData: StartAttemptResponse;
@@ -32,6 +37,8 @@ interface ExamSessionProps {
   timeLeft: number;
   totalSeconds: number;
   onSubmit: () => void;
+  /** Autosave state (END_OF_EXAM attempts); hidden when undefined. */
+  saveStatus?: SaveStatus;
   /** INTERACTIVE mode only: revealed answers keyed by questionId. */
   feedback?: Record<string, CheckAnswerResponse>;
   checkingId?: string | null;
@@ -80,6 +87,7 @@ export function ExamSession({
   timeLeft,
   totalSeconds,
   onSubmit,
+  saveStatus,
   feedback = {},
   checkingId = null,
   onCheck,
@@ -131,6 +139,10 @@ export function ExamSession({
   const checkedIncorrect = checkedResults.length - checkedCorrect;
   const isLastQuestion = currentIndex === questions.length - 1;
   const hasSelection = !!answers[currentQuestion.id]?.length;
+  const isMultiple = currentQuestion.questionType === "MULTIPLE";
+  const selectCount = isMultiple ? currentQuestion.selectCount : undefined;
+  const selectedCount = answers[currentQuestion.id]?.length ?? 0;
+  const atSelectLimit = !!selectCount && selectedCount >= selectCount;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -175,6 +187,7 @@ export function ExamSession({
             )}
           </div>
           <div className="flex items-center gap-4">
+            <SaveIndicator status={saveStatus} />
             <div
               className={`flex items-center gap-1.5 font-mono text-sm ${timerClass}`}
             >
@@ -249,15 +262,44 @@ export function ExamSession({
                       <BookOpen className="h-3 w-3" aria-hidden="true" />{" "}
                       Technical Context / Scenario
                     </div>
-                    <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed relative z-10">
-                      {currentQuestion.description}
-                    </p>
+                    <div className="text-foreground/90 relative z-10">
+                      <MarkdownContent>{currentQuestion.description}</MarkdownContent>
+                    </div>
                   </div>
                 ) : currentQuestion.description ? (
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {currentQuestion.description}
-                  </p>
+                  <div className="text-muted-foreground mb-4">
+                    <MarkdownContent>{currentQuestion.description}</MarkdownContent>
+                  </div>
                 ) : null}
+
+                {currentQuestion.codeSnippet && (
+                  <pre
+                    className="p-4 rounded-lg bg-secondary/80 text-sm font-mono overflow-x-auto mb-4"
+                    data-testid="question-code"
+                  >
+                    <code>{currentQuestion.codeSnippet}</code>
+                  </pre>
+                )}
+
+                {currentQuestion.imageUrl && (
+                  <img
+                    src={currentQuestion.imageUrl}
+                    alt="Question illustration"
+                    loading="lazy"
+                    className="max-w-full max-h-96 rounded-lg border border-border mb-4"
+                  />
+                )}
+
+                {isMultiple && !currentFeedback && (
+                  <p
+                    className="text-xs font-mono text-primary mt-4"
+                    aria-live="polite"
+                  >
+                    {selectCount
+                      ? `Choose ${selectCount} · ${selectedCount}/${selectCount} selected`
+                      : "Select all that apply"}
+                  </p>
+                )}
 
                 <div className="space-y-3 mt-6">
                   {currentQuestion.choices.map((choice) => {
@@ -302,16 +344,24 @@ export function ExamSession({
                         </button>
                       );
                     }
+                    // "Choose N" reached: other choices wait for a deselect.
+                    const isBlocked = atSelectLimit && !isSelected;
                     return (
                       <button
                         key={choice.id}
                         onClick={() =>
                           selectAnswer(currentQuestion.id, choice.id)
                         }
+                        role={isMultiple ? "checkbox" : undefined}
+                        aria-checked={isMultiple ? isSelected : undefined}
+                        aria-pressed={isMultiple ? undefined : isSelected}
+                        aria-disabled={isBlocked || undefined}
                         className={`w-full text-left p-4 rounded-lg border transition-all text-sm ${
                           isSelected
                             ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-secondary/50 text-foreground hover:border-primary/30"
+                            : isBlocked
+                              ? "border-border bg-secondary/30 text-muted-foreground cursor-not-allowed"
+                              : "border-border bg-secondary/50 text-foreground hover:border-primary/30"
                         }`}
                       >
                         <span className="font-mono font-semibold mr-3 text-muted-foreground">
@@ -474,5 +524,35 @@ export function ExamSession({
         </div>
       </div>
     </div>
+  );
+}
+
+function SaveIndicator({ status }: { status?: SaveStatus }) {
+  if (!status || status === "idle") return null;
+  const content =
+    status === "saving" ? (
+      <>
+        <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" /> Saving…
+      </>
+    ) : status === "error" ? (
+      <>
+        <CloudOff className="h-3.5 w-3.5" aria-hidden="true" /> Offline —
+        retrying
+      </>
+    ) : (
+      <>
+        <Cloud className="h-3.5 w-3.5" aria-hidden="true" /> Saved
+      </>
+    );
+  return (
+    <span
+      role="status"
+      data-testid="save-status"
+      className={`hidden sm:flex items-center gap-1 text-xs font-mono ${
+        status === "error" ? "text-warning" : "text-muted-foreground"
+      }`}
+    >
+      {content}
+    </span>
   );
 }

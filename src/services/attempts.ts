@@ -6,10 +6,12 @@ import {
     SubmitAttemptPayload,
     AttemptResult,
     CheckAnswerResponse,
-    FeedbackMode
+    FeedbackMode,
+    AttemptState,
+    ActiveAttemptSummary
 } from '@/types/api-types';
 
-export type { StartAttemptResponse, AttemptQuestion, SubmitAnswerPayload, SubmitAttemptPayload, AttemptResult, CheckAnswerResponse, FeedbackMode };
+export type { StartAttemptResponse, AttemptQuestion, SubmitAnswerPayload, SubmitAttemptPayload, AttemptResult, CheckAnswerResponse, FeedbackMode, AttemptState, ActiveAttemptSummary };
 
 export const startAttempt = async (
     examId: string,
@@ -49,5 +51,23 @@ export const getMyAttempts = async (page = 1, limit = 10) => {
 
 export const finishAttempt = async (attemptId: string): Promise<AttemptResult> => {
     const response = await api.post<AttemptResult>(`/attempts/${attemptId}/finish`);
+    return response.data;
+};
+
+/** Most recent in-progress attempt the learner can resume (null if none). */
+export const getActiveAttempt = async (certificationId?: string): Promise<ActiveAttemptSummary | null> => {
+    const response = await api.get<{ active: ActiveAttemptSummary | null }>('/attempts/active', {
+        params: certificationId ? { certificationId } : undefined,
+    });
+    return response.data?.active ?? null;
+};
+
+export const getAttemptState = async (attemptId: string): Promise<AttemptState> => {
+    const response = await api.get<AttemptState>(`/attempts/${attemptId}/state`);
+    return response.data;
+};
+
+export const abandonAttempt = async (attemptId: string) => {
+    const response = await api.post(`/attempts/${attemptId}/abandon`);
     return response.data;
 };
