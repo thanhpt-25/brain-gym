@@ -145,9 +145,10 @@ function NextSteps({
       ),
     onError: () => toast.error('Could not add questions to your review queue'),
   });
-  if (!insights) return null;
+  if (!insights?.readiness) return null;
 
-  const { readiness, trend, weakestDomain, missedCount } = insights;
+  const { readiness, weakestDomain, missedCount = 0 } = insights;
+  const trend = insights.trend ?? [];
   const domainNames = [
     ...new Set(trend.flatMap((t) => Object.keys(t.domainScores ?? {}))),
   ].sort();

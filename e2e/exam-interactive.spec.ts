@@ -95,6 +95,13 @@ async function mockApi(page: Page, calls: { start?: unknown[] }) {
   await page.route("**/api/v1/exams", (route) =>
     route.fulfill({ status: 201, json: { id: "exam-1" } }),
   );
+  // ExamPage starts a private practice draw.
+  await page.route("**/api/v1/exams/practice", (route) =>
+    route.fulfill({
+      status: 201,
+      json: { id: "exam-1", questionCount: 2, timeLimit: 5 },
+    }),
+  );
   await page.route("**/api/v1/exams/exam-1/start", (route) => {
     const body = route.request().postDataJSON() ?? {};
     calls.start?.push(body);
@@ -182,6 +189,8 @@ test.describe("Exam interactive mode", () => {
     );
 
     await page.getByRole("button", { name: /finish exam/i }).click();
+    // Finishing goes through the review screen.
+    await page.getByRole("button", { name: /^submit exam$/i }).click();
     await expect(page.getByText("50%")).toBeVisible();
     await expect(page.getByText("Interactive", { exact: true })).toBeVisible();
   });
