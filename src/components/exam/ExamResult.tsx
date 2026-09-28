@@ -1,8 +1,22 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, Check, Share2 } from 'lucide-react';
+import {
+  CheckCircle2,
+  XCircle,
+  Check,
+  Share2,
+  Timer,
+  RotateCcw,
+  Target,
+  BrainCircuit,
+  TrendingUp,
+} from 'lucide-react';
+import { addMissedToReview, getAttemptInsights } from '@/services/attempts';
+import type { PracticeSetup } from '@/lib/exam-plan';
 import { Button } from '@/components/ui/button';
-import { AttemptResult } from '@/types/api-types';
+import { AttemptResult, MistakeType } from '@/types/api-types';
 import { toast } from 'sonner';
 import MarkdownContent from '@/components/ui/MarkdownContent';
 
@@ -10,11 +24,325 @@ interface ExamResultProps {
   result: AttemptResult;
   onRetry: () => void;
   onHome: () => void;
+  /** Start a follow-up practice session (retry missed, drill a domain). */
+  onStartPractice?: (
+    setup: Partial<PracticeSetup> & { sourceAttemptId?: string },
+  ) => void;
 }
 
-export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
+const MISTAKE_HINTS: Partial<Record<MistakeType, string>> = {
+  CARELESS: 'Likely careless — answered very quickly',
+  TIME_PRESSURE: 'Likely time pressure — well over the target pace',
+};
+
+/** 75 → "1m 15s", 42 → "42s". */
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return m > 0 ? `${m}m ${s.toString().padStart(2, '0')}s` : `${s}s`;
+}
+
+/**
+ * Where the time went: average pace against the pace needed to finish on
+ * time, and the questions that took longest.
+ */
+function TimeAnalysis({ result }: { result: AttemptResult }) {
+  const timed = result.questionResults
+    .map((qr, index) => ({ qr, index }))
+    .filter(({ qr }) => typeof qr.timeSpent === 'number');
+  if (timed.length === 0) return null;
+
+  const total = timed.reduce((sum, { qr }) => sum + (qr.timeSpent ?? 0), 0);
+  const average = total / timed.length;
+  const target = result.targetSecondsPerQuestion ?? null;
+  const slowest = [...timed]
+    .sort((a, b) => (b.qr.timeSpent ?? 0) - (a.qr.timeSpent ?? 0))
+    .slice(0, 3)
+    .filter(({ qr }) => (qr.timeSpent ?? 0) > 0);
+  const quickWrong = timed.filter(
+    ({ qr }) => qr.suggestedMistakeType === 'CARELESS',
+  ).length;
+  const overPace = target
+    ? timed.filter(({ qr }) => (qr.timeSpent ?? 0) > target).length
+    : 0;
+
+  return (
+    <section className="glass-card p-6 mb-6" aria-labelledby="time-analysis">
+      <h3 id="time-analysis" className="font-mono font-semibold mb-4 flex items-center gap-2">
+        <Timer className="h-4 w-4" aria-hidden="true" /> Time Analysis
+      </h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div className="text-lg font-mono font-bold">{formatDuration(average)}</div>
+          <div className="text-xs text-muted-foreground">Avg per question</div>
+        </div>
+        {target !== null && (
+          <div className="p-3 rounded-lg bg-secondary text-center">
+            <div className="text-lg font-mono font-bold">{formatDuration(target)}</div>
+            <div className="text-xs text-muted-foreground">Target pace</div>
+          </div>
+        )}
+        {target !== null && (
+          <div className="p-3 rounded-lg bg-secondary text-center">
+            <div className={`text-lg font-mono font-bold ${overPace > 0 ? 'text-warning' : ''}`}>
+              {overPace}
+            </div>
+            <div className="text-xs text-muted-foreground">Over target pace</div>
+          </div>
+        )}
+      </div>
+      {slowest.length > 0 && (
+        <div className="text-sm">
+          <div className="text-muted-foreground mb-1">Took longest:</div>
+          <ul className="space-y-1">
+            {slowest.map(({ qr, index }) => (
+              <li key={qr.questionId} className="flex gap-2">
+                <span className="font-mono text-muted-foreground w-10">Q{index + 1}</span>
+                <span className="flex-1 truncate">{qr.title}</span>
+                <span className="font-mono">{formatDuration(qr.timeSpent ?? 0)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {quickWrong > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {quickWrong} wrong answer{quickWrong > 1 ? 's were' : ' was'} given in under 10 seconds —
+          slowing down may win easy points.
+        </p>
+      )}
+    </section>
+  );
+}
+
+const STOP_REASONS: Record<string, string> = {
+  PRECISION: 'Stopped early: your level was measured precisely enough.',
+  MAX_ITEMS: 'Reached the maximum number of questions.',
+  POOL_EXHAUSTED: 'Ran out of questions in the pool.',
+  TIME: 'Time ran out.',
+  ENDED_EARLY: 'You ended the test early — the estimate is less precise.',
+};
+
+/**
+ * Adaptive test result: the measured ability decides, not the percentage
+ * (every question was aimed at the learner's level, so ~50–65% is normal).
+ */
+function CatSummary({
+  cat,
+  passingScore,
+}: {
+  cat: NonNullable<AttemptResult['cat']>;
+  passingScore: number;
+}) {
+  return (
+    <section className="glass-card p-6 mb-6" aria-labelledby="cat-summary">
+      <h3 id="cat-summary" className="font-mono font-semibold mb-4">
+        Adaptive Test Result
+      </h3>
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div
+            className={`text-2xl font-mono font-bold ${likelihoodTone(cat.passLikelihood)}`}
+            data-testid="cat-pass-likelihood"
+          >
+            {cat.passLikelihood}%
+          </div>
+          <div className="text-xs text-muted-foreground">Chance to pass</div>
+        </div>
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div className="text-2xl font-mono font-bold">
+            {cat.ability > 0 ? '+' : ''}
+            {cat.ability.toFixed(2)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Ability (± {cat.standardError.toFixed(2)})
+          </div>
+        </div>
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div className="text-2xl font-mono font-bold">
+            {cat.itemsAdministered}
+            <span className="text-sm text-muted-foreground">/{cat.maxItems}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">Questions</div>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {cat.stoppedBy ? `${STOP_REASONS[cat.stoppedBy] ?? ''} ` : ''}
+        Questions were matched to your level, so the percentage correct is not
+        the score: the pass verdict uses your measured ability against a{' '}
+        {passingScore}% pass mark.
+      </p>
+    </section>
+  );
+}
+
+function likelihoodTone(pct: number) {
+  if (pct >= 70) return 'text-accent';
+  if (pct >= 40) return 'text-warning';
+  return 'text-destructive';
+}
+
+/**
+ * What to do next: estimated chance to pass, one-click follow-ups on the
+ * mistakes and the weakest domain, and the per-domain trend.
+ */
+function NextSteps({
+  result,
+  onStartPractice,
+}: {
+  result: AttemptResult;
+  onStartPractice?: ExamResultProps['onStartPractice'];
+}) {
+  const { data: insights } = useQuery({
+    queryKey: ['attempt-insights', result.attemptId],
+    queryFn: () => getAttemptInsights(result.attemptId),
+    enabled: !!result.attemptId && result.status === 'SUBMITTED',
+  });
+  const review = useMutation({
+    mutationFn: () => addMissedToReview(result.attemptId),
+    onSuccess: (r) =>
+      toast.success(
+        `${r.added} question${r.added === 1 ? '' : 's'} added to your review queue`,
+      ),
+    onError: () => toast.error('Could not add questions to your review queue'),
+  });
+  if (!insights?.readiness) return null;
+
+  const { readiness, weakestDomain, missedCount = 0 } = insights;
+  const trend = insights.trend ?? [];
+  const domainNames = [
+    ...new Set(trend.flatMap((t) => Object.keys(t.domainScores ?? {}))),
+  ].sort();
+
+  return (
+    <section className="glass-card p-6 mb-6" aria-labelledby="next-steps">
+      <h3 id="next-steps" className="font-mono font-semibold mb-4 flex items-center gap-2">
+        <TrendingUp className="h-4 w-4" aria-hidden="true" /> Next Steps
+      </h3>
+
+      {readiness.passLikelihood !== null && (
+        <div className="p-4 rounded-lg bg-secondary mb-4 flex items-center gap-4" data-testid="pass-likelihood">
+          <div className={`text-3xl font-mono font-bold ${likelihoodTone(readiness.passLikelihood)}`}>
+            {readiness.passLikelihood}%
+          </div>
+          <div className="text-sm">
+            <div className="font-medium">Estimated chance to pass</div>
+            <div className="text-xs text-muted-foreground">
+              A {readiness.examLength}-question exam at a {readiness.passingScore}% pass mark,
+              based on your latest answers to {readiness.basedOnQuestions} questions. An estimate,
+              not a guarantee.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {onStartPractice && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {missedCount > 0 && (
+            <Button
+              variant="outline"
+              className="font-mono"
+              onClick={() =>
+                onStartPractice({
+                  mode: 'REVIEW',
+                  sessionSize: Math.min(30, Math.max(10, missedCount)),
+                  sourceAttemptId: result.attemptId,
+                })
+              }
+            >
+              <RotateCcw className="h-4 w-4 mr-1" /> Retry missed ({missedCount})
+            </Button>
+          )}
+          {weakestDomain && (
+            <Button
+              variant="outline"
+              className="font-mono"
+              onClick={() =>
+                onStartPractice({
+                  mode: 'QUICK_DRILL',
+                  sessionSize: 10,
+                  domainIds: [weakestDomain.domainId],
+                })
+              }
+            >
+              <Target className="h-4 w-4 mr-1" /> Drill {weakestDomain.name} ({weakestDomain.percentage}%)
+            </Button>
+          )}
+        </div>
+      )}
+      {missedCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-2 text-sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="font-mono"
+            disabled={review.isPending || review.isSuccess}
+            onClick={() => review.mutate()}
+          >
+            <BrainCircuit className="h-4 w-4 mr-1" />
+            {review.isSuccess
+              ? 'Added to review queue'
+              : `Add ${missedCount} missed to spaced review`}
+          </Button>
+          {review.isSuccess && (
+            <Link to="/training" className="text-primary text-xs underline">
+              Open review queue
+            </Link>
+          )}
+        </div>
+      )}
+
+      {trend.length > 1 && domainNames.length > 0 && (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-xs font-mono" aria-label="Domain trend">
+            <caption className="text-left text-muted-foreground mb-2">
+              Your last {trend.length} attempts (oldest → latest)
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" className="text-left font-normal text-muted-foreground pr-3">Domain</th>
+                {trend.map((t, i) => (
+                  <th key={t.attemptId} scope="col" className="font-normal text-muted-foreground px-2 text-right">
+                    #{i + 1}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" className="text-left font-normal pr-3">Overall</th>
+                {trend.map((t) => (
+                  <td key={t.attemptId} className="px-2 text-right">{t.score}%</td>
+                ))}
+              </tr>
+              {domainNames.map((name) => (
+                <tr key={name}>
+                  <th scope="row" className="text-left font-normal pr-3 truncate max-w-[12rem]">{name}</th>
+                  {trend.map((t) => {
+                    const d = t.domainScores?.[name];
+                    return (
+                      <td key={t.attemptId} className="px-2 text-right">
+                        {d && d.total > 0 ? `${Math.round((d.correct / d.total) * 100)}%` : '–'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export function ExamResult({ result, onRetry, onHome, onStartPractice }: ExamResultProps) {
   const [copied, setCopied] = useState(false);
-  const passed = result.percentage >= 70;
+  const passingScore =
+    result.passingScore ??
+    (result.certification as { passingScore?: number } | undefined)?.passingScore ??
+    70;
+  const passed = result.passed ?? result.percentage >= passingScore;
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -35,7 +363,7 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
               {passed ? '✅ PASSED' : '❌ NOT PASSED'}
             </div>
             <div className="text-sm text-muted-foreground">
-              {result.totalCorrect}/{result.totalQuestions} correct · {formatTime(result.timeSpent)}
+              {result.totalCorrect}/{result.totalQuestions} correct · {formatTime(result.timeSpent)} · Pass mark {passingScore}%
             </div>
             {result.feedbackMode === 'INTERACTIVE' && (
               <span className="inline-block mt-3 text-xs px-2 py-0.5 rounded-full font-mono bg-primary/10 text-primary border border-primary/20">
@@ -43,6 +371,8 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
               </span>
             )}
           </div>
+
+          {result.cat && <CatSummary cat={result.cat} passingScore={passingScore} />}
 
           {/* Domain Breakdown */}
           {result.domainScores && (
@@ -55,11 +385,11 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
                     <div key={domain}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-foreground">{domain}</span>
-                        <span className={`font-mono ${pct >= 70 ? 'text-accent' : 'text-destructive'}`}>{pct}%</span>
+                        <span className={`font-mono ${pct >= passingScore ? 'text-accent' : 'text-destructive'}`}>{pct}%</span>
                       </div>
                       <div className="h-2 rounded-full bg-secondary overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${pct >= 70 ? 'bg-accent' : 'bg-destructive'}`}
+                          className={`h-full rounded-full transition-all ${pct >= passingScore ? 'bg-accent' : 'bg-destructive'}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -69,6 +399,10 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
               </div>
             </div>
           )}
+
+          <NextSteps result={result} onStartPractice={onStartPractice} />
+
+          <TimeAnalysis result={result} />
 
           {/* Question Review */}
           <div className="glass-card p-6 mb-6">
@@ -86,7 +420,30 @@ export function ExamResult({ result, onRetry, onHome }: ExamResultProps) {
                       <div className="text-sm font-medium mb-2">
                         <span className="text-muted-foreground mr-2">Q{i + 1}.</span>
                         {qr.title}
+                        {typeof qr.timeSpent === 'number' && (
+                          <span className="ml-2 text-xs font-mono text-muted-foreground" title="Time spent">
+                            · {formatDuration(qr.timeSpent)}
+                          </span>
+                        )}
                       </div>
+                      {!qr.correct && !qr.mistakeType && qr.suggestedMistakeType && MISTAKE_HINTS[qr.suggestedMistakeType] && (
+                        <div className="mb-2 inline-block text-[11px] px-2 py-0.5 rounded-full font-mono bg-warning/10 text-warning border border-warning/20">
+                          {MISTAKE_HINTS[qr.suggestedMistakeType]}
+                        </div>
+                      )}
+                      {qr.codeSnippet && (
+                        <pre className="p-3 rounded bg-secondary/80 text-xs font-mono overflow-x-auto mb-2">
+                          <code>{qr.codeSnippet}</code>
+                        </pre>
+                      )}
+                      {qr.imageUrl && (
+                        <img
+                          src={qr.imageUrl}
+                          alt="Question illustration"
+                          loading="lazy"
+                          className="max-w-full max-h-64 rounded border border-border mb-2"
+                        />
+                      )}
                       <div className="space-y-1">
                         {qr.choices.map(c => {
                           const isSelected = qr.selectedAnswers.includes(c.id || '');

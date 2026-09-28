@@ -1,27 +1,46 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCertificationById } from "@/services/certifications";
 import { getQuestions } from "@/services/questions";
 import {
   startAttempt,
   submitAttempt,
   checkAnswer,
+  answerCatQuestion,
+  getActiveAttempt,
+  getAttemptState,
+  getAttemptResult,
+  abandonAttempt,
+  AttemptState,
   StartAttemptResponse,
   AttemptResult,
   AttemptQuestion,
   CheckAnswerResponse,
 } from "@/services/attempts";
-import { createExam } from "@/services/exams";
+import { createPracticeExam } from "@/services/exams";
 import { captureWord } from "@/services/flashcards";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ExamIntro } from "@/components/exam/ExamIntro";
 import { ExamSession } from "@/components/exam/ExamSession";
+import { CatSession } from "@/components/exam/CatSession";
 import { ExamResult } from "@/components/exam/ExamResult";
 import { WordCaptureTooltip } from "@/components/exam/WordCaptureTooltip";
 import { useTimer } from "@/hooks/useTimer";
+import { useAutosave } from "@/hooks/useAutosave";
+import { useQuestionTimer } from "@/hooks/useQuestionTimer";
 import { useTextSelection } from "@/hooks/useTextSelection";
+import {
+  attemptDeadline,
+  DEFAULT_SETUP,
+  effectiveTimerMode,
+  FontScale,
+  getPracticeExamPlan,
+  loadFontScale,
+  PracticeSetup,
+  saveFontScale,
+} from "@/lib/exam-plan";
 import type { FeedbackMode, TimerMode } from "@/types/api-types";
 import {
   loadFeedbackModePreference,
@@ -53,6 +72,8 @@ const ExamPage = () => {
     enabled: !!certId,
   });
 
+  const queryClient = useQueryClient();
+
   const [phase, setPhase] = useState<ExamPhase>(
     passedAttempt ? "exam" : "intro",
   );
@@ -62,17 +83,29 @@ const ExamPage = () => {
   const [totalSeconds, setTotalSeconds] = useState<number>(
     passedAttempt ? passedAttempt.timeLimit * 60 : 0,
   );
+  const [deadline, setDeadline] = useState<number | null>(() =>
+    // location.state survives reloads, so its serverNow may be stale: skip
+    // the skew correction until the server sync below refreshes it.
+    passedAttempt
+      ? attemptDeadline({ ...passedAttempt, serverNow: undefined })
+      : null,
+  );
   const [selectedTimerMode, setSelectedTimerMode] =
     useState<TimerMode>("STRICT");
   const [selectedFeedbackMode, setSelectedFeedbackMode] =
     useState<FeedbackMode>(loadFeedbackModePreference);
-  // Interactive is unavailable with Time Pressure; the stored preference is
-  // kept so it comes back when another timer mode is picked.
-  const effectiveFeedbackMode: FeedbackMode = supportsInteractive(
-    selectedTimerMode,
-  )
-    ? selectedFeedbackMode
-    : "END_OF_EXAM";
+  const [setup, setSetup] = useState<PracticeSetup>(DEFAULT_SETUP);
+  const [fontScale, setFontScale] = useState<FontScale>(loadFontScale);
+  // A full mock always runs with a strict timer.
+  const timerModeToUse = effectiveTimerMode(setup, selectedTimerMode);
+  // Interactive is unavailable with Time Pressure and in a full mock; the
+  // stored preference is kept so it comes back in another setup.
+  const effectiveFeedbackMode: FeedbackMode =
+    supportsInteractive(timerModeToUse) &&
+    setup.mode !== "FULL_MOCK" &&
+    setup.mode !== "CAT"
+      ? selectedFeedbackMode
+      : "END_OF_EXAM";
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [marked, setMarked] = useState<Set<string>>(new Set());
@@ -84,89 +117,326 @@ const ExamPage = () => {
   const [checkingId, setCheckingId] = useState<string | null>(null);
 
   const questions: AttemptQuestion[] = attemptData?.questions ?? [];
-  const questionCount = questionsData?.meta?.total ?? 0;
+  const poolSize = questionsData?.meta?.total ?? 0;
+  const plan = getPracticeExamPlan(
+    poolSize,
+    selectedTimerMode,
+    setup,
+    cert?.examFormat,
+  );
+  const isInteractive = attemptData?.feedbackMode === "INTERACTIVE";
+  // Adaptive test: questions arrive one at a time via /cat/answer.
+  const isCat = !!attemptData?.cat;
+  const [catSubmitting, setCatSubmitting] = useState(false);
+
+  // Answers/flags are saved as the learner goes (END_OF_EXAM only;
+  // INTERACTIVE answers are saved when checked).
+  const {
+    status: saveStatus,
+    queue: queueSave,
+    flush: flushSaves,
+    cancel: cancelSaves,
+  } = useAutosave(
+    attemptData?.attemptId ?? null,
+    phase === "exam" && !isInteractive && !isCat,
+  );
+
+  // Time actually spent on each question (for the pace analysis).
+  const { secondsOn, seed: seedQuestionTimes } = useQuestionTimer(
+    questions[currentIndex]?.id ?? null,
+    phase === "exam",
+  );
+
+  const { data: activeAttempt, refetch: refetchActive } = useQuery({
+    queryKey: ["active-attempt", cert?.id],
+    queryFn: async () => (await getActiveAttempt(cert!.id)) ?? null,
+    enabled: !!cert?.id && phase === "intro",
+  });
+
+  /** Load an attempt (fresh or resumed) into the exam screen. */
+  const applyAttempt = useCallback(
+    (attempt: StartAttemptResponse, saved?: AttemptState) => {
+      const restoredAnswers: Record<string, string[]> = {};
+      const restoredMarks = new Set<string>();
+      const restoredTimes: Record<string, number> = {};
+      for (const a of saved?.answers ?? []) {
+        if (a.selectedChoices.length) restoredAnswers[a.questionId] = a.selectedChoices;
+        if (a.isMarked) restoredMarks.add(a.questionId);
+        if (a.timeSpent) restoredTimes[a.questionId] = a.timeSpent;
+      }
+      seedQuestionTimes(restoredTimes);
+      const restoredFeedback: Record<string, CheckAnswerResponse> = {};
+      for (const c of saved?.checked ?? []) {
+        restoredFeedback[c.questionId] = c;
+        restoredAnswers[c.questionId] = c.selectedChoiceIds;
+      }
+      // Pick up at the first question not answered yet.
+      const firstOpen = attempt.questions.findIndex(
+        (q) => !restoredAnswers[q.id]?.length,
+      );
+
+      setAttemptData(attempt);
+      setTotalSeconds(attempt.timeLimit * 60);
+      setDeadline(attemptDeadline(attempt));
+      setAnswers(restoredAnswers);
+      setMarked(restoredMarks);
+      setFeedback(restoredFeedback);
+      setCurrentIndex(
+        attempt.cat
+          ? // An adaptive test is always on its latest question.
+            Math.max(0, attempt.questions.length - 1)
+          : saved && firstOpen > 0
+            ? firstOpen
+            : 0,
+      );
+      setResult(null);
+      setPhase("exam");
+    },
+    [seedQuestionTimes],
+  );
+
+  /**
+   * Continue an attempt from the server's copy. Returns false when the
+   * attempt can't be continued (it was submitted, expired or abandoned).
+   */
+  const loadSavedAttempt = useCallback(
+    async (attemptId: string): Promise<boolean> => {
+      const state = await getAttemptState(attemptId);
+      if (!state) throw new Error("No attempt state");
+      if (state.status === "IN_PROGRESS" && state.questions) {
+        applyAttempt(state as StartAttemptResponse, state);
+        return true;
+      }
+      if (state.status === "SUBMITTED") {
+        // Time ran out while away: the server graded the saved answers.
+        const res = await getAttemptResult(attemptId);
+        setResult(res);
+        setPhase("result");
+        toast.info("Time ran out — your saved answers were graded.");
+        return true;
+      }
+      return false;
+    },
+    [applyAttempt],
+  );
+
+  // Arriving with an attempt in the location state (exam library, share
+  // link) — also after a reload: sync with the server so saved answers and
+  // the real deadline are restored.
+  const syncedPassedAttempt = useRef(false);
+  useEffect(() => {
+    if (!passedAttempt || syncedPassedAttempt.current) return;
+    syncedPassedAttempt.current = true;
+    loadSavedAttempt(passedAttempt.attemptId)
+      .then((ok) => {
+        if (!ok) {
+          toast.info("This attempt has already ended.");
+          setAttemptData(null);
+          setPhase("intro");
+        }
+      })
+      .catch(() => {
+        // Keep the attempt we were handed; autosave/submit still work.
+      });
+  }, [passedAttempt, loadSavedAttempt]);
 
   const handleSubmit = useCallback(async () => {
     if (!attemptData) return;
     setPhase("loading");
     try {
+      // The payload carries every answer; drop pending autosaves so none
+      // lands after the attempt is graded.
+      await cancelSaves();
       const payload = {
         answers: questions.map((q) => ({
           questionId: q.id,
           selectedChoices: answers[q.id] || [],
           isMarked: marked.has(q.id),
+          timeSpent: secondsOn(q.id),
         })),
       };
       const res = await submitAttempt(attemptData.attemptId, payload);
       setResult(res);
       setPhase("result");
+      queryClient.invalidateQueries({ queryKey: ["active-attempt"] });
     } catch (err: unknown) {
       toast.error("Failed to submit exam");
       setPhase("exam");
     }
-  }, [attemptData, answers, questions, marked]);
+  }, [attemptData, answers, questions, marked, cancelSaves, queryClient, secondsOn]);
 
-  const { timeLeft, setTimeLeft } = useTimer({
-    initialSeconds: passedAttempt ? passedAttempt.timeLimit * 60 : 0,
+  const handleExpire = useCallback(() => {
+    toast.info("Time's up — submitting your exam.");
+    handleSubmit();
+  }, [handleSubmit]);
+
+  const { timeLeft } = useTimer({
+    deadline,
     isActive: phase === "exam",
-    onExpire: handleSubmit,
+    onExpire: handleExpire,
   });
+
+  // Leaving mid-exam: ask first (answers are saved, but the clock keeps running).
+  useEffect(() => {
+    if (phase !== "exam") return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      void flushSaves();
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [phase, flushSaves]);
 
   const { selection, clearSelection } = useTextSelection(phase === "exam");
 
   const startExam = async (
-    timerMode: TimerMode = selectedTimerMode,
-    feedbackMode: FeedbackMode = effectiveFeedbackMode,
+    practice: PracticeSetup & { sourceAttemptId?: string } = setup,
   ) => {
     if (!cert) return;
+    const timerMode = effectiveTimerMode(practice, selectedTimerMode);
+    const feedbackMode: FeedbackMode =
+      supportsInteractive(timerMode) &&
+      practice.mode !== "FULL_MOCK" &&
+      practice.mode !== "CAT"
+        ? selectedFeedbackMode
+        : "END_OF_EXAM";
     setPhase("loading");
     try {
-      const isTimePressure = timerMode === "TIME_PRESSURE";
-      const exam = await createExam({
-        title: `${cert.code} ${isTimePressure ? "Time Pressure" : "Practice"} Exam`,
+      // Starting over replaces the attempt that was left unfinished.
+      if (activeAttempt) {
+        await abandonAttempt(activeAttempt.attemptId).catch(() => undefined);
+      }
+      const examPlan = getPracticeExamPlan(
+        poolSize,
+        selectedTimerMode,
+        practice,
+        cert.examFormat,
+      );
+      // A private draw weighted by the certification's domains, favouring
+      // questions the learner hasn't seen or got wrong.
+      const exam = await createPracticeExam({
         certificationId: cert.id,
-        questionCount: isTimePressure
-          ? Math.min(questionCount, 65)
-          : Math.min(questionCount, 130),
-        timeLimit: isTimePressure ? 90 : 180,
+        questionCount: examPlan.questionCount,
+        timeLimit: examPlan.timeLimit,
         timerMode,
-        examType: isTimePressure ? "TIME_PRESSURE" : "STANDARD",
+        ...(practice.mode !== "STANDARD" ? { mode: practice.mode } : {}),
+        ...(practice.mode === "QUICK_DRILL" && practice.domainIds.length
+          ? { domainIds: practice.domainIds }
+          : {}),
+        ...(practice.mode === "QUICK_DRILL" && practice.difficulties.length
+          ? { difficulties: practice.difficulties }
+          : {}),
+        ...(practice.sourceAttemptId
+          ? { sourceAttemptId: practice.sourceAttemptId }
+          : {}),
       });
 
       const attempt = await startAttempt(exam.id, { feedbackMode });
-      setAttemptData(attempt);
-      const secs = attempt.timeLimit * 60;
-      setTotalSeconds(secs);
-      setTimeLeft(secs);
-      setAnswers({});
-      setMarked(new Set());
-      setFeedback({});
-      setCurrentIndex(0);
-      setResult(null);
-      setPhase("exam");
+      applyAttempt(attempt);
     } catch (err: unknown) {
-      toast.error("Failed to start exam");
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      toast.error(
+        status === 422
+          ? practice.mode === "REVIEW"
+            ? "Nothing to review yet — no missed or flagged questions."
+            : "No questions match this setup."
+          : "Failed to start exam",
+      );
       setPhase("intro");
     }
+  };
+
+  /** Start a follow-up session from the result screen (retry missed, drill a domain). */
+  const startFollowUp = (
+    patch: Partial<PracticeSetup> & { sourceAttemptId?: string },
+  ) => {
+    const next = { ...DEFAULT_SETUP, ...patch };
+    setSetup({ ...next });
+    startExam(next);
+  };
+
+  const handleFontScaleChange = (scale: FontScale) => {
+    setFontScale(scale);
+    saveFontScale(scale);
+  };
+
+  const resumeExam = async () => {
+    if (!activeAttempt) return;
+    setPhase("loading");
+    try {
+      if (!(await loadSavedAttempt(activeAttempt.attemptId))) {
+        toast.info("This attempt has already ended.");
+        setPhase("intro");
+        refetchActive();
+      }
+    } catch {
+      toast.error("Could not resume the exam");
+      setPhase("intro");
+    }
+  };
+
+  const discardActive = async () => {
+    if (!activeAttempt) return;
+    try {
+      await abandonAttempt(activeAttempt.attemptId);
+    } catch {
+      // Already closed — the refetch below reflects that.
+    }
+    refetchActive();
   };
 
   const selectAnswer = (questionId: string, choiceId: string) => {
     // A checked answer is locked (the server rejects changes too).
     if (feedback[questionId]) return;
-    setAnswers((prev) => {
-      const current = prev[questionId] || [];
-      const question = questions.find((q) => q.id === questionId);
-      const isMultiple = question?.questionType === "MULTIPLE";
-      if (isMultiple) {
-        return {
-          ...prev,
-          [questionId]: current.includes(choiceId)
-            ? current.filter((id) => id !== choiceId)
-            : [...current, choiceId],
-        };
+    const current = answers[questionId] || [];
+    const question = questions.find((q) => q.id === questionId);
+    let next: string[];
+    if (question?.questionType === "MULTIPLE") {
+      if (current.includes(choiceId)) {
+        next = current.filter((id) => id !== choiceId);
+      } else if (
+        question.selectCount &&
+        current.length >= question.selectCount
+      ) {
+        // "Choose N": deselect one before picking another.
+        return;
+      } else {
+        next = [...current, choiceId];
       }
-      return { ...prev, [questionId]: [choiceId] };
+    } else {
+      next = [choiceId];
+    }
+    setAnswers((prev) => ({ ...prev, [questionId]: next }));
+    queueSave({
+      questionId,
+      selectedChoices: next,
+      isMarked: marked.has(questionId),
+      timeSpent: secondsOn(questionId),
     });
+  };
+
+  /**
+   * Move to another question. The one being left is saved with its time so
+   * far when it already has an answer or flag (unanswered questions are not
+   * written, so an untouched attempt still counts as abandoned).
+   */
+  const goToQuestion = (value: number | ((prev: number) => number)) => {
+    const leaving = questions[currentIndex];
+    if (
+      leaving &&
+      !isInteractive &&
+      (answers[leaving.id]?.length || marked.has(leaving.id))
+    ) {
+      queueSave({
+        questionId: leaving.id,
+        selectedChoices: answers[leaving.id] || [],
+        isMarked: marked.has(leaving.id),
+        timeSpent: secondsOn(leaving.id),
+      });
+    }
+    setCurrentIndex(value);
   };
 
   const handleCheck = async (questionId: string) => {
@@ -184,6 +454,7 @@ const ExamPage = () => {
         questionId,
         selectedChoices,
         isMarked: marked.has(questionId),
+        timeSpent: secondsOn(questionId),
       });
       setFeedback((prev) => ({ ...prev, [questionId]: res }));
     } catch (err: unknown) {
@@ -212,17 +483,69 @@ const ExamPage = () => {
     }
   };
 
+  /** Adaptive test: lock the answer, then show the next question or the result. */
+  const handleCatAnswer = async (
+    questionId: string,
+    selectedChoices: string[],
+  ) => {
+    if (!attemptData || catSubmitting) return;
+    setCatSubmitting(true);
+    try {
+      const res = await answerCatQuestion(attemptData.attemptId, {
+        questionId,
+        selectedChoices,
+        timeSpent: secondsOn(questionId),
+      });
+      setAnswers((prev) => ({ ...prev, [questionId]: selectedChoices }));
+      if (res.done && res.result) {
+        setResult(res.result);
+        setPhase("result");
+        queryClient.invalidateQueries({ queryKey: ["active-attempt"] });
+      } else if (res.question) {
+        const next = res.question;
+        setAttemptData((prev) =>
+          prev
+            ? {
+                ...prev,
+                questions: [...prev.questions, next],
+                cat: res.progress ?? prev.cat,
+              }
+            : prev,
+        );
+        setCurrentIndex(questions.length);
+      }
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 409 || status === 400) {
+        // Out of sync (e.g. answered in another tab): reload from the server.
+        await loadSavedAttempt(attemptData.attemptId).catch(() => undefined);
+      } else {
+        toast.error("Could not submit your answer. Please try again.");
+      }
+    } finally {
+      setCatSubmitting(false);
+    }
+  };
+
   const handleFeedbackModeChange = (mode: FeedbackMode) => {
     setSelectedFeedbackMode(mode);
     saveFeedbackModePreference(mode);
   };
 
   const toggleMark = (questionId: string) => {
+    const isMarked = !marked.has(questionId);
     setMarked((prev) => {
       const next = new Set(prev);
-      if (next.has(questionId)) next.delete(questionId);
-      else next.add(questionId);
+      if (isMarked) next.add(questionId);
+      else next.delete(questionId);
       return next;
+    });
+    queueSave({
+      questionId,
+      selectedChoices: answers[questionId] || [],
+      isMarked,
+      timeSpent: secondsOn(questionId),
     });
   };
 
@@ -280,13 +603,21 @@ const ExamPage = () => {
     return (
       <ExamIntro
         cert={cert}
-        questionCount={questionCount}
-        timerMode={selectedTimerMode}
+        questionCount={plan.questionCount}
+        timeLimitMinutes={plan.effectiveMinutes}
+        activeAttempt={activeAttempt ?? null}
+        onResume={resumeExam}
+        onDiscardActive={discardActive}
+        setup={setup}
+        onSetupChange={setSetup}
+        fontScale={fontScale}
+        onFontScaleChange={handleFontScaleChange}
+        timerMode={timerModeToUse}
         onTimerModeChange={setSelectedTimerMode}
         feedbackMode={effectiveFeedbackMode}
         onFeedbackModeChange={handleFeedbackModeChange}
         onBack={() => navigate("/")}
-        onStart={() => startExam(selectedTimerMode, effectiveFeedbackMode)}
+        onStart={() => startExam()}
       />
     );
   }
@@ -300,18 +631,33 @@ const ExamPage = () => {
           setResult(null);
         }}
         onHome={() => navigate("/")}
+        onStartPractice={startFollowUp}
       />
     );
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {attemptData && (
+      {attemptData && isCat && questions.length > 0 && (
+        <CatSession
+          attemptData={attemptData}
+          question={questions[questions.length - 1]}
+          progress={attemptData.cat!}
+          timeLeft={timeLeft}
+          totalSeconds={totalSeconds}
+          submitting={catSubmitting}
+          onAnswer={handleCatAnswer}
+          onEndEarly={handleSubmit}
+          fontScale={fontScale}
+        />
+      )}
+
+      {attemptData && !isCat && (
         <ExamSession
           attemptData={attemptData}
           questions={questions}
           currentIndex={currentIndex}
-          setCurrentIndex={setCurrentIndex}
+          setCurrentIndex={goToQuestion}
           answers={answers}
           selectAnswer={selectAnswer}
           marked={marked}
@@ -319,9 +665,11 @@ const ExamPage = () => {
           timeLeft={timeLeft}
           totalSeconds={totalSeconds}
           onSubmit={handleSubmit}
+          saveStatus={isInteractive ? undefined : saveStatus}
           feedback={feedback}
           checkingId={checkingId}
           onCheck={handleCheck}
+          fontScale={fontScale}
         />
       )}
 

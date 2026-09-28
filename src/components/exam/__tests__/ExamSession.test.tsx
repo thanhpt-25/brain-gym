@@ -230,6 +230,11 @@ describe("ExamSession — Interactive mode", () => {
       },
     });
     await userEvent.click(screen.getByRole("button", { name: /finish exam/i }));
+    // Finishing goes through the review screen first.
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^submit exam$/i }),
+    );
     expect(props.onSubmit).toHaveBeenCalled();
   });
 
@@ -240,7 +245,7 @@ describe("ExamSession — Interactive mode", () => {
       feedback: { q1: wrongFeedback },
     });
 
-    const navQ1 = screen.getByRole("button", { name: "1" });
+    const navQ1 = screen.getByRole("button", { name: /^Question 1,/ });
     expect(navQ1).toHaveAttribute("data-state", "incorrect");
     expect(screen.getByTestId("interactive-score")).toHaveAccessibleName(
       "0 correct, 1 incorrect",
@@ -256,8 +261,171 @@ describe("ExamSession — Interactive mode", () => {
       feedback: { q1: wrongFeedback },
       marked: new Set(["q1"]),
     });
-    expect(screen.getByRole("button", { name: "1" }).className).toContain(
+    expect(screen.getByRole("button", { name: /^Question 1,/ }).className).toContain(
       "bg-warning/20",
     );
+  });
+});
+
+describe("ExamSession question content", () => {
+  const rich: AttemptQuestion = {
+    id: "q9",
+    title: "What does this print?",
+    description: "Given the **snippet** below:",
+    questionType: "MULTIPLE",
+    selectCount: 2,
+    codeSnippet: "print(1 + 1)",
+    imageUrl: "https://example.com/diagram.png",
+    difficulty: "HARD",
+    tags: [],
+    sortOrder: 0,
+    choices: [
+      { id: "m1", label: "a", content: "2" },
+      { id: "m2", label: "b", content: "Two" },
+      { id: "m3", label: "c", content: "11" },
+    ],
+  };
+
+  it("renders markdown, the code snippet and the image", () => {
+    renderSession({
+      attemptData: attempt("END_OF_EXAM"),
+      questions: [rich],
+    });
+    expect(screen.getByText("snippet").tagName).toBe("STRONG");
+    expect(screen.getByTestId("question-code")).toHaveTextContent(
+      "print(1 + 1)",
+    );
+    expect(screen.getByRole("img", { name: /question illustration/i })).toHaveAttribute(
+      "src",
+      "https://example.com/diagram.png",
+    );
+  });
+
+  it('shows "Choose N" and blocks extra picks once N are selected', async () => {
+    const selectAnswer = vi.fn();
+    renderSession({
+      attemptData: attempt("END_OF_EXAM"),
+      questions: [rich],
+      answers: { q9: ["m1", "m2"] },
+      selectAnswer,
+    });
+    expect(screen.getByText("Choose 2 · 2/2 selected")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /11/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("checkbox", { name: /Two/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("shows the autosave status", () => {
+    renderSession({ attemptData: attempt("END_OF_EXAM"), saveStatus: "error" });
+    expect(screen.getByTestId("save-status")).toHaveTextContent(
+      "Offline — retrying",
+    );
+  });
+});
+
+
+describe("ExamSession — review, navigation and shortcuts", () => {
+  it("asks for a review before submitting, listing what is still open", async () => {
+    const props = renderSession({
+      attemptData: attempt("END_OF_EXAM"),
+      answers: { q1: ["c2"] },
+      marked: new Set(["q1"]),
+    });
+    await userEvent.click(screen.getByRole("button", { name: /^submit$/i }));
+    expect(props.onSubmit).not.toHaveBeenCalled();
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("1/2 answered · 1 unanswered");
+    expect(dialog).toHaveTextContent("1 flagged");
+    // Opens on the unanswered questions; jumping there closes the review.
+    await userEvent.click(within(dialog).getByRole("button", { name: /Q2/ }));
+    expect(props.setCurrentIndex).toHaveBeenCalledWith(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^submit$/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^submit exam$/i }),
+    );
+    expect(props.onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("supports keyboard shortcuts for choices, navigation and flags", async () => {
+    const props = renderSession({ attemptData: attempt("END_OF_EXAM") });
+    await userEvent.keyboard("2");
+    expect(props.selectAnswer).toHaveBeenCalledWith("q1", "c2");
+    await userEvent.keyboard("c");
+    expect(props.selectAnswer).toHaveBeenCalledWith("q1", "c3");
+    await userEvent.keyboard("f");
+    expect(props.toggleMark).toHaveBeenCalledWith("q1");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(props.setCurrentIndex).toHaveBeenCalled();
+  });
+
+  it("checks with Enter in Interactive mode", async () => {
+    const props = renderSession({ answers: { q1: ["c2"] } });
+    await userEvent.keyboard("{Enter}");
+    expect(props.onCheck).toHaveBeenCalledWith("q1");
+  });
+
+  it("does not change a checked answer from the keyboard", async () => {
+    const props = renderSession({
+      answers: { q1: ["c1"] },
+      feedback: { q1: wrongFeedback },
+    });
+    await userEvent.keyboard("2");
+    expect(props.selectAnswer).not.toHaveBeenCalled();
+  });
+
+  it("lets the learner cross out a choice", async () => {
+    renderSession({ attemptData: attempt("END_OF_EXAM") });
+    await userEvent.click(
+      screen.getByRole("button", { name: "Cross out choice A" }),
+    );
+    expect(screen.getByRole("button", { name: /EC2/ })).toHaveAttribute(
+      "data-eliminated",
+      "true",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Restore choice A" }),
+    );
+    expect(screen.getByRole("button", { name: /EC2/ })).not.toHaveAttribute(
+      "data-eliminated",
+    );
+  });
+
+  it("opens the question grid in a sheet on small screens", async () => {
+    const props = renderSession({ attemptData: attempt("END_OF_EXAM") });
+    await userEvent.click(
+      screen.getByRole("button", { name: /show all questions/i }),
+    );
+    const sheet = await screen.findByRole("dialog");
+    await userEvent.click(
+      within(sheet).getByRole("button", { name: /^Question 2,/ }),
+    );
+    expect(props.setCurrentIndex).toHaveBeenCalledWith(1);
+  });
+});
+
+describe("ExamSession — full mock and text size", () => {
+  it("hides difficulty and domain when the exam hides them", () => {
+    renderSession({
+      attemptData: attempt("END_OF_EXAM"),
+      questions: [{ ...questions[0], difficulty: null, domain: null }],
+    });
+    expect(screen.queryByText("EASY")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unknown")).not.toBeInTheDocument();
+  });
+
+  it("enlarges the question text", () => {
+    renderSession({ attemptData: attempt("END_OF_EXAM"), fontScale: "lg" });
+    expect(
+      screen.getByRole("heading", { name: "Which service stores objects?" }),
+    ).toHaveClass("text-xl");
+    expect(screen.getByRole("button", { name: /EC2/ })).toHaveClass("text-base");
   });
 });

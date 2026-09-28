@@ -123,6 +123,18 @@ enum TimerMode {
   TIME_PRESSURE
 }
 
+/// Kind of auto-generated practice exam (POST /exams/practice).
+enum PracticeMode {
+  STANDARD
+  QUICK_DRILL
+  FULL_MOCK
+  REVIEW
+  ADAPTIVE
+  /// Computerized adaptive test: questions are picked one at a time during
+  /// the attempt; ExamQuestion holds the candidate pool.
+  CAT
+}
+
 enum ExamType {
   STANDARD
   TIME_PRESSURE
@@ -547,6 +559,10 @@ model Exam {
   shareCode       String?        @unique @map("share_code")
   isAdaptive      Boolean        @default(false) @map("is_adaptive")
   timerMode       TimerMode      @default(STRICT) @map("timer_mode")
+  /// Auto-generated per-learner practice draw (POST /exams/practice): always
+  /// PRIVATE and hidden from exam lists.
+  isPractice      Boolean        @default(false) @map("is_practice")
+  practiceMode    PracticeMode?  @map("practice_mode")
   attemptCount    Int            @default(0) @map("attempt_count")
   avgScore        Decimal?       @map("avg_score") @db.Decimal(5, 2)
   createdAt       DateTime       @default(now()) @map("created_at")
@@ -590,6 +606,12 @@ model ExamAttempt {
   examType       ExamType      @default(STANDARD) @map("exam_type")
   feedbackMode   FeedbackMode  @default(END_OF_EXAM) @map("feedback_mode")
   status         AttemptStatus @default(IN_PROGRESS)
+  /// Server-authoritative deadline (startedAt + effective time limit). The
+  /// client counts down to this; answers/submits after it (+ grace) are not accepted.
+  expiresAt      DateTime?     @map("expires_at")
+  /// Per-attempt presentation order: { questionIds: string[], choiceIds: Record<questionId, string[]> }.
+  /// Lets a resumed attempt show the same shuffled order and the result review use the same labels.
+  presentation   Json?
 
   user    User     @relation(fields: [userId], references: [id])
   exam    Exam     @relation(fields: [examId], references: [id])
@@ -597,6 +619,7 @@ model ExamAttempt {
   capturedWords  CapturedWord[]
   attemptEvents  AttemptEvent[]
 
+  @@index([userId, status])
   @@map("exam_attempts")
 }
 

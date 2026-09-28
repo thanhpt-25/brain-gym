@@ -111,7 +111,7 @@ describe("ExamPage feedback modes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    vi.mocked(examsService.createExam).mockResolvedValue({
+    vi.mocked(examsService.createPracticeExam).mockResolvedValue({
       id: "exam-1",
     } as never);
   });
@@ -138,12 +138,25 @@ describe("ExamPage feedback modes", () => {
     ).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /S3/ }));
     await userEvent.click(screen.getByRole("button", { name: /^submit$/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^submit exam$/i }),
+    );
 
     expect(attemptsService.checkAnswer).not.toHaveBeenCalled();
     expect(attemptsService.submitAttempt).toHaveBeenCalledWith("att-1", {
       answers: [
-        { questionId: "q1", selectedChoices: ["c2"], isMarked: false },
-        { questionId: "q2", selectedChoices: [], isMarked: false },
+        {
+          questionId: "q1",
+          selectedChoices: ["c2"],
+          isMarked: false,
+          timeSpent: expect.any(Number),
+        },
+        {
+          questionId: "q2",
+          selectedChoices: [],
+          isMarked: false,
+          timeSpent: expect.any(Number),
+        },
       ],
     });
     expect(await screen.findByText("50%")).toBeInTheDocument();
@@ -195,6 +208,7 @@ describe("ExamPage feedback modes", () => {
       questionId: "q1",
       selectedChoices: ["c1"],
       isMarked: false,
+      timeSpent: expect.any(Number),
     });
     const panel = await screen.findByTestId("answer-feedback");
     expect(within(panel).getByText("Incorrect")).toBeInTheDocument();
@@ -223,10 +237,23 @@ describe("ExamPage feedback modes", () => {
 
     // Finish submits every question, as in Exam mode.
     await userEvent.click(screen.getByRole("button", { name: /finish exam/i }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^submit exam$/i }),
+    );
     expect(attemptsService.submitAttempt).toHaveBeenCalledWith("att-1", {
       answers: [
-        { questionId: "q1", selectedChoices: ["c1"], isMarked: false },
-        { questionId: "q2", selectedChoices: ["d1"], isMarked: false },
+        {
+          questionId: "q1",
+          selectedChoices: ["c1"],
+          isMarked: false,
+          timeSpent: expect.any(Number),
+        },
+        {
+          questionId: "q2",
+          selectedChoices: ["d1"],
+          isMarked: false,
+          timeSpent: expect.any(Number),
+        },
       ],
     });
     expect(await screen.findByText("Interactive")).toBeInTheDocument();
@@ -284,7 +311,7 @@ describe("ExamPage feedback modes", () => {
       await screen.findByRole("button", { name: /^time pressure/i }),
     );
     expect(screen.getByRole("radio", { name: /interactive/i })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: /exam/i })).toHaveAttribute(
+    expect(screen.getByRole("radio", { name: /^exam/i })).toHaveAttribute(
       "aria-checked",
       "true",
     );

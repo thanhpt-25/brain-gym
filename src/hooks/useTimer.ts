@@ -1,40 +1,49 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface UseTimerOptions {
-  initialSeconds: number;
+  /** Deadline as a client-clock timestamp (ms); null while there is none. */
+  deadline: number | null;
   onExpire?: () => void;
   isActive: boolean;
 }
 
-export function useTimer({ initialSeconds, onExpire, isActive }: UseTimerOptions) {
-  const [timeLeft, setTimeLeft] = useState(initialSeconds);
+function secondsUntil(deadline: number | null): number {
+  if (deadline == null) return 0;
+  return Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+}
+
+/**
+ * Countdown derived from a fixed deadline rather than decremented per tick,
+ * so it stays correct when the tab is throttled in the background, the
+ * device sleeps, or the attempt is resumed after a reload.
+ */
+export function useTimer({ deadline, onExpire, isActive }: UseTimerOptions) {
+  const [timeLeft, setTimeLeft] = useState(() => secondsUntil(deadline));
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+  // Fire onExpire once per deadline, even if the timer is paused/resumed.
+  const expiredFor = useRef<number | null>(null);
 
   useEffect(() => {
-    setTimeLeft(initialSeconds);
-  }, [initialSeconds]);
+    setTimeLeft(secondsUntil(deadline));
+    if (!isActive || deadline == null) return;
 
-  useEffect(() => {
-    if (!isActive) return;
+    const tick = () => {
+      const left = secondsUntil(deadline);
+      setTimeLeft(left);
+      if (left <= 0 && expiredFor.current !== deadline) {
+        expiredFor.current = deadline;
+        onExpireRef.current?.();
+      }
+    };
+    tick();
+    const intervalId = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [isActive, deadline]);
 
-    const intervalId = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(intervalId);
-          onExpire?.();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [isActive, onExpire]);
-
-  const formatTime = useCallback((seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }, []);
-
-  return { timeLeft, setTimeLeft, formatTime };
+  return { timeLeft };
 }

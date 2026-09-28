@@ -6,10 +6,14 @@ import {
     SubmitAttemptPayload,
     AttemptResult,
     CheckAnswerResponse,
-    FeedbackMode
+    FeedbackMode,
+    AttemptState,
+    ActiveAttemptSummary,
+    AttemptInsights,
+    CatAnswerResponse
 } from '@/types/api-types';
 
-export type { StartAttemptResponse, AttemptQuestion, SubmitAnswerPayload, SubmitAttemptPayload, AttemptResult, CheckAnswerResponse, FeedbackMode };
+export type { StartAttemptResponse, AttemptQuestion, SubmitAnswerPayload, SubmitAttemptPayload, AttemptResult, CheckAnswerResponse, FeedbackMode, AttemptState, ActiveAttemptSummary };
 
 export const startAttempt = async (
     examId: string,
@@ -49,5 +53,43 @@ export const getMyAttempts = async (page = 1, limit = 10) => {
 
 export const finishAttempt = async (attemptId: string): Promise<AttemptResult> => {
     const response = await api.post<AttemptResult>(`/attempts/${attemptId}/finish`);
+    return response.data;
+};
+
+/** Most recent in-progress attempt the learner can resume (null if none). */
+export const getActiveAttempt = async (certificationId?: string): Promise<ActiveAttemptSummary | null> => {
+    const response = await api.get<{ active: ActiveAttemptSummary | null }>('/attempts/active', {
+        params: certificationId ? { certificationId } : undefined,
+    });
+    return response.data?.active ?? null;
+};
+
+export const getAttemptState = async (attemptId: string): Promise<AttemptState> => {
+    const response = await api.get<AttemptState>(`/attempts/${attemptId}/state`);
+    return response.data;
+};
+
+export const abandonAttempt = async (attemptId: string) => {
+    const response = await api.post(`/attempts/${attemptId}/abandon`);
+    return response.data;
+};
+
+export const getAttemptInsights = async (attemptId: string): Promise<AttemptInsights> => {
+    const response = await api.get<AttemptInsights>(`/attempts/${attemptId}/insights`);
+    return response.data;
+};
+
+/** Queue the attempt's wrong/skipped questions for spaced-repetition review. */
+export const addMissedToReview = async (attemptId: string): Promise<{ added: number }> => {
+    const response = await api.post<{ added: number }>(`/attempts/${attemptId}/review-missed`);
+    return response.data;
+};
+
+/** Adaptive test: answer the current question; get the next one or the result. */
+export const answerCatQuestion = async (
+    attemptId: string,
+    data: SubmitAnswerPayload,
+): Promise<CatAnswerResponse> => {
+    const response = await api.post<CatAnswerResponse>(`/attempts/${attemptId}/cat/answer`, data);
     return response.data;
 };

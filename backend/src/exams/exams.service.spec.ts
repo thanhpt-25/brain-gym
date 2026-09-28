@@ -17,9 +17,20 @@ describe('ExamsService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
     },
     examAttempt: {
       count: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    answer: {
+      groupBy: jest.fn(),
+    },
+    certification: {
+      findUnique: jest.fn(),
     },
     question: {
       findMany: jest.fn(),
@@ -392,4 +403,405 @@ describe('ExamsService', () => {
       ).rejects.toBeInstanceOf(BadRequestException);
     });
   });
+
+  describe('createPractice', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockPrismaService.certification.findUnique.mockResolvedValue({
+        id: 'cert-1',
+        code: 'SAA',
+        domains: [
+          { id: 'd1', weight: '75.00' },
+          { id: 'd2', weight: '25.00' },
+        ],
+      });
+      mockPrismaService.question.findMany.mockResolvedValue([
+        ...Array.from({ length: 10 }, (_, i) => ({
+          id: `d1-${i}`,
+          domainId: 'd1',
+        })),
+        ...Array.from({ length: 10 }, (_, i) => ({
+          id: `d2-${i}`,
+          domainId: 'd2',
+        })),
+      ]);
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+      mockPrismaService.exam.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'exam-1', ...data }),
+      );
+    });
+
+    it('creates a private practice exam following the domain weights', async () => {
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 8,
+        timeLimit: 12,
+        timerMode: 'TIME_PRESSURE' as any,
+      });
+
+      const { data } = mockPrismaService.exam.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        title: 'SAA Time Pressure Exam',
+        visibility: 'PRIVATE',
+        isPractice: true,
+        createdBy: 'user-1',
+        questionCount: 8,
+        timeLimit: 12,
+      });
+      const ids = data.examQuestions.create.map((q: any) => q.questionId);
+      expect(ids.filter((id: string) => id.startsWith('d1'))).toHaveLength(6);
+      expect(ids.filter((id: string) => id.startsWith('d2'))).toHaveLength(2);
+      expect(mockPrismaService.question.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'APPROVED',
+            deletedAt: null,
+          }),
+        }),
+      );
+    });
+
+    it("skips the questions from the learner's latest attempts when it can", async () => {
+      mockPrismaService.question.findMany.mockResolvedValue([
+        { id: 'a', domainId: 'd1' },
+        { id: 'b', domainId: 'd1' },
+        { id: 'c', domainId: 'd1' },
+      ]);
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([
+        { id: 'att-2', answers: [{ questionId: 'a', isCorrect: true }] },
+        { id: 'att-1', answers: [{ questionId: 'b', isCorrect: true }] },
+        { id: 'att-0', answers: [{ questionId: 'c', isCorrect: false }] },
+      ]);
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 1,
+        timeLimit: 5,
+      });
+
+      const { data } = mockPrismaService.exam.create.mock.calls[0][0];
+      // a and b were in the 2 latest attempts; c was missed longer ago.
+      expect(data.examQuestions.create).toEqual([
+        { questionId: 'c', sortOrder: 0 },
+      ]);
+    });
+
+    it('404s for an unknown certification and 422s for an empty pool', async () => {
+      mockPrismaService.certification.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        service.createPractice('user-1', {
+          certificationId: 'nope',
+          questionCount: 1,
+          timeLimit: 5,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      mockPrismaService.question.findMany.mockResolvedValue([]);
+      await expect(
+        service.createPractice('user-1', {
+          certificationId: 'cert-1',
+          questionCount: 1,
+          timeLimit: 5,
+        }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+  });
+
+  describe('create (random mode)', () => {
+    it('only draws approved, non-deleted questions', async () => {
+      jest.clearAllMocks();
+      mockPrismaService.question.findMany.mockResolvedValue([{ id: 'q1' }]);
+      mockPrismaService.exam.create.mockResolvedValue({ id: 'exam-1' });
+
+      await service.create('user-1', {
+        title: 'T',
+        certificationId: 'cert-1',
+        questionCount: 1,
+        timeLimit: 5,
+      });
+
+      expect(mockPrismaService.question.findMany).toHaveBeenCalledWith({
+        where: {
+          certificationId: 'cert-1',
+          status: 'APPROVED',
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+    });
+  });
+
+  describe('findMyExams', () => {
+    it('hides auto-generated practice exams', async () => {
+      mockPrismaService.exam.count.mockResolvedValue(0);
+      mockPrismaService.exam.findMany.mockResolvedValue([]);
+      await service.findMyExams('user-1');
+      expect(mockPrismaService.exam.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { createdBy: 'user-1', deletedAt: null, isPractice: false },
+        }),
+      );
+    });
+  });
+
+  describe('createPractice modes', () => {
+    const q = (id: string, domainId: string, difficulty = 'MEDIUM') => ({
+      id,
+      domainId,
+      difficulty,
+    });
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockPrismaService.certification.findUnique.mockResolvedValue({
+        id: 'cert-1',
+        code: 'SAA',
+        domains: [
+          { id: 'd1', weight: null },
+          { id: 'd2', weight: null },
+        ],
+      });
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+      mockPrismaService.answer.groupBy.mockResolvedValue([]);
+      mockPrismaService.exam.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'exam-1', ...data }),
+      );
+    });
+
+    const created = () => mockPrismaService.exam.create.mock.calls[0][0].data;
+    const pickedIds = () =>
+      created().examQuestions.create.map((x: any) => x.questionId);
+
+    it('QUICK_DRILL narrows the pool to the chosen domains and difficulties', async () => {
+      mockPrismaService.question.findMany.mockResolvedValue([q('a', 'd1')]);
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 10,
+        timeLimit: 15,
+        mode: 'QUICK_DRILL' as any,
+        domainIds: ['d1'],
+        difficulties: ['HARD' as any],
+      });
+
+      expect(mockPrismaService.question.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            domainId: { in: ['d1'] },
+            difficulty: { in: ['HARD'] },
+          }),
+        }),
+      );
+      expect(created()).toMatchObject({
+        title: 'SAA Quick Drill',
+        practiceMode: 'QUICK_DRILL',
+      });
+    });
+
+    it('REVIEW redoes only the missed and flagged questions of an attempt', async () => {
+      mockPrismaService.question.findMany.mockResolvedValue([
+        q('right', 'd1'),
+        q('wrong', 'd1'),
+        q('skipped', 'd2'),
+        q('flagged', 'd2'),
+        q('other', 'd2'),
+      ]);
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+        userId: 'user-1',
+        status: 'SUBMITTED',
+        answers: [
+          { questionId: 'right', isCorrect: true, isMarked: false },
+          { questionId: 'wrong', isCorrect: false, isMarked: false },
+          { questionId: 'skipped', isCorrect: false, isMarked: false },
+          { questionId: 'flagged', isCorrect: true, isMarked: true },
+        ],
+      });
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 20,
+        timeLimit: 10,
+        mode: 'REVIEW' as any,
+        sourceAttemptId: 'att-1',
+      });
+
+      expect(new Set(pickedIds())).toEqual(
+        new Set(['wrong', 'skipped', 'flagged']),
+      );
+      expect(created().title).toBe('SAA Mistake Review');
+    });
+
+    it("REVIEW refuses someone else's attempt", async () => {
+      mockPrismaService.question.findMany.mockResolvedValue([q('a', 'd1')]);
+      mockPrismaService.examAttempt.findUnique.mockResolvedValue({
+        userId: 'user-2',
+        status: 'SUBMITTED',
+        answers: [],
+      });
+      await expect(
+        service.createPractice('user-1', {
+          certificationId: 'cert-1',
+          questionCount: 5,
+          timeLimit: 5,
+          mode: 'REVIEW' as any,
+          sourceAttemptId: 'att-9',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('REVIEW without an attempt uses everything missed or flagged so far', async () => {
+      mockPrismaService.question.findMany.mockResolvedValue([
+        q('a', 'd1'),
+        q('b', 'd1'),
+        q('c', 'd1'),
+      ]);
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([
+        {
+          id: 'att-2',
+          answers: [
+            { questionId: 'a', isCorrect: false, isMarked: false },
+            { questionId: 'b', isCorrect: true, isMarked: false },
+          ],
+        },
+      ]);
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 5,
+        timeLimit: 5,
+        mode: 'REVIEW' as any,
+      });
+      expect(pickedIds()).toEqual(['a']);
+    });
+
+    it('REVIEW with nothing to review is a 422', async () => {
+      mockPrismaService.question.findMany.mockResolvedValue([q('a', 'd1')]);
+      await expect(
+        service.createPractice('user-1', {
+          certificationId: 'cert-1',
+          questionCount: 5,
+          timeLimit: 5,
+          mode: 'REVIEW' as any,
+        }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('ADAPTIVE picks questions near the learner level', async () => {
+      // A strong learner: 10 hard questions answered right.
+      const answered = Array.from({ length: 10 }, (_, i) => `h${i}`);
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([
+        {
+          id: 'att-1',
+          answers: answered.map((id) => ({
+            questionId: id,
+            isCorrect: true,
+            isMarked: false,
+          })),
+        },
+        { id: 'att-0', answers: [] },
+        { id: 'att-00', answers: [] },
+      ]);
+      mockPrismaService.question.findMany.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          where.id
+            ? answered.map((id) => q(id, 'd1', 'HARD'))
+            : [
+                ...Array.from({ length: 5 }, (_, i) =>
+                  q(`easy${i}`, 'd1', 'EASY'),
+                ),
+                ...Array.from({ length: 5 }, (_, i) =>
+                  q(`hard${i}`, 'd1', 'HARD'),
+                ),
+              ],
+        ),
+      );
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 5,
+        timeLimit: 5,
+        mode: 'ADAPTIVE' as any,
+      });
+
+      expect(pickedIds().every((id: string) => id.startsWith('hard'))).toBe(
+        true,
+      );
+      expect(created()).toMatchObject({
+        title: 'SAA Adaptive Practice',
+        practiceMode: 'ADAPTIVE',
+      });
+    });
+  });
+
+  describe('abilityFor', () => {
+    it('is the neutral prior for a learner without history', async () => {
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+      expect(await service.abilityFor('user-1', 'cert-1')).toEqual({
+        theta: 0,
+        se: 1,
+        answered: 0,
+      });
+    });
+
+    it('uses question statistics from all learners', async () => {
+      jest.clearAllMocks();
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([
+        {
+          id: 'att-1',
+          answers: [{ questionId: 'q1', isCorrect: true, isMarked: false }],
+        },
+      ]);
+      mockPrismaService.question.findMany.mockResolvedValue([
+        { id: 'q1', difficulty: 'MEDIUM' },
+      ]);
+      mockPrismaService.answer.groupBy.mockResolvedValue([
+        { questionId: 'q1', isCorrect: true, _count: { _all: 2 } },
+        { questionId: 'q1', isCorrect: false, _count: { _all: 38 } },
+      ]);
+
+      const { theta, answered } = await service.abilityFor('user-1', 'cert-1');
+      expect(answered).toBe(1);
+      // Getting a question almost nobody gets right says a lot.
+      expect(theta).toBeGreaterThan(0.4);
+    });
+  });
+
+  describe('createPractice CAT', () => {
+    it('stores the whole pool as candidates and the max length as questionCount', async () => {
+      jest.clearAllMocks();
+      mockPrismaService.certification.findUnique.mockResolvedValue({
+        id: 'cert-1',
+        code: 'SAA',
+        domains: [],
+      });
+      mockPrismaService.question.findMany.mockResolvedValue(
+        Array.from({ length: 50 }, (_, i) => ({
+          id: `q${i}`,
+          domainId: 'd1',
+          difficulty: 'MEDIUM',
+        })),
+      );
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+      mockPrismaService.exam.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'exam-1', ...data }),
+      );
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 20,
+        timeLimit: 28,
+        mode: 'CAT' as any,
+      });
+
+      const { data } = mockPrismaService.exam.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        title: 'SAA Adaptive Test (CAT)',
+        practiceMode: 'CAT',
+        questionCount: 20,
+        isPractice: true,
+      });
+      expect(data.examQuestions.create).toHaveLength(50);
+    });
+  });
 });
+

@@ -71,6 +71,8 @@ export interface Certification {
   questionCount?: number;
   timeLimit?: number;
   passingScore?: number;
+  /** Vendor exam format, e.g. { questionCount, durationMinutes }. */
+  examFormat?: { questionCount?: number; durationMinutes?: number } | null;
   icon?: string;
   color?: string;
   isActive: boolean;
@@ -180,9 +182,17 @@ export interface StartAttemptResponse {
   };
   timeLimit: number;
   timerMode?: TimerMode;
+  /** Practice exams only; FULL_MOCK hides difficulty/domain labels. */
+  practiceMode?: PracticeMode | null;
+  /** Adaptive tests: questions arrive one at a time. */
+  cat?: CatProgress;
   /** Missing on responses from older backends — treat as END_OF_EXAM. */
   feedbackMode?: FeedbackMode;
   totalQuestions: number;
+  /** Server deadline (ISO). Missing on older backends — fall back to timeLimit. */
+  expiresAt?: string | null;
+  /** Server clock when the response was built, to correct client clock skew. */
+  serverNow?: string;
   questions: AttemptQuestion[];
 }
 
@@ -191,18 +201,52 @@ export interface AttemptQuestion {
   title: string;
   description?: string;
   isScenario?: boolean;
+  codeSnippet?: string | null;
+  imageUrl?: string | null;
+  /** MULTIPLE questions only: how many choices the answer needs ("Choose 2"). */
+  selectCount?: number;
   questionType: string;
-  difficulty: string;
-  domain?: Domain;
+  /** null in a full mock exam, which hides labels like the real exam. */
+  difficulty: string | null;
+  domain?: Domain | null;
   tags: string[];
   choices: { id: string; label: string; content: string }[];
   sortOrder: number;
+}
+
+/** GET /attempts/:id/state — everything needed to resume an attempt. */
+export interface AttemptState extends Partial<StartAttemptResponse> {
+  attemptId: string;
+  status: "IN_PROGRESS" | "SUBMITTED" | "ABANDONED";
+  answers?: {
+    questionId: string;
+    selectedChoices: string[];
+    isMarked: boolean;
+    timeSpent?: number;
+  }[];
+  checked?: CheckAnswerResponse[];
+}
+
+/** GET /attempts/active — the attempt the learner can pick back up. */
+export interface ActiveAttemptSummary {
+  attemptId: string;
+  examId: string;
+  certificationId: string;
+  title: string;
+  timerMode: TimerMode;
+  feedbackMode: FeedbackMode;
+  answeredCount: number;
+  totalQuestions: number;
+  startedAt: string;
+  expiresAt: string | null;
 }
 
 export interface SubmitAnswerPayload {
   questionId: string;
   selectedChoices: string[];
   isMarked?: boolean;
+  /** Total seconds spent on the question so far. */
+  timeSpent?: number;
 }
 
 export interface SubmitAttemptPayload {
@@ -218,6 +262,8 @@ export interface CheckAnswerResponse {
   explanation: string | null;
   checkedAt: string;
 }
+
+export type MistakeType = "CONCEPT" | "CARELESS" | "TRAP" | "TIME_PRESSURE";
 
 export interface AttemptResult {
   attemptId: string;
@@ -235,6 +281,20 @@ export interface AttemptResult {
   totalCorrect: number;
   totalQuestions: number;
   percentage: number;
+  /** Certification pass mark (%). Missing on older backends. */
+  passingScore?: number;
+  passed?: boolean;
+  /** Seconds per question needed to finish on time. */
+  targetSecondsPerQuestion?: number | null;
+  /** Adaptive tests: the measured ability, which decides `passed`. */
+  cat?: {
+    ability: number;
+    standardError: number;
+    itemsAdministered: number;
+    maxItems: number;
+    stoppedBy: CatProgress["stoppedBy"];
+    passLikelihood: number;
+  };
   domainScores: Record<string, { correct: number; total: number }>;
   timeSpent: number;
   startedAt: string;
@@ -243,10 +303,16 @@ export interface AttemptResult {
     questionId: string;
     title: string;
     description?: string;
+    codeSnippet?: string;
+    imageUrl?: string;
     explanation?: string;
     domain: string;
     correct: boolean;
     checkedAt?: string;
+    timeSpent?: number;
+    mistakeType?: MistakeType;
+    /** Hint from the time spent on a wrong answer. */
+    suggestedMistakeType?: MistakeType;
     selectedAnswers: string[];
     correctAnswers: string[];
     choices: Choice[];
@@ -268,6 +334,79 @@ export type TimerMode = "STRICT" | "ACCELERATED" | "RELAXED" | "TIME_PRESSURE";
 
 /** END_OF_EXAM: grade on submit. INTERACTIVE: reveal each answer + explanation on check. */
 export type FeedbackMode = "END_OF_EXAM" | "INTERACTIVE";
+
+/** Kind of auto-generated practice exam. */
+export type PracticeMode =
+  | "STANDARD"
+  | "QUICK_DRILL"
+  | "FULL_MOCK"
+  | "REVIEW"
+  | "ADAPTIVE"
+  | "CAT";
+
+/** Progress of a computerized adaptive test (CAT). */
+export interface CatProgress {
+  answered: number;
+  minItems: number;
+  maxItems: number;
+  standardError: number;
+  targetStandardError: number;
+  done: boolean;
+  stoppedBy:
+    | "MAX_ITEMS"
+    | "PRECISION"
+    | "POOL_EXHAUSTED"
+    | "TIME"
+    | "ENDED_EARLY"
+    | null;
+}
+
+/** POST /attempts/:id/cat/answer */
+export interface CatAnswerResponse {
+  done: boolean;
+  progress?: CatProgress;
+  /** The next question, when the test goes on. */
+  question?: AttemptQuestion;
+  /** The graded result, when the test is over. */
+  result?: AttemptResult;
+}
+
+/** GET /attempts/:id/insights — next steps after an attempt. */
+export interface AttemptInsights {
+  attemptId: string;
+  certificationId: string;
+  missedCount: number;
+  skippedCount: number;
+  flaggedCount: number;
+  domains: {
+    domainId: string;
+    name: string;
+    correct: number;
+    total: number;
+    percentage: number;
+  }[];
+  weakestDomain: {
+    domainId: string;
+    name: string;
+    percentage: number;
+  } | null;
+  /** Oldest first. */
+  trend: {
+    attemptId: string;
+    submittedAt: string | null;
+    score: number;
+    domainScores: Record<string, { correct: number; total: number }>;
+  }[];
+  readiness: {
+    ability: number;
+    standardError: number;
+    basedOnQuestions: number;
+    /** Estimated % chance to pass; null without history. */
+    passLikelihood: number | null;
+    passingScore: number;
+    examLength: number;
+  };
+}
 
 export type ExamMode = "STANDARD" | "TIME_PRESSURE";
 

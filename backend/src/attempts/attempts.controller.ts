@@ -59,6 +59,22 @@ export class AttemptsController {
     return this.attemptsService.saveAnswer(userId, attemptId, dto);
   }
 
+  @Post('attempts/:id/cat/answer')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @ApiOperation({
+    summary:
+      'Adaptive test: answer the current question, get the next one (or the result)',
+  })
+  answerCat(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') attemptId: string,
+    @Body() dto: SubmitAnswerDto,
+  ) {
+    return this.attemptsService.answerCat(req.user.id, attemptId, dto);
+  }
+
   @Post('attempts/:id/check')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -101,16 +117,6 @@ export class AttemptsController {
     return this.attemptsService.finish(userId, attemptId);
   }
 
-  @Get('attempts/:id')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @SkipThrottle()
-  @ApiOperation({ summary: 'Get attempt result with question review' })
-  findResult(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
-    const userId = req.user.id;
-    return this.attemptsService.findResult(attemptId, userId);
-  }
-
   @Get('attempts/me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -126,5 +132,78 @@ export class AttemptsController {
       pagination?.page,
       pagination?.limit,
     );
+  }
+
+  // Static GET routes must be declared before `attempts/:id`, which would
+  // otherwise capture them as an id.
+  @Get('attempts/active')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @ApiQuery({ name: 'certificationId', required: false })
+  @ApiOperation({
+    summary:
+      'Most recent in-progress attempt that can be resumed (expired ones are closed first)',
+  })
+  findActive(
+    @Req() req: AuthenticatedRequest,
+    @Query('certificationId') certificationId?: string,
+  ) {
+    return this.attemptsService.findActive(req.user.id, certificationId);
+  }
+
+  @Get('attempts/:id/state')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @ApiOperation({
+    summary:
+      'Resume data for an in-progress attempt: questions in presented order, saved answers, deadline',
+  })
+  getState(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
+    return this.attemptsService.getState(req.user.id, attemptId);
+  }
+
+  @Post('attempts/:id/abandon')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Discard an in-progress attempt' })
+  abandon(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
+    return this.attemptsService.abandon(req.user.id, attemptId);
+  }
+
+  @Get('attempts/:id/insights')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @ApiOperation({
+    summary:
+      'Next steps after an attempt: missed count, weakest domain, trend and pass likelihood',
+  })
+  insights(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
+    return this.attemptsService.insights(req.user.id, attemptId);
+  }
+
+  @Post('attempts/:id/review-missed')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: "Add the attempt's wrong/skipped questions to the review queue",
+  })
+  addMissedToReview(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') attemptId: string,
+  ) {
+    return this.attemptsService.addMissedToReview(req.user.id, attemptId);
+  }
+
+  @Get('attempts/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Get attempt result with question review' })
+  findResult(@Req() req: AuthenticatedRequest, @Param('id') attemptId: string) {
+    const userId = req.user.id;
+    return this.attemptsService.findResult(attemptId, userId);
   }
 }
