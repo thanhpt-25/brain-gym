@@ -130,6 +130,9 @@ enum PracticeMode {
   FULL_MOCK
   REVIEW
   ADAPTIVE
+  /// Computerized adaptive test: questions are picked one at a time during
+  /// the attempt; ExamQuestion holds the candidate pool.
+  CAT
 }
 
 enum ExamType {

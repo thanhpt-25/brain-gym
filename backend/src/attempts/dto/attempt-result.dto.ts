@@ -135,4 +135,17 @@ export class AttemptResultResponse {
 
   @ApiProperty({ type: [QuestionResultResponse] })
   questionResults: QuestionResultResponse[];
+
+  @ApiProperty({
+    required: false,
+    description: 'Adaptive tests only: the measured ability',
+  })
+  cat?: {
+    ability: number;
+    standardError: number;
+    itemsAdministered: number;
+    maxItems: number;
+    stoppedBy: string | null;
+    passLikelihood: number;
+  };
 }

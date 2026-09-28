@@ -12,6 +12,7 @@ import {
   GraduationCap,
   RotateCcw,
   Sparkles,
+  Crosshair,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,9 +87,16 @@ const PRACTICE_MODES: {
   },
   {
     value: "ADAPTIVE",
-    label: "Adaptive",
+    label: "Adaptive Practice",
     description: "Questions matched to your current level",
     icon: <Sparkles className="h-4 w-4" />,
+  },
+  {
+    value: "CAT",
+    label: "Adaptive Test (CAT)",
+    description:
+      "Each question adapts to your answers; ends once your level is measured",
+    icon: <Crosshair className="h-4 w-4" />,
   },
 ];
 
@@ -292,10 +300,11 @@ export function ExamIntro({
 
               {(mode === "QUICK_DRILL" ||
                 mode === "REVIEW" ||
-                mode === "ADAPTIVE") && (
+                mode === "ADAPTIVE" ||
+                mode === "CAT") && (
                 <div className="mt-3 flex items-center gap-2 text-xs">
                   <span className="text-muted-foreground font-mono w-20">
-                    Questions
+                    {mode === "CAT" ? "Up to" : "Questions"}
                   </span>
                   {SHORT_SESSION_SIZES.map((n) => (
                     <Button
@@ -366,6 +375,14 @@ export function ExamIntro({
                 </>
               )}
 
+              {mode === "CAT" && (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  One question at a time, picked from your previous answers. No
+                  going back; the test stops early once your level is measured
+                  precisely (at least 10 questions).
+                </p>
+              )}
+
               {isFullMock && (
                 <p className="mt-3 text-xs text-muted-foreground">
                   Strict timer, no difficulty or domain labels and no
@@ -408,8 +425,16 @@ export function ExamIntro({
           <FeedbackModeSelector
             value={feedbackMode}
             onChange={onFeedbackModeChange}
-            interactiveDisabled={isFullMock || !supportsInteractive(timerMode)}
-            disabledReason={isFullMock ? "a full mock" : "Time Pressure"}
+            interactiveDisabled={
+              isFullMock || mode === "CAT" || !supportsInteractive(timerMode)
+            }
+            disabledReason={
+              isFullMock
+                ? "a full mock"
+                : mode === "CAT"
+                  ? "an adaptive test"
+                  : "Time Pressure"
+            }
           />
 
           {setup && onSetupChange && (

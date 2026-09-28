@@ -45,14 +45,20 @@ export interface Response {
   correct: boolean;
 }
 
-/** MAP ability estimate (Newton-Raphson) with a N(0, 1) prior. */
-export function estimateAbility(responses: Response[]): {
+/**
+ * MAP ability estimate (Newton-Raphson) with a N(priorMean, 1) prior.
+ * A CAT starts from the learner's historical ability as its prior mean.
+ */
+export function estimateAbility(
+  responses: Response[],
+  priorMean = 0,
+): {
   theta: number;
   se: number;
 } {
-  let theta = 0;
+  let theta = priorMean;
   for (let iter = 0; iter < 25; iter++) {
-    let gradient = -theta; // prior
+    let gradient = -(theta - priorMean); // prior
     let information = 1; // prior
     for (const r of responses) {
       const p = pCorrect(theta, r.b);

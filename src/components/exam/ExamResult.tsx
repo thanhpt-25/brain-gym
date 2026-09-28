@@ -115,6 +115,67 @@ function TimeAnalysis({ result }: { result: AttemptResult }) {
   );
 }
 
+const STOP_REASONS: Record<string, string> = {
+  PRECISION: 'Stopped early: your level was measured precisely enough.',
+  MAX_ITEMS: 'Reached the maximum number of questions.',
+  POOL_EXHAUSTED: 'Ran out of questions in the pool.',
+  TIME: 'Time ran out.',
+  ENDED_EARLY: 'You ended the test early — the estimate is less precise.',
+};
+
+/**
+ * Adaptive test result: the measured ability decides, not the percentage
+ * (every question was aimed at the learner's level, so ~50–65% is normal).
+ */
+function CatSummary({
+  cat,
+  passingScore,
+}: {
+  cat: NonNullable<AttemptResult['cat']>;
+  passingScore: number;
+}) {
+  return (
+    <section className="glass-card p-6 mb-6" aria-labelledby="cat-summary">
+      <h3 id="cat-summary" className="font-mono font-semibold mb-4">
+        Adaptive Test Result
+      </h3>
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div
+            className={`text-2xl font-mono font-bold ${likelihoodTone(cat.passLikelihood)}`}
+            data-testid="cat-pass-likelihood"
+          >
+            {cat.passLikelihood}%
+          </div>
+          <div className="text-xs text-muted-foreground">Chance to pass</div>
+        </div>
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div className="text-2xl font-mono font-bold">
+            {cat.ability > 0 ? '+' : ''}
+            {cat.ability.toFixed(2)}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Ability (± {cat.standardError.toFixed(2)})
+          </div>
+        </div>
+        <div className="p-3 rounded-lg bg-secondary text-center">
+          <div className="text-2xl font-mono font-bold">
+            {cat.itemsAdministered}
+            <span className="text-sm text-muted-foreground">/{cat.maxItems}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">Questions</div>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {cat.stoppedBy ? `${STOP_REASONS[cat.stoppedBy] ?? ''} ` : ''}
+        Questions were matched to your level, so the percentage correct is not
+        the score: the pass verdict uses your measured ability against a{' '}
+        {passingScore}% pass mark.
+      </p>
+    </section>
+  );
+}
+
 function likelihoodTone(pct: number) {
   if (pct >= 70) return 'text-accent';
   if (pct >= 40) return 'text-warning';
@@ -310,6 +371,8 @@ export function ExamResult({ result, onRetry, onHome, onStartPractice }: ExamRes
               </span>
             )}
           </div>
+
+          {result.cat && <CatSummary cat={result.cat} passingScore={passingScore} />}
 
           {/* Domain Breakdown */}
           {result.domainScores && (

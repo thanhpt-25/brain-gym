@@ -429,4 +429,81 @@ describe("ExamPage — server timer, autosave and resume", () => {
       }),
     );
   });
+
+  it("runs an adaptive test one question at a time until it ends", async () => {
+    const catProgress = {
+      answered: 0,
+      minItems: 2,
+      maxItems: 2,
+      standardError: 1,
+      targetStandardError: 0.3,
+      done: false,
+      stoppedBy: null,
+    };
+    vi.mocked(attemptsService.startAttempt).mockResolvedValue(
+      startResponse({
+        practiceMode: "CAT",
+        questions: [questions[0]],
+        totalQuestions: 2,
+        cat: catProgress,
+      }),
+    );
+    vi.mocked(attemptsService.answerCatQuestion)
+      .mockResolvedValueOnce({
+        done: false,
+        progress: { ...catProgress, answered: 1, standardError: 0.7 },
+        question: questions[1],
+      })
+      .mockResolvedValueOnce({
+        done: true,
+        progress: { ...catProgress, answered: 2, done: true },
+        result: {
+          ...result,
+          cat: {
+            ability: 0.8,
+            standardError: 0.4,
+            itemsAdministered: 2,
+            maxItems: 2,
+            stoppedBy: "MAX_ITEMS",
+            passLikelihood: 64,
+          },
+        },
+      });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("radio", { name: /adaptive test/i }),
+    );
+    // Interactive makes no sense when the next question depends on the answer.
+    expect(screen.getByRole("radio", { name: /interactive/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: /start exam/i }));
+    expect(examsService.createPracticeExam).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "CAT" }),
+    );
+
+    expect(await screen.findByText("Question 1")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /S3/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /confirm answer/i }),
+    );
+    expect(attemptsService.answerCatQuestion).toHaveBeenCalledWith(
+      "att-1",
+      expect.objectContaining({ questionId: "q1", selectedChoices: ["c2"] }),
+    );
+    expect(attemptsService.saveAnswer).not.toHaveBeenCalled();
+
+    expect(
+      await screen.findByText("Pick the managed database"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Question 2")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /RDS/ }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /confirm answer/i }),
+    );
+
+    expect(await screen.findByTestId("cat-pass-likelihood")).toHaveTextContent(
+      "64%",
+    );
+    expect(attemptsService.submitAttempt).not.toHaveBeenCalled();
+  });
 });

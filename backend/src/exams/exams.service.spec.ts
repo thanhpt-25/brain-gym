@@ -765,5 +765,43 @@ describe('ExamsService', () => {
       expect(theta).toBeGreaterThan(0.4);
     });
   });
+
+  describe('createPractice CAT', () => {
+    it('stores the whole pool as candidates and the max length as questionCount', async () => {
+      jest.clearAllMocks();
+      mockPrismaService.certification.findUnique.mockResolvedValue({
+        id: 'cert-1',
+        code: 'SAA',
+        domains: [],
+      });
+      mockPrismaService.question.findMany.mockResolvedValue(
+        Array.from({ length: 50 }, (_, i) => ({
+          id: `q${i}`,
+          domainId: 'd1',
+          difficulty: 'MEDIUM',
+        })),
+      );
+      mockPrismaService.examAttempt.findMany.mockResolvedValue([]);
+      mockPrismaService.exam.create.mockImplementation(({ data }: any) =>
+        Promise.resolve({ id: 'exam-1', ...data }),
+      );
+
+      await service.createPractice('user-1', {
+        certificationId: 'cert-1',
+        questionCount: 20,
+        timeLimit: 28,
+        mode: 'CAT' as any,
+      });
+
+      const { data } = mockPrismaService.exam.create.mock.calls[0][0];
+      expect(data).toMatchObject({
+        title: 'SAA Adaptive Test (CAT)',
+        practiceMode: 'CAT',
+        questionCount: 20,
+        isPractice: true,
+      });
+      expect(data.examQuestions.create).toHaveLength(50);
+    });
+  });
 });
 

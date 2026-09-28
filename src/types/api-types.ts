@@ -184,6 +184,8 @@ export interface StartAttemptResponse {
   timerMode?: TimerMode;
   /** Practice exams only; FULL_MOCK hides difficulty/domain labels. */
   practiceMode?: PracticeMode | null;
+  /** Adaptive tests: questions arrive one at a time. */
+  cat?: CatProgress;
   /** Missing on responses from older backends — treat as END_OF_EXAM. */
   feedbackMode?: FeedbackMode;
   totalQuestions: number;
@@ -284,6 +286,15 @@ export interface AttemptResult {
   passed?: boolean;
   /** Seconds per question needed to finish on time. */
   targetSecondsPerQuestion?: number | null;
+  /** Adaptive tests: the measured ability, which decides `passed`. */
+  cat?: {
+    ability: number;
+    standardError: number;
+    itemsAdministered: number;
+    maxItems: number;
+    stoppedBy: CatProgress["stoppedBy"];
+    passLikelihood: number;
+  };
   domainScores: Record<string, { correct: number; total: number }>;
   timeSpent: number;
   startedAt: string;
@@ -330,7 +341,35 @@ export type PracticeMode =
   | "QUICK_DRILL"
   | "FULL_MOCK"
   | "REVIEW"
-  | "ADAPTIVE";
+  | "ADAPTIVE"
+  | "CAT";
+
+/** Progress of a computerized adaptive test (CAT). */
+export interface CatProgress {
+  answered: number;
+  minItems: number;
+  maxItems: number;
+  standardError: number;
+  targetStandardError: number;
+  done: boolean;
+  stoppedBy:
+    | "MAX_ITEMS"
+    | "PRECISION"
+    | "POOL_EXHAUSTED"
+    | "TIME"
+    | "ENDED_EARLY"
+    | null;
+}
+
+/** POST /attempts/:id/cat/answer */
+export interface CatAnswerResponse {
+  done: boolean;
+  progress?: CatProgress;
+  /** The next question, when the test goes on. */
+  question?: AttemptQuestion;
+  /** The graded result, when the test is over. */
+  result?: AttemptResult;
+}
 
 /** GET /attempts/:id/insights — next steps after an attempt. */
 export interface AttemptInsights {

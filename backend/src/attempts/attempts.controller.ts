@@ -59,6 +59,22 @@ export class AttemptsController {
     return this.attemptsService.saveAnswer(userId, attemptId, dto);
   }
 
+  @Post('attempts/:id/cat/answer')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @SkipThrottle()
+  @ApiOperation({
+    summary:
+      'Adaptive test: answer the current question, get the next one (or the result)',
+  })
+  answerCat(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') attemptId: string,
+    @Body() dto: SubmitAnswerDto,
+  ) {
+    return this.attemptsService.answerCat(req.user.id, attemptId, dto);
+  }
+
   @Post('attempts/:id/check')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

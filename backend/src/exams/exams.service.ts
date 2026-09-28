@@ -293,6 +293,48 @@ export class ExamsService {
     let selectionHistory = history;
     let adaptiveRank: Map<string, number> | undefined;
 
+    if (mode === PracticeMode.CAT) {
+      // The whole (capped) pool is the candidate set; start() and
+      // AttemptsService.answerCat() pick questions from it one at a time.
+      if (pool.length === 0) {
+        throw new UnprocessableEntityException(
+          'No approved questions available for this certification yet',
+        );
+      }
+      const candidateIds = pool.map((q) => q.id);
+      for (let i = candidateIds.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidateIds[i], candidateIds[j]] = [candidateIds[j], candidateIds[i]];
+      }
+      const poolIds = candidateIds.slice(0, ExamsService.CAT_POOL_CAP);
+      return this.prisma.exam.create({
+        data: {
+          title: `${certification.code} ${ExamsService.PRACTICE_TITLES[mode](dto.timerMode)}`,
+          certificationId: dto.certificationId,
+          createdBy: userId,
+          // Maximum test length; the attempt may stop earlier.
+          questionCount: Math.min(dto.questionCount, poolIds.length),
+          timeLimit: dto.timeLimit,
+          visibility: ExamVisibility.PRIVATE,
+          isPractice: true,
+          practiceMode: mode,
+          timerMode: dto.timerMode,
+          examQuestions: {
+            create: poolIds.map((questionId, index) => ({
+              questionId,
+              sortOrder: index,
+            })),
+          },
+        },
+        select: {
+          id: true,
+          questionCount: true,
+          timeLimit: true,
+          practiceMode: true,
+        },
+      });
+    }
+
     if (mode === PracticeMode.REVIEW) {
       const toReview = dto.sourceAttemptId
         ? await this.missedInAttempt(userId, dto.sourceAttemptId)
@@ -375,7 +417,11 @@ export class ExamsService {
     FULL_MOCK: () => 'Full Mock Exam',
     REVIEW: () => 'Mistake Review',
     ADAPTIVE: () => 'Adaptive Practice',
+    CAT: () => 'Adaptive Test (CAT)',
   };
+
+  /** Largest candidate pool a CAT draws from (bounds per-answer work). */
+  static readonly CAT_POOL_CAP = 400;
 
   /** Wrong, skipped and flagged questions of one of the learner's submitted attempts. */
   private async missedInAttempt(

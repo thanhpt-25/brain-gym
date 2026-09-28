@@ -9,7 +9,8 @@ import {
     FeedbackMode,
     AttemptState,
     ActiveAttemptSummary,
-    AttemptInsights
+    AttemptInsights,
+    CatAnswerResponse
 } from '@/types/api-types';
 
 export type { StartAttemptResponse, AttemptQuestion, SubmitAnswerPayload, SubmitAttemptPayload, AttemptResult, CheckAnswerResponse, FeedbackMode, AttemptState, ActiveAttemptSummary };
@@ -81,5 +82,14 @@ export const getAttemptInsights = async (attemptId: string): Promise<AttemptInsi
 /** Queue the attempt's wrong/skipped questions for spaced-repetition review. */
 export const addMissedToReview = async (attemptId: string): Promise<{ added: number }> => {
     const response = await api.post<{ added: number }>(`/attempts/${attemptId}/review-missed`);
+    return response.data;
+};
+
+/** Adaptive test: answer the current question; get the next one or the result. */
+export const answerCatQuestion = async (
+    attemptId: string,
+    data: SubmitAnswerPayload,
+): Promise<CatAnswerResponse> => {
+    const response = await api.post<CatAnswerResponse>(`/attempts/${attemptId}/cat/answer`, data);
     return response.data;
 };

@@ -105,4 +105,15 @@ export class AttemptStateResponse {
 
   @ApiPropertyOptional({ type: [CheckAnswerResponse] })
   checked?: CheckAnswerResponse[];
+
+  @ApiPropertyOptional({ description: 'Adaptive tests only' })
+  cat?: {
+    answered: number;
+    minItems: number;
+    maxItems: number;
+    standardError: number;
+    targetStandardError: number;
+    done: boolean;
+    stoppedBy: string | null;
+  };
 }

@@ -7,6 +7,7 @@ import {
   startAttempt,
   submitAttempt,
   checkAnswer,
+  answerCatQuestion,
   getActiveAttempt,
   getAttemptState,
   getAttemptResult,
@@ -23,6 +24,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ExamIntro } from "@/components/exam/ExamIntro";
 import { ExamSession } from "@/components/exam/ExamSession";
+import { CatSession } from "@/components/exam/CatSession";
 import { ExamResult } from "@/components/exam/ExamResult";
 import { WordCaptureTooltip } from "@/components/exam/WordCaptureTooltip";
 import { useTimer } from "@/hooks/useTimer";
@@ -99,7 +101,9 @@ const ExamPage = () => {
   // Interactive is unavailable with Time Pressure and in a full mock; the
   // stored preference is kept so it comes back in another setup.
   const effectiveFeedbackMode: FeedbackMode =
-    supportsInteractive(timerModeToUse) && setup.mode !== "FULL_MOCK"
+    supportsInteractive(timerModeToUse) &&
+    setup.mode !== "FULL_MOCK" &&
+    setup.mode !== "CAT"
       ? selectedFeedbackMode
       : "END_OF_EXAM";
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -121,6 +125,9 @@ const ExamPage = () => {
     cert?.examFormat,
   );
   const isInteractive = attemptData?.feedbackMode === "INTERACTIVE";
+  // Adaptive test: questions arrive one at a time via /cat/answer.
+  const isCat = !!attemptData?.cat;
+  const [catSubmitting, setCatSubmitting] = useState(false);
 
   // Answers/flags are saved as the learner goes (END_OF_EXAM only;
   // INTERACTIVE answers are saved when checked).
@@ -131,7 +138,7 @@ const ExamPage = () => {
     cancel: cancelSaves,
   } = useAutosave(
     attemptData?.attemptId ?? null,
-    phase === "exam" && !isInteractive,
+    phase === "exam" && !isInteractive && !isCat,
   );
 
   // Time actually spent on each question (for the pace analysis).
@@ -174,7 +181,14 @@ const ExamPage = () => {
       setAnswers(restoredAnswers);
       setMarked(restoredMarks);
       setFeedback(restoredFeedback);
-      setCurrentIndex(saved && firstOpen > 0 ? firstOpen : 0);
+      setCurrentIndex(
+        attempt.cat
+          ? // An adaptive test is always on its latest question.
+            Math.max(0, attempt.questions.length - 1)
+          : saved && firstOpen > 0
+            ? firstOpen
+            : 0,
+      );
       setResult(null);
       setPhase("exam");
     },
@@ -282,7 +296,9 @@ const ExamPage = () => {
     if (!cert) return;
     const timerMode = effectiveTimerMode(practice, selectedTimerMode);
     const feedbackMode: FeedbackMode =
-      supportsInteractive(timerMode) && practice.mode !== "FULL_MOCK"
+      supportsInteractive(timerMode) &&
+      practice.mode !== "FULL_MOCK" &&
+      practice.mode !== "CAT"
         ? selectedFeedbackMode
         : "END_OF_EXAM";
     setPhase("loading");
@@ -467,6 +483,51 @@ const ExamPage = () => {
     }
   };
 
+  /** Adaptive test: lock the answer, then show the next question or the result. */
+  const handleCatAnswer = async (
+    questionId: string,
+    selectedChoices: string[],
+  ) => {
+    if (!attemptData || catSubmitting) return;
+    setCatSubmitting(true);
+    try {
+      const res = await answerCatQuestion(attemptData.attemptId, {
+        questionId,
+        selectedChoices,
+        timeSpent: secondsOn(questionId),
+      });
+      setAnswers((prev) => ({ ...prev, [questionId]: selectedChoices }));
+      if (res.done && res.result) {
+        setResult(res.result);
+        setPhase("result");
+        queryClient.invalidateQueries({ queryKey: ["active-attempt"] });
+      } else if (res.question) {
+        const next = res.question;
+        setAttemptData((prev) =>
+          prev
+            ? {
+                ...prev,
+                questions: [...prev.questions, next],
+                cat: res.progress ?? prev.cat,
+              }
+            : prev,
+        );
+        setCurrentIndex(questions.length);
+      }
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response
+        ?.status;
+      if (status === 409 || status === 400) {
+        // Out of sync (e.g. answered in another tab): reload from the server.
+        await loadSavedAttempt(attemptData.attemptId).catch(() => undefined);
+      } else {
+        toast.error("Could not submit your answer. Please try again.");
+      }
+    } finally {
+      setCatSubmitting(false);
+    }
+  };
+
   const handleFeedbackModeChange = (mode: FeedbackMode) => {
     setSelectedFeedbackMode(mode);
     saveFeedbackModePreference(mode);
@@ -577,7 +638,21 @@ const ExamPage = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {attemptData && (
+      {attemptData && isCat && questions.length > 0 && (
+        <CatSession
+          attemptData={attemptData}
+          question={questions[questions.length - 1]}
+          progress={attemptData.cat!}
+          timeLeft={timeLeft}
+          totalSeconds={totalSeconds}
+          submitting={catSubmitting}
+          onAnswer={handleCatAnswer}
+          onEndEarly={handleSubmit}
+          fontScale={fontScale}
+        />
+      )}
+
+      {attemptData && !isCat && (
         <ExamSession
           attemptData={attemptData}
           questions={questions}

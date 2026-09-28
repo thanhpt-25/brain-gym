@@ -33,6 +33,15 @@ import {
 } from './dto/attempt-state.dto';
 import { AttemptInsightsResponse } from './dto/attempt-insights.dto';
 import { passProbability } from '../exams/ability';
+import {
+  catConfig,
+  CatState,
+  domainShares,
+  estimate,
+  nextItem,
+  stopReason,
+} from '../exams/cat';
+import { CatAnswerResponse, CatProgress } from './dto/cat.dto';
 
 /** Length of the exam the pass likelihood is computed for. */
 export const READINESS_EXAM_LENGTH = 65;
@@ -48,6 +57,8 @@ interface QuestionWithChoices extends Prisma.QuestionGetPayload<{
 interface Presentation {
   questionIds: string[];
   choiceIds: Record<string, string[]>;
+  /** CAT attempts only: adaptive state; questionIds grows as items are given. */
+  cat?: CatState;
 }
 
 /**
@@ -185,6 +196,15 @@ export class AttemptsService {
       );
     }
 
+    if (exam.practiceMode === PracticeMode.CAT) {
+      if (feedbackMode === FeedbackMode.INTERACTIVE) {
+        throw new BadRequestException(
+          'Interactive mode is not available for adaptive tests',
+        );
+      }
+      return this.startCat(userId, exam);
+    }
+
     // Randomize question order, and choice order within each question. The
     // order is stored so a resumed attempt looks the same and the result
     // review shows the labels the learner actually saw.
@@ -316,6 +336,265 @@ export class AttemptsService {
     return Math.max(0, Math.floor((end - attempt.startedAt.getTime()) / 1000));
   }
 
+  /**
+   * Start a computerized adaptive test: freeze the pool's difficulties, take
+   * the learner's earlier ability as the prior and give the first question.
+   */
+  private async startCat(
+    userId: string,
+    exam: Prisma.ExamGetPayload<{
+      include: {
+        certification: { include: { domains: true } };
+        examQuestions: {
+          include: {
+            question: {
+              include: {
+                choices: true;
+                domain: true;
+                tags: { include: { tag: true } };
+              };
+            };
+          };
+        };
+      };
+    }>,
+  ) {
+    const questions = exam.examQuestions.map((eq) => eq.question);
+    const [difficulty, prior] = await Promise.all([
+      this.examsService.questionDifficulties(questions),
+      this.examsService.abilityFor(userId, exam.certificationId),
+    ]);
+    const pool = questions.map((q) => ({
+      id: q.id,
+      b: difficulty.get(q.id) ?? 0,
+      domainId: q.domainId ?? null,
+    }));
+    const state: CatState = {
+      ...catConfig(Math.max(1, Math.min(exam.questionCount, pool.length))),
+      pool,
+      priorTheta: prior.theta,
+      domainShares: domainShares(
+        pool,
+        new Map(
+          (exam.certification.domains ?? []).map((d) => [
+            d.id,
+            d.weight === null ? null : Number(d.weight),
+          ]),
+        ),
+      ),
+      theta: prior.theta,
+      se: 1,
+      done: false,
+    };
+    const first = nextItem(state, []);
+    if (!first) throw new BadRequestException('This test has no questions');
+    const question = questions.find((q) => q.id === first.id)!;
+    const choices = this.shuffle(question.choices);
+    const presentation: Presentation = {
+      questionIds: [first.id],
+      choiceIds: { [first.id]: choices.map((c) => c.id) },
+      cat: state,
+    };
+
+    const timeLimit = effectiveTimeLimit(exam);
+    const startedAt = new Date();
+    const expiresAt = new Date(startedAt.getTime() + timeLimit * 60_000);
+    const attempt = await this.prisma.examAttempt.create({
+      data: {
+        userId,
+        examId: exam.id,
+        startedAt,
+        expiresAt,
+        totalQuestions: state.maxItems,
+        feedbackMode: FeedbackMode.END_OF_EXAM,
+        presentation: presentation as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      attemptId: attempt.id,
+      examId: exam.id,
+      title: exam.title,
+      certification: exam.certification,
+      timeLimit,
+      timerMode: exam.timerMode,
+      practiceMode: exam.practiceMode,
+      feedbackMode: FeedbackMode.END_OF_EXAM,
+      totalQuestions: state.maxItems,
+      expiresAt,
+      serverNow: new Date(),
+      // A CAT hides labels: the difficulty would reveal how it is going.
+      questions: [this.toAttemptQuestion({ ...question, choices }, 0, true)],
+      cat: this.catProgress(state, 0),
+    };
+  }
+
+  private catProgress(state: CatState, answered: number): CatProgress {
+    return {
+      answered,
+      minItems: state.minItems,
+      maxItems: state.maxItems,
+      standardError: Math.round(state.se * 100) / 100,
+      targetStandardError: state.targetSe,
+      done: state.done,
+      stoppedBy: state.stoppedBy ?? null,
+    };
+  }
+
+  /**
+   * CAT: answer the current question (it is locked, there is no going back),
+   * re-estimate the ability and either give the next question or end the
+   * test and grade it.
+   */
+  async answerCat(
+    userId: string,
+    attemptId: string,
+    dto: SubmitAnswerDto,
+  ): Promise<CatAnswerResponse> {
+    const attempt = await this.prisma.examAttempt.findUnique({
+      where: { id: attemptId },
+      include: { exam: { select: { timeLimit: true, timerMode: true } } },
+    });
+    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (attempt.userId !== userId)
+      throw new ForbiddenException('Not your attempt');
+    if (attempt.status !== AttemptStatus.IN_PROGRESS) {
+      throw new BadRequestException('Attempt already submitted');
+    }
+    const presentation = readPresentation(attempt.presentation);
+    if (!presentation?.cat) {
+      throw new BadRequestException('Not an adaptive test');
+    }
+    if (this.isPastDeadline(attempt)) {
+      await this.closeFromStoredAnswers(attemptId, { expired: true });
+      return { done: true, result: await this.findResult(attemptId, userId) };
+    }
+    const current =
+      presentation.questionIds[presentation.questionIds.length - 1];
+    if (dto.questionId !== current || presentation.cat.done) {
+      throw new ConflictException('This is not the current question');
+    }
+
+    const examQuestion = await this.prisma.examQuestion.findFirst({
+      where: { examId: attempt.examId, questionId: dto.questionId },
+      include: { question: { include: { choices: true } } },
+    });
+    if (!examQuestion) {
+      throw new BadRequestException('Question is not part of this exam');
+    }
+    const choiceIds = new Set(examQuestion.question.choices.map((c) => c.id));
+    if (
+      dto.selectedChoices.length === 0 ||
+      new Set(dto.selectedChoices).size !== dto.selectedChoices.length ||
+      dto.selectedChoices.some((id) => !choiceIds.has(id))
+    ) {
+      throw new BadRequestException('Invalid selected choices');
+    }
+    const isCorrect = isAnswerCorrect(
+      examQuestion.question.choices.filter((c) => c.isCorrect).map((c) => c.id),
+      dto.selectedChoices,
+    );
+    const timeSpent = this.clampTimeSpent(dto.timeSpent, attempt);
+    const loadQuestion = (db: Prisma.TransactionClient, id: string) =>
+      db.question.findUniqueOrThrow({
+        where: { id },
+        include: {
+          choices: { orderBy: { sortOrder: 'asc' } },
+          domain: true,
+          tags: { include: { tag: true } },
+        },
+      });
+
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<{ status: AttemptStatus }[]>`
+        SELECT status FROM exam_attempts WHERE id = ${attemptId} FOR UPDATE`;
+      if (locked[0]?.status !== AttemptStatus.IN_PROGRESS) {
+        throw new BadRequestException('Attempt already submitted');
+      }
+      // Re-read under the lock: a concurrent answer may have moved on.
+      const fresh = await tx.examAttempt.findUnique({
+        where: { id: attemptId },
+        select: { presentation: true },
+      });
+      const p = readPresentation(fresh?.presentation)!;
+      const state = p.cat!;
+      if (
+        state.done ||
+        p.questionIds[p.questionIds.length - 1] !== dto.questionId
+      ) {
+        throw new ConflictException('This is not the current question');
+      }
+
+      await tx.answer.create({
+        data: {
+          attemptId,
+          questionId: dto.questionId,
+          selectedChoices: dto.selectedChoices,
+          isCorrect,
+          isMarked: dto.isMarked ?? false,
+          questionOrder: p.questionIds.length - 1,
+          ...(timeSpent !== undefined ? { timeSpent } : {}),
+        },
+      });
+      const responses = await tx.answer.findMany({
+        where: { attemptId },
+        select: { questionId: true, isCorrect: true },
+      });
+      const { theta, se } = estimate(
+        state.pool,
+        responses.map((r) => ({
+          questionId: r.questionId,
+          correct: r.isCorrect === true,
+        })),
+        state.priorTheta,
+      );
+      state.theta = theta;
+      state.se = se;
+
+      const reason = stopReason(
+        state,
+        responses.length,
+        state.pool.length - p.questionIds.length,
+      );
+      let next: Awaited<ReturnType<typeof loadQuestion>> | null = null;
+      if (reason) {
+        state.done = true;
+        state.stoppedBy = reason;
+      } else {
+        const item = nextItem(state, p.questionIds);
+        if (item) {
+          next = await loadQuestion(tx, item.id);
+          next!.choices = this.shuffle(next!.choices);
+          p.questionIds.push(item.id);
+          p.choiceIds[item.id] = next!.choices.map((c) => c.id);
+        } else {
+          state.done = true;
+          state.stoppedBy = 'POOL_EXHAUSTED';
+        }
+      }
+      await tx.examAttempt.update({
+        where: { id: attemptId },
+        data: { presentation: p as unknown as Prisma.InputJsonValue },
+      });
+      return { state, next, answered: responses.length };
+    });
+
+    if (!outcome.next) {
+      await this.closeFromStoredAnswers(attemptId);
+      return {
+        done: true,
+        progress: this.catProgress(outcome.state, outcome.answered),
+        result: await this.findResult(attemptId, userId),
+      };
+    }
+
+    return {
+      done: false,
+      progress: this.catProgress(outcome.state, outcome.answered),
+      question: this.toAttemptQuestion(outcome.next, outcome.answered, true),
+    };
+  }
+
   // Fisher-Yates: array.sort(() => Math.random() - 0.5) is statistically
   // biased and was leaving some orderings far more likely than others.
   private shuffle<T>(array: T[]): T[] {
@@ -368,6 +647,11 @@ export class AttemptsService {
     }
     if (this.isPastDeadline(attempt)) {
       throw new BadRequestException('Time is up for this attempt');
+    }
+    if (readPresentation(attempt.presentation)?.cat) {
+      throw new BadRequestException(
+        'Adaptive tests are answered via /attempts/:id/cat/answer',
+      );
     }
     // Interactive answers go through checkAnswer(), which locks them under a
     // row lock; this unlocked upsert must never race with it.
@@ -590,6 +874,15 @@ export class AttemptsService {
       throw new BadRequestException('Attempt already submitted');
     }
 
+    // An adaptive test is graded from the answers it recorded one by one;
+    // submitting just ends it early.
+    if (readPresentation(attempt.presentation)?.cat) {
+      await this.closeFromStoredAnswers(attemptId, {
+        expired: this.isPastDeadline(attempt),
+      });
+      return this.findResult(attemptId, userId);
+    }
+
     // Past the deadline the payload can't be trusted (it may carry answers
     // picked after time ran out): grade what was autosaved before it instead.
     if (this.isPastDeadline(attempt)) {
@@ -764,7 +1057,36 @@ export class AttemptsService {
         {};
       const missing: Prisma.AnswerCreateManyInput[] = [];
 
-      orderedQuestions.forEach((q, index) => {
+      // An adaptive test is scored on the questions it actually gave and
+      // got answers to; the rest of its pool was never part of the test.
+      const fresh = presentation?.cat
+        ? readPresentation(
+            (
+              await tx.examAttempt.findUnique({
+                where: { id: attemptId },
+                select: { presentation: true },
+              })
+            )?.presentation,
+          )
+        : null;
+      const graded = fresh?.cat
+        ? orderedQuestions.filter((q) => answered.has(q.id))
+        : orderedQuestions;
+      const catUpdate =
+        fresh?.cat && !fresh.cat.done
+          ? {
+              presentation: {
+                ...fresh,
+                cat: {
+                  ...fresh.cat,
+                  done: true,
+                  stoppedBy: opts.expired ? 'TIME' : 'ENDED_EARLY',
+                },
+              } as unknown as Prisma.InputJsonValue,
+            }
+          : {};
+
+      graded.forEach((q, index) => {
         const answer = answered.get(q.id);
         const isCorrect = answer?.isCorrect ?? false;
         if (isCorrect) totalCorrect++;
@@ -788,10 +1110,11 @@ export class AttemptsService {
 
       if (missing.length > 0) await tx.answer.createMany({ data: missing });
 
-      const totalQuestions = orderedQuestions.length;
+      const totalQuestions = graded.length;
       await tx.examAttempt.update({
         where: { id: attemptId },
         data: {
+          ...catUpdate,
           status: AttemptStatus.SUBMITTED,
           submittedAt: new Date(),
           score: totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0,
@@ -953,8 +1276,14 @@ export class AttemptsService {
     }
 
     const presentation = readPresentation(attempt.presentation);
+    const cat = presentation?.cat;
+    // An adaptive test only shows what it has given so far; the last one is
+    // the current question.
+    const shown = new Set(presentation?.questionIds ?? []);
     const questions = orderByIds(
-      attempt.exam.examQuestions.map((eq) => eq.question),
+      attempt.exam.examQuestions
+        .map((eq) => eq.question)
+        .filter((q) => !cat || shown.has(q.id)),
       presentation?.questionIds,
     ).map((q, index) =>
       this.toAttemptQuestion(
@@ -963,7 +1292,7 @@ export class AttemptsService {
           choices: orderByIds(q.choices, presentation?.choiceIds[q.id]),
         },
         index,
-        attempt.exam.practiceMode === PracticeMode.FULL_MOCK,
+        attempt.exam.practiceMode === PracticeMode.FULL_MOCK || !!cat,
       ),
     );
     const questionsById = new Map(
@@ -996,11 +1325,12 @@ export class AttemptsService {
       timerMode: attempt.exam.timerMode,
       practiceMode: attempt.exam.practiceMode,
       feedbackMode: attempt.feedbackMode,
-      totalQuestions: questions.length,
+      totalQuestions: cat ? cat.maxItems : questions.length,
       startedAt: attempt.startedAt,
       expiresAt: this.deadlineOf(attempt),
       serverNow: new Date(),
       questions,
+      ...(cat ? { cat: this.catProgress(cat, attempt.answers.length) } : {}),
       answers: attempt.answers.map((a) => ({
         questionId: a.questionId,
         selectedChoices: a.selectedChoices,
@@ -1161,7 +1491,10 @@ export class AttemptsService {
     };
 
     // Pace the learner needed to finish on time, for the time analysis.
-    const totalQuestions = attempt.totalQuestions ?? attempt.answers.length;
+    const totalQuestions =
+      presentation?.cat?.maxItems ??
+      attempt.totalQuestions ??
+      attempt.answers.length;
     const targetSecondsPerQuestion =
       attempt.exam.timeLimit && totalQuestions > 0
         ? Math.round((effectiveTimeLimit(attempt.exam) * 60) / totalQuestions)
@@ -1205,6 +1538,28 @@ export class AttemptsService {
 
     const passingScore = attempt.exam.certification?.passingScore ?? 70;
 
+    // An adaptive test is judged by the ability it measured, not by its
+    // percentage (it aims every question at the learner's level).
+    const cat = presentation?.cat;
+    const catResult = cat
+      ? {
+          ability: Math.round(cat.theta * 100) / 100,
+          standardError: Math.round(cat.se * 100) / 100,
+          itemsAdministered: attempt.answers.length,
+          maxItems: cat.maxItems,
+          stoppedBy: cat.stoppedBy ?? null,
+          passLikelihood: Math.round(
+            passProbability(
+              cat.theta,
+              cat.se,
+              cat.pool.map((i) => i.b),
+              Math.min(cat.pool.length, READINESS_EXAM_LENGTH),
+              passingScore,
+            ) * 100,
+          ),
+        }
+      : null;
+
     return {
       attemptId: attempt.id,
       examId: attempt.examId,
@@ -1218,7 +1573,10 @@ export class AttemptsService {
       percentage: Math.round(Number(attempt.score ?? 0)),
       targetSecondsPerQuestion,
       passingScore,
-      passed: Number(attempt.score ?? 0) >= passingScore,
+      passed: catResult
+        ? catResult.passLikelihood >= 50
+        : Number(attempt.score ?? 0) >= passingScore,
+      ...(catResult ? { cat: catResult } : {}),
       domainScores: attempt.domainScores as Record<
         string,
         { correct: number; total: number }

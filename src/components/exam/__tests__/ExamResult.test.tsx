@@ -250,3 +250,39 @@ describe("ExamResult next steps", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("ExamResult adaptive test", () => {
+  it("leads with the measured ability, not the percentage", async () => {
+    vi.mocked(attemptsService.getAttemptInsights).mockResolvedValue(
+      undefined as never,
+    );
+    render(
+      <ExamResult
+        result={result({
+          percentage: 55,
+          passed: true,
+          cat: {
+            ability: 1.3,
+            standardError: 0.29,
+            itemsAdministered: 14,
+            maxItems: 30,
+            stoppedBy: "PRECISION",
+            passLikelihood: 81,
+          },
+        })}
+        onRetry={vi.fn()}
+        onHome={vi.fn()}
+      />,
+    );
+    const summary = screen.getByRole("region", {
+      name: /adaptive test result/i,
+    });
+    expect(summary).toHaveTextContent("81%Chance to pass");
+    expect(summary).toHaveTextContent("+1.30Ability (± 0.29)");
+    expect(summary).toHaveTextContent("14/30Questions");
+    expect(summary).toHaveTextContent(
+      "Stopped early: your level was measured precisely enough.",
+    );
+    expect(screen.getByText(/PASSED/)).toBeInTheDocument();
+  });
+});
