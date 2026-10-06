@@ -23,7 +23,9 @@ export function TryItQuiz({ certifications }: TryItQuizProps) {
   const [certId, setCertId] = useState<string | undefined>(undefined);
   const [started, setStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  // Selected choice labels per question; a question is "submitted" once revealed.
+  const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
 
   const activeCertId = certId ?? certifications[0]?.id;
@@ -35,20 +37,44 @@ export function TryItQuiz({ certifications }: TryItQuizProps) {
   });
 
   const questions = useMemo(() => data?.data ?? [], [data]);
-  const correctCount = questions.filter(
-    (q) => answers[q.id] && q.choices.find((c) => c.label === answers[q.id])?.isCorrect,
-  ).length;
+  const correctCount = questions.filter((q) => {
+    if (!submitted[q.id]) return false;
+    const picked = answers[q.id] ?? [];
+    const correct = q.choices.filter((c) => c.isCorrect).map((c) => c.label);
+    return picked.length === correct.length && correct.every((l) => picked.includes(l));
+  }).length;
   const isComplete = questions.length > 0 && currentIndex >= questions.length;
   const current = questions[currentIndex];
-  const currentAnswer = current ? answers[current.id] : undefined;
+  const currentPicked = current ? (answers[current.id] ?? []) : [];
+  const currentSubmitted = current ? !!submitted[current.id] : false;
+  const isMultiple =
+    !!current &&
+    (current.questionType === "MULTIPLE" ||
+      current.choices.filter((c) => c.isCorrect).length > 1);
 
   const selectAnswer = (questionId: string, label: string) => {
-    if (answers[questionId]) return;
-    setAnswers((prev) => ({ ...prev, [questionId]: label }));
+    if (submitted[questionId]) return;
+    if (!isMultiple) {
+      setAnswers((prev) => ({ ...prev, [questionId]: [label] }));
+      setSubmitted((prev) => ({ ...prev, [questionId]: true }));
+      return;
+    }
+    setAnswers((prev) => {
+      const existing = prev[questionId] ?? [];
+      const next = existing.includes(label)
+        ? existing.filter((l) => l !== label)
+        : [...existing, label];
+      return { ...prev, [questionId]: next };
+    });
+  };
+
+  const submitAnswer = (questionId: string) => {
+    setSubmitted((prev) => ({ ...prev, [questionId]: true }));
   };
 
   const restart = () => {
     setAnswers({});
+    setSubmitted({});
     setCurrentIndex(0);
     refetch();
   };
@@ -166,10 +192,15 @@ export function TryItQuiz({ certifications }: TryItQuizProps) {
           className="glass-card p-6"
         >
           <h4 className="font-mono font-semibold mb-4">{current.title}</h4>
+          {isMultiple && !currentSubmitted && (
+            <p className="text-xs text-primary font-mono mb-3">
+              Select all that apply, then submit
+            </p>
+          )}
           <div className="space-y-2">
             {current.choices.map((choice) => {
-              const isPicked = currentAnswer === choice.label;
-              const showCorrectness = !!currentAnswer;
+              const isPicked = currentPicked.includes(choice.label);
+              const showCorrectness = currentSubmitted;
               return (
                 <button
                   key={choice.label}
@@ -180,7 +211,9 @@ export function TryItQuiz({ certifications }: TryItQuizProps) {
                       ? "border-accent/50 bg-accent/10"
                       : showCorrectness && isPicked && !choice.isCorrect
                         ? "border-destructive/50 bg-destructive/10"
-                        : "border-border hover:border-primary/40"
+                        : isPicked
+                          ? "border-primary/60 bg-primary/10"
+                          : "border-border hover:border-primary/40"
                   }`}
                 >
                   <span>{choice.content}</span>
@@ -194,7 +227,16 @@ export function TryItQuiz({ certifications }: TryItQuizProps) {
               );
             })}
           </div>
-          {currentAnswer && (
+          {isMultiple && !currentSubmitted && (
+            <Button
+              className="mt-4 font-mono"
+              onClick={() => submitAnswer(current.id)}
+              disabled={currentPicked.length === 0}
+            >
+              Submit answer
+            </Button>
+          )}
+          {currentSubmitted && (
             <div className="mt-4 pt-4 border-t border-border">
               {current.explanation?.toLowerCase().includes("log in to view") ? (
                 <button
