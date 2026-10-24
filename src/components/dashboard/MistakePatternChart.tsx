@@ -1,8 +1,8 @@
-import { useMemo } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart as PieChartIcon } from "lucide-react";
-import { HistoryItem, MistakePatterns } from "@/services/analytics";
+import { useMemo } from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PieChart as PieChartIcon } from 'lucide-react';
+import { HistoryItem, MistakePatterns } from '@/services/analytics';
 
 interface Props {
   history: HistoryItem[];
@@ -16,18 +16,18 @@ interface PatternEntry {
 }
 
 const PATTERN_COLORS = [
-  "hsl(var(--destructive))",
-  "hsl(var(--warning))",
-  "hsl(var(--primary))",
-  "hsl(var(--accent))",
-  "hsl(var(--muted-foreground))",
+  'hsl(var(--destructive))',
+  'hsl(var(--warning))',
+  'hsl(var(--primary))',
+  'hsl(var(--accent))',
+  'hsl(var(--muted-foreground))',
 ];
 
 const MISTAKE_LABELS: Record<string, string> = {
-  CONCEPT: "Knowledge Gaps",
-  CARELESS: "Carelessness",
-  TRAP: "Trap Questions",
-  TIME_PRESSURE: "Time Pressure",
+  CONCEPT: 'Knowledge Gaps',
+  CARELESS: 'Carelessness',
+  TRAP: 'Trap Questions',
+  TIME_PRESSURE: 'Time Pressure',
 };
 
 export default function MistakePatternChart({ history, patterns }: Props) {
@@ -44,12 +44,12 @@ export default function MistakePatternChart({ history, patterns }: Props) {
 
     if (!history.length) return [];
 
-    let lowScoreCount = 0; // consistently low score (<50%)
-    let timeRushCount = 0; // fast submissions (might indicate rushing)
-    let nearMissCount = 0; // failed but close to passing (60-74%)
-    let domainWeakCount = 0; // has domain scores with <40%
+    let lowScoreCount = 0;   // consistently low score (<50%)
+    let timeRushCount = 0;    // fast submissions (might indicate rushing)
+    let nearMissCount = 0;    // failed but close to passing (60-74%)
+    let domainWeakCount = 0;  // has domain scores with <40%
 
-    history.forEach((h) => {
+    history.forEach(h => {
       if (!h.passed && h.score >= 60) {
         nearMissCount++;
       } else if (h.score < 50) {
@@ -64,37 +64,23 @@ export default function MistakePatternChart({ history, patterns }: Props) {
 
       if (h.domainScores) {
         const weakDomains = Object.values(h.domainScores).filter(
-          (d) => d.total > 0 && (d.correct / d.total) * 100 < 40,
+          d => d.total > 0 && (d.correct / d.total) * 100 < 40
         );
         if (weakDomains.length > 0) domainWeakCount++;
       }
     });
 
-    const otherCount = Math.max(
-      0,
-      history.filter((h) => !h.passed).length -
-        lowScoreCount -
-        nearMissCount -
-        timeRushCount,
-    );
+    const otherCount = Math.max(0, history.filter(h => !h.passed).length - lowScoreCount - nearMissCount - timeRushCount);
 
     const raw = [
-      {
-        name: "Knowledge Gaps",
-        value: lowScoreCount,
-        color: PATTERN_COLORS[0],
-      },
-      { name: "Time Pressure", value: timeRushCount, color: PATTERN_COLORS[1] },
-      { name: "Near Misses", value: nearMissCount, color: PATTERN_COLORS[2] },
-      {
-        name: "Weak Domains",
-        value: domainWeakCount,
-        color: PATTERN_COLORS[3],
-      },
-      { name: "Other", value: otherCount, color: PATTERN_COLORS[4] },
+      { name: 'Knowledge Gaps', value: lowScoreCount, color: PATTERN_COLORS[0] },
+      { name: 'Time Pressure', value: timeRushCount, color: PATTERN_COLORS[1] },
+      { name: 'Near Misses', value: nearMissCount, color: PATTERN_COLORS[2] },
+      { name: 'Weak Domains', value: domainWeakCount, color: PATTERN_COLORS[3] },
+      { name: 'Other', value: otherCount, color: PATTERN_COLORS[4] },
     ];
 
-    return raw.filter((r) => r.value > 0);
+    return raw.filter(r => r.value > 0);
   }, [history, patterns]);
 
   const totalMistakes = chartData.reduce((s, p) => s + p.value, 0);
@@ -134,16 +120,11 @@ export default function MistakePatternChart({ history, patterns }: Props) {
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
                       const d = payload[0].payload as PatternEntry;
-                      const pct =
-                        totalMistakes > 0
-                          ? Math.round((d.value / totalMistakes) * 100)
-                          : 0;
+                      const pct = totalMistakes > 0 ? Math.round((d.value / totalMistakes) * 100) : 0;
                       return (
                         <div className="rounded-lg border border-border/50 bg-background px-3 py-2 text-xs shadow-xl">
                           <div className="font-medium">{d.name}</div>
-                          <div className="text-muted-foreground">
-                            {d.value} times ({pct}%)
-                          </div>
+                          <div className="text-muted-foreground">{d.value} times ({pct}%)</div>
                         </div>
                       );
                     }}
@@ -153,24 +134,14 @@ export default function MistakePatternChart({ history, patterns }: Props) {
             </div>
 
             <div className="flex-1 space-y-2.5 min-w-0">
-              {chartData.map((p) => {
-                const pct =
-                  totalMistakes > 0
-                    ? Math.round((p.value / totalMistakes) * 100)
-                    : 0;
+              {chartData.map(p => {
+                const pct = totalMistakes > 0 ? Math.round((p.value / totalMistakes) * 100) : 0;
                 return (
                   <div key={p.name} className="flex items-center gap-3">
-                    <div
-                      className="w-2.5 h-2.5 rounded-sm shrink-0"
-                      style={{ backgroundColor: p.color }}
-                    />
+                    <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: p.color }} />
                     <span className="text-sm flex-1 truncate">{p.name}</span>
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {p.value}
-                    </span>
-                    <span className="text-xs font-mono font-bold min-w-[36px] text-right">
-                      {pct}%
-                    </span>
+                    <span className="text-xs font-mono text-muted-foreground">{p.value}</span>
+                    <span className="text-xs font-mono font-bold min-w-[36px] text-right">{pct}%</span>
                   </div>
                 );
               })}
