@@ -54,7 +54,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - name: Run ESLint
         # Use the project's lint script (includes --fix) so Prettier auto-formatting
         # is applied. Non-fixable violations are downgraded to warnings in the config.
@@ -88,7 +88,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npx prisma generate
       - run: npm run test
 
@@ -140,7 +140,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
         working-directory: backend
       - run: npx prisma generate
         working-directory: backend
@@ -209,7 +209,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
       - run: npx prisma generate
       - run: npm run build
       - uses: actions/upload-artifact@v4

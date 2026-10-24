@@ -2,12 +2,14 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, Optional } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { KnowledgeGraphService } from './knowledge-graph.service';
+import { OVERLAP_QUEUE, OverlapJobData } from './overlap.constants';
 
-export const OVERLAP_QUEUE = 'knowledge-graph-overlap';
-
-export interface OverlapJobData {
-  certId: string;
-}
+// Re-exported for existing importers (knowledge-graph.module.ts, specs).
+// `OverlapJobData` is a type-only interface (no runtime value), so it needs
+// `export type` -- isolatedModules can't otherwise tell it apart from a value
+// re-export, which fails at runtime under ESM (no such named export exists).
+export { OVERLAP_QUEUE };
+export type { OverlapJobData };
 
 @Processor(OVERLAP_QUEUE)
 export class OverlapProcessor extends WorkerHost {

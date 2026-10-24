@@ -3,7 +3,10 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmbeddingService } from '../ai-question-bank/embedding/embedding.service';
-import { OVERLAP_QUEUE, OverlapJobData } from './overlap.processor';
+// Imported from overlap.constants.ts (not overlap.processor.ts) to avoid a
+// circular import -- overlap.processor.ts imports KnowledgeGraphService from
+// this file.
+import { OVERLAP_QUEUE, OverlapJobData } from './overlap.constants';
 
 export interface GraphNode {
   certId: string;

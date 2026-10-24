@@ -1,5 +1,12 @@
+// `jest.mock(...)` below resolves its relative path against the module that owns
+// this `jest` binding. Importing it locally (rather than relying on the
+// globalThis copy from jest-setup.js, used by jest.fn() elsewhere) keeps that
+// resolution scoped to this file. See jest-setup.js for why that global exists.
+import { jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
-import { DdsService } from '../ai-question-bank/dds/dds.service';
+// Type-only: DdsService itself must be imported *dynamically*, after the LLM
+// client mock below is registered -- see the comment on `jest.unstable_mockModule`.
+import type { DdsService } from '../ai-question-bank/dds/dds.service';
 import { CoachService } from '../training/coach/coach.service';
 import { CoachSafetyService } from '../training/coach/coach-safety.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,8 +14,17 @@ import { LlmUsageService } from '../ai-question-bank/llm-usage/llm-usage.service
 import { LlmQuotaService } from '../ai-question-bank/llm-usage/llm-quota.service';
 import { HttpException } from '@nestjs/common';
 
-// Mock the LLM client to avoid external API calls
-jest.mock('../ai-question-bank/llm/llm-client', () => ({
+// Mock the LLM client to avoid external API calls. Under native ESM (required
+// because NestJS 12's packages are ESM-only -- see jest.config.js), every
+// static `import` in this file's dependency graph -- including DdsService's
+// own `import { llmClient } from '../llm/llm-client'` -- resolves and
+// evaluates before this file's own top-level code runs. A plain `jest.mock()`
+// call here would register too late to intercept that already-linked import,
+// which is why the DDS tests below saw `llmClient.configured` as falsy. Using
+// `jest.unstable_mockModule()` + a *dynamic* `import('../ai-question-bank/dds/
+// dds.service')` in beforeAll (after this registers) is Jest's documented
+// fix: https://jestjs.io/docs/ecmascript-modules.
+jest.unstable_mockModule('../ai-question-bank/llm/llm-client', () => ({
   llmClient: {
     configured: true,
     call: jest.fn().mockResolvedValue({
@@ -154,18 +170,24 @@ describe('Prompt Injection Security Regression Tests (US-1113)', () => {
       getQuota: jest.fn(),
     };
 
+    // Dynamic import, done *after* jest.unstable_mockModule() above has
+    // registered the llm-client mock, so DdsService's own static import of
+    // it resolves to the mock rather than the real module.
+    const { DdsService: DdsServiceCtor } =
+      await import('../ai-question-bank/dds/dds.service');
+
     module = await Test.createTestingModule({
       providers: [
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: LlmUsageService, useValue: mockLlmUsageService },
         { provide: LlmQuotaService, useValue: mockLlmQuotaService },
-        DdsService,
+        DdsServiceCtor,
         CoachService,
         CoachSafetyService,
       ],
     }).compile();
 
-    ddsService = module.get<DdsService>(DdsService);
+    ddsService = module.get<DdsService>(DdsServiceCtor);
     coachService = module.get<CoachService>(CoachService);
     coachSafetyService = module.get<CoachSafetyService>(CoachSafetyService);
     prisma = module.get<PrismaService>(PrismaService);
