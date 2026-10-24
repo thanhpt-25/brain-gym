@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../prisma-client';
 
 const userSelect = { id: true, displayName: true, avatarUrl: true };
 

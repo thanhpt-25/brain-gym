@@ -16,7 +16,15 @@ module.exports = {
   testRegex: '.*\\.spec\\.ts$',
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
-  moduleNameMapper: {},
+  moduleNameMapper: {
+    // The Prisma 7 generated client (src/generated/prisma) emits relative
+    // imports with explicit `.js` extensions, which is correct for tsc's
+    // `nodenext` module resolution (it maps them back to the sibling
+    // `.ts` source, and to the real compiled `.js` file in `dist/` at
+    // runtime) but Jest's resolver has no such mapping. Strip the `.js`
+    // suffix so Jest falls back to resolving the `.ts` source directly.
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   setupFiles: ['<rootDir>/../jest-setup.js'],
   transform: {
     '^.+\\.tsx?$': [

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ReadinessScore, Prisma } from '@prisma/client';
+import { ReadinessScore, Prisma } from '../../prisma-client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { computeReadinessScore } from './heuristic';
 

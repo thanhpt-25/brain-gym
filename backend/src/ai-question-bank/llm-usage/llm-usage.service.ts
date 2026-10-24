@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Decimal } from '@prisma/client/runtime/library';
+import { Prisma } from '../../prisma-client';
 
 /**
  * RFC-012: Tracks LLM API usage for cost attribution, quota enforcement, and observability
@@ -107,7 +107,7 @@ export class LlmUsageService {
           modelId: input.modelId,
           inputTokens: input.inputTokens,
           outputTokens: input.outputTokens,
-          costUsd: new Decimal(costUsd.toString()),
+          costUsd: new Prisma.Decimal(costUsd.toString()),
         },
       });
 

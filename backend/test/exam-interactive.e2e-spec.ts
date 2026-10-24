@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
-import { FeedbackMode, TimerMode } from '@prisma/client';
+import { FeedbackMode, TimerMode } from '../src/prisma-client';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
@@ -26,7 +26,9 @@ describe('Exam interactive mode (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
     prisma = app.get<PrismaService>(PrismaService);
   });
@@ -225,9 +227,10 @@ describe('Exam interactive mode (e2e)', () => {
       percentage: 50,
     });
     // Review keeps the order the answers were submitted in.
-    expect(result.body.questionResults.map((r: any) => r.questionId)).toEqual(
-      [q2.id, q1.id],
-    );
+    expect(result.body.questionResults.map((r: any) => r.questionId)).toEqual([
+      q2.id,
+      q1.id,
+    ]);
     expect(result.body.questionResults[1].checkedAt).toBeUndefined();
 
     const exam = await prisma.exam.findUnique({ where: { id: examId } });

@@ -1,4 +1,11 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Param } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Param,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -43,10 +50,23 @@ export class AuthController {
   @Public()
   @Post('oauth/:provider')
   @HttpCode(HttpStatus.OK)
-  @ApiParam({ name: 'provider', example: 'google', description: 'OAuth provider name' })
-  @ApiOperation({ summary: 'Login or register via OAuth provider (e.g. Google)' })
-  @ApiResponse({ status: 200, description: 'Returns JWT tokens', type: TokenResponseDto })
-  @ApiResponse({ status: 401, description: 'Invalid or expired provider token' })
+  @ApiParam({
+    name: 'provider',
+    example: 'google',
+    description: 'OAuth provider name',
+  })
+  @ApiOperation({
+    summary: 'Login or register via OAuth provider (e.g. Google)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns JWT tokens',
+    type: TokenResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or expired provider token',
+  })
   @ApiResponse({ status: 404, description: 'Provider not supported' })
   async oauthLogin(
     @Param('provider') provider: string,

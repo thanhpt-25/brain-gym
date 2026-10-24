@@ -5,7 +5,7 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { EmailTemplateTrigger } from '@prisma/client';
+import { EmailTemplateTrigger } from '../../prisma-client';
 
 export class UpsertEmailTemplateDto {
   @IsString()

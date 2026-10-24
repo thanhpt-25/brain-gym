@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AttemptStatus, CandidateAttemptStatus } from '@prisma/client';
+import { AttemptStatus, CandidateAttemptStatus } from '../prisma-client';
 import {
   inferCompetencyLevel,
   DEFAULT_THRESHOLDS_1_5,

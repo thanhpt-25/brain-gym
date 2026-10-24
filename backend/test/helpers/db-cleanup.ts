@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../../src/prisma-client';
 
 /**
  * Truncate all tables safely using CASCADE to handle FK relationships.
@@ -39,7 +39,10 @@ export async function cleanDb(prisma: PrismaClient): Promise<void> {
         );
       } catch (err) {
         // Table might not exist or might have circular FK, skip
-        console.warn(`Failed to truncate ${table}:`, err instanceof Error ? err.message : err);
+        console.warn(
+          `Failed to truncate ${table}:`,
+          err instanceof Error ? err.message : err,
+        );
       }
     }
   }

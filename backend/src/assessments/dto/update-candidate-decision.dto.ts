@@ -7,7 +7,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { CandidateStage } from '@prisma/client';
+import { CandidateStage } from '../../prisma-client';
 
 export class UpdateCandidateDecisionDto {
   @IsOptional()

@@ -12,7 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ExamVisibility, TimerMode, ExamType } from '@prisma/client';
+import { ExamVisibility, TimerMode, ExamType } from '../../prisma-client';
 import { BlueprintDto } from './blueprint.dto';
 
 export class CreateExamDto {

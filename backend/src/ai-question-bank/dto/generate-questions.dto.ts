@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Difficulty, LlmProvider, QuestionType } from '@prisma/client';
+import { Difficulty, LlmProvider, QuestionType } from '../../prisma-client';
 import { Type } from 'class-transformer';
 import {
   IsEnum,

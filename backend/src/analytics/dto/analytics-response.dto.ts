@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { MistakeType } from '@prisma/client';
+import { MistakeType } from '../../prisma-client';
 
 export class AnalyticsSummaryResponse {
   @ApiProperty()

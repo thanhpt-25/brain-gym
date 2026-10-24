@@ -10,8 +10,8 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "moduleNameMapper": {
-    "^uuid$": "uuid",
-    "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
+    "^uuid$": "<rootDir>/__mocks__/uuid.js",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   },
-  "transformIgnorePatterns": ["node_modules/(?!(@prisma/client|uuid))"]
+  "transformIgnorePatterns": ["node_modules/(?!(@prisma|uuid))"]
 }

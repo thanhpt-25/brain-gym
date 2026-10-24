@@ -1,4 +1,4 @@
-import { LlmProvider } from '@prisma/client';
+import { LlmProvider } from '../../prisma-client';
 import { LlmProviderInterface } from './llm-provider.interface';
 import { OpenAiProvider } from './openai.provider';
 import { AnthropicProvider } from './anthropic.provider';

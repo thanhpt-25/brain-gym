@@ -31,7 +31,7 @@ import {
   QualityTier,
   QuestionStatus,
   QuestionType,
-} from '@prisma/client';
+} from '../prisma-client';
 
 const QUALITY_HIGH = 0.85;
 const QUALITY_MEDIUM = 0.6;
@@ -300,7 +300,11 @@ export class AiQuestionBankService {
 
   // ─── MCP Intake ──────────────────────────────────────────────────────────────
 
-  async mcpIntake(userId: string, keyId: string | undefined, dto: McpIntakeDto) {
+  async mcpIntake(
+    userId: string,
+    keyId: string | undefined,
+    dto: McpIntakeDto,
+  ) {
     if (keyId) await this.mcpKeys.checkRateLimit(keyId);
 
     const saved: string[] = [];

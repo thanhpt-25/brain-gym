@@ -33,7 +33,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { AuditService } from '../audit/audit.service';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../prisma-client';
 import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('users')
@@ -57,7 +57,9 @@ export class UsersController {
   @Get('me/overview')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get profile overview with stats, badges, activity, and certs' })
+  @ApiOperation({
+    summary: 'Get profile overview with stats, badges, activity, and certs',
+  })
   getOverview(@Req() req: any) {
     const userId = req.user.sub || req.user.id;
     return this.usersService.getOverview(userId);

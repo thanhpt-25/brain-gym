@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { AttemptStatus } from '@prisma/client';
+import { AttemptStatus } from '../../prisma-client';
 import { DEFAULT_PASSING_SCORE } from '../analytics.service';
 
 export interface DomainBreakdownEntry {

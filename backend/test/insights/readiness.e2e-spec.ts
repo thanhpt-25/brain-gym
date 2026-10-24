@@ -10,7 +10,7 @@ import {
   createTestCertification,
   cleanupByEmail,
 } from '../e2e-helpers';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../../src/prisma-client';
 
 describe('Readiness (e2e)', () => {
   let app: INestApplication;

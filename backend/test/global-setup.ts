@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { PrismaClient } from '@prisma/client';
+import { Client } from 'pg';
 
 /**
  * Jest globalSetup — runs once before the entire e2e suite.
@@ -35,14 +35,16 @@ export default async function globalSetup(): Promise<void> {
 
   console.log(`[global-setup] Connecting to database...`);
 
-  // Verify DB connection using Prisma before running migrations
-  const prisma = new PrismaClient({
-    datasources: { db: { url: dbUrl } },
-    log: ['error'],
-  });
+  // Verify DB connection with a plain `pg` client before running migrations.
+  // (Not the Prisma client here: Jest's globalSetup loader bypasses the
+  // moduleNameMapper fix used by the main test pipeline for the Prisma 7
+  // generated client's `.js`-suffixed internal imports, so importing it
+  // in this file would fail to resolve.)
+  const client = new Client({ connectionString: dbUrl });
 
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await client.connect();
+    await client.query('SELECT 1');
     console.log('[global-setup] Database connection verified.');
   } catch (err) {
     const errorMsg = (err as Error).message;
@@ -51,7 +53,7 @@ export default async function globalSetup(): Promise<void> {
         `Database URL: ${dbUrl.replace(/(:)([^@]+)@/, '$1***@')}`,
     );
   } finally {
-    await prisma.$disconnect();
+    await client.end();
   }
 
   // Apply any pending migrations

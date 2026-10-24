@@ -20,7 +20,7 @@ import { RejectOrgQuestionDto } from './dto/reject-org-question.dto';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { OrgRole } from '@prisma/client';
+import { OrgRole } from '../prisma-client';
 
 @ApiTags('org-questions')
 @ApiBearerAuth()

@@ -15,7 +15,7 @@ import { AssessmentsService } from './assessments.service';
 import { MailService } from '../mail/mail.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { CandidateSubmitDto } from './dto/candidate-submit.dto';
-import { AssessmentSelectionMode } from '@prisma/client';
+import { AssessmentSelectionMode } from '../prisma-client';
 import * as crypto from 'crypto';
 import type Redis from 'ioredis';
 import { ScreeningService } from '../screening/screening.service';
@@ -266,7 +266,7 @@ export class CandidateService {
 
     // Load questions for scoring (mode-aware)
     const scoringQuestions = await this.loadQuestionsForScoring(
-      assessment.selectionMode as AssessmentSelectionMode,
+      assessment.selectionMode,
       invite.assessmentId,
       invite.id,
     );
@@ -587,7 +587,7 @@ export class CandidateService {
     let ids: string[] = invite?.drawnQuestionIds ?? [];
 
     if (ids.length === 0) {
-      const config = assessment.selectionConfig as any;
+      const config = assessment.selectionConfig;
       const drawn = await this.assessmentsService.drawFromPool(
         assessment.orgId,
         config,
