@@ -3,7 +3,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { StartWeaknessTrainingDto } from './dto/start-weakness-training.dto';
 import { SubmitReviewDto } from './dto/submit-review.dto';
-import { ExamVisibility, QuestionStatus, AttemptStatus } from '@prisma/client';
+import {
+  ExamVisibility,
+  QuestionStatus,
+  AttemptStatus,
+} from '../prisma-client';
 
 @Injectable()
 export class TrainingService {

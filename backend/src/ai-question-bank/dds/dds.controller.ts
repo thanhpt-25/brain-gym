@@ -17,7 +17,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { DdsService } from './dds.service';
-import { DdsReason, UserRole } from '@prisma/client';
+import { DdsReason, UserRole } from '../../prisma-client';
 
 class ProposeVariantDto {
   reason?: DdsReason;

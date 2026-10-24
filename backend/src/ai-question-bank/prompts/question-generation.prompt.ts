@@ -1,4 +1,4 @@
-import { Difficulty, QuestionType } from '@prisma/client';
+import { Difficulty, QuestionType } from '../../prisma-client';
 import { GenerationParams } from '../providers/llm-provider.interface';
 
 export function buildGenerationSystemPrompt(): string {

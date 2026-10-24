@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsEnum, IsString, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OrgQuestionStatus, Difficulty } from '@prisma/client';
+import { OrgQuestionStatus, Difficulty } from '../../prisma-client';
 
 export class ListOrgQuestionsDto {
   @ApiPropertyOptional({ enum: OrgQuestionStatus })

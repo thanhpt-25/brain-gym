@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AttemptStatus } from '@prisma/client';
+import { AttemptStatus } from '../prisma-client';
 
 export const POINTS = {
   CREATE_QUESTION: 10,

@@ -15,7 +15,7 @@ const RETRY_MS = 5000;
  */
 export function useAutosave(attemptId: string | null, enabled: boolean) {
   const pending = useRef(new Map<string, SubmitAnswerPayload>());
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const inFlight = useRef<Promise<void> | null>(null);
   const attemptRef = useRef(attemptId);
   const [status, setStatus] = useState<SaveStatus>("idle");

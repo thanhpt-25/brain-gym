@@ -5,13 +5,24 @@
   "testRegex": ".e2e-spec.ts$",
   "maxWorkers": 1,
   "globalSetup": "<rootDir>/global-setup.ts",
-  "setupFiles": ["<rootDir>/setup.ts"],
+  "setupFiles": ["<rootDir>/../jest-setup.js", "<rootDir>/setup.ts"],
+  "extensionsToTreatAsEsm": [".ts"],
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "useESM": true,
+        "tsconfig": {
+          "target": "ES2020",
+          "module": "ES2022",
+          "moduleResolution": "node",
+          "resolvePackageJsonExports": false
+        }
+      }
+    ]
   },
   "moduleNameMapper": {
-    "^uuid$": "uuid",
-    "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   },
-  "transformIgnorePatterns": ["node_modules/(?!(@prisma/client|uuid))"]
+  "transformIgnorePatterns": ["node_modules/(?!(@prisma|uuid))"]
 }

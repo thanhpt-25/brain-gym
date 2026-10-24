@@ -10,7 +10,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { Difficulty, PracticeMode, TimerMode } from '@prisma/client';
+import { Difficulty, PracticeMode, TimerMode } from '../../prisma-client';
 
 export class CreatePracticeExamDto {
   @ApiProperty()

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
-import { UserStatus } from '@prisma/client';
+import { UserStatus } from '../../prisma-client';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {

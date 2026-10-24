@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum } from 'class-validator';
-import { UserPlan } from '@prisma/client';
+import { UserPlan } from '../../prisma-client';
 
 export class UpdateUserPlanDto {
   @ApiProperty({ enum: UserPlan })

@@ -6,7 +6,7 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OrgRole } from '@prisma/client';
+import { OrgRole } from '../../prisma-client';
 
 export class InviteMemberDto {
   @IsEmail()

@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrgQuestionDto } from './dto/create-org-question.dto';
 import { UpdateOrgQuestionDto } from './dto/update-org-question.dto';
 import { ListOrgQuestionsDto } from './dto/list-org-questions.dto';
-import { OrgQuestionStatus, OrgRole } from '@prisma/client';
+import { OrgQuestionStatus, OrgRole } from '../prisma-client';
 
 @Injectable()
 export class OrgQuestionsService {

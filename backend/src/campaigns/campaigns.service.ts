@@ -4,7 +4,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { CampaignStatus as PrismaCampaignStatus } from '@prisma/client';
+import { CampaignStatus as PrismaCampaignStatus } from '../prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';

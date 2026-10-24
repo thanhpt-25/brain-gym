@@ -4,7 +4,7 @@ import {
   FeedbackMode,
   PracticeMode,
   TimerMode,
-} from '@prisma/client';
+} from '../../prisma-client';
 import { CheckAnswerResponse } from './check-answer.dto';
 
 export class ActiveAttemptSummary {

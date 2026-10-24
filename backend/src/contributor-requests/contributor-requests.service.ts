@@ -15,7 +15,7 @@ import {
   Prisma,
   UserRole,
   UserStatus,
-} from '@prisma/client';
+} from '../prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { MailService } from '../mail/mail.service';

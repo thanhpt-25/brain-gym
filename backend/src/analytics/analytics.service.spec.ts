@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AnalyticsService } from './analytics.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { AttemptStatus } from '@prisma/client';
+import { AttemptStatus } from '../prisma-client';
 
 describe('AnalyticsService', () => {
   let service: AnalyticsService;

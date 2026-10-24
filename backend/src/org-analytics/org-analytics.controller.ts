@@ -9,7 +9,7 @@ import { OrgAnalyticsService } from './org-analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
-import { OrgRole } from '@prisma/client';
+import { OrgRole } from '../prisma-client';
 
 @ApiTags('org-analytics')
 @Controller('organizations/:orgId/analytics')

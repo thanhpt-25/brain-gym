@@ -8,7 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { LlmUsageService } from '../llm-usage/llm-usage.service';
 import { LlmQuotaService } from '../llm-usage/llm-quota.service';
 import { llmClient } from '../llm/llm-client';
-import { DdsReason, DdsVariantStatus } from '@prisma/client';
+import { DdsReason, DdsVariantStatus } from '../../prisma-client';
 
 export interface QuestionVariantDto {
   id: string;
@@ -495,7 +495,7 @@ export class DdsService {
    * This allows env-var-driven tests to work without mocking DB write calls.
    */
   private async getOrInitCohortConfig(cohortName: string = 'default') {
-    let config = await this.prisma.ddsConfig.findUnique({
+    const config = await this.prisma.ddsConfig.findUnique({
       where: { cohortName },
     });
 

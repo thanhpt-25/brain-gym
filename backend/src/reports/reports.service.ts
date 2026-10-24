@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
-import { ReportStatus } from '@prisma/client';
+import { ReportStatus } from '../prisma-client';
 
 const userSelect = { id: true, displayName: true, avatarUrl: true };
 
