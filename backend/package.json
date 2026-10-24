@@ -29,7 +29,7 @@
     "@bull-board/api": "^9.10.4",
     "@bull-board/express": "^9.10.4",
     "@bull-board/nestjs": "^9.10.4",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^12.2.0",
     "@nestjs/config": "^12.0.1",
