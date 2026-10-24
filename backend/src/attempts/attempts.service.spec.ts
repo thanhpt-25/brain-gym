@@ -4,7 +4,7 @@ import { AttemptsService } from './attempts.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from '../gamification/gamification.service';
 import { ExamsService } from '../exams/exams.service';
-import { QuestionType, AttemptStatus, FeedbackMode } from '@prisma/client';
+import { QuestionType, AttemptStatus, FeedbackMode } from '../prisma-client';
 import {
   BadRequestException,
   ConflictException,

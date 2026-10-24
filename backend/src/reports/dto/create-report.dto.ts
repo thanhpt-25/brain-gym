@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional, IsEnum } from 'class-validator';
-import { ReportReason } from '@prisma/client';
+import { ReportReason } from '../../prisma-client';
 
 export class CreateReportDto {
   @ApiProperty({ enum: ReportReason, example: ReportReason.WRONG_ANSWER })

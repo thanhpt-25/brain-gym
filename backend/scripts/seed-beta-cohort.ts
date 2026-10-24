@@ -10,7 +10,9 @@
  *
  * The CSV is operator-supplied and must NOT be committed to the repo.
  */
-import { PrismaClient, Prisma } from '@prisma/client';
+import 'dotenv/config';
+import { PrismaClient, Prisma } from '../src/prisma-client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -50,7 +52,9 @@ async function main() {
     process.exit(1);
   }
 
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+  });
   let flagged = 0;
   let missing = 0;
 

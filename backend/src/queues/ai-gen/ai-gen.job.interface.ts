@@ -1,4 +1,4 @@
-import { Difficulty, LlmProvider, QuestionType } from '@prisma/client';
+import { Difficulty, LlmProvider, QuestionType } from '../../prisma-client';
 
 export const AI_GEN_QUEUE = 'ai-gen';
 

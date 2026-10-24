@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { VoteTargetType } from '@prisma/client';
+import { VoteTargetType } from '../../prisma-client';
 
 export interface PeerExplanationDto {
   id: string;

@@ -12,7 +12,7 @@ import { InviteMemberDto, BulkInviteMemberDto } from './dto/invite-member.dto';
 import { CreateJoinLinkDto } from './dto/create-join-link.dto';
 import { CreateGroupDto, UpdateGroupDto } from './dto/create-group.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
-import { OrgRole, OrgInviteStatus, UserRole, UserPlan } from '@prisma/client';
+import { OrgRole, OrgInviteStatus, UserRole, UserPlan } from '../prisma-client';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()

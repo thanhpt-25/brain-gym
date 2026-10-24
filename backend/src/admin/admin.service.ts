@@ -3,7 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { ModerationAction, Prisma, QuestionStatus } from '@prisma/client';
+import { ModerationAction, Prisma, QuestionStatus } from '../prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ContributorRequestsService } from '../contributor-requests/contributor-requests.service';
 

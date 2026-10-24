@@ -20,7 +20,7 @@ import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { OrgRoleGuard } from './guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { OrgRole } from '@prisma/client';
+import { OrgRole } from '../prisma-client';
 
 @ApiTags('organizations')
 @ApiBearerAuth()

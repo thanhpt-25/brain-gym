@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { CreateJobRoleDto } from './dto/create-job-role.dto';
@@ -24,13 +28,20 @@ export class JobRolesService {
   async create(slugOrId: string, dto: CreateJobRoleDto) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
     return this.prisma.jobRole.create({
-      data: { orgId, title: dto.title, department: dto.department, description: dto.description },
+      data: {
+        orgId,
+        title: dto.title,
+        department: dto.department,
+        description: dto.description,
+      },
     });
   }
 
   async update(slugOrId: string, roleId: string, dto: UpdateJobRoleDto) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
-    const existing = await this.prisma.jobRole.findFirst({ where: { id: roleId, orgId } });
+    const existing = await this.prisma.jobRole.findFirst({
+      where: { id: roleId, orgId },
+    });
     if (!existing) throw new NotFoundException('Job role not found');
     return this.prisma.jobRole.update({
       where: { id: roleId },
@@ -45,7 +56,9 @@ export class JobRolesService {
 
   async remove(slugOrId: string, roleId: string) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
-    const existing = await this.prisma.jobRole.findFirst({ where: { id: roleId, orgId } });
+    const existing = await this.prisma.jobRole.findFirst({
+      where: { id: roleId, orgId },
+    });
     if (!existing) throw new NotFoundException('Job role not found');
     return this.prisma.jobRole.delete({ where: { id: roleId } });
   }
@@ -54,11 +67,17 @@ export class JobRolesService {
 
   async getRequirements(slugOrId: string, roleId: string) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
-    const role = await this.prisma.jobRole.findFirst({ where: { id: roleId, orgId } });
+    const role = await this.prisma.jobRole.findFirst({
+      where: { id: roleId, orgId },
+    });
     if (!role) throw new NotFoundException('Job role not found');
     const reqs = await this.prisma.jobRoleCompetency.findMany({
       where: { jobRoleId: roleId },
-      include: { competency: { select: { id: true, name: true, scaleMin: true, scaleMax: true } } },
+      include: {
+        competency: {
+          select: { id: true, name: true, scaleMin: true, scaleMax: true },
+        },
+      },
     });
     return reqs.map((r) => ({
       id: r.id,
@@ -70,13 +89,21 @@ export class JobRolesService {
     }));
   }
 
-  async setRequirements(slugOrId: string, roleId: string, dto: SetJobRoleCompetenciesDto) {
+  async setRequirements(
+    slugOrId: string,
+    roleId: string,
+    dto: SetJobRoleCompetenciesDto,
+  ) {
     const orgId = await this.orgsService.resolveOrgId(slugOrId);
-    const role = await this.prisma.jobRole.findFirst({ where: { id: roleId, orgId } });
+    const role = await this.prisma.jobRole.findFirst({
+      where: { id: roleId, orgId },
+    });
     if (!role) throw new NotFoundException('Job role not found');
 
     if (dto.requirements.length === 0) {
-      await this.prisma.jobRoleCompetency.deleteMany({ where: { jobRoleId: roleId } });
+      await this.prisma.jobRoleCompetency.deleteMany({
+        where: { jobRoleId: roleId },
+      });
       return [];
     }
 
@@ -95,20 +122,29 @@ export class JobRolesService {
     for (const req of dto.requirements) {
       const comp = competencies.find((c) => c.id === req.competencyId);
       if (!comp) {
-        errors.push({ competencyId: req.competencyId, error: 'Competency not found in this org' });
+        errors.push({
+          competencyId: req.competencyId,
+          error: 'Competency not found in this org',
+        });
         continue;
       }
-      if (req.requiredLevel < comp.scaleMin || req.requiredLevel > comp.scaleMax) {
+      if (
+        req.requiredLevel < comp.scaleMin ||
+        req.requiredLevel > comp.scaleMax
+      ) {
         errors.push({
           competencyId: req.competencyId,
           error: `requiredLevel ${req.requiredLevel} out of range [${comp.scaleMin},${comp.scaleMax}]`,
         });
       }
     }
-    if (errors.length > 0) throw new BadRequestException({ message: 'Validation failed', errors });
+    if (errors.length > 0)
+      throw new BadRequestException({ message: 'Validation failed', errors });
 
     await this.prisma.$transaction([
-      this.prisma.jobRoleCompetency.deleteMany({ where: { jobRoleId: roleId } }),
+      this.prisma.jobRoleCompetency.deleteMany({
+        where: { jobRoleId: roleId },
+      }),
       this.prisma.jobRoleCompetency.createMany({
         data: dto.requirements.map((r) => ({
           jobRoleId: roleId,

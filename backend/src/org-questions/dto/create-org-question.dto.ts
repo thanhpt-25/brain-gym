@@ -10,7 +10,7 @@ import {
   IsArray,
   MaxLength,
 } from 'class-validator';
-import { QuestionType, Difficulty } from '@prisma/client';
+import { QuestionType, Difficulty } from '../../prisma-client';
 
 export class CreateOrgChoiceDto {
   @ApiProperty({ example: 'a' })

@@ -13,7 +13,7 @@ import {
   IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { AssessmentSelectionMode } from '@prisma/client';
+import { AssessmentSelectionMode } from '../../prisma-client';
 
 export class AssessmentQuestionDto {
   @IsOptional()

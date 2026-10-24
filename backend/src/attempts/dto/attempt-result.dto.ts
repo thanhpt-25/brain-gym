@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { AttemptStatus, FeedbackMode, MistakeType } from '@prisma/client';
+import { AttemptStatus, FeedbackMode, MistakeType } from '../../prisma-client';
 
 export class ChoiceResponse {
   @ApiProperty()

@@ -4,7 +4,7 @@ import { QuestionsService } from './questions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from '../gamification/gamification.service';
 import { KnowledgeGraphService } from '../knowledge-graph/knowledge-graph.service';
-import { QuestionStatus, UserRole, ReportStatus } from '@prisma/client';
+import { QuestionStatus, UserRole, ReportStatus } from '../prisma-client';
 
 const OWNER_ID = 'user-owner';
 const OTHER_ID = 'user-other';

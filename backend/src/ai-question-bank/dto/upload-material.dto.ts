@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MaterialContentType } from '@prisma/client';
+import { MaterialContentType } from '../../prisma-client';
 import {
   IsEnum,
   IsNotEmpty,

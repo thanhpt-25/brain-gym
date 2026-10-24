@@ -1,7 +1,7 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ATTEMPT_EVENTS_QUEUE,

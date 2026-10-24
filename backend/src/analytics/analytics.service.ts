@@ -10,7 +10,7 @@ import {
   MistakeType,
   Prisma,
   QuestionStatus,
-} from '@prisma/client';
+} from '../prisma-client';
 import { UpdateMistakeTypeDto } from './dto/update-mistake-type.dto';
 import {
   AnalyticsSummaryResponse,
@@ -465,7 +465,9 @@ export class AnalyticsService {
           where: { status: AttemptStatus.SUBMITTED },
           select: {
             score: true,
-            exam: { select: { certification: { select: { passingScore: true } } } },
+            exam: {
+              select: { certification: { select: { passingScore: true } } },
+            },
           },
         }),
       ]);

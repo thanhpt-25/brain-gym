@@ -8,7 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Difficulty, QuestionType, QuestionStatus } from '@prisma/client';
+import { Difficulty, QuestionType, QuestionStatus } from '../../prisma-client';
 
 class ChoiceDto {
   @ApiPropertyOptional()

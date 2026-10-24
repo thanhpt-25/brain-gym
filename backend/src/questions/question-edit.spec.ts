@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { QuestionStatus, QuestionType, UserRole } from '@prisma/client';
+import { QuestionStatus, QuestionType, UserRole } from '../prisma-client';
 import { QuestionsService, canEditAnyQuestion } from './questions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GamificationService } from '../gamification/gamification.service';

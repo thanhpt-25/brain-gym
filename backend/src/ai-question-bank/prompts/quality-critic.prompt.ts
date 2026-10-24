@@ -1,4 +1,4 @@
-import { Difficulty } from '@prisma/client';
+import { Difficulty } from '../../prisma-client';
 import { RawGeneratedQuestion } from '../providers/llm-provider.interface';
 
 const DIFFICULTY_CRITERIA: Record<Difficulty, string> = {

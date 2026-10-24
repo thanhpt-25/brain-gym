@@ -15,7 +15,10 @@ export class BlueprintDifficultyDto {
   @Min(0)
   EASY?: number;
 
-  @ApiPropertyOptional({ example: 25, description: 'Number of MEDIUM questions' })
+  @ApiPropertyOptional({
+    example: 25,
+    description: 'Number of MEDIUM questions',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)

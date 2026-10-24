@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { LlmProvider } from '@prisma/client';
+import { LlmProvider } from '../../prisma-client';
 
 export class ConfigureLlmDto {
   @ApiProperty({ enum: LlmProvider })

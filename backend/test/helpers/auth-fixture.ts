@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../../src/prisma-client';
 
 export interface TestUserResult {
   token: string;

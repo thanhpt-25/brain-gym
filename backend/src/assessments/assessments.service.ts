@@ -12,7 +12,7 @@ import {
   CandidateStage,
   Difficulty,
   Prisma,
-} from '@prisma/client';
+} from '../prisma-client';
 import { CreateAssessmentDto } from './dto/create-assessment.dto';
 import { UpdateAssessmentDto } from './dto/update-assessment.dto';
 import { InviteCandidateDto } from './dto/invite-candidate.dto';
@@ -424,7 +424,7 @@ export class AssessmentsService {
       );
     }
 
-    const mode = assessment.selectionMode as AssessmentSelectionMode;
+    const mode = assessment.selectionMode;
 
     return this.prisma.$transaction(async (tx) => {
       // ── BLUEPRINT: rebuild question list ──

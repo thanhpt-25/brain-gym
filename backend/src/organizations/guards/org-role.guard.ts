@@ -7,7 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ORG_ROLES_KEY } from '../../common/decorators/org-roles.decorator';
-import { OrgRole } from '@prisma/client';
+import { OrgRole } from '../../prisma-client';
 
 @Injectable()
 export class OrgRoleGuard implements CanActivate {

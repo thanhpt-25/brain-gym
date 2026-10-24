@@ -12,7 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Difficulty, QuestionType } from '@prisma/client';
+import { Difficulty, QuestionType } from '../../prisma-client';
 
 export class McpChoiceDto {
   @IsString()

@@ -28,7 +28,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { AuditService } from '../audit/audit.service';
-import { UserRole } from '@prisma/client';
+import { UserRole } from '../prisma-client';
 import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('questions')

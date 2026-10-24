@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BehavioralInsight, Prisma } from '@prisma/client';
+import { BehavioralInsight, Prisma } from '../../prisma-client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InsightKind, LOOKBACK_DAYS } from './behavioral.constants';
 import { AnswerRow, InsightOutput, detectAllInsights } from './patterns';

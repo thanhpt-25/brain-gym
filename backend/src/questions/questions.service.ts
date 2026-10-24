@@ -16,8 +16,9 @@ import {
   AttemptStatus,
   ReportStatus,
   QuestionType,
+  QualityTier,
   Prisma,
-} from '@prisma/client';
+} from '../prisma-client';
 import {
   GamificationService,
   POINTS,
@@ -214,7 +215,7 @@ export class QuestionsService {
     dto: CreateQuestionDto,
     initialStatus?: QuestionStatus,
     generationJobId?: string,
-    qualityTier?: import('@prisma/client').QualityTier,
+    qualityTier?: QualityTier,
     sourceChunkId?: string,
   ) {
     const { choices, tags, ...questionData } = dto;
