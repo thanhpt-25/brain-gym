@@ -64,7 +64,21 @@ const QuestionsBrowser = () => {
     <div className="min-h-screen bg-background">
       <SEO
         title="Certification Exam Questions"
-        description="Browse thousands of community-verified exam questions for AWS, Azure, GCP, Kubernetes, PMP, and more certifications. Filter by topic, vote, and discuss."
+        description="Browse thousands of community-verified exam questions for AWS, Azure, GCP, Kubernetes, CompTIA, PMP, CISSP, and Cisco certifications. Filter by topic, vote, and discuss."
+        keywords={[
+          "certification exam questions",
+          "practice questions",
+          "question bank",
+          "AWS certification questions",
+          "Azure certification questions",
+          "GCP certification questions",
+          "Kubernetes CKA questions",
+          "CompTIA Security+ questions",
+          "PMP exam questions",
+          "CISSP practice questions",
+          "Cisco CCNA questions",
+          "IT certification study guide",
+        ]}
         canonical="/questions"
       />
       <Navbar title="Question Bank" />

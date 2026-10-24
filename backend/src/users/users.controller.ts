@@ -167,7 +167,11 @@ export class UsersController {
     @Param('id') id: string,
     @Body() dto: UpdateUserRoleDto,
   ) {
-    const result = await this.usersService.updateRole(id, dto.role);
+    const result = await this.usersService.updateRole(
+      id,
+      dto.role,
+      req.user.sub || req.user.id,
+    );
     await this.auditService.log({
       userId: req.user.sub || req.user.id,
       action: 'ROLE_CHANGED',

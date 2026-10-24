@@ -58,17 +58,22 @@ async function fetchDynamicRoutes() {
       (p) => `${API_BASE}/exams?limit=${PAGE_SIZE}&page=${p}`,
     );
     for (const exam of examList) {
+      const lastmod = exam.updatedAt
+        ? String(exam.updatedAt).split("T")[0]
+        : undefined;
       if (exam.shareCode) {
         routes.push({
           loc: `/exams/share/${exam.shareCode}`,
           changefreq: "weekly",
           priority: "0.6",
+          lastmod,
         });
       } else if (exam.id) {
         routes.push({
           loc: `/exams/${exam.id}`,
           changefreq: "weekly",
           priority: "0.6",
+          lastmod,
         });
       }
     }
@@ -87,6 +92,7 @@ async function fetchDynamicRoutes() {
           loc: `/questions/${q.id}`,
           changefreq: "monthly",
           priority: "0.5",
+          lastmod: q.updatedAt ? String(q.updatedAt).split("T")[0] : undefined,
         });
       }
     }
@@ -103,7 +109,7 @@ function buildXml(routes) {
     .map(
       (r) => `  <url>
     <loc>${SITE_URL}${escapeXml(r.loc)}</loc>
-    <lastmod>${today}</lastmod>
+    <lastmod>${escapeXml(r.lastmod ?? today)}</lastmod>
     <changefreq>${escapeXml(r.changefreq)}</changefreq>
     <priority>${escapeXml(r.priority)}</priority>
   </url>`,

@@ -31,6 +31,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Card } from "@/components/ui/card";
+import BecomeContributorCard from "@/components/profile/BecomeContributorCard";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthStore } from "@/stores/auth.store";
 import {
@@ -529,6 +530,8 @@ export default function Profile() {
 
           {/* Right rail */}
           <aside className="space-y-6">
+            <BecomeContributorCard />
+
             {/* Certifications in progress */}
             <Card className="p-6 bg-card/60 border-border/60">
               <div className="flex items-center justify-between mb-4">

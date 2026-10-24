@@ -76,6 +76,7 @@ const OrgPoolStats = lazy(() => import("./pages/org/OrgPoolStats"));
 const CandidateExam = lazy(() => import("./pages/CandidateExam"));
 const CandidateResult = lazy(() => import("./pages/CandidateResult"));
 const MasteryPage = lazy(() => import("./pages/Dashboard/MasteryPage"));
+const InterviewPacket = lazy(() => import("./pages/InterviewPacket"));
 
 // Squads pages
 const SquadDashboard = lazy(() => import("./pages/SquadDashboard"));
@@ -148,6 +149,16 @@ const AnimatedRoutes = () => {
           element={
             <PageTransition>
               <QuestionForm />
+            </PageTransition>
+          }
+        />
+        <Route
+          path="/questions/:id/edit"
+          element={
+            <PageTransition>
+              <ProtectedRoute>
+                <QuestionForm />
+              </ProtectedRoute>
             </PageTransition>
           }
         />
@@ -432,6 +443,9 @@ const AnimatedRoutes = () => {
 
         {/* Public apply link (no auth) */}
         <Route path="/apply/:code" element={<PublicApply />} />
+
+        {/* Interview packet — shareable read-only candidate profile */}
+        <Route path="/packet/:token" element={<InterviewPacket />} />
 
         {/* Candidate assessment routes (public, no auth) */}
         <Route

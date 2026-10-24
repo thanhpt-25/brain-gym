@@ -54,7 +54,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ classNa
       ) : (
         <div
           className={cn(
-            "flex min-h-[80px] w-full rounded-b-md rounded-t-none border border-input bg-background px-3 py-2 text-sm overflow-auto",
+            "flex flex-col min-h-[80px] w-full rounded-b-md rounded-t-none border border-input bg-background px-3 py-2 text-sm overflow-auto",
             className,
             "rounded-t-none"
           )}

@@ -99,7 +99,24 @@ const ExamLibrary = () => {
     <div className="min-h-screen bg-background">
       <SEO
         title="Certification Practice Exams"
-        description="Browse hundreds of community-created practice exams for AWS, Azure, GCP, Kubernetes, PMP, and more. Free to attempt. Pass your cert on the first try."
+        description="Browse hundreds of community-created practice exams for AWS, Azure, GCP, Kubernetes, CompTIA, PMP, CISSP, and Cisco. Free mock exams. Pass your cert on the first try."
+        keywords={[
+          "practice exam",
+          "mock exam",
+          "free practice test",
+          "AWS Solutions Architect practice exam",
+          "AWS Certified Cloud Practitioner practice test",
+          "Azure AZ-900 practice exam",
+          "Azure AZ-104 practice exam",
+          "GCP Associate Cloud Engineer practice exam",
+          "CKA practice exam",
+          "CKAD practice exam",
+          "CompTIA Security+ practice test",
+          "PMP practice exam",
+          "CISSP practice exam",
+          "Cisco CCNA practice test",
+          "exam simulator",
+        ]}
         canonical="/exams"
       />
       <Navbar title="Exam Library" />

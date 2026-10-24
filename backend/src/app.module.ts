@@ -24,6 +24,7 @@ import { CaptureModule } from './capture/capture.module';
 import { AiQuestionBankModule } from './ai-question-bank/ai-question-bank.module';
 import { ProvidersModule } from './providers/providers.module';
 import { AdminModule } from './admin/admin.module';
+import { ContributorRequestsModule } from './contributor-requests/contributor-requests.module';
 import { AuditModule } from './audit/audit.module';
 import { MailModule } from './mail/mail.module';
 import { OrganizationsModule } from './organizations/organizations.module';
@@ -49,6 +50,10 @@ import { ScorecardModule } from './scorecard/scorecard.module';
 import { CompetencyCertModule } from './competency-cert/competency-cert.module';
 import { IdpModule } from './idp/idp.module';
 import { ExecutiveDashboardModule } from './executive-dashboard/executive-dashboard.module';
+import { InterviewPacketModule } from './interview-packet/interview-packet.module';
+import { EmailTemplatesModule } from './email-templates/email-templates.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { DocumentIngestionModule } from './document-ingestion/document-ingestion.module';
 
 @Module({
   imports: [
@@ -78,6 +83,7 @@ import { ExecutiveDashboardModule } from './executive-dashboard/executive-dashbo
     CaptureModule,
     AiQuestionBankModule,
     AdminModule,
+    ContributorRequestsModule,
     MailModule,
     OrganizationsModule,
     OrgQuestionsModule,
@@ -102,6 +108,10 @@ import { ExecutiveDashboardModule } from './executive-dashboard/executive-dashbo
     CompetencyCertModule,
     IdpModule,
     ExecutiveDashboardModule,
+    InterviewPacketModule,
+    EmailTemplatesModule,
+    PrivacyModule,
+    DocumentIngestionModule,
   ],
   controllers: [AppController],
   providers: [

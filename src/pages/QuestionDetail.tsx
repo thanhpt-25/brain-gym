@@ -16,6 +16,7 @@ import {
 } from "@/services/comments";
 import { reportQuestion, ReportReason } from "@/services/reports";
 import { useAuthStore } from "@/stores/auth.store";
+import { canEditQuestion } from "@/lib/question-permissions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -45,6 +46,7 @@ import {
   Send,
   BookOpen,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -536,11 +538,22 @@ const QuestionDetail = () => {
               </Dialog>
             )}
 
+            {isAuthenticated && canEditQuestion(user, q as any) && (
+              <button
+                onClick={() => navigate(`/questions/${q.id}/edit`)}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors ml-auto"
+              >
+                <Pencil className="h-4 w-4" /> Edit
+              </button>
+            )}
+
             {isAuthenticated &&
               (user?.id === q.author?.id || user?.role === "ADMIN") && (
                 <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                   <DialogTrigger asChild>
-                    <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive transition-colors ml-auto">
+                    <button
+                      className={`flex items-center gap-1 text-sm text-muted-foreground hover:text-destructive transition-colors ${canEditQuestion(user, q as any) ? "" : "ml-auto"}`}
+                    >
                       <Trash2 className="h-4 w-4" /> Delete
                     </button>
                   </DialogTrigger>

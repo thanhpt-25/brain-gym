@@ -40,7 +40,7 @@ export async function submitLocalQuestionsToIntake(
   };
 
   const res = await api.post<IntakeResponse>(
-    "/ai-questions/mcp/intake",
+    "/ai-questions/intake-browser",
     payload,
   );
   return res.data;

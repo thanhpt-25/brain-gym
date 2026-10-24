@@ -71,6 +71,10 @@ Routes are grouped by functional area. The path column shows the path after `/ap
 | PUT | `/users/:id/reactivate` | JWT + `ADMIN` | Reactivate a suspended or banned user. |
 | PUT | `/users/:id/points` | JWT + `ADMIN` | Adjust a user's points balance. |
 | GET | `/users/:id` | `@Public()` | Get a public user profile with badges and stats. |
+| GET | `/contributor-requests/me/eligibility` | JWT | Check each requirement for requesting contributor access. |
+| GET | `/contributor-requests/me` | JWT | Own latest contributor request plus short history. |
+| POST | `/contributor-requests` | JWT | Request contributor access (`motivation`, optional `expertise`, `sampleUrl`). |
+| DELETE | `/contributor-requests/me` | JWT | Cancel own pending contributor request. |
 
 ---
 
@@ -115,6 +119,11 @@ All routes in this section require `JwtAuthGuard` + `RolesGuard` + `@Roles(ADMIN
 | POST | `/admin/review-queue/:questionId/reject` | Reject a question (requires `reason` ≥ 10 chars). |
 | GET | `/admin/review-queue/:questionId/history` | Get moderation audit history for a question. |
 | GET | `/admin/audit-logs` | List audit log entries; filter by `action`, `targetType`, `userId`, `page`, `limit`. |
+| GET | `/admin/contributor-requests` | List contributor requests with activity snapshot; filter `status` (default `PENDING`), `search`, `page`, `limit`. |
+| GET | `/admin/contributor-requests/stats` | Pending contributor request count. |
+| GET | `/admin/contributor-requests/:id` | Contributor request detail with the user's previous requests. |
+| POST | `/admin/contributor-requests/:id/approve` | Approve (optional `note`); promotes the learner to `CONTRIBUTOR`. |
+| POST | `/admin/contributor-requests/:id/reject` | Reject (requires `reason` ≥ 10 chars); starts the re-apply cooldown. |
 
 ---
 
@@ -212,9 +221,10 @@ All routes in this section require `JwtAuthGuard` + `RolesGuard` + `@Roles(ADMIN
 
 | Method | Route | Guard / Auth | Description |
 |---|---|---|---|
-| POST | `/exams/:examId/start` | JWT | Start an exam attempt; returns questions without correct answers (throttled 5 req/min). |
-| POST | `/attempts/:id/answer` | JWT | Save or update a single answer during an attempt. |
-| POST | `/attempts/:id/submit` | JWT | Submit an attempt; calculates score and returns results. |
+| POST | `/exams/:examId/start` | JWT | Start an exam attempt; returns questions without correct answers (throttled 5 req/min). Optional body `{ feedbackMode: "END_OF_EXAM" \| "INTERACTIVE" }` (default `END_OF_EXAM`; `INTERACTIVE` is rejected with `400` for `TIME_PRESSURE` exams). |
+| POST | `/attempts/:id/answer` | JWT | Save or update a single answer during an attempt. `400` for `INTERACTIVE` attempts (they use `/check`). |
+| POST | `/attempts/:id/check` | JWT | Interactive mode only: grade one question, lock it and return `{ isCorrect, selectedChoiceIds, correctChoiceIds, explanation, checkedAt }`. `403` unless the caller owns an `INTERACTIVE` attempt; `400` if the question is not in the exam, the choices are invalid or the attempt is submitted; `409` if already checked, with the stored verdict in `result`. See `docs/specs/exam-interactive-mode-srs.md`. |
+| POST | `/attempts/:id/submit` | JWT | Submit an attempt; calculates score and returns results. Answers checked in interactive mode are graded from the stored answer, not the payload. Runs under a row lock on the attempt, so a concurrent second submit gets `400`. |
 | POST | `/attempts/:id/finish` | JWT | Finish an attempt using already-saved answers. |
 | GET | `/attempts/:id` | JWT | Get attempt result with question review data. |
 | GET | `/attempts/me` | JWT | List the current user's exam attempts. |

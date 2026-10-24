@@ -9,6 +9,7 @@ export interface JsonLdSchema {
 interface SEOProps {
   title?: string;
   description?: string;
+  keywords?: string[];
   canonical?: string;
   ogImage?: string;
   ogType?: string;
@@ -19,11 +20,40 @@ interface SEOProps {
 
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 const DEFAULT_DESCRIPTION =
-  "Community-driven certification exam preparation. Practice exams, flashcards, and AI-powered learning for AWS, Azure, GCP, Kubernetes, and more.";
+  "Community-driven certification exam preparation. Free practice exams, mock tests, flashcards, and AI-powered learning for AWS, Azure, GCP, Kubernetes, CompTIA, PMP, CISSP, Cisco, and more IT certifications.";
+
+// Broad, high-intent keyword set reused as the default so every page ships
+// with baseline coverage even if it doesn't pass its own `keywords`.
+const DEFAULT_KEYWORDS = [
+  "certification exam prep",
+  "practice exam",
+  "mock exam",
+  "exam simulator",
+  "flashcards",
+  "AWS certification",
+  "AWS Solutions Architect practice exam",
+  "Azure certification",
+  "AZ-900 practice test",
+  "Google Cloud certification",
+  "GCP Associate Cloud Engineer",
+  "Kubernetes certification",
+  "CKA practice exam",
+  "CKAD practice exam",
+  "CompTIA Security+",
+  "CompTIA Network+",
+  "CompTIA A+",
+  "PMP exam prep",
+  "CISSP practice questions",
+  "Cisco CCNA practice exam",
+  "IT certification practice questions",
+  "spaced repetition flashcards",
+  "adaptive learning exam prep",
+];
 
 export default function SEO({
   title,
   description = DEFAULT_DESCRIPTION,
+  keywords,
   canonical,
   ogImage = DEFAULT_OG_IMAGE,
   ogType = "website",
@@ -39,6 +69,7 @@ export default function SEO({
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      <meta name="keywords" content={(keywords ?? DEFAULT_KEYWORDS).join(", ")} />
       {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
       {noIndex && <meta name="robots" content="noindex,nofollow" />}
 

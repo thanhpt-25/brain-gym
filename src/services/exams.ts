@@ -5,6 +5,8 @@ import {
   PaginatedResponse,
   ExamBlueprint,
   ExamSelectionStrategy,
+  TimerMode,
+  PracticeMode,
 } from "@/types/api-types";
 
 export type { ExamSummary, CreateExamPayload };
@@ -69,5 +71,32 @@ export const updateExam = async (id: string, data: UpdateExamPayload) => {
 
 export const deleteExam = async (id: string) => {
   const response = await api.delete(`/exams/${id}`);
+  return response.data;
+};
+
+export interface CreatePracticeExamPayload {
+  certificationId: string;
+  questionCount: number;
+  /** Minutes (before the ACCELERATED factor, which the backend applies). */
+  timeLimit: number;
+  timerMode?: TimerMode;
+  mode?: PracticeMode;
+  /** QUICK_DRILL / REVIEW: only these domains. */
+  domainIds?: string[];
+  /** QUICK_DRILL: only these difficulties. */
+  difficulties?: ("EASY" | "MEDIUM" | "HARD")[];
+  /** REVIEW: redo the missed/flagged questions of this attempt. */
+  sourceAttemptId?: string;
+}
+
+/**
+ * A private, per-learner practice draw that follows the certification's
+ * domain weights and favours unseen/missed questions. It never shows up in
+ * the exam library or "My exams".
+ */
+export const createPracticeExam = async (
+  data: CreatePracticeExamPayload,
+): Promise<{ id: string; questionCount: number; timeLimit: number }> => {
+  const response = await api.post("/exams/practice", data);
   return response.data;
 };

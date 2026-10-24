@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ContributorRequestsService } from '../contributor-requests/contributor-requests.service';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -17,6 +18,10 @@ describe('UsersService', () => {
               update: jest.fn(),
             },
           },
+        },
+        {
+          provide: ContributorRequestsService,
+          useValue: { cancelPendingOnRoleChange: jest.fn() },
         },
       ],
     }).compile();

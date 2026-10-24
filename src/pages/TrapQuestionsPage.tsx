@@ -15,6 +15,7 @@ import Navbar from "@/components/Navbar";
 import Breadcrumb from "@/components/Breadcrumb";
 import { QuestionListSkeleton } from "@/components/PageSkeleton";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import SEO from "@/components/SEO";
 
 const TrapQuestionsPage = () => {
   const navigate = useNavigate();
@@ -51,6 +52,11 @@ const TrapQuestionsPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SEO
+        title="Trap Questions — Common Certification Exam Mistakes"
+        description="Practice the trickiest, most commonly-missed certification exam questions to sharpen your understanding and avoid exam-day traps."
+        canonical="/trap-questions"
+      />
       <Navbar title="Trap Questions" />
 
       <section className="pt-32 pb-20">

@@ -6,14 +6,46 @@ import {
   ChevronRight,
   Zap,
   BookOpen,
+  Check,
+  X,
+  Loader2,
+  CloudOff,
+  CloudUpload,
+  Cloud,
+  LayoutGrid,
+  Strikethrough,
+  Keyboard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AttemptQuestion,
+  CheckAnswerResponse,
   StartAttemptResponse,
   TimerMode,
 } from "@/types/api-types";
 import { formatTime } from "@/lib/time";
+import { AnswerFeedbackPanel } from "@/components/exam/AnswerFeedbackPanel";
+import MarkdownContent from "@/components/ui/MarkdownContent";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { QuestionNavigator } from "@/components/exam/QuestionNavigator";
+import { ExamReviewDialog } from "@/components/exam/ExamReviewDialog";
+import type { SaveStatus } from "@/hooks/useAutosave";
+import type { FontScale } from "@/lib/exam-plan";
+
+/** Tailwind sizes for the question title, body and choices per text size. */
+const TEXT_SIZES: Record<
+  FontScale,
+  { title: string; body: "text-xs" | "text-sm" | "text-base"; choice: string }
+> = {
+  sm: { title: "text-base", body: "text-xs", choice: "text-xs" },
+  md: { title: "text-lg", body: "text-sm", choice: "text-sm" },
+  lg: { title: "text-xl", body: "text-base", choice: "text-base" },
+};
 
 interface ExamSessionProps {
   attemptData: StartAttemptResponse;
@@ -27,6 +59,14 @@ interface ExamSessionProps {
   timeLeft: number;
   totalSeconds: number;
   onSubmit: () => void;
+  /** Autosave state (END_OF_EXAM attempts); hidden when undefined. */
+  saveStatus?: SaveStatus;
+  /** INTERACTIVE mode only: revealed answers keyed by questionId. */
+  feedback?: Record<string, CheckAnswerResponse>;
+  checkingId?: string | null;
+  onCheck?: (qId: string) => void;
+  /** Reading size of the question text (accessibility). */
+  fontScale?: FontScale;
 }
 
 function getTimerClass(
@@ -57,7 +97,7 @@ function getTimerClass(
     : "text-foreground";
 }
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export function ExamSession({
   attemptData,
@@ -71,11 +111,109 @@ export function ExamSession({
   timeLeft,
   totalSeconds,
   onSubmit,
+  saveStatus,
+  feedback = {},
+  checkingId = null,
+  onCheck,
+  fontScale = "md",
 }: ExamSessionProps) {
+  const sizes = TEXT_SIZES[fontScale];
   const currentQuestion = questions[currentIndex];
   const timerMode = attemptData?.timerMode;
+  const isInteractive = attemptData?.feedbackMode === "INTERACTIVE";
+  const currentFeedback = currentQuestion
+    ? feedback[currentQuestion.id]
+    : undefined;
 
   const [announcement, setAnnouncement] = useState("");
+  const feedbackHeadingRef = useRef<HTMLHeadingElement>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  // Choices the learner crossed out, per question (a thinking aid only).
+  const [eliminated, setEliminated] = useState<Record<string, string[]>>({});
+
+  const toggleEliminated = (questionId: string, choiceId: string) =>
+    setEliminated((prev) => {
+      const current = prev[questionId] ?? [];
+      return {
+        ...prev,
+        [questionId]: current.includes(choiceId)
+          ? current.filter((id) => id !== choiceId)
+          : [...current, choiceId],
+      };
+    });
+
+  // Keyboard: 1-9 / A-I pick a choice, ←/→ move, F flags, Enter checks
+  // (Interactive). Ignored while typing or when a dialog is open.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const q = questions[currentIndex];
+      if (!q || reviewOpen || navOpen) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+      ) {
+        return;
+      }
+      const key = e.key;
+      const locked = !!feedback[q.id];
+      let choiceIndex = -1;
+      if (/^[1-9]$/.test(key)) choiceIndex = Number(key) - 1;
+      else if (/^[a-i]$/i.test(key) && key.toLowerCase() !== "f")
+        choiceIndex = key.toLowerCase().charCodeAt(0) - 97;
+
+      if (choiceIndex >= 0) {
+        const choice = q.choices[choiceIndex];
+        if (choice && !locked) {
+          e.preventDefault();
+          selectAnswer(q.id, choice.id);
+        }
+      } else if (key === "ArrowRight" && currentIndex < questions.length - 1) {
+        e.preventDefault();
+        setCurrentIndex((i) => i + 1);
+      } else if (key === "ArrowLeft" && currentIndex > 0) {
+        e.preventDefault();
+        setCurrentIndex((i) => i - 1);
+      } else if (key.toLowerCase() === "f") {
+        e.preventDefault();
+        toggleMark(q.id);
+      } else if (
+        key === "Enter" &&
+        isInteractive &&
+        !locked &&
+        answers[q.id]?.length &&
+        !checkingId &&
+        target?.tagName !== "BUTTON"
+      ) {
+        e.preventDefault();
+        onCheck?.(q.id);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    questions,
+    currentIndex,
+    reviewOpen,
+    navOpen,
+    feedback,
+    answers,
+    isInteractive,
+    checkingId,
+    selectAnswer,
+    setCurrentIndex,
+    toggleMark,
+    onCheck,
+  ]);
+
+  // Move focus to the verdict once an answer is revealed.
+  const currentCheckedAt = currentFeedback?.checkedAt;
+  useEffect(() => {
+    if (currentCheckedAt) feedbackHeadingRef.current?.focus();
+  }, [currentCheckedAt]);
 
   useEffect(() => {
     if (timerMode !== "TIME_PRESSURE" || totalSeconds <= 0) return;
@@ -102,6 +240,16 @@ export function ExamSession({
     totalSeconds > 0 &&
     timeLeft / totalSeconds <= 0.5 &&
     timeLeft / totalSeconds > 0.25;
+
+  const checkedResults = Object.values(feedback);
+  const checkedCorrect = checkedResults.filter((f) => f.isCorrect).length;
+  const checkedIncorrect = checkedResults.length - checkedCorrect;
+  const isLastQuestion = currentIndex === questions.length - 1;
+  const hasSelection = !!answers[currentQuestion.id]?.length;
+  const isMultiple = currentQuestion.questionType === "MULTIPLE";
+  const selectCount = isMultiple ? currentQuestion.selectCount : undefined;
+  const selectedCount = answers[currentQuestion.id]?.length ?? 0;
+  const atSelectLimit = !!selectCount && selectedCount >= selectCount;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -134,8 +282,28 @@ export function ExamSession({
             <span className="text-sm font-mono text-foreground">
               Q{currentIndex + 1}/{questions.length}
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg:hidden px-2"
+              aria-label="Show all questions"
+              onClick={() => setNavOpen(true)}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            {isInteractive && (
+              <span
+                className="text-xs font-mono text-muted-foreground"
+                data-testid="interactive-score"
+                aria-label={`${checkedCorrect} correct, ${checkedIncorrect} incorrect`}
+              >
+                <span className="text-accent">✓ {checkedCorrect}</span> ·{" "}
+                <span className="text-destructive">✗ {checkedIncorrect}</span>
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4">
+            <SaveIndicator status={saveStatus} />
             <div
               className={`flex items-center gap-1.5 font-mono text-sm ${timerClass}`}
             >
@@ -145,7 +313,8 @@ export function ExamSession({
             <Button
               size="sm"
               variant="destructive"
-              onClick={onSubmit}
+              onClick={() => setReviewOpen(true)}
+              disabled={!!checkingId}
               className="font-mono"
             >
               Submit
@@ -167,21 +336,26 @@ export function ExamSession({
             >
               <div className="glass-card p-6">
                 <div className="flex items-center justify-between mb-4">
+                  {/* A full mock hides these, like the real exam. */}
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-                        currentQuestion.difficulty === "EASY"
-                          ? "bg-accent/10 text-accent"
-                          : currentQuestion.difficulty === "MEDIUM"
-                            ? "bg-warning/10 text-warning"
-                            : "bg-destructive/10 text-destructive"
-                      }`}
-                    >
-                      {currentQuestion.difficulty}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {currentQuestion.domain?.name || "Unknown"}
-                    </span>
+                    {currentQuestion.difficulty && (
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full font-mono ${
+                          currentQuestion.difficulty === "EASY"
+                            ? "bg-accent/10 text-accent"
+                            : currentQuestion.difficulty === "MEDIUM"
+                              ? "bg-warning/10 text-warning"
+                              : "bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        {currentQuestion.difficulty}
+                      </span>
+                    )}
+                    {currentQuestion.domain !== null && (
+                      <span className="text-xs text-muted-foreground">
+                        {currentQuestion.domain?.name || "Unknown"}
+                      </span>
+                    )}
                   </div>
                   <Button
                     variant="ghost"
@@ -197,7 +371,7 @@ export function ExamSession({
                   </Button>
                 </div>
 
-                <h2 className="text-lg font-medium mb-2">
+                <h2 className={`${sizes.title} font-medium mb-2`}>
                   {currentQuestion.title}
                 </h2>
                 {currentQuestion.isScenario && currentQuestion.description ? (
@@ -209,41 +383,157 @@ export function ExamSession({
                       <BookOpen className="h-3 w-3" aria-hidden="true" />{" "}
                       Technical Context / Scenario
                     </div>
-                    <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed relative z-10">
-                      {currentQuestion.description}
-                    </p>
+                    <div className="text-foreground/90 relative z-10">
+                      <MarkdownContent size={sizes.body}>
+                        {currentQuestion.description}
+                      </MarkdownContent>
+                    </div>
                   </div>
                 ) : currentQuestion.description ? (
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {currentQuestion.description}
-                  </p>
+                  <div className="text-muted-foreground mb-4">
+                    <MarkdownContent size={sizes.body}>
+                        {currentQuestion.description}
+                      </MarkdownContent>
+                  </div>
                 ) : null}
+
+                {currentQuestion.codeSnippet && (
+                  <pre
+                    className="p-4 rounded-lg bg-secondary/80 text-sm font-mono overflow-x-auto mb-4"
+                    data-testid="question-code"
+                  >
+                    <code>{currentQuestion.codeSnippet}</code>
+                  </pre>
+                )}
+
+                {currentQuestion.imageUrl && (
+                  <img
+                    src={currentQuestion.imageUrl}
+                    alt="Question illustration"
+                    loading="lazy"
+                    className="max-w-full max-h-96 rounded-lg border border-border mb-4"
+                  />
+                )}
+
+                {isMultiple && !currentFeedback && (
+                  <p
+                    className="text-xs font-mono text-primary mt-4"
+                    aria-live="polite"
+                  >
+                    {selectCount
+                      ? `Choose ${selectCount} · ${selectedCount}/${selectCount} selected`
+                      : "Select all that apply"}
+                  </p>
+                )}
 
                 <div className="space-y-3 mt-6">
                   {currentQuestion.choices.map((choice) => {
                     const isSelected = (
                       answers[currentQuestion.id] || []
                     ).includes(choice.id);
+                    if (currentFeedback) {
+                      const isRight =
+                        currentFeedback.correctChoiceIds.includes(choice.id);
+                      const isWrongPick =
+                        !isRight &&
+                        currentFeedback.selectedChoiceIds.includes(choice.id);
+                      return (
+                        <button
+                          key={choice.id}
+                          disabled
+                          aria-pressed={isSelected}
+                          className={`w-full text-left p-4 rounded-lg border ${sizes.choice} flex items-start cursor-default ${
+                            isRight
+                              ? "border-accent bg-accent/10 text-foreground"
+                              : isWrongPick
+                                ? "border-destructive bg-destructive/10 text-foreground"
+                                : "border-border bg-secondary/30 text-muted-foreground"
+                          }`}
+                        >
+                          <span className="font-mono font-semibold mr-3 text-muted-foreground">
+                            {choice.label.toUpperCase()}
+                          </span>
+                          <span className="flex-1">{choice.content}</span>
+                          {isRight && (
+                            <Check
+                              className="h-4 w-4 text-accent shrink-0 ml-2"
+                              aria-label="Correct answer"
+                            />
+                          )}
+                          {isWrongPick && (
+                            <X
+                              className="h-4 w-4 text-destructive shrink-0 ml-2"
+                              aria-label="Your answer"
+                            />
+                          )}
+                        </button>
+                      );
+                    }
+                    // "Choose N" reached: other choices wait for a deselect.
+                    const isBlocked = atSelectLimit && !isSelected;
+                    const isEliminated = (
+                      eliminated[currentQuestion.id] ?? []
+                    ).includes(choice.id);
+                    const letter = choice.label.toUpperCase();
                     return (
-                      <button
-                        key={choice.id}
-                        onClick={() =>
-                          selectAnswer(currentQuestion.id, choice.id)
-                        }
-                        className={`w-full text-left p-4 rounded-lg border transition-all text-sm ${
-                          isSelected
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-secondary/50 text-foreground hover:border-primary/30"
-                        }`}
-                      >
-                        <span className="font-mono font-semibold mr-3 text-muted-foreground">
-                          {choice.label.toUpperCase()}
-                        </span>
-                        {choice.content}
-                      </button>
+                      <div key={choice.id} className="flex items-stretch gap-2">
+                        <button
+                          onClick={() =>
+                            selectAnswer(currentQuestion.id, choice.id)
+                          }
+                          // Right-click crosses a choice out, as in Pearson VUE.
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            toggleEliminated(currentQuestion.id, choice.id);
+                          }}
+                          role={isMultiple ? "checkbox" : undefined}
+                          aria-checked={isMultiple ? isSelected : undefined}
+                          aria-pressed={isMultiple ? undefined : isSelected}
+                          aria-disabled={isBlocked || undefined}
+                          data-eliminated={isEliminated || undefined}
+                          className={`flex-1 text-left p-4 rounded-lg border transition-all ${sizes.choice} ${
+                            isSelected
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : isBlocked
+                                ? "border-border bg-secondary/30 text-muted-foreground cursor-not-allowed"
+                                : "border-border bg-secondary/50 text-foreground hover:border-primary/30"
+                          } ${isEliminated && !isSelected ? "opacity-50" : ""}`}
+                        >
+                          <span className="font-mono font-semibold mr-3 text-muted-foreground">
+                            {letter}
+                          </span>
+                          <span className={isEliminated ? "line-through" : ""}>
+                            {choice.content}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleEliminated(currentQuestion.id, choice.id)
+                          }
+                          aria-pressed={isEliminated}
+                          aria-label={`${isEliminated ? "Restore" : "Cross out"} choice ${letter}`}
+                          title="Cross out (or right-click the choice)"
+                          className={`px-2 rounded-lg border border-transparent hover:border-border transition-colors ${
+                            isEliminated
+                              ? "text-foreground"
+                              : "text-muted-foreground/60 hover:text-muted-foreground"
+                          }`}
+                        >
+                          <Strikethrough className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
+
+                {currentFeedback && (
+                  <AnswerFeedbackPanel
+                    ref={feedbackHeadingRef}
+                    feedback={currentFeedback}
+                    choices={currentQuestion.choices}
+                  />
+                )}
 
                 {currentQuestion.tags && currentQuestion.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-6">
@@ -269,14 +559,53 @@ export function ExamSession({
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" /> Prev
                 </Button>
-                <Button
-                  variant="outline"
-                  disabled={currentIndex === questions.length - 1}
-                  onClick={() => setCurrentIndex((i) => i + 1)}
-                  className="font-mono"
-                >
-                  Next <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
+                {isInteractive && !currentFeedback ? (
+                  <div className="flex items-center gap-2">
+                    {/* Move past a question without locking it. */}
+                    {!isLastQuestion && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => setCurrentIndex((i) => i + 1)}
+                        className="font-mono text-muted-foreground"
+                      >
+                        Skip
+                      </Button>
+                    )}
+                    <Button
+                      disabled={!hasSelection || !!checkingId}
+                      onClick={() => onCheck?.(currentQuestion.id)}
+                      className="font-mono"
+                    >
+                      {checkingId === currentQuestion.id && (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      )}
+                      Check answer
+                    </Button>
+                  </div>
+                ) : isInteractive && isLastQuestion ? (
+                  <Button
+                    onClick={() => setReviewOpen(true)}
+                    className="font-mono"
+                  >
+                    Finish exam
+                  </Button>
+                ) : isInteractive ? (
+                  <Button
+                    onClick={() => setCurrentIndex((i) => i + 1)}
+                    className="font-mono"
+                  >
+                    Next question <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    disabled={currentIndex === questions.length - 1}
+                    onClick={() => setCurrentIndex((i) => i + 1)}
+                    className="font-mono"
+                  >
+                    Next <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                )}
               </div>
             </motion.div>
           </AnimatePresence>
@@ -288,45 +617,92 @@ export function ExamSession({
             <div className="text-sm font-mono font-semibold mb-3">
               Questions
             </div>
-            <div className="grid grid-cols-5 gap-2">
-              {questions.map((q, i) => {
-                const isAnswered = !!answers[q.id]?.length;
-                const isMarkedQ = marked.has(q.id);
-                const isCurrent = i === currentIndex;
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => setCurrentIndex(i)}
-                    className={`w-8 h-8 rounded text-xs font-mono font-semibold transition-all ${
-                      isCurrent
-                        ? "bg-primary text-primary-foreground"
-                        : isMarkedQ
-                          ? "bg-warning/20 text-warning border border-warning/30"
-                          : isAnswered
-                            ? "bg-accent/20 text-accent"
-                            : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                    }`}
-                  >
-                    {i + 1}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-4 space-y-1.5 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-accent/20" /> Answered
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-warning/20 border border-warning/30" />{" "}
-                Flagged
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded bg-secondary" /> Unanswered
-              </div>
-            </div>
+            <QuestionNavigator
+              questions={questions}
+              currentIndex={currentIndex}
+              answers={answers}
+              marked={marked}
+              feedback={feedback}
+              showVerdicts={isInteractive}
+              onSelect={setCurrentIndex}
+            />
+            <p className="mt-4 flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+              <Keyboard className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                1–9 / A–I choose · ←/→ move · F flag
+                {isInteractive ? " · Enter check" : ""}
+              </span>
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Question navigator on small screens */}
+      <Sheet open={navOpen} onOpenChange={setNavOpen}>
+        <SheetContent side="bottom" className="max-h-[70vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="font-mono">Questions</SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            <QuestionNavigator
+              questions={questions}
+              currentIndex={currentIndex}
+              answers={answers}
+              marked={marked}
+              feedback={feedback}
+              showVerdicts={isInteractive}
+              onSelect={(i) => {
+                setCurrentIndex(i);
+                setNavOpen(false);
+              }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <ExamReviewDialog
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        questions={questions}
+        answers={answers}
+        marked={marked}
+        onGoTo={setCurrentIndex}
+        submitting={!!checkingId}
+        onSubmit={() => {
+          setReviewOpen(false);
+          onSubmit();
+        }}
+      />
     </div>
+  );
+}
+
+function SaveIndicator({ status }: { status?: SaveStatus }) {
+  if (!status || status === "idle") return null;
+  const content =
+    status === "saving" ? (
+      <>
+        <CloudUpload className="h-3.5 w-3.5" aria-hidden="true" /> Saving…
+      </>
+    ) : status === "error" ? (
+      <>
+        <CloudOff className="h-3.5 w-3.5" aria-hidden="true" /> Offline —
+        retrying
+      </>
+    ) : (
+      <>
+        <Cloud className="h-3.5 w-3.5" aria-hidden="true" /> Saved
+      </>
+    );
+  return (
+    <span
+      role="status"
+      data-testid="save-status"
+      className={`hidden sm:flex items-center gap-1 text-xs font-mono ${
+        status === "error" ? "text-warning" : "text-muted-foreground"
+      }`}
+    >
+      {content}
+    </span>
   );
 }

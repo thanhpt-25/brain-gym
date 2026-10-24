@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { AttemptStatus, MistakeType } from '@prisma/client';
+import { AttemptStatus, FeedbackMode, MistakeType } from '@prisma/client';
 
 export class ChoiceResponse {
   @ApiProperty()
@@ -29,6 +29,12 @@ export class QuestionResultResponse {
   description?: string;
 
   @ApiProperty({ required: false })
+  codeSnippet?: string;
+
+  @ApiProperty({ required: false })
+  imageUrl?: string;
+
+  @ApiProperty({ required: false })
   explanation?: string;
 
   @ApiProperty()
@@ -37,8 +43,27 @@ export class QuestionResultResponse {
   @ApiProperty()
   correct: boolean;
 
+  @ApiProperty({
+    required: false,
+    description: 'When the answer was revealed during an INTERACTIVE attempt',
+  })
+  checkedAt?: Date;
+
   @ApiProperty({ enum: MistakeType, required: false })
   mistakeType?: MistakeType;
+
+  @ApiProperty({
+    required: false,
+    description: 'Seconds spent on the question',
+  })
+  timeSpent?: number;
+
+  @ApiProperty({
+    enum: MistakeType,
+    required: false,
+    description: 'Hint derived from the time spent on a wrong answer',
+  })
+  suggestedMistakeType?: MistakeType;
 
   @ApiProperty({ type: [String] })
   selectedAnswers: string[];
@@ -66,6 +91,9 @@ export class AttemptResultResponse {
   @ApiProperty({ enum: AttemptStatus })
   status: AttemptStatus;
 
+  @ApiProperty({ enum: FeedbackMode })
+  feedbackMode: FeedbackMode;
+
   @ApiProperty()
   score: number;
 
@@ -77,6 +105,21 @@ export class AttemptResultResponse {
 
   @ApiProperty()
   percentage: number;
+
+  @ApiProperty({
+    description: 'Pass mark (%) of the certification, 70 when unset',
+  })
+  passingScore: number;
+
+  @ApiProperty()
+  passed: boolean;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description: 'Seconds per question needed to finish within the time limit',
+  })
+  targetSecondsPerQuestion: number | null;
 
   @ApiProperty()
   domainScores: Record<string, { correct: number; total: number }>;
@@ -92,4 +135,17 @@ export class AttemptResultResponse {
 
   @ApiProperty({ type: [QuestionResultResponse] })
   questionResults: QuestionResultResponse[];
+
+  @ApiProperty({
+    required: false,
+    description: 'Adaptive tests only: the measured ability',
+  })
+  cat?: {
+    ability: number;
+    standardError: number;
+    itemsAdministered: number;
+    maxItems: number;
+    stoppedBy: string | null;
+    passLikelihood: number;
+  };
 }

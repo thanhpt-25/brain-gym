@@ -19,6 +19,7 @@ import {
 } from '@nestjs/swagger';
 import { ExamsService } from './exams.service';
 import { CreateExamDto } from './dto/create-exam.dto';
+import { CreatePracticeExamDto } from './dto/create-practice-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Public } from '../common/decorators/public.decorator';
@@ -35,6 +36,19 @@ export class ExamsController {
   create(@Req() req: any, @Body() dto: CreateExamDto) {
     const userId = req.user.sub || req.user.id;
     return this.examsService.create(userId, dto);
+  }
+
+  @Post('practice')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({
+    summary:
+      'Create a private practice exam: blueprint-weighted, favouring unseen and missed questions',
+  })
+  createPractice(@Req() req: any, @Body() dto: CreatePracticeExamDto) {
+    const userId = req.user.sub || req.user.id;
+    return this.examsService.createPractice(userId, dto);
   }
 
   @Get()

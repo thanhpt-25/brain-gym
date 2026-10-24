@@ -7,6 +7,7 @@ import {
   inviteCandidates,
   updateAssessmentStatus,
   exportAssessmentCsv,
+  updateBlindReview,
 } from "@/services/assessments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ import {
   Upload,
   Briefcase,
   Database,
+  EyeOff,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import InviteCandidatesModal from "@/components/org/InviteCandidatesModal";
@@ -85,6 +88,22 @@ const AssessmentResults = () => {
       updateAssessmentStatus(slug, aid!, status),
     onSuccess: () => {
       toast.success("Status updated");
+      queryClient.invalidateQueries({
+        queryKey: ["assessment-results", slug, aid],
+      });
+    },
+    onError: (e: any) =>
+      toast.error(e?.response?.data?.message || "Update failed"),
+  });
+
+  const blindReviewMutation = useMutation({
+    mutationFn: (enabled: boolean) => updateBlindReview(slug, aid!, enabled),
+    onSuccess: (res) => {
+      toast.success(
+        res.blindReviewEnabled
+          ? "Blind review enabled"
+          : "Blind review disabled",
+      );
       queryClient.invalidateQueries({
         queryKey: ["assessment-results", slug, aid],
       });
@@ -220,6 +239,29 @@ const AssessmentResults = () => {
           >
             <Database className="h-4 w-4 mr-1.5" /> Pool Stats
           </Button>
+          <Button
+            size="sm"
+            variant={assessment.blindReviewEnabled ? "default" : "outline"}
+            onClick={() =>
+              blindReviewMutation.mutate(!assessment.blindReviewEnabled)
+            }
+            disabled={blindReviewMutation.isPending}
+            title={
+              assessment.blindReviewEnabled
+                ? "Disable blind review"
+                : "Enable blind review — masks candidate PII"
+            }
+          >
+            {assessment.blindReviewEnabled ? (
+              <>
+                <EyeOff className="h-4 w-4 mr-1.5" /> Blind
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4 mr-1.5" /> Blind Review
+              </>
+            )}
+          </Button>
         </div>
       </div>
 
@@ -296,6 +338,11 @@ const STAGES: { stage: CandidateStage; label: string; color: string }[] = [
     stage: "SHORTLISTED",
     label: "Shortlisted",
     color: "bg-violet-500/20 text-violet-400",
+  },
+  {
+    stage: "INTERVIEW",
+    label: "Interview",
+    color: "bg-sky-500/20 text-sky-400",
   },
   {
     stage: "HIRED",

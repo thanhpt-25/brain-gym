@@ -11,12 +11,22 @@ const mockPrisma = {
     findMany: jest.fn(),
     count: jest.fn(),
   },
-  choice: { deleteMany: jest.fn(), createMany: jest.fn() },
+  choice: {
+    deleteMany: jest.fn(),
+    createMany: jest.fn(),
+    update: jest.fn(),
+    create: jest.fn(),
+  },
   questionTag: { deleteMany: jest.fn(), createMany: jest.fn() },
   tag: { upsert: jest.fn() },
   vote: { findUnique: jest.fn() },
   readinessScore: { findMany: jest.fn() },
+  // adminUpdate runs its writes in an interactive transaction
+  $transaction: jest.fn(),
 };
+mockPrisma.$transaction.mockImplementation((fn: (tx: unknown) => unknown) =>
+  fn(mockPrisma),
+);
 
 const mockGamification = {
   awardPoints: jest.fn().mockResolvedValue(undefined),

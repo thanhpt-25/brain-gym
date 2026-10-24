@@ -12,6 +12,9 @@ import { ScrollText, Loader2, Search } from 'lucide-react';
 const ACTION_TYPES = [
   'ALL', 'ROLE_CHANGED', 'USER_SUSPENDED', 'USER_BANNED', 'USER_REACTIVATED',
   'QUESTION_EDITED', 'QUESTION_DELETED', 'POINTS_ADJUSTED',
+  'CONTRIBUTOR_REQUEST_CREATED', 'CONTRIBUTOR_REQUEST_APPROVED',
+  'CONTRIBUTOR_REQUEST_REJECTED', 'CONTRIBUTOR_REQUEST_CANCELLED',
+  'CONTRIBUTOR_REQUEST_AUTO_CANCELLED',
 ];
 
 const actionColor: Record<string, string> = {
@@ -22,6 +25,11 @@ const actionColor: Record<string, string> = {
   QUESTION_EDITED: 'bg-primary/10 text-primary',
   QUESTION_DELETED: 'bg-destructive/10 text-destructive',
   POINTS_ADJUSTED: 'bg-violet-500/10 text-violet-500',
+  CONTRIBUTOR_REQUEST_CREATED: 'bg-primary/10 text-primary',
+  CONTRIBUTOR_REQUEST_APPROVED: 'bg-accent/10 text-accent',
+  CONTRIBUTOR_REQUEST_REJECTED: 'bg-destructive/10 text-destructive',
+  CONTRIBUTOR_REQUEST_CANCELLED: 'bg-secondary text-muted-foreground',
+  CONTRIBUTOR_REQUEST_AUTO_CANCELLED: 'bg-secondary text-muted-foreground',
 };
 
 export default function AuditLogTab() {

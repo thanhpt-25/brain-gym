@@ -123,8 +123,9 @@ export class AssessmentsController {
     @Param('orgId') orgId: string,
     @Param('aid') aid: string,
     @Query('filter') filter?: string,
+    @CurrentUser() user?: any,
   ) {
-    return this.service.getResults(orgId, aid, filter);
+    return this.service.getResults(orgId, aid, filter, user?.orgRole);
   }
 
   @Get(':aid/results/export')
@@ -224,6 +225,42 @@ export class AssessmentsController {
     @Body() dto: PatchFlagDto,
   ) {
     return this.candidateService.patchFlag(orgId, aid, inviteId, userId, dto);
+  }
+
+  // ─── US-G3: Blind review ──────────────────────────────────────────────────
+
+  @Patch(':aid/blind-review')
+  @OrgRoles('OWNER', 'ADMIN')
+  updateBlindReview(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Body('blindReviewEnabled') blindReviewEnabled: boolean,
+  ) {
+    return this.service.updateBlindReview(orgId, aid, blindReviewEnabled);
+  }
+
+  @Get(':aid/candidates/:inviteId/reveal')
+  @OrgRoles('OWNER', 'ADMIN')
+  revealCandidateIdentity(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Param('inviteId') inviteId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.revealCandidateIdentity(orgId, aid, inviteId, userId);
+  }
+
+  // ─── US-G2: Data privacy ──────────────────────────────────────────────────
+
+  @Post(':aid/candidates/:inviteId/request-deletion')
+  @OrgRoles('OWNER', 'ADMIN')
+  requestDeletion(
+    @Param('orgId') orgId: string,
+    @Param('aid') aid: string,
+    @Param('inviteId') inviteId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.service.requestDeletion(orgId, aid, inviteId, userId);
   }
 
   @Delete(':aid')

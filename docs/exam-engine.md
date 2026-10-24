@@ -208,6 +208,28 @@ export function useTimer({
 
 ---
 
+## Feedback Modes (Exam vs Interactive)
+
+Spec: `docs/specs/exam-interactive-mode-srs.md`.
+
+Each attempt stores `ExamAttempt.feedbackMode`, chosen at `POST /exams/:examId/start` (`{ feedbackMode }`, default `END_OF_EXAM`):
+
+| Mode | Behaviour |
+| --- | --- |
+| `END_OF_EXAM` (default) | Unchanged: answers stay in client state and are graded on submit. |
+| `INTERACTIVE` | The learner presses **Check answer**; `POST /attempts/:id/check` grades that one question, sets `Answer.checkedAt` (locking it) and returns `isCorrect`, `correctChoiceIds` and `explanation`. The button then becomes **Next question** (**Finish exam** on the last question). |
+
+Rules:
+
+- `INTERACTIVE` is rejected for `TIME_PRESSURE` exams. Org catalog attempts (`exam-catalog.service.ts`) and training attempts are always `END_OF_EXAM`.
+- A checked answer cannot change: `/check` returns `409` (with the stored verdict in `result`, which the UI uses to recover after a reload), `/answer` refuses `INTERACTIVE` attempts with `400`, and `submit()` grades checked questions from the stored answer (the payload's `selectedChoices` for them are ignored; `isMarked` still comes from the payload).
+- `/check` and `submit()` both take `SELECT ... FOR UPDATE` on the attempt row and re-check `IN_PROGRESS` under the lock, so two concurrent checks of one question can't both succeed, a check can't slip between submit's read and rewrite, and a double submit grades the attempt only once.
+- In interactive mode an unchecked question has a **Skip** button (the navigator is desktop-only), and **Submit** is disabled while a check is in flight.
+- Unchecked questions in an interactive attempt are graded on submit exactly like Exam mode.
+- Frontend: `ExamIntro`/`ExamShare` render `FeedbackModeSelector` (last choice remembered in `localStorage["exam.feedbackMode"]`); `ExamSession` renders `AnswerFeedbackPanel` and Correct/Incorrect states in the navigator only when `attemptData.feedbackMode === "INTERACTIVE"`.
+
+---
+
 ## Mark for Review
 
 Mark-for-review (flag) allows users to revisit uncertain questions after initial pass.

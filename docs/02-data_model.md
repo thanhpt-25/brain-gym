@@ -84,6 +84,7 @@ erDiagram
 | `UserRole` | `LEARNER`, `CONTRIBUTOR`, `REVIEWER`, `ADMIN` | `User.role` |
 | `UserStatus` | `ACTIVE`, `SUSPENDED`, `BANNED` | `User.status` |
 | `UserPlan` | `FREE`, `PREMIUM`, `ENTERPRISE` | `User.plan` |
+| `ContributorRequestStatus` | `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` | `ContributorRequest.status` |
 
 ### Content Quality & Status
 
@@ -103,6 +104,7 @@ erDiagram
 | `ExamVisibility` | `PUBLIC`, `PRIVATE`, `LINK` | `Exam.visibility` |
 | `AttemptStatus` | `IN_PROGRESS`, `SUBMITTED`, `ABANDONED` | `ExamAttempt.status` |
 | `ExamType` | `STANDARD`, `TIME_PRESSURE` | `ExamAttempt.examType` |
+| `FeedbackMode` | `END_OF_EXAM`, `INTERACTIVE` | `ExamAttempt.feedbackMode` |
 | `TimerMode` | `STRICT`, `ACCELERATED`, `RELAXED`, `TIME_PRESSURE` | `Exam.timerMode`, `ExamCatalogItem.timerMode` |
 | `MistakeType` | `CONCEPT`, `CARELESS`, `TRAP`, `TIME_PRESSURE` | `Answer.mistakeType` |
 
@@ -165,6 +167,7 @@ erDiagram
 |-------|-------|-------------|
 | `User` | `users` | All platform actors. Holds role (`UserRole`), status (`UserStatus`), plan (`UserPlan`), gamification `points`, per-user `featureFlags` (JSON), `preferences` (JSON), and `subscriptionTier` string. |
 | `OAuthAccount` | `oauth_accounts` | Third-party OAuth links (Google, etc.) for a user. Composite unique on `(provider, providerUserId)`. Cascades on user delete. |
+| `ContributorRequest` | `contributor_requests` | Learner request to become `CONTRIBUTOR`, reviewed by an admin (`reviewedById`, `decisionReason`). Partial unique index allows one `PENDING` row per user. See `docs/specs/contributor-role-request-srs.md`. |
 
 **Key fields on `User`:**
 - `featureFlags Json` — per-user feature flag overrides, default `{}`.
@@ -209,8 +212,8 @@ erDiagram
 |-------|-------|-------------|
 | `Exam` | `exams` | A named set of questions forming a practice exam. Has `visibility` (`ExamVisibility`), `timerMode` (`TimerMode`), optional `shareCode` (unique), `isAdaptive`, and aggregate stats (`attemptCount`, `avgScore`). |
 | `ExamQuestion` | `exam_questions` | Junction table linking `Exam` to `Question` with `sortOrder`. Composite PK `(examId, questionId)`. Exam-side cascades on delete. |
-| `ExamAttempt` | `exam_attempts` | A single user run of an exam. Tracks `status` (`AttemptStatus`), `examType` (`ExamType`), `score`, `timeSpent`, `totalCorrect`, `totalQuestions`, and `domainScores Json`. |
-| `Answer` | `answers` | Per-question response within an attempt. `selectedChoices String[]` stores choice IDs. `mistakeType` (`MistakeType`) is set post-grading. Cascades on attempt delete. |
+| `ExamAttempt` | `exam_attempts` | A single user run of an exam. Tracks `status` (`AttemptStatus`), `examType` (`ExamType`), `feedbackMode` (`FeedbackMode`, default `END_OF_EXAM`), `score`, `timeSpent`, `totalCorrect`, `totalQuestions`, and `domainScores Json`. |
+| `Answer` | `answers` | Per-question response within an attempt. `selectedChoices String[]` stores choice IDs. `mistakeType` (`MistakeType`) is set post-grading. `checkedAt` is set when the answer was revealed in interactive mode; the answer is locked from then on. Cascades on attempt delete. |
 | `AttemptEvent` | `attempt_events` | Fine-grained event log for an attempt (tab focus, question navigation, etc.). `payload Json` + `clientTs` for client-side timestamps. Cascades on attempt delete. |
 
 ---

@@ -5,6 +5,7 @@ import { authService } from "../services/auth.service";
 import { useAuthStore } from "../stores/auth.store";
 import { toast } from "sonner";
 import { GoogleLoginButton } from "../components/auth/GoogleLoginButton";
+import SEO from "@/components/SEO";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
@@ -82,6 +83,7 @@ export default function AuthPage() {
       id="main-content"
       className="min-h-screen bg-gray-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden"
     >
+      <SEO title="Sign In" noIndex />
       {/* Background Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none" />
 

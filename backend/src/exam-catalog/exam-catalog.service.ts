@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
-import { ExamCatalogItemType, TimerMode } from '@prisma/client';
+import { ExamCatalogItemType, FeedbackMode, TimerMode } from '@prisma/client';
 import { CreateCatalogItemDto } from './dto/create-catalog-item.dto';
 import { UpdateCatalogItemDto } from './dto/update-catalog-item.dto';
 import { AssignExamDto } from './dto/assign-exam.dto';
@@ -486,6 +486,8 @@ export class ExamCatalogService {
       certification: item.certification,
       timeLimit: item.timeLimit,
       timerMode: item.timerMode,
+      // Assigned catalog exams never reveal answers mid-attempt.
+      feedbackMode: FeedbackMode.END_OF_EXAM,
       totalQuestions: shuffledQuestions.length,
       questions: shuffledQuestions,
     };
