@@ -14,7 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ExamCatalogItemType, TimerMode } from '@prisma/client';
+import { ExamCatalogItemType, TimerMode } from '../../prisma-client';
 
 export class CatalogQuestionDto {
   @IsOptional()

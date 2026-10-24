@@ -37,7 +37,9 @@ export class McpKeysController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Generate a new MCP API key (plaintext returned once)' })
+  @ApiOperation({
+    summary: 'Generate a new MCP API key (plaintext returned once)',
+  })
   generate(@Req() req: AuthenticatedRequest, @Body() dto: CreateMcpKeyDto) {
     return this.service.generateKey(req.user.id, dto.name);
   }

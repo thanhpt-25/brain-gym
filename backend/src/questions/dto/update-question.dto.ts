@@ -12,7 +12,7 @@ import {
   ArrayMinSize,
   ArrayMaxSize,
 } from 'class-validator';
-import { QuestionType, Difficulty } from '@prisma/client';
+import { QuestionType, Difficulty } from '../../prisma-client';
 
 export class UpdateChoiceDto {
   @ApiPropertyOptional({

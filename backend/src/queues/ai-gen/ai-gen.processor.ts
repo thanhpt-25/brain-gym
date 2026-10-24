@@ -1,7 +1,11 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { Difficulty, GenerationJobStatus, QuestionType } from '@prisma/client';
+import {
+  Difficulty,
+  GenerationJobStatus,
+  QuestionType,
+} from '../../prisma-client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IngestionService } from '../../ai-question-bank/ingestion/ingestion.service';
 import { EncryptionService } from '../../ai-question-bank/crypto/encryption.service';

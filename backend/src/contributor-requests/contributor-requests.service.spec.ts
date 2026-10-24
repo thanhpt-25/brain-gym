@@ -7,7 +7,7 @@ import {
   HttpException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma-client';
 import { ContributorRequestsService } from './contributor-requests.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';

@@ -8,7 +8,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MaterialContentType } from '@prisma/client';
+import { MaterialContentType } from '../../prisma-client';
 import { UploadMaterialDto } from '../dto/upload-material.dto';
 import { chunkText } from './chunker';
 import { S3UploadService } from './s3-upload.service';
@@ -55,7 +55,9 @@ export class IngestionService {
 
     if (FILE_CONTENT_TYPES.has(dto.contentType)) {
       if (!fileBuffer || !originalFilename) {
-        throw new BadRequestException('A file is required for this content type');
+        throw new BadRequestException(
+          'A file is required for this content type',
+        );
       }
       return this.queueFileMaterial(userId, dto, fileBuffer, originalFilename);
     }

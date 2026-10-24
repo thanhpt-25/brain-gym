@@ -25,7 +25,7 @@ import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { AssessmentStatus } from '@prisma/client';
+import { AssessmentStatus } from '../prisma-client';
 
 @Controller('organizations/:orgId/assessments')
 @UseGuards(JwtAuthGuard, OrgRoleGuard)

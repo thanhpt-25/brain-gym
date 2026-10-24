@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../prisma-client';
 import { RequestContextService } from '../common/request-context.service';
 
 /**
@@ -15,6 +16,15 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  constructor() {
+    // Prisma 7 requires every PrismaClient to be constructed with an
+    // explicit driver adapter; `new PrismaClient()` with no arguments is
+    // no longer supported.
+    super({
+      adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+    });
+  }
+
   async onModuleInit() {
     await this.$connect();
 

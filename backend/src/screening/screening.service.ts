@@ -3,7 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { CandidateStage } from '@prisma/client';
+import { CandidateStage } from '../prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { CreateScreeningRuleDto } from './dto/create-screening-rule.dto';

@@ -3,7 +3,7 @@ import { DdsService } from './dds.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LlmUsageService } from '../llm-usage/llm-usage.service';
 import { LlmQuotaService } from '../llm-usage/llm-quota.service';
-import { DdsVariantStatus } from '@prisma/client';
+import { DdsVariantStatus } from '../../prisma-client';
 
 const mockPrisma = {
   question: { findUnique: jest.fn(), update: jest.fn() },

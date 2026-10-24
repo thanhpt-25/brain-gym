@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Difficulty, QuestionType } from '@prisma/client';
+import { Difficulty, QuestionType } from '../../prisma-client';
 import { Type } from 'class-transformer';
 import {
   IsArray,

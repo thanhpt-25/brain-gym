@@ -15,7 +15,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OrgRoleGuard } from '../organizations/guards/org-role.guard';
 import { OrgRoles } from '../common/decorators/org-roles.decorator';
-import { OrgRole } from '@prisma/client';
+import { OrgRole } from '../prisma-client';
 import { CompetencyService } from './competency.service';
 import { CreateCompetencyDto } from './dto/create-competency.dto';
 import { UpdateCompetencyDto } from './dto/update-competency.dto';

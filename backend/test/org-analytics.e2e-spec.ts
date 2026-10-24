@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { OrgRole } from '@prisma/client';
+import { OrgRole } from '../src/prisma-client';
 import {
   createTestUser,
   generateToken,

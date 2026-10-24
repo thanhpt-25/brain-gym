@@ -1,4 +1,4 @@
-import { Difficulty, QuestionType } from '@prisma/client';
+import { Difficulty, QuestionType } from '../../prisma-client';
 
 export interface GenerationParams {
   certificationName: string;

@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { EmailTemplateTrigger } from '@prisma/client';
+import { EmailTemplateTrigger } from '../prisma-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { UpsertEmailTemplateDto } from './dto/upsert-email-template.dto';

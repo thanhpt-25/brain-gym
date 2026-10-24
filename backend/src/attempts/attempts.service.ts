@@ -16,7 +16,7 @@ import {
   PracticeMode,
   Prisma,
   TimerMode,
-} from '@prisma/client';
+} from '../prisma-client';
 import {
   GamificationService,
   POINTS,
@@ -567,9 +567,9 @@ export class AttemptsService {
         const item = nextItem(state, p.questionIds);
         if (item) {
           next = await loadQuestion(tx, item.id);
-          next!.choices = this.shuffle(next!.choices);
+          next.choices = this.shuffle(next.choices);
           p.questionIds.push(item.id);
-          p.choiceIds[item.id] = next!.choices.map((c) => c.id);
+          p.choiceIds[item.id] = next.choices.map((c) => c.id);
         } else {
           state.done = true;
           state.stoppedBy = 'POOL_EXHAUSTED';

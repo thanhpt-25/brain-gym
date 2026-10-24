@@ -22,7 +22,7 @@
     ]
   },
   "moduleNameMapper": {
-    "^uuid$": "uuid",
-    "^@prisma/client$": "<rootDir>/../node_modules/@prisma/client"
-  }
+    "^(\\.{1,2}/.*)\\.js$": "$1"
+  },
+  "transformIgnorePatterns": ["node_modules/(?!(@prisma|uuid))"]
 }
