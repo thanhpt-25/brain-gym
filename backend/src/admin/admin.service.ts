@@ -581,17 +581,25 @@ export class AdminService {
 
   private escapeCsv(value: unknown): string {
     if (value == null) return '';
-    // Convert value to string, handling various types (primitives, dates, etc)
-    const str =
-      value instanceof Date
-        ? value.toISOString()
-        : typeof value === 'object'
-          ? JSON.stringify(value)
-          : String(value as string | number | boolean);
+    const str = this.stringifyCsvValue(value);
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
+  }
+
+  private stringifyCsvValue(value: NonNullable<unknown>): string {
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'object') return JSON.stringify(value);
+    if (typeof value === 'string') return value;
+    if (
+      typeof value === 'number' ||
+      typeof value === 'boolean' ||
+      typeof value === 'bigint'
+    ) {
+      return value.toString();
+    }
+    return JSON.stringify(value) ?? '';
   }
 
   private toCsv(headers: string[], rows: unknown[][]): string {
