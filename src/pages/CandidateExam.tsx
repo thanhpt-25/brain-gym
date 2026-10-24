@@ -33,8 +33,8 @@ const CandidateExam = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   const [fullscreenWarning, setFullscreenWarning] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
-  const cooldownRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const { data: assessmentInfo, error: loadError, isLoading } = useQuery({
     queryKey: ['candidate-assessment', token],
