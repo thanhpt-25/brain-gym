@@ -322,7 +322,7 @@ const BlueprintEditor = ({
                     onChange={(e) =>
                       updatePct(idx, parseInt(e.target.value) || 0)
                     }
-                    className="w-14 text-right bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-primary/50"
+                    className="w-14 text-right bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs font-mono focus:outline-hidden focus:border-primary/50"
                   />
                   <span className="text-xs text-muted-foreground font-mono">%</span>
                 </div>

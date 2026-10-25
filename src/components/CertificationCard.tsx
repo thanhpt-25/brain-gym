@@ -43,7 +43,7 @@ const CertificationCard = ({ cert, onClick, isFallback }: CertificationCardProps
           </span>
         </div>
         <div className="text-xs text-muted-foreground font-mono mb-1">{typeof cert.provider === 'object' ? cert.provider?.name : cert.provider}</div>
-        <h3 className="font-mono font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2 min-h-[3rem]">
+        <h3 className="font-mono font-semibold mb-2 group-hover:text-primary transition-colors line-clamp-2 min-h-12">
           {cert.name}
         </h3>
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 flex-1">{cert.description}</p>

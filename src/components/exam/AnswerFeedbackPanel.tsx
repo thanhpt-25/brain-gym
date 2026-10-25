@@ -33,7 +33,7 @@ export const AnswerFeedbackPanel = forwardRef<
       <h3
         ref={headingRef}
         tabIndex={-1}
-        className={`flex items-center gap-2 font-mono font-semibold outline-none ${
+        className={`flex items-center gap-2 font-mono font-semibold outline-hidden ${
           feedback.isCorrect ? "text-accent" : "text-destructive"
         }`}
       >

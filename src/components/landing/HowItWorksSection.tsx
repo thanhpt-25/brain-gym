@@ -49,7 +49,7 @@ export function HowItWorksSection() {
           </p>
         </motion.div>
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto relative">
-          <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+          <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-px bg-linear-to-r from-transparent via-primary/40 to-transparent" />
           {steps.map((s, i) => (
             <motion.div
               key={s.step}
@@ -59,7 +59,7 @@ export function HowItWorksSection() {
               transition={{ delay: i * 0.12 }}
               className="relative glass-card p-6 text-center group hover:border-primary/40 transition-colors"
             >
-              <div className="relative mx-auto mb-5 h-14 w-14 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/30 flex items-center justify-center glow-cyan">
+              <div className="relative mx-auto mb-5 h-14 w-14 rounded-2xl bg-linear-to-br from-primary/20 to-accent/10 border border-primary/30 flex items-center justify-center glow-cyan">
                 <s.icon className="h-6 w-6 text-primary" />
               </div>
               <div className="font-mono text-[10px] tracking-widest text-primary mb-2">

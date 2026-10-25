@@ -269,7 +269,7 @@ export default function OrganizationsTab() {
                         <TableCell className="text-center font-mono text-sm">{org.memberCount}</TableCell>
                         <TableCell className="text-center font-mono text-sm">{org.maxSeats}</TableCell>
                         <TableCell className="text-center">
-                          <Badge variant={org.isActive ? 'outline' : 'destructive'} className="text-[10px] font-mono">
+                          <Badge variant={org.isActive ? 'outline-solid' : 'destructive'} className="text-[10px] font-mono">
                             {org.isActive ? 'Active' : 'Inactive'}
                           </Badge>
                         </TableCell>

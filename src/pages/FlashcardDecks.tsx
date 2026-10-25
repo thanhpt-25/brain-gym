@@ -117,7 +117,7 @@ const FlashcardDecks = () => {
                     required
                     value={newDeckName}
                     onChange={(e) => setNewDeckName(e.target.value)}
-                    className="w-full bg-background/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    className="w-full bg-background/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-hidden focus:border-primary"
                     placeholder="e.g. AWS Key Terms"
                   />
                 </div>
@@ -127,7 +127,7 @@ const FlashcardDecks = () => {
                     type="text"
                     value={newDeckDesc}
                     onChange={(e) => setNewDeckDesc(e.target.value)}
-                    className="w-full bg-background/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    className="w-full bg-background/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-hidden focus:border-primary"
                   />
                 </div>
                 <div className="flex gap-2 justify-end">

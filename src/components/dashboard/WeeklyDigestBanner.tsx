@@ -41,7 +41,7 @@ export function WeeklyDigestBanner() {
   }
 
   return (
-    <div className="relative mb-6 overflow-hidden rounded-lg border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-4 shadow-sm">
+    <div className="relative mb-6 overflow-hidden rounded-lg border border-amber-200 bg-linear-to-r from-amber-50 to-orange-50 p-4 shadow-xs">
       {/* Close button */}
       <button
         onClick={() => optOutMutation.mutate()}
@@ -55,7 +55,7 @@ export function WeeklyDigestBanner() {
       {/* Banner content */}
       <div className="pr-8">
         <div className="flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
           <div className="flex-1">
             <h3 className="font-semibold text-amber-900 mb-1">
               Weekly Learning Insight

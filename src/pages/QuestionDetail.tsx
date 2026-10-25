@@ -471,7 +471,7 @@ const QuestionDetail = () => {
               >
                 <ThumbsUp className="h-4 w-4" />
               </button>
-              <span className="text-sm font-mono min-w-[2rem] text-center">
+              <span className="text-sm font-mono min-w-8 text-center">
                 {(q.upvotes || 0) - (q.downvotes || 0)}
               </span>
               <button

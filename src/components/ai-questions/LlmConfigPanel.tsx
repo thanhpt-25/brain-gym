@@ -76,11 +76,11 @@ const DIALECT_DEFAULTS: Record<LocalLlmDialect, string> = {
 function TestResultBadge({ result }: { result: ConnectionTestResult | null }) {
   if (!result) return null;
   const icon = result.ok ? (
-    <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+    <CheckCircle2 className="h-4 w-4 shrink-0" />
   ) : result.reason === "cors" || result.reason === "empty" ? (
-    <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+    <AlertTriangle className="h-4 w-4 shrink-0" />
   ) : (
-    <XCircle className="h-4 w-4 flex-shrink-0" />
+    <XCircle className="h-4 w-4 shrink-0" />
   );
 
   const cls = result.ok
@@ -432,9 +432,9 @@ export default function LlmConfigPanel() {
                       title={isActive ? "Active model" : "Set as active model"}
                     >
                       {isActive ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-green-700" />
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-700" />
                       ) : (
-                        <Cpu className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+                        <Cpu className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                       )}
                       <span className="min-w-0">
                         <span className="font-medium">
@@ -450,7 +450,7 @@ export default function LlmConfigPanel() {
                         </span>
                       </span>
                     </button>
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
                       {isActive && (
                         <Badge variant="default" className="text-xs">
                           Active

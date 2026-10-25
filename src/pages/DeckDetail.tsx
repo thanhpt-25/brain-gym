@@ -128,7 +128,7 @@ const DeckDetail = () => {
                       required
                       value={front}
                       onChange={(e) => setFront(e.target.value)}
-                      className="w-full min-h-[8rem] bg-background/50 border-border text-sm"
+                      className="w-full min-h-32 bg-background/50 border-border text-sm"
                       placeholder="e.g. EC2"
                     />
                   </div>
@@ -138,7 +138,7 @@ const DeckDetail = () => {
                       required
                       value={back}
                       onChange={(e) => setBack(e.target.value)}
-                      className="w-full min-h-[8rem] bg-background/50 border-border text-sm"
+                      className="w-full min-h-32 bg-background/50 border-border text-sm"
                       placeholder="e.g. Elastic Compute Cloud - Virtual servers in the cloud"
                     />
                   </div>

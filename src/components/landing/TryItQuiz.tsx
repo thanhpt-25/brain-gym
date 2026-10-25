@@ -179,7 +179,7 @@ export function TryItQuiz({ certifications }: TryItQuizProps) {
       </div>
       <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
         <motion.div
-          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+          className="h-full bg-linear-to-r from-primary to-accent rounded-full"
           animate={{ width: `${(currentIndex / questions.length) * 100}%` }}
         />
       </div>

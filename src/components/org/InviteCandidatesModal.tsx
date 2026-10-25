@@ -82,7 +82,7 @@ const InviteCandidatesModal = ({ open, onClose, onInvite, isPending }: Props) =>
           <button
             type="button"
             className={`flex-1 py-1.5 text-xs font-mono rounded transition-colors ${
-              tab === 'text' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              tab === 'text' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
             }`}
             onClick={() => setTab('text')}
           >
@@ -91,7 +91,7 @@ const InviteCandidatesModal = ({ open, onClose, onInvite, isPending }: Props) =>
           <button
             type="button"
             className={`flex-1 py-1.5 text-xs font-mono rounded transition-colors ${
-              tab === 'csv' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              tab === 'csv' ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
             }`}
             onClick={() => setTab('csv')}
           >

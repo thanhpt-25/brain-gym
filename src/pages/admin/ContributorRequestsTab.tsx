@@ -135,7 +135,7 @@ export default function ContributorRequestsTab() {
               <Button
                 key={s}
                 size="sm"
-                variant={statusFilter === s ? 'default' : 'outline'}
+                variant={statusFilter === s ? 'default' : 'outline-solid'}
                 className="font-mono text-xs h-7"
                 onClick={() => { setStatusFilter(s); setPage(1); }}
               >
@@ -264,7 +264,7 @@ export default function ContributorRequestsTab() {
               <section>
                 <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-1">Motivation</h4>
                 {/* Plain text only — never render user input as HTML/markdown. */}
-                <p className="whitespace-pre-line break-words">{shown.motivation}</p>
+                <p className="whitespace-pre-line wrap-break-word">{shown.motivation}</p>
               </section>
 
               {shown.expertiseCertifications.length > 0 && (
@@ -318,7 +318,7 @@ export default function ContributorRequestsTab() {
                   <h4 className="font-mono text-xs uppercase tracking-widest text-muted-foreground mb-1">
                     Decision {shown.reviewedBy ? `by ${shown.reviewedBy.displayName}` : ''} · {formatDate(shown.reviewedAt)}
                   </h4>
-                  <p className="whitespace-pre-line break-words">{shown.decisionReason}</p>
+                  <p className="whitespace-pre-line wrap-break-word">{shown.decisionReason}</p>
                 </section>
               )}
 
