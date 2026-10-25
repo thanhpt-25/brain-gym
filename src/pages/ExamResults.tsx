@@ -215,7 +215,7 @@ const ExamResults = () => {
               <Button
                 key={f.key}
                 size="sm"
-                variant={filter === f.key ? 'default' : 'outline'}
+                variant={filter === f.key ? 'default' : 'outline-solid'}
                 className="font-mono text-xs"
                 onClick={() => setFilter(f.key)}
               >
@@ -383,7 +383,7 @@ const ExamResults = () => {
                                 <Button
                                   key={type.id}
                                   size="sm"
-                                  variant={(mistakeTypes[qr.answerId!] ?? qr.mistakeType) === type.id ? 'default' : 'outline'}
+                                  variant={(mistakeTypes[qr.answerId!] ?? qr.mistakeType) === type.id ? 'default' : 'outline-solid'}
                                   className="text-[10px] font-mono h-7 px-2"
                                   onClick={async (e) => {
                                     e.stopPropagation();

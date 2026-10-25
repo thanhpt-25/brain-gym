@@ -23,7 +23,7 @@ const planBadge: Record<string, string> = {
   ENTERPRISE: 'bg-purple-500/20 text-purple-400',
 };
 
-const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
+const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline-solid'; label: string }> = {
   ACTIVE: { variant: 'outline', label: 'Active' },
   SUSPENDED: { variant: 'secondary', label: 'Suspended' },
   BANNED: { variant: 'destructive', label: 'Banned' },

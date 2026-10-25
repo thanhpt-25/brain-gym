@@ -14,7 +14,7 @@ export function ScenarioPassage({ passage }: ScenarioPassageProps) {
         <span className="text-sm text-gray-600">{wordCount} words</span>
       </div>
 
-      <article className="prose prose-sm max-w-none bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <article className="prose prose-sm max-w-none bg-white p-6 rounded-lg shadow-xs border border-gray-200">
         <ReactMarkdown
           components={{
             h1: ({ children }) => (

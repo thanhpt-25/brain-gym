@@ -241,7 +241,7 @@ const AssessmentResults = () => {
           </Button>
           <Button
             size="sm"
-            variant={assessment.blindReviewEnabled ? "default" : "outline"}
+            variant={assessment.blindReviewEnabled ? "default" : "outline-solid"}
             onClick={() =>
               blindReviewMutation.mutate(!assessment.blindReviewEnabled)
             }

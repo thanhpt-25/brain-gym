@@ -111,7 +111,7 @@ const CapturedWordsQueue = () => {
                         <div className="flex flex-col gap-1.5">
                           <label className="text-[10px] font-mono text-muted-foreground uppercase">Target Deck</label>
                           <select 
-                            className="bg-background/50 border border-border rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-primary"
+                            className="bg-background/50 border border-border rounded px-2 py-1.5 text-xs font-mono focus:outline-hidden focus:border-primary"
                             value={selectedDeckId}
                             onChange={(e) => setSelectedDeckId(e.target.value)}
                           >

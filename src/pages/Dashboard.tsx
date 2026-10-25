@@ -128,7 +128,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             size="sm"
-            variant={!certFilter ? "default" : "outline"}
+            variant={!certFilter ? "default" : "outline-solid"}
             className="font-mono text-xs"
             onClick={() => setCertFilter("")}
           >
@@ -138,7 +138,7 @@ const Dashboard = () => {
             <Button
               key={c.id}
               size="sm"
-              variant={certFilter === c.id ? "default" : "outline"}
+              variant={certFilter === c.id ? "default" : "outline-solid"}
               className="font-mono text-xs"
               onClick={() => setCertFilter(c.id)}
             >

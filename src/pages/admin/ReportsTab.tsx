@@ -40,7 +40,7 @@ export default function ReportsTab() {
           <span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /> Reports</span>
           <div className="flex gap-2">
             {REPORT_STATUSES.map(s => (
-              <Button key={s} size="sm" variant={statusFilter === s ? 'default' : 'outline'} className="font-mono text-xs h-7" onClick={() => { setStatusFilter(s); setPage(1); }}>
+              <Button key={s} size="sm" variant={statusFilter === s ? 'default' : 'outline-solid'} className="font-mono text-xs h-7" onClick={() => { setStatusFilter(s); setPage(1); }}>
                 {s}
               </Button>
             ))}

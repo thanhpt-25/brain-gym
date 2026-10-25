@@ -317,7 +317,7 @@ function NextSteps({
               </tr>
               {domainNames.map((name) => (
                 <tr key={name}>
-                  <th scope="row" className="text-left font-normal pr-3 truncate max-w-[12rem]">{name}</th>
+                  <th scope="row" className="text-left font-normal pr-3 truncate max-w-48">{name}</th>
                   {trend.map((t) => {
                     const d = t.domainScores?.[name];
                     return (

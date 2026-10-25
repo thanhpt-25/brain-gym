@@ -263,7 +263,7 @@ export default function GeneratedQuestionsReview({
             <CardHeader className="py-3 px-4">
               <div className="flex items-start gap-2">
                 <button
-                  className="mt-0.5 flex-shrink-0"
+                  className="mt-0.5 shrink-0"
                   onClick={() => toggleInclude(i)}
                 >
                   {isIncluded ? (
@@ -277,7 +277,7 @@ export default function GeneratedQuestionsReview({
                     {displayQ.title}
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   {tier && (
                     <span
                       className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${TIER_COLORS[tier]}`}
@@ -315,7 +315,7 @@ export default function GeneratedQuestionsReview({
                       key={ci}
                       className={`flex items-start gap-2 text-sm rounded px-2 py-1 ${c.isCorrect ? "bg-green-50 text-green-800" : ""}`}
                     >
-                      <span className="font-mono font-medium flex-shrink-0">
+                      <span className="font-mono font-medium shrink-0">
                         {c.label}.
                       </span>
                       <span>{c.content}</span>
