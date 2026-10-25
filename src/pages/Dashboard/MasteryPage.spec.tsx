@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import MasteryPage from "./MasteryPage";
 import * as insights from "../../services/insights";
 import * as mastery from "../../services/mastery";
@@ -13,8 +13,8 @@ vi.mock("../../services/insights");
 vi.mock("../../services/mastery");
 vi.mock("../../services/readiness");
 vi.mock("../../stores/auth.store");
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   return {
     ...actual,
     useParams: vi.fn(() => ({ certId: "cert-1" })),

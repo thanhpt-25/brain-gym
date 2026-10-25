@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router';
 import { useAuthStore } from '@/stores/auth.store';
 import Navbar from '@/components/Navbar';
 import Breadcrumb from '@/components/Breadcrumb';

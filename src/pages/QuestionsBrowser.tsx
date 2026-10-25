@@ -1,7 +1,7 @@
 import { useState } from "react";
 import SEO from "@/components/SEO";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { getCertifications } from "@/services/certifications";
 import { getQuestions } from "@/services/questions";
 import {

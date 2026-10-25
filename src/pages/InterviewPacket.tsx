@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getInterviewPacket } from "@/services/interview-packet";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

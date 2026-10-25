@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';

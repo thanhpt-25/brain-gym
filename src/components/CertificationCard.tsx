@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { Certification } from '@/types/exam';
 import { BookOpen, Layers } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';

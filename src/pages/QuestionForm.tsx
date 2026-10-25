@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { difficultyColor } from '@/lib/question-utils';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCertifications } from '@/services/certifications';
 import { createQuestion, updateQuestionStatus, getQuestionById, updateQuestion } from '@/services/questions';

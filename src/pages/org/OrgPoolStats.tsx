@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useOrgStore } from "@/stores/org.store";
 import { getPoolStats, type PoolStats } from "@/services/assessments";
