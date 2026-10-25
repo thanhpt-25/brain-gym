@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, ArrowLeft, Clock, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";

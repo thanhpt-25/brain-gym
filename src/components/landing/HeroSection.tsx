@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Certification } from "@/types/exam";
 
@@ -38,7 +38,7 @@ export function HeroSection({ certifications }: HeroSectionProps) {
           transition={{ duration: 0.7 }}
           className="max-w-3xl mx-auto text-center"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 mb-8 rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 px-3 py-1 mb-8 rounded-full border border-primary/30 bg-primary/10 backdrop-blur-xs">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
@@ -50,7 +50,7 @@ export function HeroSection({ certifications }: HeroSectionProps) {
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold font-mono tracking-tight leading-[1.1] mb-8">
             <span className="block text-foreground">Pass your certification</span>
             <span
-              className="block text-transparent bg-clip-text bg-gradient-to-r from-primary via-accent to-primary"
+              className="block text-transparent bg-clip-text bg-linear-to-r from-primary via-accent to-primary"
               style={{ filter: "drop-shadow(0 0 18px hsl(var(--primary) / 0.35))" }}
             >
               practice free, no card needed
@@ -126,7 +126,7 @@ export function HeroSection({ certifications }: HeroSectionProps) {
           )}
         </motion.div>
       </div>
-      <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <div className="absolute bottom-0 left-0 w-full h-px bg-linear-to-r from-transparent via-primary/30 to-transparent" />
     </section>
   );
 }

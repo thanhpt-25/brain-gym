@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { getCertifications } from "@/services/certifications";
 import {

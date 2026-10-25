@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import { Brain, ArrowRight, Loader2 } from "lucide-react";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "../stores/auth.store";
@@ -108,14 +108,14 @@ export default function AuthPage() {
           <div className="flex mb-8 bg-gray-950/50 p-1 rounded-lg">
             <button
               type="button"
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${isLogin ? "bg-gray-800 text-white shadow-sm" : "text-gray-400 hover:text-gray-300"}`}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${isLogin ? "bg-gray-800 text-white shadow-xs" : "text-gray-400 hover:text-gray-300"}`}
               onClick={() => setIsLogin(true)}
             >
               Sign In
             </button>
             <button
               type="button"
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!isLogin ? "bg-gray-800 text-white shadow-sm" : "text-gray-400 hover:text-gray-300"}`}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${!isLogin ? "bg-gray-800 text-white shadow-xs" : "text-gray-400 hover:text-gray-300"}`}
               onClick={() => setIsLogin(false)}
             >
               Register
@@ -135,7 +135,7 @@ export default function AuthPage() {
                     required
                     value={formData.displayName}
                     onChange={handleChange}
-                    className="appearance-none block w-full px-3 py-2.5 border border-gray-700 bg-gray-900/80 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent sm:text-sm transition-all"
+                    className="appearance-none block w-full px-3 py-2.5 border border-gray-700 bg-gray-900/80 rounded-lg text-white placeholder-gray-500 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:border-transparent sm:text-sm transition-all"
                     placeholder="Jane Doe"
                   />
                 </div>
@@ -153,7 +153,7 @@ export default function AuthPage() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2.5 border border-gray-700 bg-gray-900/80 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent sm:text-sm transition-all"
+                  className="appearance-none block w-full px-3 py-2.5 border border-gray-700 bg-gray-900/80 rounded-lg text-white placeholder-gray-500 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:border-transparent sm:text-sm transition-all"
                   placeholder="you@example.com"
                 />
               </div>
@@ -171,7 +171,7 @@ export default function AuthPage() {
                   minLength={8}
                   value={formData.password}
                   onChange={handleChange}
-                  className="appearance-none block w-full px-3 py-2.5 border border-gray-700 bg-gray-900/80 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent sm:text-sm transition-all"
+                  className="appearance-none block w-full px-3 py-2.5 border border-gray-700 bg-gray-900/80 rounded-lg text-white placeholder-gray-500 focus:outline-hidden focus:ring-2 focus:ring-cyan-500 focus:border-transparent sm:text-sm transition-all"
                   placeholder="••••••••"
                 />
               </div>
@@ -181,7 +181,7 @@ export default function AuthPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-cyan-700 hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 focus:ring-offset-gray-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
+                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-xs text-sm font-medium text-white bg-cyan-700 hover:bg-cyan-600 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 focus:ring-offset-gray-950 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 {isLoading ? (
                   <Loader2 className="animate-spin" size={20} />

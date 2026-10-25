@@ -229,7 +229,7 @@ export default function Profile() {
           className="relative mb-8 overflow-hidden rounded-2xl border border-border/60"
         >
           {/* Banner */}
-          <div className="relative h-40 sm:h-48 bg-gradient-to-br from-primary/20 via-background to-accent/20">
+          <div className="relative h-40 sm:h-48 bg-linear-to-br from-primary/20 via-background to-accent/20">
             <div
               className="absolute inset-0 opacity-40"
               style={{
@@ -251,7 +251,7 @@ export default function Profile() {
           <div className="relative px-6 pb-6 pt-0 -mt-16 sm:-mt-20 sm:px-8">
             <div className="flex flex-col sm:flex-row sm:items-end gap-5">
               <div className="relative group shrink-0">
-                <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-primary to-accent blur opacity-70" />
+                <div className="absolute -inset-1 rounded-full bg-linear-to-tr from-primary to-accent blur-sm opacity-70" />
                 <Avatar className="relative h-28 w-28 sm:h-32 sm:w-32 ring-4 ring-background">
                   <AvatarImage src={avatarSrc} />
                   <AvatarFallback className="text-3xl font-mono bg-card text-primary">
@@ -262,7 +262,7 @@ export default function Profile() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadAvatarMutation.isPending}
-                  className="absolute inset-0 flex items-center justify-center rounded-full bg-background/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-background/70 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity"
                   aria-label="Upload avatar"
                 >
                   <Camera className="h-7 w-7 text-primary" />
@@ -322,7 +322,7 @@ export default function Profile() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.05 * i }}
             >
-              <Card className={`p-5 bg-card/60 backdrop-blur border-border/60 hover:border-primary/40 transition-all ${s.glow}`}>
+              <Card className={`p-5 bg-card/60 backdrop-blur-sm border-border/60 hover:border-primary/40 transition-all ${s.glow}`}>
                 <div className="flex items-center justify-between mb-3">
                   <s.icon className={`h-5 w-5 ${s.accent}`} />
                   <span className="text-[10px] uppercase tracking-widest text-muted-foreground">

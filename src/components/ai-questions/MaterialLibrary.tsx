@@ -225,7 +225,7 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
           >
             <CardContent className="py-3 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <Icon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium truncate">{m.title}</p>
                   <p className="text-xs text-muted-foreground">
@@ -234,7 +234,7 @@ export default function MaterialLibrary({ certificationId, selectedId, onSelect,
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 {isProcessing && <Loader2 className="h-3 w-3 text-yellow-500 animate-spin" />}
                 {isFailed && <AlertCircle className="h-3 w-3 text-destructive" />}
                 {!isProcessing && !isFailed && <CheckCircle className="h-3 w-3 text-green-500" />}

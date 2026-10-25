@@ -1,11 +1,11 @@
 import { Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 export function CoachLockState() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex items-center justify-center min-h-[400px] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200">
+    <div className="flex items-center justify-center min-h-[400px] bg-linear-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200">
       <div className="text-center px-6">
         <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-200">
           <Lock className="h-8 w-8 text-slate-600" />

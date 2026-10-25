@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import {
   Target,
   BarChart3,
@@ -134,7 +134,7 @@ export function WhatYouGetSection() {
                         whileInView={{ width: `${d.val}%` }}
                         viewport={{ once: true }}
                         transition={{ duration: 1, delay: 0.2 + i * 0.1 }}
-                        className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                        className="h-full bg-linear-to-r from-primary to-accent rounded-full"
                       />
                     </div>
                   </div>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import DOMPurify from "dompurify";
 import SEO from "@/components/SEO";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -471,7 +471,7 @@ const QuestionDetail = () => {
               >
                 <ThumbsUp className="h-4 w-4" />
               </button>
-              <span className="text-sm font-mono min-w-[2rem] text-center">
+              <span className="text-sm font-mono min-w-8 text-center">
                 {(q.upvotes || 0) - (q.downvotes || 0)}
               </span>
               <button

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOrgStore } from '@/stores/org.store';
 import {
@@ -336,7 +336,7 @@ const AssignDialog = ({ slug, item, groups, members, onClose }: AssignDialogProp
           <div className="flex gap-2">
             <Button
               size="sm"
-              variant={assignType === 'group' ? 'default' : 'outline'}
+              variant={assignType === 'group' ? 'default' : 'outline-solid'}
               onClick={() => setAssignType('group')}
               className="flex-1 font-mono text-xs"
             >
@@ -344,7 +344,7 @@ const AssignDialog = ({ slug, item, groups, members, onClose }: AssignDialogProp
             </Button>
             <Button
               size="sm"
-              variant={assignType === 'member' ? 'default' : 'outline'}
+              variant={assignType === 'member' ? 'default' : 'outline-solid'}
               onClick={() => setAssignType('member')}
               className="flex-1 font-mono text-xs"
             >

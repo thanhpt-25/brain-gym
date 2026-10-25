@@ -123,7 +123,7 @@ export default function ProvidersTab() {
                     <TableCell className="text-center font-mono text-xs">{p._count?.certifications || 0}</TableCell>
                     <TableCell className="text-center font-mono text-xs">{p.sortOrder}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={p.isActive ? 'outline' : 'secondary'} className={p.isActive ? 'bg-accent/10 text-accent border-accent/20' : 'opacity-50'}>
+                      <Badge variant={p.isActive ? 'outline-solid' : 'secondary'} className={p.isActive ? 'bg-accent/10 text-accent border-accent/20' : 'opacity-50'}>
                         {p.isActive ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>

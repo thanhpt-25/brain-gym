@@ -136,7 +136,7 @@ export function SessionReplayModal({
               </div>
               <div className="h-2 rounded-full bg-secondary overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all"
+                  className="h-full rounded-full bg-linear-to-r from-cyan-500 to-blue-500 transition-all"
                   style={{
                     width: `${Math.min(analysis.effectivenessScore, 100)}%`,
                   }}

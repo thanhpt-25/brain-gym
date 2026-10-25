@@ -15,7 +15,7 @@ export function WordCaptureTooltip({ selection, onCapture }: WordCaptureTooltipP
           initial={{ opacity: 0, y: 10, x: '-50%' }}
           animate={{ opacity: 1, y: 0, x: '-50%' }}
           exit={{ opacity: 0, y: 10, x: '-50%' }}
-          className="fixed z-[100] pointer-events-none"
+          className="fixed z-100 pointer-events-none"
           style={{ left: selection.x, top: selection.y }}
         >
           <Button

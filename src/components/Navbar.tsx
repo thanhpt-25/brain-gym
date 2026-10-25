@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   Brain,
@@ -167,7 +167,7 @@ const Navbar = ({ title, showBack, icon: LogoIcon = Brain }: NavbarProps) => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="hidden lg:flex items-center gap-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="hidden lg:flex items-center gap-1.5 rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
                     aria-label="User menu"
                   >
                     <Avatar className="h-8 w-8">

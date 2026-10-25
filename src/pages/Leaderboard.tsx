@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import SEO from "@/components/SEO";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   Brain,
@@ -89,7 +89,7 @@ const Leaderboard = () => {
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             size="sm"
-            variant={!certFilter ? "default" : "outline"}
+            variant={!certFilter ? "default" : "outline-solid"}
             className="font-mono text-xs"
             onClick={() => setCertFilter("")}
           >
@@ -99,7 +99,7 @@ const Leaderboard = () => {
             <Button
               key={c.id}
               size="sm"
-              variant={certFilter === c.id ? "default" : "outline"}
+              variant={certFilter === c.id ? "default" : "outline-solid"}
               className="font-mono text-xs"
               onClick={() => setCertFilter(c.id)}
             >

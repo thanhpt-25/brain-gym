@@ -134,7 +134,7 @@ export default function CertificationsTab() {
                     <TableCell className="text-center font-mono text-xs">{c.domains?.length || 0}</TableCell>
                     <TableCell className="text-center font-mono text-xs">{c.questionCount || 0}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={c.isActive ? 'outline' : 'secondary'} className={c.isActive ? 'bg-accent/10 text-accent border-accent/20' : 'opacity-50'}>
+                      <Badge variant={c.isActive ? 'outline-solid' : 'secondary'} className={c.isActive ? 'bg-accent/10 text-accent border-accent/20' : 'opacity-50'}>
                         {c.isActive ? 'Active' : 'Archived'}
                       </Badge>
                     </TableCell>

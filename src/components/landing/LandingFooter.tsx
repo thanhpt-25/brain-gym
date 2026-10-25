@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Brain } from "lucide-react";
 
 const columns: { title: string; links: { label: string; href: string }[] }[] = [

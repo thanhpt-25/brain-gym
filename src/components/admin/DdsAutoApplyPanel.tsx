@@ -246,7 +246,7 @@ export function DdsAutoApplyPanel() {
               )}
             </div>
             <button
-              className="rounded-sm opacity-60 hover:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-sm opacity-60 hover:opacity-100 transition-opacity focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => setDecision(null)}
               aria-label="Dismiss evaluation result"
             >
@@ -305,7 +305,7 @@ export function DdsAutoApplyPanel() {
                       role="none"
                     >
                       <div
-                        className="dds-metric-fill h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 transition-[width] duration-300"
+                        className="dds-metric-fill h-full rounded-full bg-linear-to-r from-emerald-500 to-sky-500 transition-[width] duration-300"
                         role="progressbar"
                         aria-valuenow={readiness.cleanApprovals}
                         aria-valuemin={0}

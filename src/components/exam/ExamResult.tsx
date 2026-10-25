@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -317,7 +317,7 @@ function NextSteps({
               </tr>
               {domainNames.map((name) => (
                 <tr key={name}>
-                  <th scope="row" className="text-left font-normal pr-3 truncate max-w-[12rem]">{name}</th>
+                  <th scope="row" className="text-left font-normal pr-3 truncate max-w-48">{name}</th>
                   {trend.map((t) => {
                     const d = t.domainScores?.[name];
                     return (

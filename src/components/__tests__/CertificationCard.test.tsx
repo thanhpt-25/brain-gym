@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { describe, it, expect, beforeEach } from "vitest";
 import CertificationCard from "../CertificationCard";
 import { useAuthStore } from "@/stores/auth.store";

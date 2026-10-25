@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { loadCandidateAssessment } from '@/services/assessments';
 import { Card, CardContent } from '@/components/ui/card';

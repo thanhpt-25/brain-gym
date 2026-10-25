@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { CardSkeleton } from "@/components/PageSkeleton";
 import CertificationCard from "@/components/CertificationCard";
 import { Certification } from "@/types/exam";

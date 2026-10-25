@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useOrgStore } from "@/stores/org.store";
 import {
@@ -241,7 +241,7 @@ const AssessmentResults = () => {
           </Button>
           <Button
             size="sm"
-            variant={assessment.blindReviewEnabled ? "default" : "outline"}
+            variant={assessment.blindReviewEnabled ? "default" : "outline-solid"}
             onClick={() =>
               blindReviewMutation.mutate(!assessment.blindReviewEnabled)
             }

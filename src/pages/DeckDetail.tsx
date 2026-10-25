@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Play, MoreVertical, Trash2, Edit2, Loader2, Star, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -128,7 +128,7 @@ const DeckDetail = () => {
                       required
                       value={front}
                       onChange={(e) => setFront(e.target.value)}
-                      className="w-full min-h-[8rem] bg-background/50 border-border text-sm"
+                      className="w-full min-h-32 bg-background/50 border-border text-sm"
                       placeholder="e.g. EC2"
                     />
                   </div>
@@ -138,7 +138,7 @@ const DeckDetail = () => {
                       required
                       value={back}
                       onChange={(e) => setBack(e.target.value)}
-                      className="w-full min-h-[8rem] bg-background/50 border-border text-sm"
+                      className="w-full min-h-32 bg-background/50 border-border text-sm"
                       placeholder="e.g. Elastic Compute Cloud - Virtual servers in the cloud"
                     />
                   </div>

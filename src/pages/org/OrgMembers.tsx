@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -478,7 +478,7 @@ const OrgMembers = () => {
                             {groups && groups.length > 0 && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-xs font-mono outline-none transition-colors hover:bg-accent hover:text-accent-foreground">
+                                  <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-xs font-mono outline-hidden transition-colors hover:bg-accent hover:text-accent-foreground">
                                     <FolderOpen className="h-3 w-3 mr-2" /> Move to Group
                                     <ChevronDown className="h-3 w-3 ml-auto" />
                                   </div>

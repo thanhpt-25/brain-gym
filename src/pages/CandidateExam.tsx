@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import {
   loadCandidateAssessment,
@@ -146,7 +146,7 @@ const CandidateExam = () => {
     if (phase !== 'exam') return;
     const handler = () => reportCandidateEvent(token!, 'BLUR').catch(() => {});
     window.addEventListener('blur', handler);
-    return () => window.removeEventListener('blur', handler);
+    return () => window.removeEventListener('blur-sm', handler);
   }, [phase, token]);
 
   // Tab switch
@@ -363,7 +363,7 @@ const CandidateExam = () => {
           </div>
         )}
 
-        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+        <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border px-4 py-3">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
             <span className="text-sm font-mono text-muted-foreground">
               {currentIndex + 1} / {questions.length}
@@ -413,7 +413,7 @@ const CandidateExam = () => {
           )}
         </div>
 
-        <div className="sticky bottom-0 bg-background/95 backdrop-blur border-t border-border px-4 py-3">
+        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3">
           <div className="max-w-3xl mx-auto flex items-center justify-between">
             <Button
               variant="outline"
