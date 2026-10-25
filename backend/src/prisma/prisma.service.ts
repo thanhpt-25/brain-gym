@@ -19,9 +19,19 @@ export class PrismaService
   constructor() {
     // Prisma 7 requires every PrismaClient to be constructed with an
     // explicit driver adapter; `new PrismaClient()` with no arguments is
-    // no longer supported.
+    // no longer supported. Unlike the old query engine, @prisma/adapter-pg
+    // does not auto-negotiate TLS, and RDS requires it — so every query
+    // was failing in production (see incident: every DB-touching endpoint
+    // returning 500 right after the Prisma 7 migration). Local/docker-compose
+    // Postgres has no TLS configured, so this only enables it outside dev.
     super({
-      adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+      adapter: new PrismaPg({
+        connectionString: process.env.DATABASE_URL,
+        ssl:
+          process.env.NODE_ENV === 'production'
+            ? { rejectUnauthorized: false }
+            : undefined,
+      }),
     });
   }
 
