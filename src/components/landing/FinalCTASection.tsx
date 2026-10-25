@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Rocket, ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth.store";
 

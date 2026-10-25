@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import DOMPurify from "dompurify";
 import SEO from "@/components/SEO";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

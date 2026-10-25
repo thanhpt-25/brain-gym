@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Building2, Plus, ChevronRight, Crown, Mail } from 'lucide-react';
 import Navbar from '@/components/Navbar';

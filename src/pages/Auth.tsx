@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import { Brain, ArrowRight, Loader2 } from "lucide-react";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "../stores/auth.store";

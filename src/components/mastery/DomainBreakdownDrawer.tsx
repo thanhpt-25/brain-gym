@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import type { DomainMastery } from "../../services/mastery";
 
 export interface DomainBreakdownDrawerProps {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { getCertifications } from "@/services/certifications";
 import { getQuestions } from "@/services/questions";
 import { AlertTriangle, BookOpen, FileText, Loader2 } from "lucide-react";

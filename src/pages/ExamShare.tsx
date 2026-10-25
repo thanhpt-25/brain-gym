@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router";
 import SEO from "@/components/SEO";
 import { useQuery } from "@tanstack/react-query";
 import { getExamByShareCode, getExamById } from "@/services/exams";

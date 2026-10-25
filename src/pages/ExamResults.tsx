@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import {
   CheckCircle2, XCircle, ChevronDown, ChevronUp, ArrowLeft,

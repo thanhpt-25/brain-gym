@@ -1,14 +1,14 @@
 import { test, expect } from "@playwright/experimental-ct-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import { vi } from "vitest";
 import SquadDashboard from "@/pages/SquadDashboard";
 import * as squadsService from "@/services/squads";
 
 // Mock services
 vi.mock("@/services/squads");
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
   return {
     ...actual,
     useParams: () => ({ slug: "aws-saa-study-group" }),
