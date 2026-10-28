@@ -42,7 +42,7 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@types/nodemailer": "^7.0.11",
-    "dotenv": "^17.2.3",
+    "dotenv": "^18.0.9",
     "pg": "^8.13.1",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.38.0",
