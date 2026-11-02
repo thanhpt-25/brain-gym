@@ -66,7 +66,7 @@
     "jspdf-autotable": "^5.0.9",
     "lucide-react": "^1.61.0",
     "next-themes": "^0.4.6",
-    "pako": "^2.1.0",
+    "pako": "^3.0.3",
     "papaparse": "^5.7.0",
     "react": "^19.3.1",
     "react-day-picker": "^10.0.2",
