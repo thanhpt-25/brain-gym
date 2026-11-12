@@ -1,5 +1,10 @@
 # CertGym
 
+
+## Deploy status
+
+[![Deploy](https://github.com/thanhpt-25/brain-gym/actions/workflows/deploy.yml/badge.svg)](https://github.com/thanhpt-25/brain-gym/actions/workflows/deploy.yml)
+
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)](https://nestjs.com/)
