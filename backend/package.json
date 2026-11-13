@@ -45,7 +45,7 @@
     "dotenv": "^17.2.3",
     "pg": "^8.13.1",
     "bcryptjs": "^3.0.3",
-    "bullmq": "^5.38.0",
+    "bullmq": "^6.4.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
     "date-fns": "^3.6.0",
